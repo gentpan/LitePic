@@ -1,0 +1,10 @@
+RewriteEngine On
+
+# 真实文件/目录直接访问
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# 统一单入口无后缀路由
+RewriteRule ^$ index.php [QSA,L]
+RewriteRule ^(upload|gallery|docs|settings|stats)/?$ index.php [QSA,L]
