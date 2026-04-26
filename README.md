@@ -42,7 +42,29 @@
 | cURL | — | TinyPNG / R2 同步 |
 | fileinfo | — | MIME 类型检测 |
 
-### 安装步骤
+### 方式一：Docker（推荐）
+
+```bash
+# 1. 克隆仓库
+git clone https://github.com/gentpan/LitePic.git
+cd LitePic
+
+# 2. 复制环境配置
+cp .env.example .env
+
+# 3. 修改管理员密钥（必须！）
+vim .env
+# ADMIN_API_KEY=your-strong-random-key
+
+# 4. 构建并启动
+docker-compose up -d
+
+# 5. 访问 http://localhost:8080
+```
+
+Docker 会自动处理 PHP 扩展和 Apache 配置，数据通过 volume 持久化。
+
+### 方式二：手动安装
 
 ```bash
 # 1. 克隆仓库
