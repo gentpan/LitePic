@@ -3401,9 +3401,17 @@ function verify_managed_api_token(string $plain_token): bool {
  * 初始化 Session（用于 CSRF Token 和登录速率限制）
  */
 function session_init_safe(): void {
-    if (session_status() !== PHP_SESSION_ACTIVE) {
-        session_start();
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        return;
     }
+    // 如果 headers 已发送，使用输出缓冲避免崩溃（同时记录日志）
+    if (headers_sent($file, $line)) {
+        error_log("[LitePic] Session start delayed: headers already sent at {$file}:{$line}");
+        if (!ob_get_level()) {
+            ob_start();
+        }
+    }
+    session_start();
 }
 
 /**
