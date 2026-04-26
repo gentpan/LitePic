@@ -1,0 +1,28 @@
+version: "3.8"
+
+services:
+  litepic:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: litepic
+    ports:
+      - "8080:80"
+    volumes:
+      # 持久化上传文件
+      - uploads_data:/var/www/html/uploads
+      # 持久化运行时数据
+      - app_data:/var/www/html/data
+      # 持久化日志
+      - app_logs:/var/www/html/logs
+      # 配置文件（本地修改会同步到容器）
+      - ./.env:/var/www/html/.env
+    environment:
+      - APACHE_RUN_USER=www-data
+      - APACHE_RUN_GROUP=www-data
+    restart: unless-stopped
+
+volumes:
+  uploads_data:
+  app_data:
+  app_logs:
