@@ -104,21 +104,31 @@ if (!is_api_request_authorized()) {
     error_response('权限不足', 403);
 }
 
-// 检查请求方法和参数
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
-    error_response('仅支持 GET 请求', 405);
+// 状态变更操作仅允许 POST，并校验 CSRF Token
+$method = $_SERVER['REQUEST_METHOD'] ?? '';
+if ($method !== 'POST') {
+    error_response('仅支持 POST 请求', 405);
 }
 
-if (empty($_GET['action'])) {
+// 从 POST / GET 中读取参数（兼容前端混合传参）
+$action = (string)($_POST['action'] ?? $_GET['action'] ?? '');
+$file = (string)($_POST['file'] ?? $_GET['file'] ?? '');
+
+if ($action === '') {
     error_response('未指定操作');
 }
 
-if (empty($_GET['file'])) {
+if ($file === '') {
     error_response('未指定文件');
 }
 
-$action = (string)$_GET['action'];
-$file = (string)$_GET['file'];
+// 管理员操作需要 CSRF 校验（第三方 API Key 仅允许上传/读取，不允许删除/压缩等管理操作）
+if (is_admin()) {
+    $csrf = (string)($_POST['csrf_token'] ?? $_GET['csrf_token'] ?? '');
+    if (!csrf_token_verify($csrf)) {
+        error_response('CSRF Token 无效或已过期', 403);
+    }
+}
 
 // 获取文件路径
 $path = get_file_path($file);
@@ -168,7 +178,7 @@ switch ($action) {
             ]);
         } catch (Exception $e) {
             error_log("Compression failed for {$file}: " . $e->getMessage());
-            error_response($e->getMessage(), 500);
+            error_response(safe_error_message($e), 500);
         }
         break;
 
@@ -207,8 +217,7 @@ switch ($action) {
             }
         } catch (Exception $e) {
             error_log("WebP conversion failed for {$file}: " . $e->getMessage());
-            // 改进: 使用 500 状态码
-            error_response($e->getMessage(), 500);
+            error_response(safe_error_message($e), 500);
         }
         break;
 

@@ -21,6 +21,16 @@ if (in_array(rtrim($path, '/') === '' ? '/' : rtrim($path, '/'), $pageRoutes, tr
 }
 
 // 真实文件交给内置服务器（静态资源 / API / 上传文件）
+// 安全：禁止暴露敏感文件
+$blocked_patterns = ['/^\/\.env/i', '/^\/\.git/i', '/^\/data\//i', '/^\/logs\//i', '/\.log$/i', '/\.ini$/i'];
+foreach ($blocked_patterns as $pattern) {
+    if (preg_match($pattern, $path)) {
+        http_response_code(403);
+        echo '403 Forbidden';
+        return true;
+    }
+}
+
 $fullPath = __DIR__ . $path;
 if ($path !== '/' && is_file($fullPath)) {
     return false;

@@ -10,3 +10,22 @@ tmp/
 *.swp
 *.swo
 Thumbs.db
+
+# 运行时数据（不应提交）
+data/*.json
+data/*.txt
+uploads/filename_map.json
+uploads/*.jpg
+uploads/*.jpeg
+uploads/*.png
+uploads/*.gif
+uploads/*.webp
+uploads/*.svg
+uploads/*.ico
+uploads/*.bmp
+uploads/*.tiff
+uploads/*.tif
+uploads/.thumbs/
+
+# 构建产物
+release/*.zip

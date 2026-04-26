@@ -1,0 +1,946 @@
+/* -------------------------------------------------------------------------- */
+/*                           LitePic Gallery 样式                               */
+/* -------------------------------------------------------------------------- */
+
+/* 基础变量（若 style.css 已加载会被覆盖） */
+
+/* -------------------------------------------------------------------------- */
+/*                              1. 卡片容器布局                                  */
+/* -------------------------------------------------------------------------- */
+
+/* 主容器卡片 */
+.gallery-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  transition: 
+    background var(--theme-transition),
+    color var(--theme-transition),
+    box-shadow var(--theme-transition);
+}
+
+/* 头部基础布局 */
+.gallery-card-header:not(.page-shell-header) {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center; /* 改为 center,使子元素垂直居中 */
+  justify-content: space-between; /* 两端对齐 */
+  gap: 1.5rem;
+  min-height: 36px; /* 设置最小高度与控件一致 */
+}
+
+/* 左侧标题 */
+.gallery-card-header:not(.page-shell-header) .header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 0 0 auto; /* 改为不伸缩 */
+}
+
+.gallery-card-header:not(.page-shell-header) .header-left h2 {
+  margin: 0;
+  display: flex;
+  align-items: center; 
+  gap: 0.75rem;
+  font-size: 1.25rem;
+  color: var(--dark);
+  line-height: 36px; /* 设置行高与控件高度一致 */
+}
+
+.gallery-card-header:not(.page-shell-header) .header-left h2 i {
+  color: var(--primary);
+  font-size: 1.5rem;
+}
+
+.gallery-card-header:not(.page-shell-header) .total-count {
+  font-size: 0.875rem;
+  color: var(--gray);
+  font-weight: normal;
+  margin-left: 4px;
+}
+
+/* 右侧控件组 */
+.gallery-card-header:not(.page-shell-header) .header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+  flex: 1; /* 占据剩余空间 */
+  justify-content: flex-end;
+  min-height: 36px; /* 与左侧保持一致 */
+}
+
+/* 统一控件基础样式 */
+.gallery-card-header:not(.page-shell-header) select,
+.gallery-card-header:not(.page-shell-header) input[type="text"] {
+  height: 36px;
+  line-height: 34px; /* 文字垂直居中 */
+  padding: 0 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--light);
+  color: var(--dark);
+  font-size: 0.875rem;
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+/* Select 箭头图标位置调整 */
+.gallery-card-header:not(.page-shell-header) select {
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 16px;
+  appearance: none;
+}
+
+/* Hover & Focus 效果 */
+.gallery-card-header:not(.page-shell-header) select:hover,
+.gallery-card-header:not(.page-shell-header) input[type="text"]:hover {
+  border-color: var(--primary);
+}
+
+.gallery-card-header:not(.page-shell-header) select:focus,
+.gallery-card-header:not(.page-shell-header) input[type="text"]:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+}
+
+/* 筛选控件组 */
+.gallery-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px;
+  background: var(--light);
+  border-radius: var(--radius);
+  height: 36px; /* 明确高度 */
+}
+
+.gallery-filters select {
+  min-width: 120px;
+}
+
+/* 每页显示控件组 */
+.page-size-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  background: var(--light);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  height: 36px; /* 明确高度 */
+}
+
+.page-size-form label,
+.page-size-form span {
+  font-size: 0.875rem;
+  color: var(--gray);
+  user-select: none;
+}
+
+.page-size-form select {
+  width: 70px;
+  text-align: center;
+  border-radius: 0;
+  appearance: none;
+}
+
+/* 搜索框组 */
+.gallery-search {
+  position: relative;
+  flex: 0 0 240px;
+  height: 36px; /* 明确高度 */
+}
+
+.gallery-search input[type="text"] {
+  width: 100%;
+  padding-left: 36px;
+  padding-right: 12px;
+}
+
+.gallery-search i {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--gray);
+  pointer-events: none;
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                              2. 图片网格                                     */
+/* -------------------------------------------------------------------------- */
+
+/* 网格容器 */
+.gallery {
+  padding: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+
+/* 图片卡片 */
+.img-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  position: relative;
+  transition: 
+    transform 0.25s ease,
+    box-shadow var(--theme-transition),
+    background var(--theme-transition),
+    color var(--theme-transition);
+}
+
+.img-card:hover {
+  transform: none;
+  box-shadow: var(--shadow-lg);
+}
+
+/* 图片预览区 */
+.img-preview {
+  position: relative;
+  aspect-ratio: 16/9;
+  overflow: hidden;
+  background: var(--light);
+}
+
+.img-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  opacity: 0;
+  animation: fadeIn 0.3s ease forwards;
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.img-card:hover .img-preview img {
+  transform: scale(1.05);
+}
+
+/* 图片信息区 */
+.img-info {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.img-name {
+  font-size: 0.875rem;
+  color: var(--dark);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.img-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0.75rem;
+}
+
+.img-format-tag {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--border-color);
+  background: var(--surface);
+  color: var(--gray);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.img-format-tag.fmt-jpg,
+.img-format-tag.fmt-jpeg { color: #b45309; border-color: #f59e0b; }
+.img-format-tag.fmt-png { color: #1d4ed8; border-color: #60a5fa; }
+.img-format-tag.fmt-webp { color: #047857; border-color: #34d399; }
+.img-format-tag.fmt-gif { color: #7c3aed; border-color: #a78bfa; }
+.img-format-tag.fmt-svg { color: #be123c; border-color: #fb7185; }
+.img-format-tag.fmt-ico { color: #334155; border-color: #94a3b8; }
+.img-format-tag.fmt-bmp { color: #92400e; border-color: #fbbf24; }
+.img-format-tag.fmt-tiff,
+.img-format-tag.fmt-tif { color: #0f766e; border-color: #2dd4bf; }
+
+.img-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--gray);
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.img-meta i {
+  font-size: 0.875rem;
+  color: var(--primary);
+}
+
+.img-meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                              3. 操作按钮                                     */
+/* -------------------------------------------------------------------------- */
+
+/* 按钮容器 */
+.img-actions,
+.img-overlay {
+  padding: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+/* 基础按钮样式 */
+.action-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--light);
+  color: var(--gray);
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.action-btn:hover {
+  transform: none;
+}
+
+/* 按钮类型样式 */
+.copy-btn:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+.compress-btn:hover {
+  background: var(--success);
+  color: #fff;
+}
+
+.webp-btn:hover {
+  background: #6f42c1;
+  color: #fff;
+}
+
+.delete-btn:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* 按钮提示 */
+.action-btn::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-6px);
+  padding: 0.25rem 0.5rem;
+  background: rgba(0,0,0,0.8);
+  color: #fff;
+  font-size: 0.75rem;
+  border-radius: 0;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.18s ease;
+}
+
+.action-btn:hover::after {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(-6px);
+}
+
+/* -------------------------------------------------------------------------- */
+/*                              4. 批量操作                                     */
+/* -------------------------------------------------------------------------- */
+
+/* 选择框 */
+.img-select {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 2;
+}
+
+.select-img {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  appearance: none;
+  background-color: var(--light);
+  border: 2px solid var(--border-color);
+  transition: all 0.15s ease;
+}
+
+.select-img:checked {
+  background-color: var(--primary);
+  border-color: var(--primary);
+}
+
+/* 批量操作栏 */
+.batch-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 16px;
+  background: #F8F9FA;
+  border-top: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  transition: 
+    background var(--theme-transition),
+    color var(--theme-transition),
+    transform 160ms ease;
+  z-index: 200;
+}
+
+/* 左侧全选 */
+.batch-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--gray);
+  font-size: 0.95rem;
+}
+
+.select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.select-all input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+/* 右侧按钮组 */
+.batch-right {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* 批量操作按钮 */
+.batch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: calc(var(--radius-sm, 0px));
+  border: none;
+  background: var(--light);
+  color: var(--dark);
+  cursor: pointer;
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+  transition: 
+    transform 140ms ease,
+    background 180ms ease,
+    opacity 180ms ease;
+}
+
+.batch-btn i {
+  font-size: 1rem;
+}
+
+.batch-btn:hover:not([disabled]) {
+  transform: none;
+}
+
+.batch-btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.batch-btn.delete {
+  background: var(--danger);
+  color: #fff;
+}
+
+.batch-btn.delete:hover:not([disabled]) {
+  filter: brightness(0.95);
+}
+
+/* -------------------------------------------------------------------------- */
+/*                              5. 分页导航                                     */
+/* -------------------------------------------------------------------------- */
+
+/* 分页容器 */
+.pagination {
+  margin: 16px 0;
+  display: flex;
+  justify-content: center;
+}
+
+.pagination-list {
+  list-style: none;
+  display: flex;
+  gap: 6px;
+  padding: 0;
+  margin: 0;
+  flex-wrap: wrap;
+}
+
+/* 分页链接 */
+.page-link {
+  display: inline-flex;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 10px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--dark);
+  text-decoration: none;
+  font-size: 0.875rem;
+  transition: all 0.18s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.page-link:hover:not([aria-disabled="true"]):not(.active) {
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: none;
+}
+
+.page-link.active,
+.page-link[aria-current="page"] {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+  pointer-events: none;
+}
+
+.page-link[aria-disabled="true"],
+.page-link[tabindex="-1"] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.page-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  color: var(--gray);
+  padding: 0 4px;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                              6. 复制对话框                                   */
+/* -------------------------------------------------------------------------- */
+
+/* 对话框内容区 */ 
+.copy-options {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  max-width: 640px;
+  box-sizing: border-box;
+}
+
+/* 复制项卡片 */
+.copy-option {
+  background: var(--light);
+  border: 1px solid var(--border-color);
+  border-radius: calc(var(--radius-sm,0px));
+  padding: 8px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.copy-option-header {
+  font-size: 0.85rem;
+  color: var(--gray);
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.copy-option-content {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* 复制输入框 */
+.copy-option-content input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: calc(var(--radius-sm,0px));
+  background: var(--light);
+  color: var(--dark);
+  font-size: 0.9rem;
+  outline: none;
+  transition: 
+    border-color 0.18s ease,
+    background var(--theme-transition),
+    color var(--theme-transition);
+}
+
+.copy-option-content input[type="text"]:focus {
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+
+.copy-option-content input[readonly] {
+  user-select: text;
+  cursor: text;
+}
+
+/* 复制按钮 */
+.copy-option-content .copy-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: calc(var(--radius-sm,0px));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  color: #fff;
+  cursor: pointer;
+  transition: transform 150ms ease, filter 150ms ease;
+}
+
+/* 复制成功状态 */
+.copy-option-content .copy-btn.success {
+  background: var(--success);
+  transform: scale(0.96); /* 轻微缩小效果 */
+}
+
+/* 重写hover效果,成功态下不要上浮 */
+.copy-option-content .copy-btn.success:hover {
+  transform: scale(0.96);
+  filter: none;
+}
+
+/* 为图标添加淡入动画 */
+.copy-option-content .copy-btn i {
+  font-size: 14px;
+  transition: opacity 0.2s ease;
+}
+
+/* 成功图标的动画 */
+@keyframes checkmark {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* 为成功态应用动画 */
+.copy-option-content .copy-btn.success i {
+  animation: checkmark 0.3s ease forwards;
+}
+
+.copy-option-content .copy-btn i {
+  font-size: 14px;
+}
+
+.copy-option-content .copy-btn:hover {
+  transform: none;
+  filter: brightness(0.95);
+}
+
+.copy-option-content .copy-btn:active {
+  transform: scale(0.98);
+}
+
+/* -------------------------------------------------------------------------- */
+/*                              7. 响应式布局                                   */
+/* -------------------------------------------------------------------------- */
+
+/* 大屏幕断点 */
+@media (max-width: 992px) {
+  .gallery-card-header:not(.page-shell-header) {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .gallery-card-header:not(.page-shell-header) .header-right {
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+  }
+  
+  .gallery-search {
+    flex: 1 1 100%;
+    order: -1;
+  }
+  
+  .gallery-filters {
+    flex: 1;
+  }
+  
+  .batch-controls {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 10px;
+    gap: 8px;
+    box-shadow: 0 -6px 18px rgba(0,0,0,0.06);
+    border-radius: 0;
+  }
+  
+  .gallery {
+    padding-bottom: 96px;
+  }
+  
+  .page-link {
+    min-width: 32px;
+    height: 32px;
+    padding: 0 8px;
+    font-size: 0.8125rem;
+  }
+  
+  .batch-left {
+    flex: 1;
+    justify-content: flex-start;
+  }
+  
+  .batch-right {
+    flex: 1;
+    justify-content: flex-end;
+  }
+}
+
+/* 中等屏幕断点 */
+@media (max-width: 768px) {
+  .batch-controls {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 10px;
+    gap: 8px;
+    box-shadow: 0 -6px 18px rgba(0,0,0,0.06);
+    border-radius: 0;
+  }
+  
+  .gallery {
+    padding-bottom: 96px;
+  }
+  
+  .page-link {
+    min-width: 32px;
+    height: 32px;
+    padding: 0 8px;
+    font-size: 0.8125rem;
+  }
+  
+  .batch-left {
+    flex: 1;
+    justify-content: flex-start;
+  }
+  
+  .batch-right {
+    flex: 1;
+    justify-content: flex-end;
+  }
+}
+
+/* 小屏幕断点 */
+@media (max-width: 576px) {
+  .gallery-card-header:not(.page-shell-header) {
+    padding: 1rem;
+  }
+  
+  .gallery-card-header:not(.page-shell-header) .header-right {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .gallery-filters,
+  .page-size-form {
+    width: 100%;
+  }
+  
+  .gallery-filters select {
+    flex: 1;
+  }
+  
+  .gallery {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 1rem;
+    padding: 1rem;
+  }
+  
+  .action-btn {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .copy-options {
+    max-width: 100%;
+    gap: 8px;
+  }
+  
+  .copy-option-content .copy-btn {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .copy-option-content input[type="text"] {
+    font-size: 0.85rem;
+    padding: 7px 8px;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*                              8. 暗色模式                                     */
+/* -------------------------------------------------------------------------- */
+
+/* 暗色模式变量覆盖 */
+html[data-theme="dark"] {
+  /* 主要背景色 */
+  --surface: #0b1220;
+  --card-bg: rgba(15, 17, 22, 0.95);
+  --card-border: rgba(255, 255, 255, 0.04);
+  
+  /* 控件和按钮 */
+  --input-bg: rgba(255, 255, 255, 0.02);
+  --input-border: rgba(255, 255, 255, 0.06);
+  --btn-bg: rgba(255, 255, 255, 0.03);
+  --btn-hover: rgba(255, 255, 255, 0.08);
+  
+  /* 文本颜色 */
+  --text: #e6eef8;
+  --text-secondary: #9aa0a6;
+  
+  /* 阴影 */
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+/* 暗色模式样式覆盖 */
+html[data-theme="dark"] .gallery-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--shadow);
+}
+
+html[data-theme="dark"] .gallery-card-header:not(.page-shell-header) {
+  border-color: var(--card-border);
+}
+
+html[data-theme="dark"] .gallery-filters select,
+html[data-theme="dark"] .gallery-search input,
+html[data-theme="dark"] .page-size-form {
+  background: var(--input-bg);
+  border-color: var(--input-border);
+  color: var(--text);
+}
+
+html[data-theme="dark"] .gallery-filters select:hover,
+html[data-theme="dark"] .gallery-search input:hover {
+  border-color: var(--primary);
+  background: var(--btn-hover);
+}
+
+html[data-theme="dark"] .img-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+}
+
+html[data-theme="dark"] .img-name {
+  color: var(--text);
+}
+
+html[data-theme="dark"] .img-format-tag {
+  border-color: var(--card-border);
+  background: var(--btn-bg);
+  color: var(--text-secondary);
+}
+
+html[data-theme="dark"] .img-meta {
+  color: var(--text-secondary);
+}
+
+html[data-theme="dark"] .action-btn {
+  background: var(--btn-bg);
+  color: var(--text-secondary);
+}
+
+html[data-theme="dark"] .action-btn:hover {
+  background: var(--btn-hover);
+  color: var(--text);
+}
+
+html[data-theme="dark"] .batch-controls {
+  background: var(--card-bg);
+  border-color: var(--card-border);
+}
+
+html[data-theme="dark"] .batch-btn {
+  background: var(--btn-bg);
+  color: var(--text);
+}
+
+html[data-theme="dark"] .batch-btn:hover:not([disabled]) {
+  background: var(--btn-hover);
+}
+

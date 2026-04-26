@@ -155,17 +155,17 @@ require_once APP_ROOT . '/header.php';
                     <tbody>
                         <tr>
                             <td>压缩</td>
-                            <td><code>GET /action.php?action=compress&amp;file=xxx.jpg</code></td>
+                            <td><code>POST /action.php (form-data: action=compress, file=xxx.jpg, csrf_token=...)</code></td>
                             <td>仅支持 JPG/JPEG/PNG，返回压缩比例和体积变化。</td>
                         </tr>
                         <tr>
                             <td>转 WebP</td>
-                            <td><code>GET /action.php?action=webp&amp;file=xxx.png</code></td>
+                            <td><code>POST /action.php (form-data: action=webp, file=xxx.png, csrf_token=...)</code></td>
                             <td>支持 JPG/JPEG/PNG/GIF，成功后返回新文件 URL。</td>
                         </tr>
                         <tr>
                             <td>删除</td>
-                            <td><code>GET /action.php?action=delete&amp;file=xxx.webp</code></td>
+                            <td><code>POST /action.php (form-data: action=delete, file=xxx.webp, csrf_token=...)</code></td>
                             <td>删除原图并清理缩略图，必要时联动远程存储删除。</td>
                         </tr>
                     </tbody>

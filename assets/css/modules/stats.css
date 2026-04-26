@@ -1,0 +1,203 @@
+.stats-wrapper {
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  color: var(--dark);
+  width: 100%;
+}
+
+/* 总览卡片组 */
+.stats-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.stats-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem;
+  background: var(--light);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  min-height: 88px;
+}
+
+.card-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: var(--primary);
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
+}
+
+.card-content h3 {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--gray);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--dark);
+  margin-top: 0.15rem;
+}
+
+/* 图表区域 */
+.stats-charts {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.chart-container {
+  position: relative;
+  background: var(--light);
+  border-radius: var(--radius);
+  padding: 0.85rem;
+  box-shadow: var(--shadow);
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  /* 防止子 canvas 无限伸长 */
+  overflow: hidden;
+}
+
+.chart-container h3 {
+  margin: 0 0 0.6rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* 改为自适应高度，禁止 100% 高度强制拉伸 */
+.chart-container canvas {
+  display: block;
+  width: 100% !important;
+  height: auto !important;
+  max-height: 420px;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+}
+
+/* 文件类型分布：按右侧图尺寸缩小，避免环图过大 */
+#typeChart {
+  height: 250px !important;
+  max-height: 250px !important;
+}
+
+/* 详细表格 */
+.stats-tables {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.stats-table {
+  background: var(--light);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.stats-table h3 {
+  margin: 0 0 0.6rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.stats-table table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+  font-size: 0.95rem;
+}
+
+.stats-table thead th {
+  text-align: left;
+  padding: 0.6rem;
+  font-weight: 700;
+  color: var(--dark);
+  border-bottom: 1px solid var(--border-color);
+  background: rgba(255,255,255,0.6);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.stats-table tbody td {
+  padding: 0.55rem;
+  color: var(--gray);
+  border-bottom: 1px dashed var(--border-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stats-table tbody tr:hover td {
+  background: rgba(0,0,0,0.02);
+  color: var(--dark);
+}
+
+/* 轻量标签 */
+.stat-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0;
+  background: rgba(0,123,255,0.06);
+  color: var(--primary);
+  font-size: 0.8rem;
+}
+
+/* 响应式 */
+@media (max-width: 992px) {
+  .stats-charts { grid-template-columns: 1fr; }
+  .stats-tables { grid-template-columns: 1fr; }
+  .stats-cards { grid-template-columns: repeat(2, 1fr); }
+  .chart-container { min-height: 260px; }
+}
+
+@media (max-width: 680px) {
+  .stats-cards { grid-template-columns: 1fr; }
+  .card-icon { width: 48px; height: 48px; font-size: 1.1rem; }
+  .card-value { font-size: 1.15rem; }
+  .chart-container { min-height: 220px; }
+  .stats-table thead th, .stats-table tbody td { padding: 0.45rem; font-size: 0.9rem; }
+}
+
+/* 暗色模式（与全站 data-theme 保持一致） */
+html[data-theme="dark"] .stats-wrapper { color: var(--dark); }
+html[data-theme="dark"] .stats-card,
+html[data-theme="dark"] .chart-container,
+html[data-theme="dark"] .stats-table {
+  background: #0f0f0f;
+  box-shadow: none;
+  border: 1px solid rgba(255,255,255,0.03);
+}
+html[data-theme="dark"] .card-icon { background: rgba(255,255,255,0.02); color: #fff; }
+html[data-theme="dark"] .stats-table thead th { background: rgba(255,255,255,0.02); color: #fff; }
+html[data-theme="dark"] .stats-table tbody td { color: #bdbdbd; border-color: rgba(255,255,255,0.04); }
+html[data-theme="dark"] .stat-badge { background: rgba(13,110,253,0.1); color: var(--primary); }
+
+/* 打印优化 */
+@media print {
+  .chart-container canvas { height: 180px !important; }
+  .stats-wrapper { margin: 0; padding: 0; }
+}
+

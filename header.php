@@ -16,15 +16,28 @@ $is_logged_in = ADMIN_API_KEY !== '' &&
     <link rel="shortcut icon" href="/favicon.ico" />
 
     <?php
-    $css_bundle = (defined('DEBUG') && DEBUG) ? 'assets/css/main.css' : 'assets/css/main.min.css';
-    if (!is_file(__DIR__ . '/' . $css_bundle)) {
-        $css_bundle = 'assets/css/main.css';
-    }
-    $css_file = __DIR__ . '/' . $css_bundle;
-    $css_ver = is_file($css_file) ? (string)filemtime($css_file) : '1';
+    $css_modules = ['base', 'components', 'upload', 'recent', 'layout', 'gallery', 'settings', 'stats', 'docs', 'viewimage'];
+    $css_ver_base = is_file(__DIR__ . '/assets/css/modules/base.css') ? (string)filemtime(__DIR__ . '/assets/css/modules/base.css') : '1';
+    if (defined('DEBUG') && DEBUG): ?>
+    <!-- 开发模式：加载独立 CSS 模块 -->
+    <?php foreach ($css_modules as $mod): ?>
+    <link rel="stylesheet" href="/assets/css/modules/<?= htmlspecialchars($mod, ENT_QUOTES, 'UTF-8') ?>.css?v=<?= htmlspecialchars($css_ver_base, ENT_QUOTES, 'UTF-8') ?>">
+    <?php endforeach; ?>
+    <?php else:
+        $css_bundle = 'assets/css/main.min.css';
+        if (!is_file(__DIR__ . '/' . $css_bundle)) {
+            $css_bundle = 'assets/css/main.css';
+        }
+        $css_file = __DIR__ . '/' . $css_bundle;
+        $css_ver = is_file($css_file) ? (string)filemtime($css_file) : '1';
     ?>
-    <link rel="stylesheet" href="/<?= htmlspecialchars(ltrim($css_bundle, '/'), ENT_QUOTES, 'UTF-8') ?>?v=<?= htmlspecialchars($css_ver, ENT_QUOTES, 'UTF-8') ?>"> <!-- 全量样式包 -->
+    <link rel="stylesheet" href="/<?= htmlspecialchars(ltrim($css_bundle, '/'), ENT_QUOTES, 'UTF-8') ?>?v=<?= htmlspecialchars($css_ver, ENT_QUOTES, 'UTF-8') ?>">
+    <?php endif; ?>
     <link rel="stylesheet" href="https://icons.bluecdn.com/fontawesome-pro/css/all.min.css"> <!-- Font Awesome Pro CDN -->
+    <script>
+        // 全局 CSRF Token（用于前端 AJAX 请求）
+        window.CSRF_TOKEN = <?= json_encode(csrf_token_get(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    </script>
 </head>
 
 <body<?= isset($body_class) && is_string($body_class) && $body_class !== '' ? ' class="' . htmlspecialchars($body_class) . '"' : '' ?>>
