@@ -14,9 +14,14 @@ $action = (string)($_REQUEST['action'] ?? '');
 
 // 实例化 WebAuthn（使用当前域名自动检测）
 $rpName = SITE_NAME;
-$rpId = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+// rpId 不能包含端口；127.0.0.1 不被 WebAuthn 接受，需映射为 localhost
+$rpId = preg_replace('/:\d+$/', '', $host);
+if ($rpId === '127.0.0.1') {
+    $rpId = 'localhost';
+}
 $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-$origin = $scheme . '://' . $rpId;
+$origin = $scheme . '://' . $host;
 
 require_once __DIR__ . '/../lib/CborDecoder.php';
 require_once __DIR__ . '/../lib/WebAuthn.php';
@@ -36,14 +41,16 @@ try {
             if (!is_admin()) {
                 error_response('需要管理员权限', 403);
             }
-            $clientDataJson = (string)($_POST['clientDataJSON'] ?? '');
+            $clientDataJsonB64 = (string)($_POST['clientDataJSON'] ?? '');
             $attestationObject = (string)($_POST['attestationObject'] ?? '');
             $credentialId = (string)($_POST['credentialId'] ?? '');
 
-            if ($clientDataJson === '' || $attestationObject === '' || $credentialId === '') {
+            if ($clientDataJsonB64 === '' || $attestationObject === '' || $credentialId === '') {
                 error_response('参数不完整');
             }
 
+            // clientDataJSON 前端传的是 Base64URL，需解码为原始 JSON 字符串
+            $clientDataJson = WebAuthn::base64UrlDecode($clientDataJsonB64);
             $result = $webauthn->verifyRegistration($clientDataJson, $attestationObject, $credentialId);
             success_response(['message' => 'Passkey 注册成功', 'credentialId' => $result['credentialId']]);
             break;
@@ -59,13 +66,15 @@ try {
         case 'auth_verify':
             $credentialId = (string)($_POST['credentialId'] ?? '');
             $authenticatorData = (string)($_POST['authenticatorData'] ?? '');
-            $clientDataJson = (string)($_POST['clientDataJSON'] ?? '');
+            $clientDataJsonB64 = (string)($_POST['clientDataJSON'] ?? '');
             $signature = (string)($_POST['signature'] ?? '');
 
-            if ($credentialId === '' || $authenticatorData === '' || $clientDataJson === '' || $signature === '') {
+            if ($credentialId === '' || $authenticatorData === '' || $clientDataJsonB64 === '' || $signature === '') {
                 error_response('参数不完整');
             }
 
+            // clientDataJSON 前端传的是 Base64URL，需解码为原始 JSON 字符串
+            $clientDataJson = WebAuthn::base64UrlDecode($clientDataJsonB64);
             if ($webauthn->verifyAuthentication($credentialId, $authenticatorData, $clientDataJson, $signature)) {
                 // 认证成功，设置管理员 Cookie
                 setcookie(

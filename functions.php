@@ -981,7 +981,7 @@ function remote_storage_restore_all_to_local(): array {
  */
 function can_generate_thumbnail(string $filename): bool {
     $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-    return in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true);
+    return in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif'], true);
 }
 
 /**
@@ -1212,8 +1212,9 @@ function build_uploaded_hash_index(): array {
 function scan_and_import_uploads(array $options = []): array {
     $create_thumb = !array_key_exists('create_thumbnail', $options) || (bool)$options['create_thumbnail'];
     $auto_webp = !empty($options['auto_webp']);
-    // WebP 与压缩互斥，避免流程冲突
-    $auto_compress = !empty($options['auto_compress']) && !$auto_webp;
+    $auto_avif = !empty($options['auto_avif']);
+    // 转换与压缩互斥，避免流程冲突
+    $auto_compress = !empty($options['auto_compress']) && !$auto_webp && !$auto_avif;
 
     $base_dir = __DIR__;
     $legacy_dir = $base_dir . DIRECTORY_SEPARATOR . 'upload';
@@ -1237,8 +1238,10 @@ function scan_and_import_uploads(array $options = []): array {
         'thumb_created' => 0,
         'compressed' => 0,
         'webp_created' => 0,
+        'avif_created' => 0,
         'skip_compress' => 0,
         'skip_webp' => 0,
+        'skip_avif' => 0,
         'errors' => [],
     ];
 
@@ -1314,7 +1317,7 @@ function scan_and_import_uploads(array $options = []): array {
                 save_original_filename($final_filename, basename($source_path));
             }
 
-            // 导入后可选处理：WebP / 压缩 / 缩略图（不支持格式自动跳过）
+            // 导入后可选处理：WebP / AVIF / 压缩 / 缩略图（不支持格式自动跳过）
             if ($auto_webp) {
                 if (can_convert_webp_extension($ext)) {
                     $origin_path = get_file_path($final_filename);
@@ -1323,8 +1326,10 @@ function scan_and_import_uploads(array $options = []): array {
                         if (is_string($webp_path) && is_file($webp_path)) {
                             $webp_filename = get_image_identifier_from_path($webp_path) ?? basename($webp_path);
                             if ($webp_filename !== $final_filename) {
-                                @unlink($origin_path);
-                                delete_thumbnail($final_filename);
+                                if (!KEEP_ORIGINAL_AFTER_PROCESS) {
+                                    @unlink($origin_path);
+                                    delete_thumbnail($final_filename);
+                                }
                                 $final_filename = $webp_filename;
                             }
                             $report['webp_created']++;
@@ -1336,6 +1341,30 @@ function scan_and_import_uploads(array $options = []): array {
                     }
                 } else {
                     $report['skip_webp']++;
+                }
+            } elseif ($auto_avif) {
+                if (can_convert_avif_extension($ext)) {
+                    $origin_path = get_file_path($final_filename);
+                    if (convert_to_avif($origin_path)) {
+                        $avif_path = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.avif', $origin_path);
+                        if (is_string($avif_path) && is_file($avif_path)) {
+                            $avif_filename = get_image_identifier_from_path($avif_path) ?? basename($avif_path);
+                            if ($avif_filename !== $final_filename) {
+                                if (!KEEP_ORIGINAL_AFTER_PROCESS) {
+                                    @unlink($origin_path);
+                                    delete_thumbnail($final_filename);
+                                }
+                                $final_filename = $avif_filename;
+                            }
+                            $report['avif_created']++;
+                        } else {
+                            $report['skip_avif']++;
+                        }
+                    } else {
+                        $report['skip_avif']++;
+                    }
+                } else {
+                    $report['skip_avif']++;
                 }
             } elseif ($auto_compress) {
                 $final_ext = strtolower((string)pathinfo($final_filename, PATHINFO_EXTENSION));
@@ -1443,6 +1472,7 @@ function detect_real_image_format(string $filepath): string {
         'image/jpg' => 'JPG',
         'image/png' => 'PNG',
         'image/webp' => 'WEBP',
+        'image/avif' => 'AVIF',
         'image/gif' => 'GIF',
         'image/svg+xml' => 'SVG',
         'image/x-icon' => 'ICO',
@@ -2257,6 +2287,16 @@ function can_convert_webp_extension(string $ext): bool {
     return in_array(strtolower($ext), ['jpg', 'jpeg', 'png', 'gif'], true);
 }
 
+function can_convert_avif_extension(string $ext): bool {
+    return in_array(strtolower($ext), ['jpg', 'jpeg', 'png', 'gif'], true);
+}
+
+function can_convert_preferred_extension(string $ext): bool {
+    return CONVERT_PREFERRED_FORMAT === 'avif'
+        ? can_convert_avif_extension($ext)
+        : can_convert_webp_extension($ext);
+}
+
 /**
  * 获取压缩模式
  */
@@ -2444,17 +2484,66 @@ function auto_convert_uploaded_to_webp(string $filename): array {
     return $result;
 }
 
+function auto_convert_uploaded_to_avif(string $filename): array {
+    $result = [
+        'enabled' => AUTO_CONVERT_AVIF_ON_UPLOAD,
+        'attempted' => false,
+        'created' => false,
+        'skip_reason' => null,
+        'filename' => null,
+        'url' => null,
+    ];
+
+    if (!AUTO_CONVERT_AVIF_ON_UPLOAD) {
+        $result['skip_reason'] = 'disabled';
+        return $result;
+    }
+
+    $ext = strtolower((string)pathinfo($filename, PATHINFO_EXTENSION));
+    if (!can_convert_avif_extension($ext)) {
+        $result['skip_reason'] = 'unsupported_format';
+        return $result;
+    }
+
+    $path = get_file_path($filename);
+    if (!file_exists($path)) {
+        $result['skip_reason'] = 'missing_file';
+        return $result;
+    }
+
+    $result['attempted'] = true;
+    if (!convert_to_avif($path)) {
+        $result['skip_reason'] = 'convert_failed';
+        return $result;
+    }
+
+    $avif_path = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.avif', $path);
+    if (!is_string($avif_path) || !file_exists($avif_path)) {
+        $result['skip_reason'] = 'output_missing';
+        return $result;
+    }
+
+    $avif_filename = get_image_identifier_from_path($avif_path) ?? basename($avif_path);
+    create_thumbnail($avif_filename, true);
+
+    $result['created'] = true;
+    $result['filename'] = $avif_filename;
+    $result['url'] = get_img_url($avif_filename);
+    return $result;
+}
+
 /**
  * 记录上传后处理调试日志（用于定位为何未压缩/未转换）
  */
-function log_upload_post_process_debug(string $filename, array $compress, array $webp): void {
+function log_upload_post_process_debug(string $filename, array $compress, array $webp, array $avif = []): void {
     $original_name = get_original_filename($filename) ?? $filename;
     $level = (
         (!empty($compress['attempted']) && empty($compress['compressed'])) ||
-        (!empty($webp['attempted']) && empty($webp['created']))
+        (!empty($webp['attempted']) && empty($webp['created'])) ||
+        (!empty($avif['attempted']) && empty($avif['created']))
     ) ? 'warning' : 'info';
 
-    debug_log('Upload post-process report', [
+    $log_data = [
         'filename' => $filename,
         'original_name' => $original_name,
         'compress' => [
@@ -2475,7 +2564,19 @@ function log_upload_post_process_debug(string $filename, array $compress, array 
             'skip_reason' => $webp['skip_reason'] ?? null,
             'filename' => $webp['filename'] ?? null,
         ],
-    ], $level);
+    ];
+
+    if (!empty($avif)) {
+        $log_data['avif'] = [
+            'enabled' => (bool)($avif['enabled'] ?? false),
+            'attempted' => (bool)($avif['attempted'] ?? false),
+            'created' => (bool)($avif['created'] ?? false),
+            'skip_reason' => $avif['skip_reason'] ?? null,
+            'filename' => $avif['filename'] ?? null,
+        ];
+    }
+
+    debug_log('Upload post-process report', $log_data, $level);
 }
 
 /**
@@ -2484,11 +2585,13 @@ function log_upload_post_process_debug(string $filename, array $compress, array 
 function run_upload_post_process(string $filename): array {
     $compress = auto_compress_uploaded_image($filename);
     $webp = auto_convert_uploaded_to_webp($filename);
-    log_upload_post_process_debug($filename, $compress, $webp);
+    $avif = auto_convert_uploaded_to_avif($filename);
+    log_upload_post_process_debug($filename, $compress, $webp, $avif);
 
     return [
         'auto_compress' => $compress,
         'auto_webp' => $webp,
+        'auto_avif' => $avif,
     ];
 }
 
@@ -2562,6 +2665,54 @@ function convert_to_webp($filepath) {
     }
 }
 
+function convert_to_avif($filepath) {
+    try {
+        if (!function_exists('imageavif')) {
+            throw new Exception('当前环境不支持 AVIF');
+        }
+
+        if (!file_exists($filepath)) {
+            throw new Exception('原始文件不存在');
+        }
+
+        $image_info = getimagesize($filepath);
+        if (!$image_info) {
+            throw new Exception('无法获取图片信息');
+        }
+
+        $mime_type = (string)($image_info['mime'] ?? '');
+        $source = create_image_resource($filepath, $mime_type);
+        
+        if (!$source) {
+            throw new Exception('无法创建图片资源');
+        }
+
+        // 设置 AVIF 输出路径
+        $avif_path = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.avif', $filepath);
+        if (!is_string($avif_path) || $avif_path === '') {
+            throw new Exception('无法确定 AVIF 输出路径');
+        }
+        
+        // 转换为 AVIF
+        $result = imageavif($source, $avif_path, 80);
+
+        if (!$result) {
+            throw new Exception('AVIF 生成失败');
+        }
+
+        // 保存原始文件名映射
+        $original_identifier = get_image_identifier_from_path($filepath) ?? basename($filepath);
+        $original_filename = get_original_filename($original_identifier) ?? basename($filepath);
+        $avif_filename = get_image_identifier_from_path($avif_path) ?? basename($avif_path);
+        save_original_filename($avif_filename, $original_filename);
+
+        return true;
+    } catch (Exception $e) {
+        error_log("AVIF conversion error: " . $e->getMessage());
+        return false;
+    }
+}
+
 /**
  * 创建图片资源
  */
@@ -2622,6 +2773,8 @@ function create_image_resource($filepath, $mime) {
             return function_exists('imagecreatefromgif') ? imagecreatefromgif($filepath) : null;
         case 'image/webp':
             return function_exists('imagecreatefromwebp') ? imagecreatefromwebp($filepath) : null;
+        case 'image/avif':
+            return function_exists('imagecreatefromavif') ? imagecreatefromavif($filepath) : null;
         default:
             return null;
     }
@@ -2845,12 +2998,32 @@ function handle_uploaded_files(array $files): array {
             if (file_exists($webp_path)) {
                 $origin_path = get_file_path($identifier);
                 if (file_exists($origin_path) && basename($origin_path) !== get_image_display_name($webp_filename)) {
-                    @unlink($origin_path);
-                    delete_thumbnail($identifier);
-                    $original_deleted = true;
+                    if (!KEEP_ORIGINAL_AFTER_PROCESS) {
+                        @unlink($origin_path);
+                        delete_thumbnail($identifier);
+                        $original_deleted = true;
+                    }
                 }
                 $final_filename = $webp_filename;
                 $final_url = get_img_url($webp_filename);
+            }
+        }
+
+        // 若启用了自动转 AVIF 且转换成功，则仅保留 AVIF，删除之前的文件
+        if (!empty($processing['auto_avif']['created']) && !empty($processing['auto_avif']['filename'])) {
+            $avif_filename = normalize_image_identifier((string)$processing['auto_avif']['filename']);
+            $avif_path = get_file_path($avif_filename);
+            if (file_exists($avif_path)) {
+                $prev_path = get_file_path($final_filename);
+                if (file_exists($prev_path) && basename($prev_path) !== get_image_display_name($avif_filename)) {
+                    if (!KEEP_ORIGINAL_AFTER_PROCESS) {
+                        @unlink($prev_path);
+                        delete_thumbnail($final_filename);
+                        $original_deleted = true;
+                    }
+                }
+                $final_filename = $avif_filename;
+                $final_url = get_img_url($avif_filename);
             }
         }
 
@@ -2915,7 +3088,12 @@ function format_filesize($bytes) {
     $i = (int)floor(log($size, $base));
     $i = max(0, min($i, count($units) - 1));
 
-    return number_format($size / pow($base, $i), 2) . ' ' . $units[$i];
+    $value = $size / pow($base, $i);
+    // 整数不显示小数，有小数保留一位
+    $formatted = number_format($value, 1);
+    $formatted = rtrim(rtrim($formatted, '0'), '.');
+
+    return $formatted . ' ' . $units[$i];
 }
 
 /**
@@ -2952,6 +3130,61 @@ function get_server_runtime_metrics(): array {
     $memory_used_bytes = (int)memory_get_usage(true);
     $memory_peak_bytes = (int)memory_get_peak_usage(true);
 
+    // 尝试读取系统物理内存（优先于 PHP memory_limit）
+    $system_mem_total = 0;
+    $system_mem_used = 0;
+    if (function_exists('shell_exec')) {
+        if (PHP_OS_FAMILY === 'Linux' || PHP_OS_FAMILY === 'BSD') {
+            $meminfo = @shell_exec('cat /proc/meminfo 2>/dev/null');
+            if (is_string($meminfo) && $meminfo !== '') {
+                $memTotal = 0;
+                $memAvailable = 0;
+                if (preg_match('/MemTotal:\s+(\d+)\s+kB/', $meminfo, $m)) {
+                    $memTotal = (int)$m[1] * 1024;
+                }
+                if (preg_match('/MemAvailable:\s+(\d+)\s+kB/', $meminfo, $m)) {
+                    $memAvailable = (int)$m[1] * 1024;
+                } elseif (preg_match('/MemFree:\s+(\d+)\s+kB/', $meminfo, $m)) {
+                    $memAvailable = (int)$m[1] * 1024;
+                }
+                if ($memTotal > 0) {
+                    $system_mem_total = $memTotal;
+                    $system_mem_used = max(0, $memTotal - $memAvailable);
+                }
+            }
+        } elseif (PHP_OS_FAMILY === 'Darwin') {
+            $hw_memsize = @shell_exec('sysctl -n hw.memsize 2>/dev/null');
+            if (is_string($hw_memsize) && is_numeric(trim($hw_memsize))) {
+                $system_mem_total = (int)trim($hw_memsize);
+            }
+            $vm_stat = @shell_exec('vm_stat 2>/dev/null');
+            if (is_string($vm_stat) && $vm_stat !== '') {
+                $page_size = 4096;
+                if (preg_match('/page size of (\d+) bytes/', $vm_stat, $m)) {
+                    $page_size = (int)$m[1];
+                }
+                $pages = ['free' => 0, 'active' => 0, 'inactive' => 0, 'wired down' => 0, 'speculative' => 0];
+                foreach ($pages as $key => &$val) {
+                    $pattern = '/Pages ' . preg_quote($key, '/') . ':\s+(\d+)\./';
+                    if (preg_match($pattern, $vm_stat, $m)) {
+                        $val = (int)$m[1];
+                    }
+                }
+                unset($val);
+                $system_mem_used = ($pages['active'] + $pages['inactive'] + $pages['wired down'] + $pages['speculative']) * $page_size;
+            }
+        }
+    }
+
+    // 如果读取到系统内存，使用系统内存；否则回退到 PHP 内存限制
+    if ($system_mem_total > 0) {
+        $memory_total_bytes = $system_mem_total;
+        $memory_used_bytes_display = $system_mem_used;
+    } else {
+        $memory_total_bytes = $memory_limit_bytes;
+        $memory_used_bytes_display = $memory_used_bytes;
+    }
+
     $disk_total = @disk_total_space(__DIR__);
     $disk_free = @disk_free_space(__DIR__);
     $disk_total_bytes = is_numeric($disk_total) ? (int)$disk_total : 0;
@@ -2986,8 +3219,8 @@ function get_server_runtime_metrics(): array {
     }
 
     $memory_usage_percent = 0.0;
-    if ($memory_limit_bytes > 0) {
-        $memory_usage_percent = round(($memory_used_bytes / $memory_limit_bytes) * 100, 2);
+    if ($memory_total_bytes > 0) {
+        $memory_usage_percent = round(($memory_used_bytes_display / $memory_total_bytes) * 100, 2);
     }
 
     $disk_usage_percent = 0.0;
@@ -2996,7 +3229,47 @@ function get_server_runtime_metrics(): array {
     }
 
     return [
-        'server_ip' => (string)($_SERVER['SERVER_ADDR'] ?? gethostbyname((string)gethostname())),
+        'server_ip' => (function (): string {
+            // 优先通过系统命令获取实际局域网 IP
+            if (function_exists('shell_exec')) {
+                if (PHP_OS_FAMILY === 'Darwin') {
+                    foreach (['en0', 'en1', 'en2', 'en3'] as $iface) {
+                        $ip = @shell_exec('ipconfig getifaddr ' . $iface . ' 2>/dev/null');
+                        if (is_string($ip) && filter_var(trim($ip), FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+                            $trimmed = trim($ip);
+                            if ($trimmed !== '' && $trimmed !== '127.0.0.1' && $trimmed !== '::1') {
+                                return $trimmed;
+                            }
+                        }
+                    }
+                }
+                if (PHP_OS_FAMILY === 'Linux' || PHP_OS_FAMILY === 'BSD' || PHP_OS_FAMILY === 'Darwin') {
+                    $ip = @shell_exec("hostname -I 2>/dev/null | awk '{print $1}'");
+                    if (is_string($ip)) {
+                        $trimmed = trim($ip);
+                        if ($trimmed !== '' && $trimmed !== '127.0.0.1') {
+                            return $trimmed;
+                        }
+                    }
+                    $ip = @shell_exec("ip route get 1.1.1.1 2>/dev/null | awk '/src/ {print $7; exit}'");
+                    if (is_string($ip)) {
+                        $trimmed = trim($ip);
+                        if ($trimmed !== '' && $trimmed !== '127.0.0.1') {
+                            return $trimmed;
+                        }
+                    }
+                }
+            }
+            $addr = (string)($_SERVER['SERVER_ADDR'] ?? '');
+            if ($addr !== '' && $addr !== '127.0.0.1' && $addr !== '::1' && $addr !== 'localhost') {
+                return $addr;
+            }
+            $host = gethostbyname((string)gethostname());
+            if ($host !== (string)gethostname() && $host !== '127.0.0.1') {
+                return $host;
+            }
+            return $addr ?: '127.0.0.1';
+        })(),
         'os' => php_uname('s') . ' ' . php_uname('r'),
         'php_version' => PHP_VERSION,
         'php_sapi' => (string)php_sapi_name(),
@@ -3018,11 +3291,11 @@ function get_server_runtime_metrics(): array {
                 : '不可用',
         ],
         'memory' => [
-            'limit_bytes' => $memory_limit_bytes,
-            'used_bytes' => $memory_used_bytes,
+            'limit_bytes' => $memory_total_bytes,
+            'used_bytes' => $memory_used_bytes_display,
             'peak_bytes' => $memory_peak_bytes,
             'usage_percent' => $memory_usage_percent,
-            'text' => format_filesize($memory_used_bytes) . ' / ' . format_filesize($memory_limit_bytes > 0 ? $memory_limit_bytes : $memory_used_bytes),
+            'text' => format_filesize($memory_used_bytes_display) . ' / ' . format_filesize($memory_total_bytes > 0 ? $memory_total_bytes : $memory_used_bytes_display),
             'peak_text' => format_filesize($memory_peak_bytes),
         ],
         'disk' => [
@@ -3036,7 +3309,7 @@ function get_server_runtime_metrics(): array {
         'capability' => [
             'gd' => extension_loaded('gd'),
             'imagick' => extension_loaded('imagick'),
-            'curl' => extension_loaded('curl'),
+            'avif' => function_exists('imagecreatefromavif') && function_exists('imageavif'),
             'webp' => function_exists('imagewebp'),
         ],
     ];
@@ -3542,6 +3815,7 @@ function validate_upload_mime(string $tmp_name, string $ext): bool {
         'image/png' => ['png'],
         'image/gif' => ['gif'],
         'image/webp' => ['webp'],
+        'image/avif' => ['avif'],
         'image/x-icon' => ['ico'],
         'image/vnd.microsoft.icon' => ['ico'],
         'image/bmp' => ['bmp'],

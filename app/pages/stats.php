@@ -118,35 +118,35 @@ require_once APP_ROOT . '/header.php';
         </div>
         <div class="page-shell-body">
             <div class="stats-wrapper">
-        <!-- 总览卡片 -->
-        <div class="stats-cards">
-            <div class="stats-card total-images">
-                <div class="card-icon"><i class="fa-light fa-images"></i></div>
-                <div class="card-content">
-                    <h3>总图片数</h3>
-                    <div class="card-value"><?= number_format($stats['total_images']) ?></div>
+        <!-- 总览圆形卡片 -->
+        <div class="stats-circles">
+            <div class="stat-circle">
+                <div class="stat-circle-inner">
+                    <div class="stat-circle-icon"><i class="fa-light fa-images"></i></div>
+                    <div class="stat-circle-value"><?= number_format($stats['total_images']) ?></div>
+                    <div class="stat-circle-label">总图片数</div>
                 </div>
             </div>
 
-            <div class="stats-card total-size">
-                <div class="card-icon"><i class="fa-light fa-hard-drive"></i></div>
-                <div class="card-content">
-                    <h3>总存储空间</h3>
-                    <div class="card-value"><?= format_filesize($stats['total_size']) ?></div>
+            <div class="stat-circle">
+                <div class="stat-circle-inner">
+                    <div class="stat-circle-icon"><i class="fa-light fa-hard-drive"></i></div>
+                    <div class="stat-circle-value"><?= format_filesize($stats['total_size']) ?></div>
+                    <div class="stat-circle-label">总存储空间</div>
                 </div>
             </div>
 
-            <div class="stats-card monthly-uploads">
-                <div class="card-icon"><i class="fa-light fa-calendar-days"></i></div>
-                <div class="card-content">
-                    <h3>本月上传</h3>
-                    <div class="card-value">
+            <div class="stat-circle">
+                <div class="stat-circle-inner">
+                    <div class="stat-circle-icon"><i class="fa-light fa-calendar-days"></i></div>
+                    <div class="stat-circle-value">
                         <?php
                         $current_month = date('Y-m');
                         $monthly_count = $stats['by_month'][$current_month]['count'] ?? 0;
-                        echo number_format($monthly_count) . ' 张';
+                        echo number_format($monthly_count);
                         ?>
                     </div>
+                    <div class="stat-circle-label">本月上传</div>
                 </div>
             </div>
         </div>

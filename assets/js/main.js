@@ -296,6 +296,11 @@ if (!window.ImgEt.DialogManager) {
         },
 
         showConfirmDialog(title, message, onConfirm) {
+            // 关闭所有已存在的确认弹窗，防止叠加
+            document.querySelectorAll('.confirm-dialog').forEach(d => {
+                if (typeof d.closeHandler === 'function') d.closeHandler();
+            });
+
             const safeTitle = escapeHtml(title);
             const safeMessage = escapeHtml(message);
             const dialog = document.createElement('div');
@@ -330,13 +335,16 @@ if (!window.ImgEt.DialogManager) {
             document.body.appendChild(dialog);
             this.activeDialogs.push(dialog);
 
-            // 改进关闭处理
+            // 改进关闭处理：防止重复关闭，清理所有监听器
             const closeDialog = () => {
+                if (dialog.isClosing) return;
+                dialog.isClosing = true;
                 dialog.classList.remove('active');
                 setTimeout(() => {
+                    dialog.removeEventListener('click', clickOutsideHandler);
+                    document.removeEventListener('keydown', escHandler);
                     dialog.remove();
                     this.activeDialogs = this.activeDialogs.filter(d => d !== dialog);
-                    document.removeEventListener('keydown', escHandler);
                 }, 300);
             };
 
@@ -346,7 +354,8 @@ if (!window.ImgEt.DialogManager) {
             closeBtn.addEventListener('click', closeDialog);
             dialog.querySelector('.btn-cancel').addEventListener('click', closeDialog);
             dialog.querySelector('.btn-danger').addEventListener('click', () => {
-                if (typeof onConfirm === 'function') {
+                if (typeof onConfirm === 'function' && !dialog.confirmed) {
+                    dialog.confirmed = true;
                     onConfirm();
                 }
                 closeDialog();
@@ -505,114 +514,26 @@ document.addEventListener('contextmenu', (e) => {
     });
 })();
 
-// 上传页面的图片卡片交互
+// 上传页面的图片卡片交互（仅处理 copy，delete 由 GalleryManager.initUploadPage 统一处理）
 document.addEventListener('DOMContentLoaded', () => {
     const uploadGrid = document.querySelector('.upload-grid');
     if (!uploadGrid) return;
 
     uploadGrid.addEventListener('click', async e => {
         const btn = e.target.closest('.action-btn');
-        if (!btn) return;
+        if (!btn || !btn.classList.contains('copy-btn')) return;
         
         const imgBox = btn.closest('.img-box');
         if (!imgBox) return;
 
         const imgEl = imgBox.querySelector('img');
         const imgUrl = imgBox.dataset.url || imgEl?.dataset?.originalUrl || imgEl?.src || '';
-        const filename = imgBox.dataset.filename;
 
-        // 根据按钮类型执行不同操作
-        if (btn.classList.contains('copy-btn')) {
-            // 直接复制URL
-            try {
-                await navigator.clipboard.writeText(imgUrl);
-                ImgEt.Utils.showNotification('图片链接已复制', 'success');
-            } catch (error) {
-                ImgEt.Utils.showNotification('复制失败', 'error'); 
-            }
-        } else if (btn.classList.contains('delete-btn')) {
-            ImgEt.DialogManager.showConfirmDialog(
-                '删除确认',
-                `确定要删除图片 ${filename} 吗？`,
-                async () => {
-                    try {
-                        // 1. 执行删除请求
-                        await ApiService.request('/action.php', {
-                            action: 'delete',
-                            file: filename,
-                            csrf_token: window.CSRF_TOKEN || ''
-                        }, { method: 'POST' });
-                        
-                        // 2. 更新总数显示
-                        const totalCountEl = document.querySelector('.total-count');
-                        if (totalCountEl) {
-                            const currentTotal = parseInt(totalCountEl.dataset.total || '0', 10);
-                            const newTotal = Math.max(0, currentTotal - 1);
-                            totalCountEl.dataset.total = String(newTotal);
-                            totalCountEl.textContent = `(共 ${newTotal} 张图片)`;
-                        }
-
-                        // 3. 移除当前卡片
-                        imgBox.classList.add('deleting');
-                        
-                        // 4. 加载新图片补位
-                        setTimeout(async () => {
-                            imgBox.remove();
-
-                            // 补位逻辑
-                            const currentCards = uploadGrid.querySelectorAll('.img-box').length;
-                            if (currentCards < 5) {
-                                try {
-                                    const response = await ApiService.request('/action.php', {
-                                        action: 'get_next_image',
-                                        current_count: currentCards,
-                                        count: 1
-                                    });
-
-                                    if (response?.status === 'success' && response.images?.[0]) {
-                                        const newImage = response.images[0];
-                                        const newCard = `
-                                            <div class="img-box" 
-                                                data-filename="${newImage.filename}"
-                                                data-date="${newImage.time}"
-                                                data-size="${newImage.size}"
-                                                data-url="${newImage.url}">
-                                                <img src="${newImage.thumb_url || newImage.url}" 
-                                                     data-original-url="${newImage.url}"
-                                                     alt="${newImage.filename}"
-                                                     loading="lazy">
-                                                <div class="img-overlay">
-                                                    <button class="action-btn copy-btn" 
-                                                            title="复制图片链接"
-                                                            type="button">
-                                                        <i class="fa-light fa-copy"></i>
-                                                    </button>
-                                                    <button class="action-btn delete-btn" 
-                                                            type="button"
-                                                            title="删除图片">
-                                                        <i class="fa-light fa-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        `;
-                                        uploadGrid.insertAdjacentHTML('beforeend', newCard);
-                                    }
-                                } catch (error) {
-                                    console.error('Failed to load replacement image:', error);
-                                }
-                            }
-
-                            ImgEt.Utils.showNotification('删除成功', 'success');
-                        }, 300);
-
-                    } catch (error) {
-                        ImgEt.Utils.showNotification(
-                            error.message || '删除失败',
-                            'error'
-                        );
-                    }
-                }
-            );
+        try {
+            await navigator.clipboard.writeText(imgUrl);
+            ImgEt.Utils.showNotification('图片链接已复制', 'success');
+        } catch (error) {
+            ImgEt.Utils.showNotification('复制失败', 'error'); 
         }
     });
 });
@@ -1075,9 +996,10 @@ class ApiService {
         }
     }
 
-    static async getCardTemplate(data) {
+    static async getCardTemplate(data, type = 'gallery') {
         const body = new URLSearchParams({
             img: data.filename,
+            type: type,
             info: JSON.stringify({
                 filename: data.filename,
                 original_name: data.original_name || data.filename,
@@ -1226,7 +1148,20 @@ class DeleteManager extends BaseProcessor {
 
     static async #loadNewImages(count = 1) {
         try {
-            const currentCount = document.querySelectorAll('.img-card').length;
+            const gallery = document.querySelector('.gallery');
+            const uploadGrid = document.querySelector('.upload-grid');
+            const isGallery = !!gallery;
+            const isUpload = !!uploadGrid;
+
+            if (!isGallery && !isUpload) {
+                console.warn('No gallery or upload grid found');
+                return;
+            }
+
+            const currentCount = isGallery
+                ? document.querySelectorAll('.img-card').length
+                : uploadGrid.querySelectorAll('.img-box').length;
+
             const response = await ApiService.request('/action.php', {
                 action: 'get_next_image',
                 current_count: currentCount,
@@ -1239,20 +1174,31 @@ class DeleteManager extends BaseProcessor {
                     console.warn('No more images to load');
                     return;
                 }
-                const gallery = document.querySelector('.gallery');
-                if (!gallery) return;
 
-                for (const image of imgs) {
-                    try {
-                        const cardHtml = await ApiService.getCardTemplate(image);
-                        gallery.insertAdjacentHTML('beforeend', cardHtml);
-                        const newCard = gallery.lastElementChild;
-                        if (newCard) GalleryManager.initNewCard(newCard);
-                    } catch (errCard) {
-                        console.error('插入新卡片失败:', errCard);
+                if (isGallery) {
+                    for (const image of imgs) {
+                        try {
+                            const cardHtml = await ApiService.getCardTemplate(image);
+                            gallery.insertAdjacentHTML('beforeend', cardHtml);
+                            const newCard = gallery.lastElementChild;
+                            if (newCard) GalleryManager.initNewCard(newCard);
+                        } catch (errCard) {
+                            console.error('插入新卡片失败:', errCard);
+                        }
+                    }
+                    GalleryManager.updateImageCount();
+                } else if (isUpload) {
+                    for (const image of imgs) {
+                        try {
+                            const cardHtml = await ApiService.getCardTemplate(image, 'recent');
+                            uploadGrid.insertAdjacentHTML('beforeend', cardHtml);
+                            const newCard = uploadGrid.lastElementChild;
+                            if (newCard) GalleryManager.initNewCard(newCard);
+                        } catch (errCard) {
+                            console.error('插入新卡片失败:', errCard);
+                        }
                     }
                 }
-                GalleryManager.updateImageCount();
             } else {
                 throw new Error(response?.message || '加载图片失败');
             }
@@ -1308,14 +1254,37 @@ class ImageProcessor extends BaseProcessor {
 
         try {
             const data = await ApiService.request('/action.php', { action: 'webp', file: filename, csrf_token: window.CSRF_TOKEN || '' }, { method: 'POST' });
-            this.#showWebPResult(data);
-            await this.#addWebPCard(data, imgCard);
+            this.#showConvertResult(data, 'WebP');
+            await this.#addConvertedCard(data, imgCard);
             ImgEt.Utils.showNotification('转换成功', 'success');
         } catch (error) {
             ImgEt.Utils.showNotification(`转换失败: ${error.message}`, 'error');
             throw error;
         } finally {
             GalleryManager.setButtonLoadingState(btn, false, 'webp');
+            this.endProcessing();
+        }
+    }
+
+    static async processSingleAvif(filename, imgCard) {
+        if (this.isProcessing()) {
+            ImgEt.Utils.showNotification('有操作正在进行中', 'warning');
+            return;
+        }
+        this.startProcessing();
+        const btn = imgCard?.querySelector?.('.avif-btn') || null;
+        GalleryManager.setButtonLoadingState(btn, true, 'avif');
+
+        try {
+            const data = await ApiService.request('/action.php', { action: 'avif', file: filename, csrf_token: window.CSRF_TOKEN || '' }, { method: 'POST' });
+            this.#showConvertResult(data, 'AVIF');
+            await this.#addConvertedCard(data, imgCard);
+            ImgEt.Utils.showNotification('转换成功', 'success');
+        } catch (error) {
+            ImgEt.Utils.showNotification(`转换失败: ${error.message}`, 'error');
+            throw error;
+        } finally {
+            GalleryManager.setButtonLoadingState(btn, false, 'avif');
             this.endProcessing();
         }
     }
@@ -1420,7 +1389,7 @@ class BatchProcessor extends BaseProcessor {
             return;
         }
 
-        const actionText = { compress: '压缩', webp: '转换', delete: '删除' }[action] || action;
+        const actionText = { compress: '压缩', webp: '转WebP', avif: '转AVIF', delete: '删除' }[action] || action;
         const message = `确定要批量${actionText}选中的 ${selectedFiles.length} 张图片吗？`;
 
         ImgEt.DialogManager.showConfirmDialog(`批量${actionText}确认`, message, () => {
@@ -1432,7 +1401,7 @@ class BatchProcessor extends BaseProcessor {
         this.startProcessing();
         const results = { success: 0, fail: 0 };
         const total = files.length;
-        const actionText = { compress: '压缩', webp: '转换', delete: '删除' }[action] || action;
+        const actionText = { compress: '压缩', webp: '转WebP', avif: '转AVIF', delete: '删除' }[action] || action;
 
         for (const [index, filename] of files.entries()) {
             const imgCard = document.querySelector(getImageCardSelector(filename));
@@ -1509,7 +1478,7 @@ class GalleryManager {
     static init() {
         if (document.querySelector('.gallery')) {
             this.initGalleryPage();
-        } else if (document.querySelector('.upload-results')) {
+        } else if (document.querySelector('.upload-grid')) {
             this.initUploadPage();
         }
     }
@@ -1523,8 +1492,9 @@ class GalleryManager {
     }
 
     static initUploadPage() {
-        const container = document.querySelector('.upload-results');
-        if (!container) return;
+        const container = document.querySelector('.upload-grid');
+        if (!container || container.dataset.eventsBound === '1') return;
+        container.dataset.eventsBound = '1';
         container.addEventListener('click', e => {
             const btn = e.target.closest('.action-btn');
             if (!btn) return;
@@ -1556,6 +1526,9 @@ class GalleryManager {
     }
 
     static bindEvents() {
+        if (this.elements.gallery?.dataset.eventsBound === '1') return;
+        if (this.elements.gallery) this.elements.gallery.dataset.eventsBound = '1';
+
         // 缩略图点击：使用 ViewImage 打开原图
         this.elements.gallery?.addEventListener('click', e => {
             const previewImg = e.target.closest('.img-preview img');
@@ -1639,6 +1612,8 @@ class GalleryManager {
             ImageProcessor.processSingleCompress(filename, card);
         } else if (btn.classList.contains('webp-btn')) {
             ImageProcessor.processSingleWebP(filename, card);
+        } else if (btn.classList.contains('avif-btn')) {
+            ImageProcessor.processSingleAvif(filename, card);
         } else if (btn.classList.contains('delete-btn')) {
             DeleteManager.handleDelete(filename);
         }
@@ -1753,7 +1728,7 @@ class GalleryManager {
         if (isLoading) {
             btn.innerHTML = '<i class="fa-light fa-spinner-third fa-spin"></i>';
         } else {
-            const iconClass = { compress: 'fa-compress', webp: 'fa-image', delete: 'fa-trash' }[action] || 'fa-check';
+            const iconClass = { compress: 'fa-compress', webp: 'fa-image', avif: 'fa-image', delete: 'fa-trash' }[action] || 'fa-check';
             btn.innerHTML = `<i class="fa-light ${iconClass}"></i>`;
         }
     }
@@ -1812,6 +1787,7 @@ class UploadManager {
         this.initElements();
         this.batchTotal = 0;
         this.batchCompleted = 0;
+        this.batchNotified = false;
         this.activeUploads = 0;
         this.uploadQueue = [];
         this.completedUploads = [];
@@ -1908,6 +1884,7 @@ class UploadManager {
         const validFiles = this.filterValidFiles(files);
         this.batchTotal = validFiles.length;
         this.batchCompleted = 0;
+        this.batchNotified = false;
         this.activeUploads = 0;
         this.uploadQueue = validFiles.slice();
 
@@ -2267,8 +2244,12 @@ class UploadManager {
         const reportLines = this.buildProcessingReport(result);
         const hasReport = Array.isArray(reportLines) && reportLines.length > 0;
         const hasSkip = hasReport && reportLines.some(line => line.includes('未压缩') || line.includes('未转 WebP'));
-        const msg = hasReport ? `${filename} 上传成功：${reportLines.join('；')}` : `${filename} 上传成功`;
-        ImgEt.Utils.showNotification(msg, hasSkip ? 'warning' : 'success');
+
+        // 单文件上传时显示成功通知，批量上传时只在全部完成后统一通知
+        if (this.batchTotal <= 1) {
+            const msg = hasReport ? `${filename} 上传成功：${reportLines.join('；')}` : `${filename} 上传成功`;
+            ImgEt.Utils.showNotification(msg, hasSkip ? 'warning' : 'success');
+        }
 
         this.fadeOutProgressItem(progressItem);
     }
@@ -2309,17 +2290,18 @@ class UploadManager {
      * 检查是否所有文件都已上传完成
      */
     async checkUploadComplete() {
-        if (this.batchTotal > 0 && this.batchCompleted >= this.batchTotal && this.activeUploads === 0) {
+        if (this.batchTotal > 0 && this.batchCompleted >= this.batchTotal && this.activeUploads === 0 && !this.batchNotified) {
+            this.batchNotified = true;
             if (this.batchTotal > 1) {
                 ImgEt.Utils.showNotification('所有文件上传完成', 'success');
             }
 
-            // 动态插入新上传的卡片（替代刷新页面）
+            // 动态插入新上传的卡片（替代刷新页面），最多保留 5 个
             const uploadGrid = document.querySelector('.upload-grid');
             if (uploadGrid && this.completedUploads.length > 0) {
                 for (const result of this.completedUploads) {
                     try {
-                        const cardHtml = await ApiService.getCardTemplate(result);
+                        const cardHtml = await ApiService.getCardTemplate(result, 'recent');
                         uploadGrid.insertAdjacentHTML('afterbegin', cardHtml);
                         const newCard = uploadGrid.firstElementChild;
                         if (newCard) {
@@ -2328,6 +2310,11 @@ class UploadManager {
                     } catch (err) {
                         console.error('插入新卡片失败:', err);
                     }
+                }
+                // 超出 5 个时移除末尾多余的卡片
+                while (uploadGrid.children.length > 5) {
+                    const last = uploadGrid.lastElementChild;
+                    if (last) last.remove();
                 }
                 GalleryManager.updateImageCount();
                 this.completedUploads = [];
