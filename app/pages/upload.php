@@ -5,14 +5,14 @@ if (!defined('APP_ROOT')) {
     require_once dirname(__DIR__, 2) . '/app/core/bootstrap.php';
 }
 /**
- * LitePic - 轻量级图床程序
+ * LitePic V2.2 - 轻量级图床程序
  * 
  * 一个简洁、高效的图片托管解决方案
  * 支持多图上传、拖拽上传、粘贴上传等功能
  * 
  * @package     LitePic
  * @author      gentpan
- * @copyright   2025 LitePic.io
+ * @copyright   2026 LitePic
  * @license     MIT License
  * @link        https://litepic.io
  * @version     1.0.0
@@ -46,7 +46,7 @@ require_once APP_ROOT . '/header.php';
                 <div class="home-hero-mark" aria-hidden="true">
                     <i class="fa-brands fa-upwork"></i>
                 </div>
-                <h1 class="home-hero-title">LitePic V2</h1>
+                <h1 class="home-hero-title">LitePic V2.2</h1>
                 <p class="home-hero-description">
                     轻量级 PHP 图床，支持 API Token 上传、缩略图、自动压缩与 WebP 转换、
                     图库管理、统计面板、文档页、以及 R2/S3 同步。

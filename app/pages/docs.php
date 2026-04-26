@@ -6,7 +6,7 @@ if (!defined('APP_ROOT')) {
 }
 
 
-$page_title = 'LitePic V2 文档';
+$page_title = 'LitePic V2.2 文档';
 
 $allowed_types = array_map(static fn(string $ext): string => '.' . strtoupper($ext), ALLOWED_TYPES);
 $allowed_types_text = implode(' / ', $allowed_types);
@@ -23,7 +23,7 @@ require_once APP_ROOT . '/header.php';
         <div class="page-shell-header docs-hero">
             <h2 class="page-shell-title">
                 <i class="fa-light fa-book-open-cover"></i>
-                <span>LitePic V2 使用文档</span>
+                <span>LitePic V2.2 使用文档</span>
             </h2>
             <p class="docs-hero-desc">面向部署者、第三方调用方和 WordPress 接入方的完整说明。</p>
             <div class="docs-hero-badges">
@@ -38,7 +38,7 @@ require_once APP_ROOT . '/header.php';
         <div class="page-shell-body docs-layout">
             <section class="docs-card docs-card-featured">
                 <h3>项目简介</h3>
-                <p><strong>LitePic V2</strong> 是一个轻量级 PHP 图床系统，提供本地上传、第三方 API 上传、自动缩略图、自动压缩、自动转 WebP、图库管理、统计分析以及 R2/S3 远程同步能力。</p>
+                <p><strong>LitePic V2.2</strong> 是一个轻量级 PHP 图床系统，提供本地上传、第三方 API 上传、自动缩略图、自动压缩、自动转 WebP、图库管理、统计分析以及 R2/S3 远程同步能力。</p>
                 <p>系统设计目标是“上传不中断”：即使压缩或转换失败，原始上传流程仍可继续完成，并在处理结果中返回具体原因。</p>
             </section>
 

@@ -1872,7 +1872,7 @@ function compress_with_tinypng($filepath) {
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_HEADER => true,
                 CURLOPT_SSL_VERIFYPEER => true,
-                CURLOPT_USERAGENT => 'LitePic/1.0',
+                CURLOPT_USERAGENT => 'LitePic/2.2.0',
                 CURLOPT_CONNECTTIMEOUT => 5,
                 CURLOPT_TIMEOUT => 20,
                 CURLOPT_HTTPHEADER => ['Accept: application/json'],

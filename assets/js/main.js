@@ -1,4 +1,4 @@
-/* LitePic V2 JavaScript bundle - generated 2026-02-27 11:33:17 */
+/* LitePic V2.2 JavaScript bundle */
 
 /* ===== script.js ===== */
 window.ImgEt = window.ImgEt || {};
