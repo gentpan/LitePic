@@ -34,11 +34,14 @@ RUN echo '<Directory /var/www/html>\n\
 </Directory>' > /etc/apache2/conf-available/litepic.conf \
     && a2enconf litepic
 
-# 上传限制
+# 上传限制 + 关闭 display_errors（避免警告破坏 session/header）
 RUN echo "upload_max_filesize = 50M\n\
 post_max_size = 52M\n\
 max_file_uploads = 50\n\
-memory_limit = 256M" > /usr/local/etc/php/conf.d/litepic.ini
+memory_limit = 256M\n\
+display_errors = Off\n\
+log_errors = On\n\
+error_log = /var/log/apache2/php-error.log" > /usr/local/etc/php/conf.d/litepic.ini
 
 # 工作目录
 WORKDIR /var/www/html
