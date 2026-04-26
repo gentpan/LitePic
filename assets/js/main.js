@@ -683,6 +683,14 @@ window.ApiManager = {
             });
         }
 
+        // Passkey 登录按钮
+        const passkeyBtn = document.querySelector('.login-passkey-btn');
+        if (passkeyBtn) {
+            passkeyBtn.addEventListener('click', () => {
+                this.passkeyLogin();
+            });
+        }
+
         // 绑定登录按钮（可有多个）
         loginButtons.forEach((button) => {
             button.dataset.authBound = '1';
@@ -824,6 +832,80 @@ window.ApiManager = {
             submit.disabled = false;
             submit.innerHTML = '<i class="fa-light fa-right-to-bracket"></i> 登录';
         }
+    },
+
+    // Passkey 登录
+    async passkeyLogin() {
+        if (!window.PublicKeyCredential) {
+            ImgEt.Utils.showNotification('您的浏览器不支持 Passkey', 'error');
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/passkey.php?action=auth_options');
+            const data = await res.json();
+            if (data.status !== 'success') {
+                throw new Error(data.message || '获取认证选项失败');
+            }
+            const options = data;
+
+            // 将 Base64URL 转换为 ArrayBuffer
+            options.challenge = this.base64UrlToBuffer(options.challenge);
+            if (options.allowCredentials) {
+                options.allowCredentials.forEach(cred => {
+                    cred.id = this.base64UrlToBuffer(cred.id);
+                });
+            }
+
+            const credential = await navigator.credentials.get({ publicKey: options });
+            if (!credential) {
+                throw new Error('用户取消了认证');
+            }
+
+            const verifyRes = await fetch('/api/passkey.php?action=auth_verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    credentialId: this.bufferToBase64Url(credential.rawId),
+                    authenticatorData: this.bufferToBase64Url(credential.response.authenticatorData),
+                    clientDataJSON: this.bufferToBase64Url(credential.response.clientDataJSON),
+                    signature: this.bufferToBase64Url(credential.response.signature)
+                })
+            });
+
+            const verifyData = await verifyRes.json();
+            if (verifyData.status === 'success') {
+                ImgEt.Utils.showNotification('Passkey 登录成功', 'success');
+                this.hideLoginPanel();
+                setTimeout(() => window.location.reload(), 1000);
+            } else {
+                throw new Error(verifyData.message || 'Passkey 验证失败');
+            }
+        } catch (error) {
+            console.error('Passkey login error:', error);
+            ImgEt.Utils.showNotification(error.message || 'Passkey 登录失败', 'error');
+        }
+    },
+
+    base64UrlToBuffer(base64url) {
+        const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+        const pad = 4 - (base64.length % 4);
+        const padded = pad !== 4 ? base64 + '='.repeat(pad) : base64;
+        const binary = atob(padded);
+        const buffer = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+            buffer[i] = binary.charCodeAt(i);
+        }
+        return buffer.buffer;
+    },
+
+    bufferToBase64Url(buffer) {
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     },
 
     // 退出登录
