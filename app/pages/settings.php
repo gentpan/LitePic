@@ -837,6 +837,38 @@ require_once APP_ROOT . '/header.php';
 
                 <section class="settings-block">
                     <div class="settings-block-header">
+                        <h3>Passkey 管理</h3>
+                        <p>无密码登录（生物识别 / 设备 PIN）</p>
+                    </div>
+
+                    <button type="button" class="btn btn-primary" id="passkeyRegisterBtn">
+                        <i class="fa-light fa-fingerprint"></i>
+                        注册新 Passkey
+                    </button>
+
+                    <p class="settings-meta">已注册 <span id="passkeyCount">0</span> 个 Passkey。支持系统 PIN、指纹、面容等生物识别方式登录。</p>
+
+                    <div class="settings-table-wrap">
+                        <table class="settings-table" id="passkeyTable">
+                            <thead>
+                                <tr>
+                                    <th>凭证 ID</th>
+                                    <th>注册时间</th>
+                                    <th>最近使用</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="passkeyTableBody">
+                                <tr>
+                                    <td colspan="4">加载中...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="settings-block">
+                    <div class="settings-block-header">
                         <h3>图片压缩 API 管理（TinyPNG）</h3>
                         <p>多 Key 轮询与调用监控</p>
                     </div>
@@ -1225,6 +1257,132 @@ require_once APP_ROOT . '/header.php';
             }
         };
         setInterval(updateSystemStatus, 3000);
+
+        // ==================== Passkey 管理 ====================
+        const loadPasskeys = async () => {
+            try {
+                const res = await fetch('/api/passkey.php?action=list');
+                const data = await res.json();
+                const tbody = document.getElementById('passkeyTableBody');
+                const countEl = document.getElementById('passkeyCount');
+                if (!tbody || !countEl) return;
+
+                if (data.status === 'success' && data.credentials && data.credentials.length > 0) {
+                    countEl.textContent = data.credentials.length;
+                    tbody.innerHTML = data.credentials.map(cred => `
+                        <tr>
+                            <td><code>${cred.credentialId.substring(0, 16)}...</code></td>
+                            <td>${cred.createdAt}</td>
+                            <td>${cred.lastUsedAt || '-'}</td>
+                            <td>
+                                <button type="button" class="btn btn-danger passkey-delete-btn" data-id="${escapeHtml(cred.credentialId)}">
+                                    删除
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('');
+
+                    tbody.querySelectorAll('.passkey-delete-btn').forEach(btn => {
+                        btn.addEventListener('click', async () => {
+                            const id = btn.getAttribute('data-id');
+                            if (!id || !confirm('确定要删除此 Passkey 吗？')) return;
+                            try {
+                                const delRes = await fetch('/api/passkey.php?action=delete', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                    body: new URLSearchParams({ credentialId: id, csrf_token: window.CSRF_TOKEN || '' })
+                                });
+                                const delData = await delRes.json();
+                                if (delData.status === 'success') {
+                                    if (window.ImgEt && window.ImgEt.Utils) window.ImgEt.Utils.showNotification('Passkey 已删除', 'success');
+                                    loadPasskeys();
+                                } else {
+                                    throw new Error(delData.message || '删除失败');
+                                }
+                            } catch (err) {
+                                if (window.ImgEt && window.ImgEt.Utils) window.ImgEt.Utils.showNotification(err.message || '删除失败', 'error');
+                            }
+                        });
+                    });
+                } else {
+                    countEl.textContent = '0';
+                    tbody.innerHTML = '<tr><td colspan="4">尚未注册 Passkey</td></tr>';
+                }
+            } catch (err) {
+                console.error('Load passkeys error:', err);
+            }
+        };
+
+        const registerPasskey = async () => {
+            if (!window.PublicKeyCredential) {
+                if (window.ImgEt && window.ImgEt.Utils) window.ImgEt.Utils.showNotification('您的浏览器不支持 Passkey', 'error');
+                return;
+            }
+            try {
+                const res = await fetch('/api/passkey.php?action=register_options');
+                const data = await res.json();
+                if (data.status !== 'success') {
+                    throw new Error(data.message || '获取注册选项失败');
+                }
+                const options = data;
+
+                options.challenge = base64UrlToBuffer(options.challenge);
+                options.user.id = base64UrlToBuffer(options.user.id);
+
+                const credential = await navigator.credentials.create({ publicKey: options });
+                if (!credential) {
+                    throw new Error('用户取消了注册');
+                }
+
+                const verifyRes = await fetch('/api/passkey.php?action=register_verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        clientDataJSON: bufferToBase64Url(credential.response.clientDataJSON),
+                        attestationObject: bufferToBase64Url(credential.response.attestationObject),
+                        credentialId: bufferToBase64Url(credential.rawId)
+                    })
+                });
+
+                const verifyData = await verifyRes.json();
+                if (verifyData.status === 'success') {
+                    if (window.ImgEt && window.ImgEt.Utils) window.ImgEt.Utils.showNotification('Passkey 注册成功', 'success');
+                    loadPasskeys();
+                } else {
+                    throw new Error(verifyData.message || '注册验证失败');
+                }
+            } catch (error) {
+                console.error('Passkey register error:', error);
+                if (window.ImgEt && window.ImgEt.Utils) window.ImgEt.Utils.showNotification(error.message || 'Passkey 注册失败', 'error');
+            }
+        };
+
+        const base64UrlToBuffer = (base64url) => {
+            const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+            const pad = 4 - (base64.length % 4);
+            const padded = pad !== 4 ? base64 + '='.repeat(pad) : base64;
+            const binary = atob(padded);
+            const buffer = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                buffer[i] = binary.charCodeAt(i);
+            }
+            return buffer.buffer;
+        };
+
+        const bufferToBase64Url = (buffer) => {
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        };
+
+        const passkeyRegisterBtn = document.getElementById('passkeyRegisterBtn');
+        if (passkeyRegisterBtn) {
+            passkeyRegisterBtn.addEventListener('click', registerPasskey);
+        }
+        loadPasskeys();
 
     });
 

@@ -132,6 +132,10 @@ $is_logged_in = ADMIN_API_KEY !== '' &&
                                     <i class="fa-light fa-arrow-right-to-bracket"></i>
                                     <span>登录</span>
                                 </button>
+                                <button type="button" class="login-submit login-passkey-btn" style="margin-top:8px;background:transparent;border:1px solid var(--border-color);color:var(--text);">
+                                    <i class="fa-light fa-fingerprint"></i>
+                                    <span>使用 Passkey 登录</span>
+                                </button>
                             </div>
                         </div>
                     <?php endif; ?>

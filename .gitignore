@@ -32,3 +32,4 @@ release/*.zip
 
 # WordPress 插件（单独分发，不纳入主仓库）
 wordpress/
+data/challenges/
