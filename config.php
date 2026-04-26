@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 /**
- * LitePic- 配置文件
+ * LitePic - 配置文件
  */
 
 if (!function_exists('load_dotenv_file')) {
@@ -101,9 +101,9 @@ $default_host = $_SERVER['HTTP_HOST'] ?? 'localhost:8080';
 $default_scheme = $is_https ? 'https' : 'http';
 
 // 基础配置
-define('SITE_NAME', env_value('SITE_NAME', 'ImG.et'));
+define('SITE_NAME', env_value('SITE_NAME', 'LitePic'));
 define('SITE_DESCRIPTION', env_value('SITE_DESCRIPTION', '轻量级图床程序'));
-define('SITE_VERSION', '1.0.0');
+define('SITE_VERSION', '2.2.0');
 
 // 网站路径配置
 define('SITE_URL', env_value('SITE_URL', $default_scheme . '://' . $default_host));
