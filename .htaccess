@@ -11,9 +11,6 @@ RedirectMatch 403 ^/logs/
 </FilesMatch>
 
 # 禁止在 uploads 目录执行 PHP（即使上传了恶意脚本也无法执行）
-<IfModule mod_php.c>
-    php_flag engine off
-</IfModule>
 <IfModule mod_rewrite.c>
     RewriteRule ^uploads/.*\.php$ - [F,L]
 </IfModule>
