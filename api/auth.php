@@ -46,6 +46,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     
     // 处理登录请求
     if (isset($data['apiKey'])) {
+        // 速率限制检查
+        if (!check_login_rate_limit()) {
+            error_response('登录尝试过于频繁，请 5 分钟后再试', 429);
+        }
+
         $api_key = trim($data['apiKey']);
         
         if (ADMIN_API_KEY !== '' && hash_equals(ADMIN_API_KEY, $api_key)) {
@@ -64,6 +69,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             
             success_response(['message' => '登录成功']);
         } else {
+            record_login_failure();
             error_response('API Key 无效', 401);
         }
         exit;

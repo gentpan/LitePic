@@ -1,0 +1,359 @@
+.settings-layout {
+  display: grid;
+  gap: 14px;
+}
+
+.settings-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.settings-block {
+  border: 1px solid var(--border-color);
+  background: var(--surface, #fff);
+  padding: 14px;
+  display: grid;
+  gap: 14px;
+}
+
+.settings-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.settings-block-header h3 {
+  margin: 0;
+  font-size: 1.16rem;
+  line-height: 1.25;
+  color: var(--dark);
+  font-weight: 400;
+}
+
+.settings-block-header p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--gray);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.settings-cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.settings-col {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+.field label {
+  font-size: 0.98rem;
+  font-weight: 400;
+  color: var(--dark);
+}
+
+.settings-input,
+.settings-number,
+.settings-textarea {
+  width: 100% !important;
+  min-height: 50px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  background: var(--surface, #fff);
+  color: var(--dark);
+  border-radius: 0;
+  font-size: 1rem;
+  line-height: 1.35;
+  box-sizing: border-box;
+}
+
+.settings-number {
+  appearance: textfield;
+}
+
+.settings-number::-webkit-outer-spin-button,
+.settings-number::-webkit-inner-spin-button {
+  margin: 0;
+}
+
+select.settings-input,
+select.settings-number {
+  appearance: none;
+  padding-right: 40px;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 15px) calc(50% - 2px), calc(100% - 10px) calc(50% - 2px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.settings-input:focus,
+.settings-number:focus,
+.settings-textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.secret-input-wrap {
+  position: relative;
+}
+
+.settings-input.has-toggle {
+  padding-right: 50px;
+}
+
+.secret-toggle-btn {
+  position: absolute;
+  right: 1px;
+  top: 1px;
+  bottom: 1px;
+  width: 48px;
+  border: 0;
+  border-left: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--gray);
+  cursor: pointer;
+}
+
+.secret-toggle-btn:hover {
+  color: var(--dark);
+}
+
+.checks {
+  display: grid;
+  gap: 10px;
+}
+
+.checks-inline {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.check-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  font-size: 1rem;
+}
+
+.check-item input {
+  width: 18px;
+  height: 18px;
+}
+
+.settings-submit-row {
+  display: flex;
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+.settings-submit-row .btn,
+.inline-form .btn,
+.table-actions .btn {
+  min-height: 44px;
+  padding: 0 16px;
+}
+
+.settings-table td .btn {
+  min-height: 44px;
+  padding: 0 16px;
+}
+
+.inline-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.inline-form.inline-form-3 {
+  grid-template-columns: minmax(0, 240px) 1fr auto;
+}
+
+.inline-form .settings-input {
+  min-width: 0;
+}
+
+.settings-meta {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--gray);
+}
+
+.settings-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--border-color);
+}
+
+.settings-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.settings-table th,
+.settings-table td {
+  text-align: left;
+  vertical-align: middle;
+  padding: 10px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.92rem;
+}
+
+.settings-table th {
+  color: var(--dark);
+  background: color-mix(in srgb, var(--surface, #fff) 93%, #000 7%);
+}
+
+.settings-table td {
+  color: var(--gray);
+}
+
+.settings-table tr:last-child td {
+  border-bottom: none;
+}
+
+.server-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.server-info-item {
+  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--surface, #fff) 94%, #000 6%);
+  padding: 10px 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.server-info-item-wide {
+  grid-column: 1 / -1;
+}
+
+.server-info-label {
+  font-size: 0.88rem;
+  color: var(--gray);
+}
+
+.server-info-value {
+  font-size: 0.98rem;
+  color: var(--dark);
+  word-break: break-all;
+}
+
+.server-capability-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.server-capability-item {
+  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--surface, #fff) 94%, #000 6%);
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 0.86rem;
+  line-height: 1;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.status-pill.is-on {
+  color: #166534;
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.status-pill.is-off {
+  color: #991b1b;
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.status-pill.is-warn {
+  color: #92400e;
+  background: #ffedd5;
+  border-color: #fdba74;
+}
+
+.token-input {
+  font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.table-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 1080px) {
+  .settings-block-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .settings-block-header p {
+    text-align: left;
+    white-space: normal;
+  }
+
+  .settings-cols {
+    grid-template-columns: 1fr;
+  }
+
+  .checks-inline {
+    grid-template-columns: 1fr;
+  }
+
+  .inline-form.inline-form-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .server-capability-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .inline-form {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-table th,
+  .settings-table td {
+    white-space: nowrap;
+  }
+
+  .server-info-grid,
+  .server-capability-grid {
+    grid-template-columns: 1fr;
+  }
+}
+/* stats 页面样式 — 基于 style.css / header.css 进行整合与精简
+   目标：与站点全局变量保持一致，处理 header 固定高度、防止遮挡，charts 与表格可读性优化 */
+
+
+/* 页面容器，预留 header 高度避免内容被覆盖 */

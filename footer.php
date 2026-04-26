@@ -33,13 +33,13 @@ declare(strict_types=1);
 
         <!-- 右侧社交媒体图标 -->
         <div class="footer-links">
-            <a href="https://xifeng.net" class="footer-icon" title="西风" target="_blank">
+            <a href="https://xifeng.net" class="footer-icon" title="西风" target="_blank" rel="noopener noreferrer">
                 <i class="fa-brands fa-ello"></i>
             </a>
-            <a href="https://x.com/gentpan" class="footer-icon" title="X" target="_blank">
+            <a href="https://x.com/gentpan" class="footer-icon" title="X" target="_blank" rel="noopener noreferrer">
             <i class="fa-brands fa-twitter"></i>
             </a>
-            <a href="https://github.com/gentpan" class="footer-icon" title="GitHub" target="_blank">
+            <a href="https://github.com/gentpan" class="footer-icon" title="GitHub" target="_blank" rel="noopener noreferrer">
                 <i class="fab fa-github"></i>
             </a>
         </div>

@@ -2782,6 +2782,16 @@ function handle_uploaded_files(array $files): array {
             continue;
         }
 
+        // 增加 MIME / 文件头校验（防止扩展名伪造）
+        $tmp_name = (string)($file['tmp_name'] ?? '');
+        if ($tmp_name !== '' && !validate_upload_mime($tmp_name, $ext)) {
+            $results[] = [
+                'status' => 'error',
+                'message' => "文件 {$original_name} 内容与实际类型不符或包含危险内容",
+            ];
+            continue;
+        }
+
         if ((int)($file['size'] ?? 0) > get_effective_upload_max_bytes()) {
             $results[] = [
                 'status' => 'error',
@@ -2790,7 +2800,6 @@ function handle_uploaded_files(array $files): array {
             continue;
         }
 
-        $tmp_name = (string)($file['tmp_name'] ?? '');
         if ($tmp_name === '') {
             $results[] = [
                 'status' => 'error',
@@ -3380,6 +3389,173 @@ function verify_managed_api_token(string $plain_token): bool {
     }
 
     return $matched;
+}
+
+/**
+ * ============================================
+ * 安全加固函数（CSRF、速率限制、MIME校验）
+ * ============================================
+ */
+
+/**
+ * 初始化 Session（用于 CSRF Token 和登录速率限制）
+ */
+function session_init_safe(): void {
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        session_start();
+    }
+}
+
+/**
+ * 获取或生成 CSRF Token
+ */
+function csrf_token_get(): string {
+    session_init_safe();
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return (string)$_SESSION['csrf_token'];
+}
+
+/**
+ * 验证 CSRF Token
+ */
+function csrf_token_verify(?string $token): bool {
+    session_init_safe();
+    if (empty($token) || empty($_SESSION['csrf_token'])) {
+        return false;
+    }
+    return hash_equals((string)$_SESSION['csrf_token'], $token);
+}
+
+/**
+ * 输出 CSRF Token 隐藏字段（用于表单）
+ */
+function csrf_token_input(): string {
+    $token = csrf_token_get();
+    return '<input type="hidden" name="csrf_token" value="' . htmlspecialchars($token, ENT_QUOTES, 'UTF-8') . '">';
+}
+
+/**
+ * 检查登录速率限制
+ * 返回 true 表示允许登录，false 表示已超限
+ */
+function check_login_rate_limit(): bool {
+    session_init_safe();
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    $key = 'login_attempts_' . md5($ip);
+    $now = time();
+
+    if (!isset($_SESSION[$key]) || !is_array($_SESSION[$key])) {
+        return true;
+    }
+
+    $attempts = (array)$_SESSION[$key];
+    // 只保留最近 5 分钟内的失败记录
+    $recent = [];
+    foreach ($attempts as $t) {
+        if ($now - (int)$t < 300) {
+            $recent[] = $t;
+        }
+    }
+    $_SESSION[$key] = $recent;
+
+    // 5 分钟内超过 5 次则封禁
+    return count($recent) < 5;
+}
+
+/**
+ * 记录一次登录失败
+ */
+function record_login_failure(): void {
+    session_init_safe();
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    $key = 'login_attempts_' . md5($ip);
+    if (!isset($_SESSION[$key]) || !is_array($_SESSION[$key])) {
+        $_SESSION[$key] = [];
+    }
+    $_SESSION[$key][] = time();
+}
+
+/**
+ * 上传文件 MIME 类型校验
+ * 返回 true 表示通过，false 表示不通过
+ */
+function validate_upload_mime(string $tmp_name, string $ext): bool {
+    if (!is_file($tmp_name) || !is_readable($tmp_name)) {
+        return false;
+    }
+
+    // SVG 单独处理：需检查是否包含恶意脚本（基础防护）
+    if ($ext === 'svg') {
+        $content = file_get_contents($tmp_name);
+        if ($content === false) {
+            return false;
+        }
+        $lower = strtolower($content);
+        // 检测常见的危险标签和事件处理器
+        $dangerous = ['<script', 'javascript:', 'onload=', 'onerror=', 'onmouseover=', 'onfocus='];
+        foreach ($dangerous as $d) {
+            if (str_contains($lower, $d)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // 使用 finfo 获取真实 MIME 类型
+    if (function_exists('finfo_open')) {
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        if ($finfo) {
+            $mime = finfo_file($finfo, $tmp_name);
+            finfo_close($finfo);
+            if ($mime === false) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    } elseif (function_exists('mime_content_type')) {
+        $mime = mime_content_type($tmp_name);
+        if ($mime === false) {
+            return false;
+        }
+    } else {
+        // 无 MIME 检测扩展时，使用 getimagesize 做降级校验
+        $info = @getimagesize($tmp_name);
+        if ($info === false) {
+            return false;
+        }
+        $mime = $info['mime'] ?? '';
+    }
+
+    $allowed_mimes = [
+        'image/jpeg' => ['jpg', 'jpeg'],
+        'image/png' => ['png'],
+        'image/gif' => ['gif'],
+        'image/webp' => ['webp'],
+        'image/x-icon' => ['ico'],
+        'image/vnd.microsoft.icon' => ['ico'],
+        'image/bmp' => ['bmp'],
+        'image/tiff' => ['tiff', 'tif'],
+    ];
+
+    if (!isset($allowed_mimes[$mime])) {
+        return false;
+    }
+
+    return in_array($ext, $allowed_mimes[$mime], true);
+}
+
+/**
+ * 生产环境安全的错误信息输出
+ * 调试模式下返回原始信息，生产环境返回通用提示
+ */
+function safe_error_message(Throwable $e): string {
+    if (DEBUG) {
+        return $e->getMessage();
+    }
+    return '服务器内部错误，请稍后重试';
 }
 
 /**

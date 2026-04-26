@@ -1,0 +1,710 @@
+/* ==========================================================================
+   ViewImage Fullscreen Override
+   ========================================================================== */
+
+.view-image {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 20000 !important;
+  padding: 0 !important;
+}
+
+.recent-empty {
+  grid-column: 1 / -1;
+  min-height: 120px;
+  border: 1px dashed var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--gray);
+}
+
+.runtime-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.runtime-metric-card {
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--surface, #fff) 92%, var(--primary) 8%), var(--surface, #fff));
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.06);
+}
+
+.runtime-metric-card-wide {
+  grid-column: span 3;
+}
+
+.runtime-metric-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.runtime-metric-icon {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(23, 119, 255, 0.12);
+  color: #1777ff;
+  font-size: 1rem;
+}
+
+.runtime-metric-icon-peak {
+  background: rgba(249, 115, 22, 0.14);
+  color: #f97316;
+}
+
+.runtime-metric-icon-cpu {
+  background: rgba(14, 165, 233, 0.14);
+  color: #0284c7;
+}
+
+.runtime-metric-icon-disk {
+  background: rgba(34, 197, 94, 0.14);
+  color: #16a34a;
+}
+
+.runtime-metric-icon-uptime {
+  background: rgba(168, 85, 247, 0.14);
+  color: #9333ea;
+}
+
+.runtime-metric-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.82rem;
+  color: var(--gray);
+}
+
+.runtime-metric-value {
+  display: block;
+  font-size: 1.05rem;
+  line-height: 1.35;
+  color: var(--dark);
+}
+
+.runtime-metric-sub {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: var(--gray);
+}
+
+.runtime-metric-badge {
+  min-width: 58px;
+  padding: 6px 10px;
+  text-align: center;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--dark);
+  background: color-mix(in srgb, var(--surface, #fff) 82%, #000 18%);
+}
+
+.runtime-progress {
+  position: relative;
+  overflow: hidden;
+  height: 10px;
+  margin-top: 14px;
+  background: color-mix(in srgb, var(--surface, #fff) 84%, #000 16%);
+}
+
+.runtime-progress-bar {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #1777ff, #5ea8ff);
+  transition: width 0.35s ease;
+}
+
+.runtime-progress-peak .runtime-progress-bar {
+  background: linear-gradient(90deg, #fb923c, #f97316);
+}
+
+.runtime-progress-cpu .runtime-progress-bar {
+  background: linear-gradient(90deg, #38bdf8, #0ea5e9);
+}
+
+.runtime-progress-disk .runtime-progress-bar {
+  background: linear-gradient(90deg, #4ade80, #22c55e);
+}
+
+.runtime-metric-card-uptime {
+  background:
+    radial-gradient(circle at top right, rgba(147, 51, 234, 0.1), transparent 34%),
+    linear-gradient(135deg, color-mix(in srgb, var(--surface, #fff) 93%, #9333ea 7%), var(--surface, #fff));
+}
+
+.runtime-uptime-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.runtime-uptime-chip {
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.runtime-uptime-chip-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+  color: var(--gray);
+}
+
+.runtime-uptime-chip-value {
+  display: block;
+  font-size: 0.95rem;
+  color: var(--dark);
+}
+
+@media (max-width: 900px) {
+  .runtime-metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .runtime-metric-card-wide {
+    grid-column: span 2;
+  }
+
+  .runtime-uptime-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .runtime-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .runtime-metric-card-wide {
+    grid-column: span 1;
+  }
+
+  .runtime-metric-head {
+    grid-template-columns: auto 1fr;
+  }
+
+  .runtime-metric-badge {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+.settings-block-terminal {
+  background: #0b1220;
+  border: 1px solid #243041;
+  box-shadow: none;
+}
+
+.settings-block-terminal .settings-block-header {
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid #243041;
+}
+
+.settings-block-terminal .settings-block-header h3 {
+  color: #e5edf8;
+  font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settings-block-terminal .settings-block-header p {
+  color: #7f8ea3;
+  font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.8rem;
+}
+
+.settings-block-terminal .runtime-metrics-grid {
+  gap: 12px;
+}
+
+.settings-block-terminal .runtime-metric-card,
+.settings-block-terminal .server-info-item,
+.settings-block-terminal .server-capability-item {
+  border: 1px solid #243041;
+  background: #111827;
+  box-shadow: none;
+}
+
+.settings-block-terminal .runtime-metric-card-uptime {
+  background: #101725;
+}
+
+.settings-block-terminal .runtime-metric-head {
+  gap: 10px;
+}
+
+.settings-block-terminal .runtime-metric-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 0;
+  border: 1px solid #314054;
+  background: #0b1220;
+  color: #8fb7ff;
+}
+
+.settings-block-terminal .runtime-metric-icon-peak {
+  color: #f7b267;
+}
+
+.settings-block-terminal .runtime-metric-icon-cpu {
+  color: #7dd3fc;
+}
+
+.settings-block-terminal .runtime-metric-icon-disk {
+  color: #86efac;
+}
+
+.settings-block-terminal .runtime-metric-icon-uptime {
+  color: #c4b5fd;
+}
+
+.settings-block-terminal .runtime-metric-label,
+.settings-block-terminal .server-info-label,
+.settings-block-terminal .runtime-uptime-chip-label {
+  color: #7f8ea3;
+  font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.76rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.settings-block-terminal .runtime-metric-value,
+.settings-block-terminal .server-info-value,
+.settings-block-terminal .runtime-uptime-chip-value {
+  color: #e5edf8;
+  font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.settings-block-terminal .runtime-metric-sub {
+  color: #9fb0c7;
+  font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.79rem;
+}
+
+.settings-block-terminal .runtime-metric-badge {
+  min-width: 64px;
+  border: 1px solid #314054;
+  background: #0b1220;
+  color: #d8e4f5;
+  border-radius: 0;
+  font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.settings-block-terminal .runtime-progress,
+.settings-block-terminal .runtime-uptime-chip {
+  border-radius: 0;
+}
+
+.settings-block-terminal .runtime-progress {
+  height: 8px;
+  background: #0b1220;
+  border: 1px solid #243041;
+}
+
+.settings-block-terminal .runtime-progress-bar {
+  background: #3b82f6;
+}
+
+.settings-block-terminal .runtime-progress-peak .runtime-progress-bar {
+  background: #f59e0b;
+}
+
+.settings-block-terminal .runtime-progress-cpu .runtime-progress-bar {
+  background: #06b6d4;
+}
+
+.settings-block-terminal .runtime-progress-disk .runtime-progress-bar {
+  background: #22c55e;
+}
+
+.settings-block-terminal .runtime-uptime-grid {
+  gap: 10px;
+}
+
+.settings-block-terminal .runtime-uptime-chip {
+  border: 1px solid #243041;
+  background: #0b1220;
+}
+
+.settings-block-terminal .server-info-grid {
+  margin-top: 14px;
+  gap: 12px;
+}
+
+.settings-block-terminal .server-info-item {
+  position: relative;
+  padding: 14px;
+}
+
+.settings-block-terminal .server-info-item::before,
+.settings-block-terminal .server-capability-item::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: #22c55e;
+  box-shadow: 0 0 0 1px #0b1220;
+}
+
+.settings-block-terminal .server-info-item {
+  padding-right: 34px;
+}
+
+.settings-block-terminal .server-capability-grid {
+  margin-top: 12px;
+  gap: 12px;
+}
+
+.settings-block-terminal .server-capability-item {
+  position: relative;
+  min-height: 58px;
+  padding: 14px 16px;
+}
+
+.settings-block-terminal .status-pill {
+  min-height: auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #d8e4f5;
+  font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.82rem;
+}
+
+.settings-block-terminal .status-pill::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  display: inline-block;
+  margin-right: 8px;
+  background: currentColor;
+}
+
+.settings-block-terminal .status-pill.is-on {
+  color: #4ade80;
+}
+
+.settings-block-terminal .status-pill.is-off {
+  color: #f87171;
+}
+
+.settings-block-terminal .status-pill.is-warn {
+  color: #fbbf24;
+}
+
+.settings-block-terminal .server-capability-item::before {
+  display: none;
+}
+
+html[data-theme="dark"] .settings-block-terminal {
+  background: #0b1220;
+  border-color: #243041;
+}
+
+.settings-block-runtime {
+  background: #ffffff;
+  border: 1px solid #dbe4ee;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+}
+
+.settings-block-runtime .settings-block-header {
+  align-items: flex-end;
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid #e6edf5;
+}
+
+.settings-block-runtime .settings-block-header h3 {
+  color: #0f172a;
+}
+
+.settings-block-runtime .settings-block-header p {
+  color: #64748b;
+}
+
+.settings-block-runtime .runtime-section + .runtime-section {
+  margin-top: 18px;
+}
+
+.settings-block-runtime .runtime-metric-card,
+.settings-block-runtime .server-info-item,
+.settings-block-runtime .server-capability-item,
+.settings-block-runtime .runtime-overview,
+.settings-block-runtime .runtime-upload-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: none;
+}
+
+.settings-block-runtime .runtime-overview {
+  padding: 20px;
+  margin-bottom: 18px;
+  background: #f8fbff;
+}
+
+.settings-block-runtime .runtime-overview-main {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(560px, 1.4fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.settings-block-runtime .runtime-overview-copy h4 {
+  margin: 6px 0 8px;
+  color: #0f172a;
+  font-size: 1.35rem;
+}
+
+.settings-block-runtime .runtime-overview-copy p {
+  margin: 0;
+  color: #334155;
+  font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.settings-block-runtime .runtime-overview-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.settings-block-runtime .runtime-overview-stat {
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.settings-block-runtime .runtime-overview-stat-label,
+.settings-block-runtime .runtime-section-label {
+  display: block;
+  color: #64748b;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+}
+
+.settings-block-runtime .runtime-overview-stat strong {
+  display: block;
+  margin-top: 8px;
+  color: #0f172a;
+  font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 1.1rem;
+}
+
+.settings-block-runtime .runtime-section-head {
+  margin-bottom: 12px;
+}
+
+.settings-block-runtime .runtime-resource-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.settings-block-runtime .runtime-metric-card {
+  padding: 18px;
+}
+
+.settings-block-runtime .runtime-metric-card-disk {
+  grid-column: 1 / -1;
+}
+
+.settings-block-runtime .runtime-metric-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.settings-block-runtime .runtime-metric-copy {
+  min-width: 0;
+}
+
+.settings-block-runtime .runtime-metric-copy-inline .runtime-inline-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.settings-block-runtime .runtime-metric-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 0;
+  background: #eff6ff;
+  color: #2563eb;
+  border: none;
+}
+
+.settings-block-runtime .runtime-metric-icon-cpu {
+  background: #ecfeff;
+  color: #0891b2;
+}
+
+.settings-block-runtime .runtime-metric-icon-disk {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.settings-block-runtime .runtime-metric-icon-uptime {
+  background: #f8fafc;
+  color: #475569;
+}
+
+.settings-block-runtime .runtime-metric-label,
+.settings-block-runtime .server-info-label,
+.settings-block-runtime .runtime-uptime-chip-label {
+  color: #64748b;
+  font-size: 0.8rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.settings-block-runtime .runtime-metric-value,
+.settings-block-runtime .server-info-value,
+.settings-block-runtime .runtime-uptime-chip-value {
+  color: #0f172a;
+  font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 1.02rem;
+}
+
+.settings-block-runtime .runtime-metric-sub {
+  color: #64748b;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.settings-block-runtime .runtime-metric-badge {
+  min-width: 62px;
+  border-radius: 0;
+  background: #f8fafc;
+  color: #0f172a;
+  font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.settings-block-runtime .runtime-progress {
+  height: 8px;
+  margin-top: 16px;
+  background: #edf2f7;
+  border-radius: 0;
+}
+
+.settings-block-runtime .runtime-progress-bar {
+  background: #3b82f6;
+}
+
+.settings-block-runtime .runtime-progress-cpu .runtime-progress-bar {
+  background: #06b6d4;
+}
+
+.settings-block-runtime .runtime-progress-disk .runtime-progress-bar {
+  background: #22c55e;
+}
+
+.settings-block-runtime .server-info-grid {
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.settings-block-runtime .runtime-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.settings-block-runtime .server-info-item {
+  padding: 16px;
+  gap: 8px;
+  border-radius: 0;
+}
+
+.settings-block-runtime .runtime-upload-card {
+  padding: 18px;
+  margin-bottom: 14px;
+}
+
+.settings-block-runtime .runtime-upload-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.settings-block-runtime .runtime-upload-value {
+  display: block;
+  margin-top: 8px;
+  color: #0f172a;
+  font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 1.15rem;
+}
+
+.settings-block-runtime .server-capability-grid {
+  gap: 12px;
+}
+
+.settings-block-runtime .server-capability-item {
+  padding: 14px 16px;
+  border-radius: 0;
+}
+
+.settings-block-runtime .status-pill {
+  min-height: auto;
+  padding: 6px 10px;
+  border-radius: 0;
+  font-size: 0.8rem;
+  border: 1px solid transparent;
+}
+
+.settings-block-runtime .status-pill.is-on {
+  color: #166534;
+  background: #dcfce7;
+  border-color: #bbf7d0;
+}
+
+.settings-block-runtime .status-pill.is-off {
+  color: #991b1b;
+  background: #fee2e2;
+  border-color: #fecaca;
+}
+
+.settings-block-runtime .status-pill.is-warn {
+  color: #92400e;
+  background: #fef3c7;
+  border-color: #fde68a;
+}
+
+@media (max-width: 640px) {
+  .settings-block-runtime .runtime-overview-main,
+  .settings-block-runtime .runtime-resource-grid,
+  .settings-block-runtime .runtime-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-block-runtime .runtime-overview-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-block-runtime .runtime-upload-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

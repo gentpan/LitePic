@@ -131,7 +131,19 @@ function write_user_ini_values(string $ini_path, array $updates): bool {
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-    $form_action = (string)($_POST['form_action'] ?? 'save_settings');
+    // CSRF 校验
+    $csrf_token = (string)($_POST['csrf_token'] ?? '');
+    if (!csrf_token_verify($csrf_token)) {
+        $message = '安全令牌无效或已过期，请刷新页面后重试';
+        $message_type = 'error';
+        // 阻止后续处理
+        $_SERVER['REQUEST_METHOD'] = 'GET';
+        $form_action = '';
+    } else {
+        $form_action = (string)($_POST['form_action'] ?? 'save_settings');
+    }
+
+    if ($form_action !== '') {
 
     if ($form_action === 'create_token') {
         $token_name = trim((string)($_POST['token_name'] ?? ''));
@@ -241,7 +253,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $result = remote_storage_delete_all_objects();
         $message = (string)($result['message'] ?? '远程清理失败');
         $message_type = !empty($result['success']) ? 'success' : 'error';
-    } else {
+    }
+    }
+
+    if ($form_action !== '' && !isset($message)) {
         $site_name = trim((string)($_POST['site_name'] ?? SITE_NAME));
         $site_description = trim((string)($_POST['site_description'] ?? SITE_DESCRIPTION));
         $max_file_size_mb = max(1, min(50, (int)($_POST['max_file_size_mb'] ?? (int)round(MAX_FILE_SIZE / 1024 / 1024))));
@@ -393,6 +408,7 @@ require_once APP_ROOT . '/header.php';
         <div class="page-shell-body">
             <div class="settings-layout">
                 <form method="post" class="settings-panel">
+                    <?= csrf_token_input() ?>
                     <input type="hidden" name="form_action" value="save_settings">
 
                     <section class="settings-block settings-block-runtime">
@@ -657,6 +673,7 @@ require_once APP_ROOT . '/header.php';
                                 class="btn js-remote-sync-all-btn"
                                 name="form_action"
                                 value="sync_remote_storage_all"
+                                onclick="return confirm('确定要将所有本地图片同步到远程存储吗？此操作可能需要较长时间。')"
                                 data-busy-text="正在同步全部图片到远程存储，请勿关闭页面...">
                                 <i class="fa-light fa-cloud-arrow-up"></i>
                                 一键同步全部到 R2/S3
@@ -666,6 +683,7 @@ require_once APP_ROOT . '/header.php';
                                 class="btn js-remote-restore-all-btn"
                                 name="form_action"
                                 value="restore_remote_storage_all"
+                                onclick="return confirm('确定要从远程存储恢复到本地吗？这会覆盖本地同名文件。')"
                                 data-busy-text="正在从远程恢复到本地，请勿关闭页面...">
                                 <i class="fa-light fa-cloud-arrow-down"></i>
                                 一键恢复到本地
@@ -675,7 +693,8 @@ require_once APP_ROOT . '/header.php';
                                 data-busy-text="正在清空远程对象，请勿关闭页面..."
                                 class="btn btn-danger js-remote-purge-btn"
                                 name="form_action"
-                                value="purge_remote_storage">
+                                value="purge_remote_storage"
+                                onclick="return confirm('警告：此操作将清空远程存储中的所有对象，且不可恢复！确定继续吗？')">
                                 <i class="fa-light fa-trash-can-list"></i>
                                 清空 R2/S3 远程对象
                             </button>
@@ -751,6 +770,7 @@ require_once APP_ROOT . '/header.php';
                     </div>
 
                     <form method="post" class="inline-form">
+                        <?= csrf_token_input() ?>
                         <input type="hidden" name="form_action" value="create_token">
                         <input class="settings-input" type="text" name="token_name" placeholder="Token 名称（如：wordpress-prod）">
                         <button type="submit" class="btn btn-primary">
@@ -795,7 +815,8 @@ require_once APP_ROOT . '/header.php';
                                         <td><?= htmlspecialchars($last_used_at) ?></td>
                                         <td>启用中</td>
                                         <td>
-                                            <form method="post">
+                                            <form method="post" onsubmit="return confirm('确定要撤销此 API Token 吗？使用此 Token 的应用将立即失效。')">
+                                                <?= csrf_token_input() ?>
                                                 <input type="hidden" name="form_action" value="revoke_token">
                                                 <input type="hidden" name="token_id" value="<?= htmlspecialchars((string)$token['id']) ?>">
                                                 <button type="submit" class="btn btn-danger">撤销</button>
@@ -821,6 +842,7 @@ require_once APP_ROOT . '/header.php';
                     </div>
 
                     <form method="post" class="inline-form inline-form-3">
+                        <?= csrf_token_input() ?>
                         <input type="hidden" name="form_action" value="add_compression_api">
                         <input class="settings-input" type="text" name="compression_api_name" placeholder="名称（如：tinify-main）">
                         <input class="settings-input" type="text" name="compression_api_key" placeholder="输入 TinyPNG API Key">
@@ -880,12 +902,14 @@ require_once APP_ROOT . '/header.php';
                                         <td>
                                             <div class="table-actions">
                                                 <form method="post">
+                                                    <?= csrf_token_input() ?>
                                                     <input type="hidden" name="form_action" value="toggle_compression_api">
                                                     <input type="hidden" name="compression_api_id" value="<?= htmlspecialchars($id) ?>">
                                                     <input type="hidden" name="enable" value="<?= $enabled ? '0' : '1' ?>">
                                                     <button type="submit" class="btn"><?= $enabled ? '禁用' : '启用' ?></button>
                                                 </form>
-                                                <form method="post">
+                                                <form method="post" onsubmit="return confirm('确定要删除此压缩 API Key 吗？')">
+                                                    <?= csrf_token_input() ?>
                                                     <input type="hidden" name="form_action" value="delete_compression_api">
                                                     <input type="hidden" name="compression_api_id" value="<?= htmlspecialchars($id) ?>">
                                                     <button type="submit" class="btn btn-danger">删除</button>
@@ -911,8 +935,8 @@ require_once APP_ROOT . '/header.php';
 
 <script>
 (function () {
-    const flashMessage = <?= json_encode($message, JSON_UNESCAPED_UNICODE) ?>;
-    const flashType = <?= json_encode($message_type === 'success' ? 'success' : 'error') ?>;
+    const flashMessage = <?= json_encode($message, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    const flashType = <?= json_encode($message_type === 'success' ? 'success' : 'error', JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
     let flashShown = false;
 
     const showFlash = () => {

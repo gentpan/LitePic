@@ -4,6 +4,21 @@
 window.ImgEt = window.ImgEt || {};
 
 /**
+ * HTML 转义辅助函数（防止 XSS）
+ * @param {string} str
+ * @returns {string}
+ */
+function escapeHtml(str) {
+    if (typeof str !== 'string') return String(str ?? '');
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+/**
  * 工具类 - 核心功能实现
  */
 window.ImgEt.Utils = {
@@ -151,13 +166,15 @@ window.ImgEt.Utils = {
      * @param {string} url 图片URL
      */
     showCopyDialog(filename, url) {
+        const safeFilename = escapeHtml(filename);
+        const safeUrl = escapeHtml(url);
         const content = `
             <div class="copy-options">
                 <div class="copy-option">
                     <div class="copy-option-header">URL</div>
                     <div class="copy-option-content">
-                        <input type="text" value="${url}" readonly>
-                        <button class="copy-btn" data-copy="${url}">
+                        <input type="text" value="${safeUrl}" readonly>
+                        <button class="copy-btn" data-copy="${safeUrl}">
                             <i class="fa-light fa-copy"></i>
                         </button>
                     </div>
@@ -165,8 +182,8 @@ window.ImgEt.Utils = {
                 <div class="copy-option">
                     <div class="copy-option-header">HTML</div>
                     <div class="copy-option-content">
-                        <input type="text" value="<img src=&quot;${url}&quot; alt=&quot;${filename}&quot;>" readonly>
-                        <button class="copy-btn" data-copy="<img src=&quot;${url}&quot; alt=&quot;${filename}&quot;>">
+                        <input type="text" value="&lt;img src=&quot;${safeUrl}&quot; alt=&quot;${safeFilename}&quot;&gt;" readonly>
+                        <button class="copy-btn" data-copy="&lt;img src=&quot;${safeUrl}&quot; alt=&quot;${safeFilename}&quot;&gt;">
                             <i class="fa-light fa-copy"></i>
                         </button>
                     </div>
@@ -174,8 +191,8 @@ window.ImgEt.Utils = {
                 <div class="copy-option">
                     <div class="copy-option-header">Markdown</div>
                     <div class="copy-option-content">
-                        <input type="text" value="![${filename}](${url})" readonly>
-                        <button class="copy-btn" data-copy="![${filename}](${url})">
+                        <input type="text" value="![${safeFilename}](${safeUrl})" readonly>
+                        <button class="copy-btn" data-copy="![${safeFilename}](${safeUrl})">
                             <i class="fa-light fa-copy"></i>
                         </button>
                     </div>
@@ -183,8 +200,8 @@ window.ImgEt.Utils = {
                 <div class="copy-option">
                     <div class="copy-option-header">BBCode</div>
                     <div class="copy-option-content">
-                        <input type="text" value="[img]${url}[/img]" readonly>
-                        <button class="copy-btn" data-copy="[img]${url}[/img]">
+                        <input type="text" value="[img]${safeUrl}[/img]" readonly>
+                        <button class="copy-btn" data-copy="[img]${safeUrl}[/img]">
                             <i class="fa-light fa-copy"></i>
                         </button>
                     </div>
@@ -225,13 +242,14 @@ if (!window.ImgEt.DialogManager) {
         },
 
         showCustomDialog(title, content) {
+            const safeTitle = escapeHtml(title);
             const dialog = document.createElement('div');
             dialog.className = 'custom-dialog';
-            
+
             dialog.innerHTML = `
                 <div class="custom-dialog-content">
                     <div class="dialog-header">
-                        <h3>${title}</h3>
+                        <h3>${safeTitle}</h3>
                         <button type="button" class="dialog-close">
                             <i class="fa-light fa-times"></i>
                         </button>
@@ -243,32 +261,43 @@ if (!window.ImgEt.DialogManager) {
             `;
 
             document.body.appendChild(dialog);
-            
+            this.activeDialogs.push(dialog);
+
             // 显示动画
             requestAnimationFrame(() => dialog.classList.add('active'));
 
             // 关闭处理
             const close = () => {
                 dialog.classList.remove('active');
-                setTimeout(() => dialog.remove(), 300);
+                setTimeout(() => {
+                    dialog.remove();
+                    this.activeDialogs = this.activeDialogs.filter(d => d !== dialog);
+                    document.removeEventListener('keydown', escHandler);
+                }, 300);
             };
 
-            dialog.querySelector('.dialog-close').addEventListener('click', close);
-            dialog.addEventListener('click', e => {
+            const closeBtn = dialog.querySelector('.dialog-close');
+            closeBtn.addEventListener('click', close);
+
+            const clickOutsideHandler = e => {
                 if (e.target === dialog) close();
-            });
-            
+            };
+            dialog.addEventListener('click', clickOutsideHandler);
+
+            dialog.closeHandler = close;
+
             // ESC 键关闭
             const escHandler = e => {
                 if (e.key === 'Escape') {
                     close();
-                    document.removeEventListener('keydown', escHandler);
                 }
             };
             document.addEventListener('keydown', escHandler);
         },
 
         showConfirmDialog(title, message, onConfirm) {
+            const safeTitle = escapeHtml(title);
+            const safeMessage = escapeHtml(message);
             const dialog = document.createElement('div');
             dialog.className = 'confirm-dialog';
             dialog.innerHTML = `
@@ -276,14 +305,14 @@ if (!window.ImgEt.DialogManager) {
                     <div class="dialog-header">
                         <h3>
                             <i class="fa-light fa-question-circle"></i>
-                            ${title}
+                            ${safeTitle}
                         </h3>
                         <button type="button" class="dialog-close">
                             <i class="fa-light fa-times"></i>
                         </button>
                     </div>
                     <div class="dialog-body">
-                        <p>${message}</p>
+                        <p>${safeMessage}</p>
                     </div>
                     <div class="dialog-footer">
                         <button type="button" class="btn btn-cancel">
@@ -310,10 +339,11 @@ if (!window.ImgEt.DialogManager) {
                     document.removeEventListener('keydown', escHandler);
                 }, 300);
             };
-            
+
             dialog.closeHandler = closeDialog; // 挂载关闭句柄
 
-            dialog.querySelector('.dialog-close').addEventListener('click', closeDialog);
+            const closeBtn = dialog.querySelector('.dialog-close');
+            closeBtn.addEventListener('click', closeDialog);
             dialog.querySelector('.btn-cancel').addEventListener('click', closeDialog);
             dialog.querySelector('.btn-danger').addEventListener('click', () => {
                 if (typeof onConfirm === 'function') {
@@ -322,9 +352,10 @@ if (!window.ImgEt.DialogManager) {
                 closeDialog();
             });
 
-            dialog.addEventListener('click', e => {
+            const clickOutsideHandler = e => {
                 if (e.target === dialog) closeDialog();
-            });
+            };
+            dialog.addEventListener('click', clickOutsideHandler);
 
             const escHandler = e => {
                 if (e.key === 'Escape') {
@@ -353,11 +384,11 @@ document.addEventListener('DOMContentLoaded', () => {
             throw new Error('Core components not loaded');
         }
 
-        // 添加全局错误处理
-        window.onerror = (msg, url, line, col, error) => {
-            console.error('Global error:', error);
+        // 添加全局错误处理（使用 addEventListener 避免覆盖其他处理器）
+        window.addEventListener('error', (event) => {
+            console.error('Global error:', event.error);
             ImgEt.Utils.showNotification('系统错误，请刷新页面重试', 'error');
-        };
+        });
     } catch (error) {
         console.error('Script initialization failed:', error);
     }
@@ -508,8 +539,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         // 1. 执行删除请求
                         await ApiService.request('/action.php', {
                             action: 'delete',
-                            file: filename
-                        });
+                            file: filename,
+                            csrf_token: window.CSRF_TOKEN || ''
+                        }, { method: 'POST' });
                         
                         // 2. 更新总数显示
                         const totalCountEl = document.querySelector('.total-count');
@@ -914,16 +946,29 @@ window.ImgEt = window.ImgEt || {};
 class ApiService {
     static async request(endpoint, params = {}, options = {}) {
         const url = new URL(endpoint, window.location.origin);
-        Object.entries(params).forEach(([k, v]) => {
-            if (v !== undefined && v !== null) url.searchParams.append(k, String(v));
-        });
+        const method = (options.method || 'GET').toUpperCase();
+
+        if (method === 'GET') {
+            Object.entries(params).forEach(([k, v]) => {
+                if (v !== undefined && v !== null) url.searchParams.append(k, String(v));
+            });
+        }
 
         const defaultOptions = {
-            method: 'GET',
+            method: method,
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             credentials: 'same-origin',
             cache: 'no-cache'
         };
+
+        if (method === 'POST' && !options.body) {
+            const body = new URLSearchParams();
+            Object.entries(params).forEach(([k, v]) => {
+                if (v !== undefined && v !== null) body.append(k, String(v));
+            });
+            defaultOptions.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+            defaultOptions.body = body.toString();
+        }
 
         const res = await fetch(url.toString(), { ...defaultOptions, ...options });
         if (!res.ok) {
@@ -1044,8 +1089,9 @@ class DeleteManager extends BaseProcessor {
             // 2. 执行删除请求
             await ApiService.request('/action.php', {
                 action: 'delete',
-                file: filename
-            });
+                file: filename,
+                csrf_token: window.CSRF_TOKEN || ''
+            }, { method: 'POST' });
             
             // 3. 更新总数显示
             const totalCountEl = document.querySelector('.total-count');
@@ -1155,7 +1201,7 @@ class ImageProcessor extends BaseProcessor {
         GalleryManager.setButtonLoadingState(btn, true, 'compress');
 
         try {
-            const data = await ApiService.request('/action.php', { action: 'compress', file: filename });
+            const data = await ApiService.request('/action.php', { action: 'compress', file: filename, csrf_token: window.CSRF_TOKEN || '' }, { method: 'POST' });
             const sizeText = imgCard.querySelector('.img-size');
             if (sizeText && data?.size_text) sizeText.textContent = data.size_text;
             this.#showCompressResult(data);
@@ -1179,7 +1225,7 @@ class ImageProcessor extends BaseProcessor {
         GalleryManager.setButtonLoadingState(btn, true, 'webp');
 
         try {
-            const data = await ApiService.request('/action.php', { action: 'webp', file: filename });
+            const data = await ApiService.request('/action.php', { action: 'webp', file: filename, csrf_token: window.CSRF_TOKEN || '' }, { method: 'POST' });
             this.#showWebPResult(data);
             await this.#addWebPCard(data, imgCard);
             ImgEt.Utils.showNotification('转换成功', 'success');
@@ -1195,19 +1241,21 @@ class ImageProcessor extends BaseProcessor {
     static #showCompressResult(data) {
         const content = `
             <div class="compress-result">
-                <div class="result-item"><span>原始大小:</span><span>${data.original_size}</span></div>
-                <div class="result-item"><span>压缩后:</span><span>${data.compressed_size}</span></div>
-                <div class="result-item success"><span>节省空间:</span><span>${data.saved_size} (${data.saved_percent}%)</span></div>
+                <div class="result-item"><span>原始大小:</span><span>${escapeHtml(data.original_size)}</span></div>
+                <div class="result-item"><span>压缩后:</span><span>${escapeHtml(data.compressed_size)}</span></div>
+                <div class="result-item success"><span>节省空间:</span><span>${escapeHtml(data.saved_size)} (${escapeHtml(data.saved_percent)}%)</span></div>
             </div>`;
         ImgEt.DialogManager.showCustomDialog('压缩完成', content);
     }
 
     static #showWebPResult(data) {
+        const safeFilename = escapeHtml(data.filename);
+        const safeUrl = escapeHtml(data.url);
         const content = `
             <div class="webp-result">
-                <div class="result-item"><span>转换成功:</span><span>${data.filename}</span></div>
-                <div class="result-item"><span>文件大小:</span><span>${data.size_text}</span></div>
-                <div class="result-preview"><img src="${data.url}" alt="${data.filename}" loading="lazy"></div>
+                <div class="result-item"><span>转换成功:</span><span>${safeFilename}</span></div>
+                <div class="result-item"><span>文件大小:</span><span>${escapeHtml(data.size_text)}</span></div>
+                <div class="result-preview"><img src="${safeUrl}" alt="${safeFilename}" loading="lazy"></div>
             </div>`;
         ImgEt.DialogManager.showCustomDialog('转换完成', content);
     }
@@ -1684,6 +1732,7 @@ class UploadManager {
         this.batchCompleted = 0;
         this.activeUploads = 0;
         this.uploadQueue = [];
+        this.completedUploads = [];
         this.maxSize = UploadManager.CONFIG.MAX_SIZE;
         this.autoCompressEnabled = false;
         this.autoWebpEnabled = false;
@@ -2049,6 +2098,7 @@ class UploadManager {
 
             // 修改这里：使用原始文件名显示成功消息
             this.showUploadSuccess(file.name, progressItem, result);
+            this.completedUploads.push(result);
             return true;
 
         } catch (err) {
@@ -2176,12 +2226,30 @@ class UploadManager {
     /**
      * 检查是否所有文件都已上传完成
      */
-    checkUploadComplete() {
+    async checkUploadComplete() {
         if (this.batchTotal > 0 && this.batchCompleted >= this.batchTotal && this.activeUploads === 0) {
             if (this.batchTotal > 1) {
                 ImgEt.Utils.showNotification('所有文件上传完成', 'success');
             }
-            setTimeout(() => location.reload(), 1000);
+
+            // 动态插入新上传的卡片（替代刷新页面）
+            const uploadGrid = document.querySelector('.upload-grid');
+            if (uploadGrid && this.completedUploads.length > 0) {
+                for (const result of this.completedUploads) {
+                    try {
+                        const cardHtml = await ApiService.getCardTemplate(result);
+                        uploadGrid.insertAdjacentHTML('afterbegin', cardHtml);
+                        const newCard = uploadGrid.firstElementChild;
+                        if (newCard) {
+                            GalleryManager.initNewCard(newCard);
+                        }
+                    } catch (err) {
+                        console.error('插入新卡片失败:', err);
+                    }
+                }
+                GalleryManager.updateImageCount();
+                this.completedUploads = [];
+            }
         }
     }
 }

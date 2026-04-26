@@ -1,0 +1,21 @@
+# 禁止在 uploads 目录执行任何脚本
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+
+# 禁止访问 .htaccess 本身
+<FilesMatch "^\.htaccess">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# 如果上传了 PHP 等脚本，直接返回 403
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule \.(php|php3|php4|php5|phtml|pl|py|jsp|asp|aspx|cgi|sh|bash)$ - [F,L]
+</IfModule>
+
+# 设置上传文件的 MIME 类型（安全相关）
+<IfModule mod_mime.c>
+    ForceType application/octet-stream
+</IfModule>

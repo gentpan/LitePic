@@ -1,5 +1,23 @@
 RewriteEngine On
 
+# 禁止访问敏感文件和目录
+RedirectMatch 403 ^/\.env
+RedirectMatch 403 ^/\.git
+RedirectMatch 403 ^/data/
+RedirectMatch 403 ^/logs/
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# 禁止在 uploads 目录执行 PHP（即使上传了恶意脚本也无法执行）
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_rewrite.c>
+    RewriteRule ^uploads/.*\.php$ - [F,L]
+</IfModule>
+
 # 真实文件/目录直接访问
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
