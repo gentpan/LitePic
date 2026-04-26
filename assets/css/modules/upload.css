@@ -7,7 +7,7 @@
   background: white;
   padding: var(--spacing-xl);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-color);
 }
 
 /* 上传头部 */
@@ -22,17 +22,17 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 6px;
   text-align: center;
   min-height: auto;
-  padding-top: 16px;
-  padding-bottom: 14px;
+  padding-top: 8px;
+  padding-bottom: 6px;
 }
 
 .upload-header i {
-  font-size: 3rem;
+  font-size: 1.5rem;
   color: var(--primary);
-  margin-bottom: var(--spacing);
+  margin-bottom: 0;
 }
 
 .upload-box .upload-header.page-shell-header > i {
@@ -63,7 +63,6 @@
   border-radius: var(--radius);
   font-size: 0.875rem;
   color: var(--gray);
-  box-shadow: var(--shadow-sm);
   border: 1px solid var(--border-color);
   transition: var(--transition);
 }
@@ -92,6 +91,8 @@
   flex-wrap: wrap;
   margin: 0 auto;
   max-width: min(980px, 100%);
+  padding: 4px 10px;
+  font-size: 0.75rem;
 }
 
 .upload-box .upload-info .hint > span {
@@ -116,14 +117,15 @@
 .drop-zone {
   border: 2px dashed var(--border-color);
   border-radius: var(--radius);
-  padding: 4rem 2rem;
+  padding: 1rem;
   text-align: center;
   transition: var(--transition);
   cursor: pointer;
-  min-height: 300px;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex: 1;
 }
 
 .drop-zone.dragover {
@@ -134,7 +136,13 @@
 /* 文件输入框包装器 */
 .file-input-wrapper {
   position: relative;
-  padding: var(--spacing-xl) 0;
+  padding: 0;
+  height: 100%;
+}
+
+.file-input-wrapper label {
+  height: 100%;
+  justify-content: center;
 }
 
 .file-input-wrapper input[type="file"] {
@@ -217,7 +225,7 @@
   border-radius: var(--radius);
   padding: var(--spacing);
   margin-bottom: var(--spacing);
-  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
   transition: var(--transition);
 }
 
@@ -283,7 +291,6 @@
 html[data-theme="dark"] .upload-box {
   background: var(--upload-box-bg);
   border: 1px solid var(--upload-border);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 html[data-theme="dark"] .upload-header i {

@@ -45,8 +45,11 @@ if ($action === 'render_card') {
         'dimensions' => '',
     ], $info);
 
+    $type = (string)($_POST['type'] ?? 'gallery');
+    $isGallery = $type === 'gallery';
+
     try {
-        $card = new ImageCard($info, true, true, true);
+        $card = new ImageCard($info, $isGallery, $isGallery, $isGallery);
         echo $card->render();
     } catch (Throwable $e) {
         http_response_code(500);
@@ -221,20 +224,67 @@ switch ($action) {
         }
         break;
 
+    case 'avif':
+        try {
+            $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'gif'], true)) {
+                error_response('该文件类型不支持转换 AVIF（仅支持 JPG/JPEG/PNG/GIF）', 400);
+            }
+
+            $avif_path = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.avif', $path);
+            if (!is_string($avif_path) || $avif_path === '') {
+                throw new Exception('AVIF 输出路径无效');
+            }
+            
+            if (convert_to_avif($path)) {
+                if (!file_exists($avif_path)) {
+                    throw new Exception('AVIF 文件生成失败');
+                }
+
+                $avif_filename = get_image_identifier_from_path($avif_path) ?? basename($avif_path);
+                $avif_size = filesize($avif_path);
+                
+                create_thumbnail($avif_filename, true);
+                $remote_sync = remote_storage_sync_file_and_thumbnail($avif_filename);
+                success_response([
+                    'message' => 'AVIF 转换成功',
+                    'filename' => $avif_filename,
+                    'url' => get_img_url($avif_filename),
+                    'size' => $avif_size,
+                    'size_text' => format_filesize($avif_size),
+                    'remote_storage' => $remote_sync,
+                ]);
+            } else {
+                throw new Exception('AVIF 转换失败');
+            }
+        } catch (Exception $e) {
+            error_log("AVIF conversion failed for {$file}: " . $e->getMessage());
+            error_response(safe_error_message($e), 500);
+        }
+        break;
+
     case 'delete':
         remote_storage_delete_file_and_thumbnail($file);
         $webp = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.webp', $path);
+        $avif = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.avif', $path);
         if (is_string($webp) && file_exists($webp)) {
             remote_storage_delete_file_and_thumbnail((string)(get_image_identifier_from_path($webp) ?? basename($webp)));
+        }
+        if (is_string($avif) && file_exists($avif)) {
+            remote_storage_delete_file_and_thumbnail((string)(get_image_identifier_from_path($avif) ?? basename($avif)));
         }
 
         // 无论原图删除是否成功，都尝试清理缩略图，避免残留
         delete_thumbnail($file);
         if (@unlink($path)) {
-            // 删除对应的 WebP 文件（如果存在）
+            // 删除对应的 WebP / AVIF 文件（如果存在）
             if (is_string($webp) && file_exists($webp)) {
                 @unlink($webp);
                 delete_thumbnail((string)(get_image_identifier_from_path($webp) ?? basename($webp)));
+            }
+            if (is_string($avif) && file_exists($avif)) {
+                @unlink($avif);
+                delete_thumbnail((string)(get_image_identifier_from_path($avif) ?? basename($avif)));
             }
             success_response(['message' => '删除成功']);
         } else {

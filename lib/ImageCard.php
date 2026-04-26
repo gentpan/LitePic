@@ -59,14 +59,27 @@ class ImageCard {
         ob_start();
         $preview_url = (string)($this->info['thumb_url'] ?? $this->info['url']);
         $original_url = (string)($this->info['url'] ?? $preview_url);
-        ?>
-        <div class="<?= $this->show_select ? 'img-preview' : '' ?>">
+        if ($this->show_select) {
+            ?>
+            <div class="img-preview">
+                <img src="<?= htmlspecialchars($preview_url) ?>" 
+                     data-original-url="<?= htmlspecialchars($original_url) ?>"
+                     alt="<?= htmlspecialchars($this->info['filename']) ?>"
+                     loading="lazy">
+                <div class="img-time-overlay">
+                    <i class="fa-light fa-clock"></i>
+                    <?= date('Y-m-d H:i', $this->info['time']) ?>
+                </div>
+            </div>
+            <?php
+        } else {
+            ?>
             <img src="<?= htmlspecialchars($preview_url) ?>" 
                  data-original-url="<?= htmlspecialchars($original_url) ?>"
                  alt="<?= htmlspecialchars($this->info['filename']) ?>"
                  loading="lazy">
-        </div>
-        <?php
+            <?php
+        }
         return (string)ob_get_clean();
     }
 
@@ -86,6 +99,7 @@ class ImageCard {
             'JPEG' => 'JPEG',
             'PNG' => 'PNG',
             'WEBP' => 'WebP',
+            'AVIF' => 'AVIF',
             'GIF' => 'GIF 动图',
             'SVG' => 'SVG 矢量',
             'ICO' => 'ICON',
@@ -111,15 +125,14 @@ class ImageCard {
                     <i class="fa-light fa-hard-drive"></i>
                     <?= format_filesize($this->info['size']) ?>
                 </span>
+                <?php if ($format_code !== 'SVG' && $format_code !== 'AVIF'): ?>
                 <span class="img-dimensions" title="图片尺寸">
                     <i class="fa-light fa-expand"></i>
                     <?= $this->info['dimensions'] ?>
                 </span>
-                <span class="img-time" title="上传时间">
-                    <i class="fa-light fa-clock"></i>
-                    <?= date('Y-m-d H:i', $this->info['time']) ?>
-                </span>
+                <?php endif; ?>
             </div>
+
         </div>
         <?php
         return (string)ob_get_clean();
@@ -127,6 +140,7 @@ class ImageCard {
 
     private function renderActions(): string {
         ob_start();
+        $preferred = CONVERT_PREFERRED_FORMAT;
         ?>
         <div class="<?= $this->show_select ? 'img-actions' : 'img-overlay' ?>">
             <button class="action-btn copy-btn" 
@@ -138,7 +152,7 @@ class ImageCard {
             <?php 
             $ext = strtolower(pathinfo($this->info['filename'], PATHINFO_EXTENSION));
             $canCompress = in_array($ext, ['jpg','jpeg','png']);
-            $canWebp = in_array($ext, ['jpg','jpeg','png']); 
+            $canConvert = in_array($ext, ['jpg','jpeg','png','gif']);
             ?>
 
             <?php if ($this->show_comp && $canCompress): ?>
@@ -149,12 +163,20 @@ class ImageCard {
             </button>
             <?php endif; ?>
             
-            <?php if ($this->show_webp && $canWebp): ?>
+            <?php if ($this->show_webp && $canConvert): ?>
+            <?php if ($preferred === 'avif'): ?>
+            <button class="action-btn avif-btn" 
+                    title="转换AVIF"
+                    type="button">
+                <i class="fa-light fa-image"></i>
+            </button>
+            <?php else: ?>
             <button class="action-btn webp-btn" 
                     title="转换WebP"
                     type="button">
                 <i class="fa-light fa-image"></i>
             </button>
+            <?php endif; ?>
             <?php endif; ?>
             
             <button class="action-btn delete-btn" 

@@ -207,16 +207,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $scan_create_thumbnail = bool_from_post('scan_create_thumbnail');
         $scan_auto_compress = bool_from_post('scan_auto_compress');
         $scan_auto_webp = bool_from_post('scan_auto_webp');
-        if ($scan_auto_webp && $scan_auto_compress) {
+        $scan_auto_avif = bool_from_post('scan_auto_avif');
+        if (($scan_auto_webp || $scan_auto_avif) && $scan_auto_compress) {
             $scan_auto_compress = false;
         }
         $report = scan_and_import_uploads([
             'create_thumbnail' => $scan_create_thumbnail,
             'auto_compress' => $scan_auto_compress,
             'auto_webp' => $scan_auto_webp,
+            'auto_avif' => $scan_auto_avif,
         ]);
         $message = sprintf(
-            '扫描完成：扫描 %d，导入 %d，重复 %d，失败 %d，缩略图 %d，压缩 %d，转 WebP %d，跳过压缩 %d，跳过 WebP %d',
+            '扫描完成：扫描 %d，导入 %d，重复 %d，失败 %d，缩略图 %d，压缩 %d，转 WebP %d，转 AVIF %d，跳过压缩 %d，跳过 WebP %d，跳过 AVIF %d',
             (int)($report['scanned'] ?? 0),
             (int)($report['imported'] ?? 0),
             (int)($report['duplicates'] ?? 0),
@@ -224,8 +226,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             (int)($report['thumb_created'] ?? 0),
             (int)($report['compressed'] ?? 0),
             (int)($report['webp_created'] ?? 0),
+            (int)($report['avif_created'] ?? 0),
             (int)($report['skip_compress'] ?? 0),
-            (int)($report['skip_webp'] ?? 0)
+            (int)($report['skip_webp'] ?? 0),
+            (int)($report['skip_avif'] ?? 0)
         );
         if (!empty($report['errors']) && is_array($report['errors'])) {
             $message .= '；错误：' . implode(' | ', array_slice($report['errors'], 0, 3));
@@ -267,8 +271,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $admin_api_key = trim((string)($_POST['admin_api_key'] ?? ADMIN_API_KEY));
         $auto_compress_on_upload = bool_from_post('auto_compress_on_upload');
         $auto_convert_webp_on_upload = bool_from_post('auto_convert_webp_on_upload');
-        // 互斥策略：开启自动转 WebP 时，自动压缩强制关闭，避免流程冲突
-        if ($auto_convert_webp_on_upload && $auto_compress_on_upload) {
+        $auto_convert_avif_on_upload = bool_from_post('auto_convert_avif_on_upload');
+        $convert_preferred_format = trim((string)($_POST['convert_preferred_format'] ?? CONVERT_PREFERRED_FORMAT));
+        if (!in_array($convert_preferred_format, ['webp', 'avif'], true)) {
+            $convert_preferred_format = 'webp';
+        }
+        $keep_original_after_process = bool_from_post('keep_original_after_process');
+        // 互斥策略：开启自动转换时，自动压缩强制关闭，避免流程冲突
+        if (($auto_convert_webp_on_upload || $auto_convert_avif_on_upload) && $auto_compress_on_upload) {
             $auto_compress_on_upload = false;
         }
         $compression_mode = trim((string)($_POST['compression_mode'] ?? COMPRESSION_MODE));
@@ -302,6 +312,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             'ADMIN_API_KEY' => env_encode_value($admin_api_key),
             'AUTO_COMPRESS_ON_UPLOAD' => $auto_compress_on_upload ? 'true' : 'false',
             'AUTO_CONVERT_WEBP_ON_UPLOAD' => $auto_convert_webp_on_upload ? 'true' : 'false',
+            'AUTO_CONVERT_AVIF_ON_UPLOAD' => $auto_convert_avif_on_upload ? 'true' : 'false',
+            'CONVERT_PREFERRED_FORMAT' => $convert_preferred_format,
+            'KEEP_ORIGINAL_AFTER_PROCESS' => $keep_original_after_process ? 'true' : 'false',
             'COMPRESSION_MODE' => $compression_mode,
             'REMOTE_STORAGE_MODE' => $remote_storage_mode,
             'S3_PROVIDER' => $s3_provider,
@@ -375,7 +388,7 @@ $availability_24h_percent = isset($metrics['availability_24h_percent']) && is_nu
 $compression_capability = is_array($metrics['capability'] ?? null) ? $metrics['capability'] : [
     'gd' => false,
     'imagick' => false,
-    'curl' => false,
+    'avif' => false,
     'webp' => false,
 ];
 $memory_text = (string)($metrics['memory']['text'] ?? '-');
@@ -416,77 +429,56 @@ require_once APP_ROOT . '/header.php';
                             <h3>服务器信息</h3>
                             <p>运行环境与压缩能力检测</p>
                         </div>
-                        <div class="runtime-overview">
-                            <div class="runtime-overview-main">
-                                <div class="runtime-overview-copy">
-                                    <span class="runtime-section-label">运行概览</span>
-                                    <h4>服务器正常</h4>
-                                </div>
-                                <div class="runtime-overview-stats">
-                                    <div class="runtime-overview-stat">
-                                        <span class="runtime-overview-stat-label">服务器运行时间</span>
-                                        <strong id="metricUptimeDuration">解析中</strong>
-                                    </div>
-                                    <div class="runtime-overview-stat">
-                                        <span class="runtime-overview-stat-label">近 24 小时在线率</span>
-                                        <strong id="metricAvailability24h"><?= htmlspecialchars(number_format($availability_24h_percent, 1)) ?>%</strong>
-                                    </div>
-                                    <div class="runtime-overview-stat">
-                                        <span class="runtime-overview-stat-label">在线用户</span>
-                                        <strong id="metricUptimeUsers">-</strong>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
                         <div class="runtime-section">
                             <div class="runtime-section-head">
                                 <span class="runtime-section-label">资源占用</span>
                             </div>
-                            <div class="runtime-resource-grid">
-                                <article class="runtime-metric-card">
-                                    <div class="runtime-metric-head">
-                                        <span class="runtime-metric-icon"><i class="fa-light fa-memory"></i></span>
-                                        <div>
-                                            <span class="runtime-metric-label">内存占用</span>
-                                            <strong class="runtime-metric-value" id="metricMemory"><?= htmlspecialchars($memory_text) ?></strong>
-                                        </div>
-                                        <span class="runtime-metric-badge" id="metricMemoryPercent"><?= htmlspecialchars(number_format($memory_usage_percent, 1)) ?>%</span>
+<?php $gauge_r = 52; $gauge_c = 2 * M_PI * $gauge_r; ?>
+                            <div class="runtime-resource-grid runtime-resource-gauges">
+                                <div class="runtime-gauge-card">
+                                    <div class="runtime-gauge">
+                                        <svg class="runtime-gauge-svg" viewBox="0 0 120 120">
+                                            <circle class="runtime-gauge-track" cx="60" cy="60" r="<?= $gauge_r ?>"/>
+                                            <circle class="runtime-gauge-fill runtime-gauge-fill-memory" id="metricMemoryCircle"
+                                                    cx="60" cy="60" r="<?= $gauge_r ?>"
+                                                    stroke-dasharray="<?= $gauge_c ?>"
+                                                    stroke-dashoffset="<?= $gauge_c * (1 - $memory_usage_percent / 100) ?>"/>
+                                        </svg>
+                                        <div class="runtime-gauge-value" id="metricMemoryPercent"><?= htmlspecialchars(number_format($memory_usage_percent, 1)) ?>%</div>
                                     </div>
-                                    <div class="runtime-progress">
-                                        <span class="runtime-progress-bar" id="metricMemoryBar" style="width: <?= htmlspecialchars((string)$memory_usage_percent) ?>%"></span>
+                                    <div class="runtime-gauge-label">内存占用</div>
+                                    <div class="runtime-gauge-detail" id="metricMemoryDetail"><?= htmlspecialchars($memory_text) ?></div>
+                                </div>
+
+                                <div class="runtime-gauge-card">
+                                    <div class="runtime-gauge">
+                                        <svg class="runtime-gauge-svg" viewBox="0 0 120 120">
+                                            <circle class="runtime-gauge-track" cx="60" cy="60" r="<?= $gauge_r ?>"/>
+                                            <circle class="runtime-gauge-fill runtime-gauge-fill-cpu" id="metricCpuLoadCircle"
+                                                    cx="60" cy="60" r="<?= $gauge_r ?>"
+                                                    stroke-dasharray="<?= $gauge_c ?>"
+                                                    stroke-dashoffset="<?= $gauge_c * (1 - $cpu_load_percent / 100) ?>"/>
+                                        </svg>
+                                        <div class="runtime-gauge-value" id="metricCpuLoadPercent"><?= htmlspecialchars(number_format($cpu_load_percent, 1)) ?>%</div>
                                     </div>
-                                </article>
-                                <article class="runtime-metric-card">
-                                    <div class="runtime-metric-head">
-                                        <span class="runtime-metric-icon runtime-metric-icon-cpu"><i class="fa-light fa-microchip"></i></span>
-                                        <div class="runtime-metric-copy runtime-metric-copy-inline">
-                                            <span class="runtime-metric-label">CPU 负载</span>
-                                            <div class="runtime-inline-meta">
-                                                <strong class="runtime-metric-value" id="metricCpuLoad"><?= htmlspecialchars($cpu_load_text) ?></strong>
-                                                <span class="runtime-metric-sub">核心数 <span id="metricCpuCores"><?= htmlspecialchars($cpu_cores_text) ?></span></span>
-                                            </div>
-                                        </div>
-                                        <span class="runtime-metric-badge" id="metricCpuLoadPercent"><?= htmlspecialchars(number_format($cpu_load_percent, 1)) ?>%</span>
+                                    <div class="runtime-gauge-label">CPU 负载</div>
+                                    <div class="runtime-gauge-detail" id="metricCpuLoadDetail"><?= htmlspecialchars($cpu_load_text) ?> · <?= htmlspecialchars($cpu_cores_text) ?> 核</div>
+                                </div>
+
+                                <div class="runtime-gauge-card">
+                                    <div class="runtime-gauge">
+                                        <svg class="runtime-gauge-svg" viewBox="0 0 120 120">
+                                            <circle class="runtime-gauge-track" cx="60" cy="60" r="<?= $gauge_r ?>"/>
+                                            <circle class="runtime-gauge-fill runtime-gauge-fill-disk" id="metricDiskCircle"
+                                                    cx="60" cy="60" r="<?= $gauge_r ?>"
+                                                    stroke-dasharray="<?= $gauge_c ?>"
+                                                    stroke-dashoffset="<?= $gauge_c * (1 - $disk_usage_percent / 100) ?>"/>
+                                        </svg>
+                                        <div class="runtime-gauge-value" id="metricDiskPercent"><?= htmlspecialchars(number_format($disk_usage_percent, 1)) ?>%</div>
                                     </div>
-                                    <div class="runtime-progress runtime-progress-cpu">
-                                        <span class="runtime-progress-bar" id="metricCpuLoadBar" style="width: <?= htmlspecialchars((string)$cpu_load_percent) ?>%"></span>
-                                    </div>
-                                </article>
-                                <article class="runtime-metric-card runtime-metric-card-disk">
-                                    <div class="runtime-metric-head">
-                                        <span class="runtime-metric-icon runtime-metric-icon-disk"><i class="fa-light fa-hard-drive"></i></span>
-                                        <div>
-                                            <span class="runtime-metric-label">磁盘占用</span>
-                                            <strong class="runtime-metric-value" id="metricDisk"><?= htmlspecialchars($disk_text) ?></strong>
-                                            <span class="runtime-metric-sub">剩余空间：<span id="metricDiskFree"><?= htmlspecialchars($disk_free_text) ?></span></span>
-                                        </div>
-                                        <span class="runtime-metric-badge" id="metricDiskPercent"><?= htmlspecialchars(number_format($disk_usage_percent, 1)) ?>%</span>
-                                    </div>
-                                    <div class="runtime-progress runtime-progress-disk">
-                                        <span class="runtime-progress-bar" id="metricDiskBar" style="width: <?= htmlspecialchars((string)$disk_usage_percent) ?>%"></span>
-                                    </div>
-                                </article>
+                                    <div class="runtime-gauge-label">磁盘占用</div>
+                                    <div class="runtime-gauge-detail" id="metricDiskDetail">剩余 <?= htmlspecialchars($disk_free_text) ?></div>
+                                </div>
                             </div>
                         </div>
 
@@ -498,10 +490,6 @@ require_once APP_ROOT . '/header.php';
                                 <article class="server-info-item">
                                     <span class="server-info-label">PHP 版本</span>
                                     <span class="server-info-value" id="metricPhpVersion"><?= htmlspecialchars((string)($metrics['php_version'] ?? PHP_VERSION)) ?></span>
-                                </article>
-                                <article class="server-info-item">
-                                    <span class="server-info-label">PHP SAPI</span>
-                                    <span class="server-info-value" id="metricPhpSapi"><?= htmlspecialchars($current_php_sapi) ?></span>
                                 </article>
                                 <article class="server-info-item">
                                     <span class="server-info-label">系统版本</span>
@@ -519,20 +507,18 @@ require_once APP_ROOT . '/header.php';
                                 <span class="runtime-section-label">上传与能力</span>
                             </div>
                             <?php $upload_ok = $runtime_upload_limit_bytes >= $configured_upload_limit_bytes; ?>
-                            <article class="runtime-upload-card">
-                                <div class="runtime-upload-head">
-                                    <div>
-                                        <span class="server-info-label">上传上限（运行时 / 配置）</span>
-                                        <strong class="runtime-upload-value" id="metricUploadLimit">
+                            <div class="server-capability-grid">
+                                <article class="server-capability-item">
+                                    <div class="capability-row">
+                                        <span class="server-info-label">上传上限</span>
+                                        <span class="capability-value" id="metricUploadLimit">
                                             <?= htmlspecialchars(format_filesize($runtime_upload_limit_bytes) . ' / ' . format_filesize($configured_upload_limit_bytes)) ?>
-                                        </strong>
+                                        </span>
                                     </div>
                                     <span class="status-pill <?= $upload_ok ? 'is-on' : 'is-warn' ?>" id="metricUploadStatus">
                                         <?= $upload_ok ? '一致' : '未生效' ?>
                                     </span>
-                                </div>
-                            </article>
-                            <div class="server-capability-grid">
+                                </article>
                                 <article class="server-capability-item">
                                     <span class="server-info-label">GD 扩展</span>
                                     <span class="status-pill <?= $compression_capability['gd'] ? 'is-on' : 'is-off' ?>" id="metricCapGd">
@@ -546,9 +532,9 @@ require_once APP_ROOT . '/header.php';
                                     </span>
                                 </article>
                                 <article class="server-capability-item">
-                                    <span class="server-info-label">cURL 扩展</span>
-                                    <span class="status-pill <?= $compression_capability['curl'] ? 'is-on' : 'is-off' ?>" id="metricCapCurl">
-                                        <?= $compression_capability['curl'] ? '已启用' : '未启用' ?>
+                                    <span class="server-info-label">AVIF 支持</span>
+                                    <span class="status-pill <?= $compression_capability['avif'] ? 'is-on' : 'is-off' ?>" id="metricCapAvif">
+                                        <?= $compression_capability['avif'] ? '已启用' : '未启用' ?>
                                     </span>
                                 </article>
                                 <article class="server-capability-item">
@@ -590,6 +576,13 @@ require_once APP_ROOT . '/header.php';
                                     <option value="tinypng" <?= $current_compression_mode === 'tinypng' ? 'selected' : '' ?>>仅 TinyPNG API</option>
                                 </select>
                             </div>
+                            <div class="field">
+                                <label for="convertPreferredFormat">转换优先格式</label>
+                                <select id="convertPreferredFormat" class="settings-input" name="convert_preferred_format">
+                                    <option value="webp" <?= CONVERT_PREFERRED_FORMAT === 'webp' ? 'selected' : '' ?>>WebP</option>
+                                    <option value="avif" <?= CONVERT_PREFERRED_FORMAT === 'avif' ? 'selected' : '' ?>>AVIF</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div class="checks">
@@ -600,6 +593,14 @@ require_once APP_ROOT . '/header.php';
                             <label class="check-item">
                                 <input id="autoConvertWebpOnUpload" type="checkbox" name="auto_convert_webp_on_upload" value="1" <?= AUTO_CONVERT_WEBP_ON_UPLOAD ? 'checked' : '' ?>>
                                 <span>上传后自动转换 WebP（支持 JPG/JPEG/PNG/GIF）</span>
+                            </label>
+                            <label class="check-item">
+                                <input id="autoConvertAvifOnUpload" type="checkbox" name="auto_convert_avif_on_upload" value="1" <?= AUTO_CONVERT_AVIF_ON_UPLOAD ? 'checked' : '' ?>>
+                                <span>上传后自动转换 AVIF（支持 JPG/JPEG/PNG/GIF）</span>
+                            </label>
+                            <label class="check-item">
+                                <input id="keepOriginalAfterProcess" type="checkbox" name="keep_original_after_process" value="1" <?= KEEP_ORIGINAL_AFTER_PROCESS ? 'checked' : '' ?>>
+                                <span>转换或压缩后保留原图</span>
                             </label>
                         </div>
                     </section>
@@ -704,7 +705,7 @@ require_once APP_ROOT . '/header.php';
                     <section class="settings-block">
                         <div class="settings-block-header">
                             <h3>扫描导入</h3>
-                            <p>扫描 upload / uploads 并导入图库，可选生成缩略图、压缩或转 WebP</p>
+                            <p>扫描 upload / uploads 并导入图库，可选生成缩略图、压缩或转换</p>
                         </div>
                         <div class="checks">
                             <label class="check-item scan-option">
@@ -715,10 +716,14 @@ require_once APP_ROOT . '/header.php';
                                 <input id="scanAutoCompress" type="checkbox" name="scan_auto_compress" value="1">
                                 <span>导入时自动压缩（JPG/JPEG/PNG）</span>
                             </label>
-                        <label class="check-item scan-option">
-                            <input id="scanAutoWebp" type="checkbox" name="scan_auto_webp" value="1" checked>
-                            <span>导入时自动转 WebP（JPG/JPEG/PNG/GIF）</span>
-                        </label>
+                            <label class="check-item scan-option">
+                                <input id="scanAutoWebp" type="checkbox" name="scan_auto_webp" value="1" checked>
+                                <span>导入时自动转 WebP（JPG/JPEG/PNG/GIF）</span>
+                            </label>
+                            <label class="check-item scan-option">
+                                <input id="scanAutoAvif" type="checkbox" name="scan_auto_avif" value="1">
+                                <span>导入时自动转 AVIF（JPG/JPEG/PNG/GIF）</span>
+                            </label>
                         </div>
                         <div class="settings-submit-row">
                             <button type="submit" class="btn" name="form_action" value="scan_import_uploads">
@@ -1168,7 +1173,13 @@ require_once APP_ROOT . '/header.php';
             const normalized = clampPercent(percent);
             const bar = document.getElementById(barId);
             if (bar) {
-                bar.style.width = normalized.toFixed(2) + '%';
+                if (bar.tagName === 'circle' || bar.classList.contains('runtime-gauge-fill')) {
+                    const r = parseFloat(bar.getAttribute('r') || '52');
+                    const circumference = 2 * Math.PI * r;
+                    bar.style.strokeDashoffset = String(circumference * (1 - normalized / 100));
+                } else {
+                    bar.style.width = normalized.toFixed(2) + '%';
+                }
             }
             const badge = document.getElementById(badgeId);
             if (badge) {
@@ -1220,17 +1231,25 @@ require_once APP_ROOT . '/header.php';
                 updateUptimeDisplay(String(s.uptime_text ?? '-'));
                 const availability24h = Number(s.availability_24h_percent ?? NaN);
                 setText('metricAvailability24h', Number.isFinite(availability24h) ? availability24h.toFixed(1) + '%' : '-');
-                setText('metricMemory', String((s.memory && s.memory.text) ? s.memory.text : '-'));
-                setText('metricCpuCores', String((s.cpu_cores ?? '不可用')));
-                setText('metricCpuLoad', String((s.cpu_load && s.cpu_load.text) ? s.cpu_load.text : '不可用'));
-                setText('metricDisk', String((s.disk && s.disk.text) ? s.disk.text : '-'));
-                setText('metricDiskFree', String((s.disk && s.disk.free_text) ? s.disk.free_text : '-'));
-                setMetricProgress('metricMemoryBar', 'metricMemoryPercent', s.memory && s.memory.usage_percent ? s.memory.usage_percent : 0);
+                const memText = String((s.memory && s.memory.text) ? s.memory.text : '-');
+                const cpuLoadText = String((s.cpu_load && s.cpu_load.text) ? s.cpu_load.text : '不可用');
+                const cpuCoresVal = String((s.cpu_cores ?? '不可用'));
+                const diskText = String((s.disk && s.disk.text) ? s.disk.text : '-');
+                const diskFreeText = String((s.disk && s.disk.free_text) ? s.disk.free_text : '-');
+
+                const memDetail = document.getElementById('metricMemoryDetail');
+                if (memDetail) memDetail.textContent = memText;
+                const cpuDetail = document.getElementById('metricCpuLoadDetail');
+                if (cpuDetail) cpuDetail.textContent = cpuLoadText + ' · ' + cpuCoresVal + ' 核';
+                const diskDetail = document.getElementById('metricDiskDetail');
+                if (diskDetail) diskDetail.textContent = '剩余 ' + diskFreeText;
+
+                setMetricProgress('metricMemoryCircle', 'metricMemoryPercent', s.memory && s.memory.usage_percent ? s.memory.usage_percent : 0);
                 const cpuCores = Number(s.cpu_cores ?? 0);
                 const load1 = Number((s.cpu_load && s.cpu_load.load_1) ?? NaN);
                 const cpuLoadPercent = Number.isFinite(load1) && cpuCores > 0 ? (load1 / cpuCores) * 100 : 0;
-                setMetricProgress('metricCpuLoadBar', 'metricCpuLoadPercent', cpuLoadPercent);
-                setMetricProgress('metricDiskBar', 'metricDiskPercent', s.disk && s.disk.usage_percent ? s.disk.usage_percent : 0);
+                setMetricProgress('metricCpuLoadCircle', 'metricCpuLoadPercent', cpuLoadPercent);
+                setMetricProgress('metricDiskCircle', 'metricDiskPercent', s.disk && s.disk.usage_percent ? s.disk.usage_percent : 0);
 
                 const runtimeLimit = String((s.php_upload_limit_text ?? '') || '');
                 const configuredLimit = String((s.config_upload_limit_text ?? '') || '');
@@ -1248,7 +1267,7 @@ require_once APP_ROOT . '/header.php';
                 const cap = s.capability || {};
                 setCapability('metricCapGd', !!cap.gd);
                 setCapability('metricCapImagick', !!cap.imagick);
-                setCapability('metricCapCurl', !!cap.curl);
+                setCapability('metricCapAvif', !!cap.avif);
                 setCapability('metricCapWebp', !!cap.webp);
             } catch (err) {
                 if (window.ImgEt && window.ImgEt.Utils && typeof window.ImgEt.Utils.showNotification === 'function') {

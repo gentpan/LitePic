@@ -66,10 +66,16 @@ class GalleryManager {
         // 固定每页 18 张
         $this->per_page = ITEMS_PER_PAGE;
 
-        // page: POST > SESSION > 1
-        $page = isset($_POST['page'])
-            ? (int)$_POST['page']
-            : (isset($_SESSION[self::SESSION_PAGE]) ? (int)$_SESSION[self::SESSION_PAGE] : 1);
+        // 处理 POST 分页请求，设置 session 后重定向（避免刷新时重复提交提示）
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['page'])) {
+            $postPage = max(1, (int)$_POST['page']);
+            $_SESSION[self::SESSION_PAGE] = $postPage;
+            header('Location: /gallery');
+            exit;
+        }
+
+        // page: SESSION > 1
+        $page = isset($_SESSION[self::SESSION_PAGE]) ? (int)$_SESSION[self::SESSION_PAGE] : 1;
         $this->total_pages = max(1, (int)ceil($this->total_images / $this->per_page));
         $this->current_page = min(max(1, $page), $this->total_pages);
         $_SESSION[self::SESSION_PAGE] = $this->current_page;
@@ -183,9 +189,9 @@ class GalleryManager {
                     <i class="fa-light fa-compress"></i>
                     <span>批量压缩</span>
                 </button>
-                <button type="button" class="batch-btn" data-action="webp" disabled>
+                <button type="button" class="batch-btn" data-action="<?= CONVERT_PREFERRED_FORMAT === 'avif' ? 'avif' : 'webp' ?>" disabled>
                     <i class="fa-light fa-image"></i>
-                    <span>批量转WebP</span>
+                    <span>批量转<?= CONVERT_PREFERRED_FORMAT === 'avif' ? 'AVIF' : 'WebP' ?></span>
                 </button>
                 <button type="button" class="batch-btn delete" data-action="delete" disabled>
                     <i class="fa-light fa-trash"></i>

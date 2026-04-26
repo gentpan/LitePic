@@ -15,7 +15,7 @@
   z-index: 1000;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
-  box-shadow: var(--shadow);
+  border-bottom: 1px solid var(--border-color);
   transition: transform 0.3s ease;
 }
 
@@ -260,7 +260,7 @@
     display: flex; align-items: center; justify-content: space-around;
     padding: 0.5rem;
     background: #fff;
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.06);
+    border-top: 1px solid var(--border-color);
   }
   .nav-link,
   .nav-btn {
@@ -318,7 +318,6 @@ html[data-theme="dark"] {
 html[data-theme="dark"] .site-header {
   background: var(--header-bg);
   border-bottom: 1px solid var(--header-border);
-  box-shadow: var(--header-shadow);
 }
 
 /* Logo 暗色样式 */
@@ -383,7 +382,6 @@ html[data-theme="dark"] .input-group input:focus {
 body.home-guest .site-header {
   background: linear-gradient(180deg, rgba(7, 18, 34, 0.72) 0%, rgba(7, 18, 34, 0.2) 100%);
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: none;
   backdrop-filter: blur(6px);
 }
 
@@ -547,7 +545,7 @@ body.home-guest .logo-icon {
   padding: 8px;
   border-radius: 6px;
   width: 140px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+  border: 1px solid var(--border-color);
   z-index: 300;
 }
 .footer-icon.wechat:hover .wechat-popup {
@@ -692,7 +690,6 @@ html[data-theme="dark"] {
 html[data-theme="dark"] .site-footer {
   background: var(--footer-bg);
   border-top-color: var(--footer-border);
-  box-shadow: var(--footer-shadow);
 }
 
 html[data-theme="dark"] .footer-icon {
@@ -705,7 +702,6 @@ html[data-theme="dark"] .footer-icon:hover {
 
 html[data-theme="dark"] .wechat-popup {
   background: var(--surface);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
   border: 1px solid var(--footer-border);
 }
 
@@ -823,6 +819,23 @@ html[data-theme="dark"] .theme-toggle-footer .theme-mode-toggle [role="radio"]:h
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+/* 上传页面满屏布局 */
+.page-main:has(> .upload-box) {
+  height: calc(100vh - var(--header-offset) - var(--footer-safe-space));
+  overflow: hidden;
+}
+
+.page-main:has(> .upload-box) > .upload-box {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-main:has(> .upload-box) > .recent-uploads {
+  flex: 0 0 auto;
 }
 
 .page-shell {
@@ -1000,17 +1013,6 @@ a.btn,
 }
 
 /* 阴影扁平化 */
-.site-header,
-.site-footer,
-.content-box,
-.upload-box,
-.recent-uploads,
-.gallery-card,
-.img-card,
-.stats-card,
-.stats-table,
-.chart-container,
-.progress-item,
 .notification-item,
 .custom-dialog-content,
 .confirm-dialog-content,

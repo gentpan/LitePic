@@ -5,7 +5,7 @@ if (!defined('APP_ROOT')) {
     require_once dirname(__DIR__, 2) . '/app/core/bootstrap.php';
 }
 /**
- * LitePic V2.2 - 轻量级图床程序
+ * LitePic V2.3 - 轻量级图床程序
  * 
  * 一个简洁、高效的图片托管解决方案
  * 支持多图上传、拖拽上传、粘贴上传等功能
@@ -15,7 +15,7 @@ if (!defined('APP_ROOT')) {
  * @copyright   2026 LitePic
  * @license     MIT License
  * @link        https://litepic.io
- * @version     1.0.0
+ * @version     2.3.0
  */
 
 
@@ -46,7 +46,7 @@ require_once APP_ROOT . '/header.php';
                 <div class="home-hero-mark" aria-hidden="true">
                     <i class="fa-brands fa-upwork"></i>
                 </div>
-                <h1 class="home-hero-title">LitePic V2.2</h1>
+                <h1 class="home-hero-title">LitePic V2.3</h1>
                 <p class="home-hero-description">
                     轻量级 PHP 图床，支持 API Token 上传、缩略图、自动压缩与 WebP 转换、
                     图库管理、统计面板、文档页、以及 R2/S3 同步。
@@ -75,18 +75,18 @@ require_once APP_ROOT . '/header.php';
                 position: relative;
             }
             .page-main .upload-box #dropZone .file-input-wrapper label {
-                min-height: 360px;
+                min-height: 0;
                 display: flex !important;
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                gap: 14px;
+                gap: 8px;
                 text-align: center;
                 color: #111827;
             }
             .page-main .upload-box #dropZone .icon-upload {
                 display: inline-flex !important;
-                font-size: 56px !important;
+                font-size: 32px !important;
                 line-height: 1;
                 color: #6b7280 !important;
             }
@@ -100,35 +100,32 @@ require_once APP_ROOT . '/header.php';
             }
             .page-main .upload-box #dropZone .upload-tips .text {
                 display: block !important;
-                font-size: 24px;
+                font-size: 16px;
                 font-weight: 500;
                 line-height: 1.2;
                 color: #111827 !important;
             }
             .page-main .upload-box #dropZone .upload-tips .hint {
                 display: block !important;
-                margin-top: 4px;
-                font-size: 16px;
+                margin-top: 2px;
+                font-size: 13px;
                 color: #6b7280 !important;
             }
             .page-main .recent-uploads {
                 display: block !important;
             }
-            .page-main .recent-uploads .upload-grid {
-                min-height: 120px;
-            }
             @media (max-width: 768px) {
                 .page-main .upload-box #dropZone .file-input-wrapper label {
-                    min-height: 260px;
+                    min-height: 0;
                 }
                 .page-main .upload-box #dropZone .icon-upload {
-                    font-size: 42px !important;
+                    font-size: 28px !important;
                 }
                 .page-main .upload-box #dropZone .upload-tips .text {
-                    font-size: 20px;
+                    font-size: 14px;
                 }
                 .page-main .upload-box #dropZone .upload-tips .hint {
-                    font-size: 14px;
+                    font-size: 12px;
                 }
             }
         </style>

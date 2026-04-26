@@ -103,7 +103,7 @@ $default_scheme = $is_https ? 'https' : 'http';
 // 基础配置
 define('SITE_NAME', env_value('SITE_NAME', 'LitePic'));
 define('SITE_DESCRIPTION', env_value('SITE_DESCRIPTION', '轻量级图床程序'));
-define('SITE_VERSION', '2.2.0');
+define('SITE_VERSION', '2.3.0');
 
 // 网站路径配置
 define('SITE_URL', env_value('SITE_URL', $default_scheme . '://' . $default_host));
@@ -113,7 +113,7 @@ define('STATIC_PATH', '/static/');
 
 // 图片相关配置
 define('ALLOWED_TYPES', [
-    'jpg', 'jpeg', 'png', 'gif', 'webp',
+    'jpg', 'jpeg', 'png', 'gif', 'webp', 'avif',
     'ico', 'svg', 'bmp', 'tiff', 'tif'
 ]);
 define('MAX_FILE_SIZE', max(1, (int)env_value('MAX_FILE_SIZE_MB', 20)) * 1024 * 1024);
@@ -135,8 +135,8 @@ define('COOKIE_HTTPONLY', true);
 define('COOKIE_SAMESITE', 'Strict');
 
 // 显示配置
-define('ITEMS_PER_PAGE', 18); // 固定每页显示 18 张
-define('GALLERY_COLUMNS', 3); // 固定图库 3 列
+define('ITEMS_PER_PAGE', 20); // 固定每页显示 20 张
+define('GALLERY_COLUMNS', 4); // 固定图库 4 列
 define('ENABLE_LAZY_LOAD', true);
 define('DEFAULT_SORT', 'date-desc');
 
@@ -152,6 +152,9 @@ if (!defined('ENABLE_EXIF_CLEAN')) {
 }
 define('AUTO_COMPRESS_ON_UPLOAD', env_bool('AUTO_COMPRESS_ON_UPLOAD', false));
 define('AUTO_CONVERT_WEBP_ON_UPLOAD', env_bool('AUTO_CONVERT_WEBP_ON_UPLOAD', false));
+define('AUTO_CONVERT_AVIF_ON_UPLOAD', env_bool('AUTO_CONVERT_AVIF_ON_UPLOAD', false));
+define('CONVERT_PREFERRED_FORMAT', in_array(strtolower((string)env_value('CONVERT_PREFERRED_FORMAT', 'webp')), ['webp', 'avif'], true) ? strtolower((string)env_value('CONVERT_PREFERRED_FORMAT', 'webp')) : 'webp');
+define('KEEP_ORIGINAL_AFTER_PROCESS', env_bool('KEEP_ORIGINAL_AFTER_PROCESS', false));
 define('COMPRESSION_MODE', (string)env_value('COMPRESSION_MODE', 'hybrid'));
 
 // 远程存储（S3 / Cloudflare R2）

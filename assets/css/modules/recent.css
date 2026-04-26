@@ -5,8 +5,7 @@
 .recent-uploads {
   background: white;
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  padding: var(--spacing-lg);
+  padding: 1rem;
 }
 
 /* 头部样式 */
@@ -52,8 +51,10 @@
 /* 图片网格样式 */
 .upload-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: var(--spacing);
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0;
+  border-top: 1px solid var(--border-color);
+  border-left: 1px solid var(--border-color);
 }
 
 /* 图片卡片样式 */
@@ -62,14 +63,16 @@
   border-radius: var(--radius);
   overflow: hidden;
   background: white;
-  box-shadow: var(--shadow);
+  border-right: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
   transition: var(--transition);
-  aspect-ratio: 1;
+  aspect-ratio: 10 / 7;
+  height: auto;
+  align-self: start;
 }
 
 .img-box:hover {
   transform: none;
-  box-shadow: var(--shadow-lg);
 }
 
 .img-box img {

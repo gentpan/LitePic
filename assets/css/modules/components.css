@@ -5,7 +5,7 @@
 /* 通知容器 */
 .notification-container {
   position: fixed;
-  top: 20px;
+  top: calc(var(--header-offset) + 12px);
   right: 20px;
   z-index: 9999;
   display: flex;

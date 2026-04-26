@@ -38,7 +38,7 @@ class WebAuthn {
     }
 
     /** Base64URL 解码 */
-    private static function base64UrlDecode(string $data): string {
+    public static function base64UrlDecode(string $data): string {
         $pad = 4 - (strlen($data) % 4);
         if ($pad !== 4) {
             $data .= str_repeat('=', $pad);
