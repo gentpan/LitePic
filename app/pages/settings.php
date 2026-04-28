@@ -381,6 +381,20 @@ $metrics = get_server_runtime_metrics();
 $current_php_sapi = (string)($metrics['php_sapi'] ?? php_sapi_name());
 $server_ip = (string)($metrics['server_ip'] ?? '-');
 $server_os = (string)($metrics['os'] ?? '-');
+$server_distro_id = strtolower((string)($metrics['distro']['id'] ?? ''));
+// FontAwesome Brands icon for the detected distro; fallback to fa-linux for anything we don't have a brand mark for.
+$distro_icon_map = [
+    'debian'     => 'fa-debian',
+    'ubuntu'     => 'fa-ubuntu',
+    'fedora'     => 'fa-fedora',
+    'centos'     => 'fa-centos',
+    'rhel'       => 'fa-redhat',
+    'redhat'     => 'fa-redhat',
+    'opensuse'   => 'fa-suse',
+    'suse'       => 'fa-suse',
+    'sles'       => 'fa-suse',
+];
+$server_distro_icon = $distro_icon_map[$server_distro_id] ?? 'fa-linux';
 $server_uptime = (string)($metrics['uptime_text'] ?? '-');
 $availability_24h_percent = isset($metrics['availability_24h_percent']) && is_numeric($metrics['availability_24h_percent'])
     ? max(0.0, min(100.0, (float)$metrics['availability_24h_percent']))
@@ -493,7 +507,10 @@ require_once APP_ROOT . '/header.php';
                                 </article>
                                 <article class="server-info-item">
                                     <span class="server-info-label">系统版本</span>
-                                    <span class="server-info-value" id="metricOs"><?= htmlspecialchars($server_os) ?></span>
+                                    <span class="server-info-value" id="metricOs" data-distro-id="<?= htmlspecialchars($server_distro_id) ?>">
+                                        <i class="fa-brands <?= htmlspecialchars($server_distro_icon) ?>" aria-hidden="true"></i>
+                                        <?= htmlspecialchars($server_os) ?>
+                                    </span>
                                 </article>
                                 <article class="server-info-item">
                                     <span class="server-info-label">服务器 IP</span>
@@ -1226,7 +1243,23 @@ require_once APP_ROOT . '/header.php';
                 const s = data.data;
                 setText('metricPhpVersion', String(s.php_version ?? '-'));
                 setText('metricPhpSapi', String(s.php_sapi ?? '-'));
-                setText('metricOs', String(s.os ?? '-'));
+                (() => {
+                    const el = document.getElementById('metricOs');
+                    if (!el) return;
+                    const distroIcons = {
+                        debian: 'fa-debian', ubuntu: 'fa-ubuntu', fedora: 'fa-fedora',
+                        centos: 'fa-centos', rhel: 'fa-redhat', redhat: 'fa-redhat',
+                        opensuse: 'fa-suse', suse: 'fa-suse', sles: 'fa-suse'
+                    };
+                    const id = String((s.distro && s.distro.id) || '').toLowerCase();
+                    const icon = distroIcons[id] || 'fa-linux';
+                    el.dataset.distroId = id;
+                    el.innerHTML = '';
+                    const i = document.createElement('i');
+                    i.className = 'fa-brands ' + icon;
+                    i.setAttribute('aria-hidden', 'true');
+                    el.append(i, ' ' + (s.os ?? '-'));
+                })();
                 setText('metricServerIp', String(s.server_ip ?? '-'));
                 updateUptimeDisplay(String(s.uptime_text ?? '-'));
                 const availability24h = Number(s.availability_24h_percent ?? NaN);
