@@ -78,8 +78,8 @@ $is_logged_in = ADMIN_API_KEY !== '' &&
                         '/upload' => ['首页', 'fa-home'],
                         '/gallery' => ['图库', 'fa-images'],
                         '/docs' => ['文档', 'fa-book'],
-                        '/settings' => ['设置', 'fa-gear'],
-                        '/stats' => ['统计', 'fa-chart-line']
+                        '/stats' => ['统计', 'fa-chart-line'],
+                        '/settings' => ['设置', 'fa-gear']
                     ];
                 }
 

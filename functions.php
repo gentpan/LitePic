@@ -3097,6 +3097,56 @@ function format_filesize($bytes) {
 }
 
 /**
+ * 解析 /etc/os-release，返回 ['id' => 'debian', 'name' => 'Debian',
+ * 'version' => '13', 'pretty' => 'Debian 13']。读不到时返回基于 PHP_OS 的兜底。
+ *
+ * 用 @file_get_contents 而非 is_readable + file_get_contents，避免在
+ * open_basedir 受限时（is_readable 不被 @ 抑制）leak Warning。
+ */
+function get_distro_info(): array {
+    $fallback = [
+        'id'      => strtolower(PHP_OS_FAMILY ?: 'unknown'),
+        'name'    => php_uname('s'),
+        'version' => php_uname('r'),
+        'pretty'  => trim(php_uname('s') . ' ' . php_uname('r')),
+    ];
+
+    $raw = @file_get_contents('/etc/os-release');
+    if (!is_string($raw) || $raw === '') {
+        return $fallback;
+    }
+
+    $kv = [];
+    foreach (preg_split('/\R/', $raw) ?: [] as $line) {
+        if ($line === '' || $line[0] === '#') continue;
+        $eq = strpos($line, '=');
+        if ($eq === false) continue;
+        $k = trim(substr($line, 0, $eq));
+        $v = trim(substr($line, $eq + 1));
+        // 去掉值两侧的引号
+        if (strlen($v) >= 2 && ($v[0] === '"' || $v[0] === "'") && $v[strlen($v) - 1] === $v[0]) {
+            $v = substr($v, 1, -1);
+        }
+        $kv[$k] = $v;
+    }
+
+    $id      = strtolower($kv['ID'] ?? $fallback['id']);
+    $name    = $kv['NAME'] ?? $fallback['name'];
+    $version = $kv['VERSION_ID'] ?? '';
+
+    // 优先使用 NAME + VERSION_ID 拼出干净串（"Debian 13"），
+    // 拿不到 VERSION_ID 时退回 PRETTY_NAME（"Debian GNU/Linux 13 (trixie)"）。
+    $pretty = $version !== '' ? trim($name . ' ' . $version) : ($kv['PRETTY_NAME'] ?? $name);
+
+    return [
+        'id'      => $id,
+        'name'    => $name,
+        'version' => $version,
+        'pretty'  => $pretty,
+    ];
+}
+
+/**
  * 采集服务器运行状态（用于设置页实时面板）
  */
 function get_server_uptime_seconds(): ?int {
@@ -3133,26 +3183,30 @@ function get_server_runtime_metrics(): array {
     // 尝试读取系统物理内存（优先于 PHP memory_limit）
     $system_mem_total = 0;
     $system_mem_used = 0;
-    if (function_exists('shell_exec')) {
-        if (PHP_OS_FAMILY === 'Linux' || PHP_OS_FAMILY === 'BSD') {
-            $meminfo = @shell_exec('cat /proc/meminfo 2>/dev/null');
-            if (is_string($meminfo) && $meminfo !== '') {
-                $memTotal = 0;
-                $memAvailable = 0;
-                if (preg_match('/MemTotal:\s+(\d+)\s+kB/', $meminfo, $m)) {
-                    $memTotal = (int)$m[1] * 1024;
-                }
-                if (preg_match('/MemAvailable:\s+(\d+)\s+kB/', $meminfo, $m)) {
-                    $memAvailable = (int)$m[1] * 1024;
-                } elseif (preg_match('/MemFree:\s+(\d+)\s+kB/', $meminfo, $m)) {
-                    $memAvailable = (int)$m[1] * 1024;
-                }
-                if ($memTotal > 0) {
-                    $system_mem_total = $memTotal;
-                    $system_mem_used = max(0, $memTotal - $memAvailable);
-                }
+    if (PHP_OS_FAMILY === 'Linux' || PHP_OS_FAMILY === 'BSD') {
+        // 优先直接读 /proc/meminfo（@ 在 open_basedir 下会静默 fail），shell_exec 仅作 fallback
+        $meminfo = @file_get_contents('/proc/meminfo');
+        if (!is_string($meminfo) || $meminfo === '') {
+            $meminfo = function_exists('shell_exec') ? @shell_exec('cat /proc/meminfo 2>/dev/null') : '';
+        }
+        if (is_string($meminfo) && $meminfo !== '') {
+            $memTotal = 0;
+            $memAvailable = 0;
+            if (preg_match('/MemTotal:\s+(\d+)\s+kB/', $meminfo, $m)) {
+                $memTotal = (int)$m[1] * 1024;
             }
-        } elseif (PHP_OS_FAMILY === 'Darwin') {
+            if (preg_match('/MemAvailable:\s+(\d+)\s+kB/', $meminfo, $m)) {
+                $memAvailable = (int)$m[1] * 1024;
+            } elseif (preg_match('/MemFree:\s+(\d+)\s+kB/', $meminfo, $m)) {
+                $memAvailable = (int)$m[1] * 1024;
+            }
+            if ($memTotal > 0) {
+                $system_mem_total = $memTotal;
+                $system_mem_used = max(0, $memTotal - $memAvailable);
+            }
+        }
+    } elseif (function_exists('shell_exec')) {
+        if (PHP_OS_FAMILY === 'Darwin') {
             $hw_memsize = @shell_exec('sysctl -n hw.memsize 2>/dev/null');
             if (is_string($hw_memsize) && is_numeric(trim($hw_memsize))) {
                 $system_mem_total = (int)trim($hw_memsize);
@@ -3196,22 +3250,40 @@ function get_server_runtime_metrics(): array {
     $load_5 = (is_array($load_avg) && isset($load_avg[1])) ? (float)$load_avg[1] : null;
     $load_15 = (is_array($load_avg) && isset($load_avg[2])) ? (float)$load_avg[2] : null;
 
+    // CPU 核数：优先数 /proc/cpuinfo 的 processor 行（不依赖 shell_exec）
     $cpu_cores = null;
-    if (function_exists('shell_exec')) {
+    $cpuinfo = @file_get_contents('/proc/cpuinfo');
+    if (is_string($cpuinfo) && $cpuinfo !== '') {
+        $count = preg_match_all('/^processor\s*:/m', $cpuinfo);
+        if ($count > 0) {
+            $cpu_cores = $count;
+        }
+    }
+    if ($cpu_cores === null && function_exists('shell_exec')) {
         $nproc = @shell_exec('nproc 2>/dev/null');
-        if (is_string($nproc) && trim($nproc) !== '' && ctype_digit(trim($nproc))) {
+        if (is_string($nproc) && ctype_digit(trim($nproc))) {
             $cpu_cores = (int)trim($nproc);
         }
         if ($cpu_cores === null) {
             $sysctl = @shell_exec('sysctl -n hw.ncpu 2>/dev/null');
-            if (is_string($sysctl) && trim($sysctl) !== '' && ctype_digit(trim($sysctl))) {
+            if (is_string($sysctl) && ctype_digit(trim($sysctl))) {
                 $cpu_cores = (int)trim($sysctl);
             }
         }
     }
 
+    // uptime 文本：基于 $uptime_seconds 自己拼，避免依赖被沙箱禁用的 `uptime` 命令
     $uptime_text = '当前环境不支持读取';
-    if (function_exists('shell_exec')) {
+    if ($uptime_seconds !== null) {
+        $days = intdiv($uptime_seconds, 86400);
+        $hours = intdiv($uptime_seconds % 86400, 3600);
+        $mins = intdiv($uptime_seconds % 3600, 60);
+        $parts = [];
+        if ($days > 0) $parts[] = $days . ' 天';
+        if ($hours > 0) $parts[] = $hours . ' 小时';
+        if ($mins > 0 || empty($parts)) $parts[] = $mins . ' 分钟';
+        $uptime_text = implode(' ', $parts);
+    } elseif (function_exists('shell_exec')) {
         $uptime_raw = @shell_exec('uptime 2>/dev/null');
         if (is_string($uptime_raw) && trim($uptime_raw) !== '') {
             $uptime_text = trim($uptime_raw);
@@ -3270,7 +3342,8 @@ function get_server_runtime_metrics(): array {
             }
             return $addr ?: '127.0.0.1';
         })(),
-        'os' => php_uname('s') . ' ' . php_uname('r'),
+        'os' => get_distro_info()['pretty'],
+        'distro' => get_distro_info(),
         'php_version' => PHP_VERSION,
         'php_sapi' => (string)php_sapi_name(),
         'php_upload_limit_bytes' => $php_upload_limit,
@@ -3309,7 +3382,8 @@ function get_server_runtime_metrics(): array {
         'capability' => [
             'gd' => extension_loaded('gd'),
             'imagick' => extension_loaded('imagick'),
-            'avif' => function_exists('imagecreatefromavif') && function_exists('imageavif'),
+            'avif' => (function_exists('imagecreatefromavif') && function_exists('imageavif'))
+                || (extension_loaded('imagick') && in_array('AVIF', @(new Imagick())->queryFormats('AVIF') ?: [], true)),
             'webp' => function_exists('imagewebp'),
         ],
     ];
