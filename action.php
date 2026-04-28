@@ -121,6 +121,22 @@ if ($action === '') {
     error_response('未指定操作');
 }
 
+// 站点级管理动作（不绑定单文件），在通用 file/CSRF 校验前 early-exit。
+if ($action === 'fix_open_basedir') {
+    if (!is_admin()) {
+        error_response('权限不足', 403);
+    }
+    $csrf = (string)($_POST['csrf_token'] ?? $_GET['csrf_token'] ?? '');
+    if (!csrf_token_verify($csrf)) {
+        error_response('CSRF Token 无效或已过期', 403);
+    }
+    $result = fix_open_basedir_for_proc();
+    if (!empty($result['ok'])) {
+        success_response(['message' => $result['note'] ?? '已修复']);
+    }
+    error_response($result['reason'] ?? '修复失败', 500);
+}
+
 if ($file === '') {
     error_response('未指定文件');
 }
@@ -290,16 +306,6 @@ switch ($action) {
         } else {
             // 改进: 使用 500 状态码
             error_response('删除失败', 500);
-        }
-        break;
-
-    case 'fix_open_basedir':
-        // 仅 admin 可调用——is_api_request_authorized() 已覆盖此前置校验。
-        $result = fix_open_basedir_for_proc();
-        if (!empty($result['ok'])) {
-            success_response(['message' => $result['note'] ?? '已修复']);
-        } else {
-            error_response($result['reason'] ?? '修复失败', 500);
         }
         break;
 
