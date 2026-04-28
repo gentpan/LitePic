@@ -3985,3 +3985,103 @@ function success_response(array $data): void {
     echo json_encode(array_merge(['status' => 'success'], $data));
     exit;
 }
+
+/**
+ * 检测 PHP open_basedir 沙箱是否挡住了 settings 页系统状态所依赖的 /proc 文件。
+ *
+ * 返回被挡住的文件路径数组（空数组表示一切正常 / 没有沙箱限制）。
+ * 这是个 cheap probe：file_get_contents 在 open_basedir 之外会被 @ 静默 fail，
+ * 不需要复杂的 ini parse。
+ */
+function detect_sandbox_blocked_paths(): array {
+    $required = ['/proc/cpuinfo', '/proc/meminfo', '/proc/uptime'];
+    $blocked = [];
+    foreach ($required as $path) {
+        if (@file_get_contents($path) === false) {
+            $blocked[] = $path;
+        }
+    }
+    return $blocked;
+}
+
+/**
+ * 把 /proc/cpuinfo / /proc/meminfo / /proc/uptime 这 3 个公开系统信息文件
+ * 追加到站点根目录 .user.ini 的 open_basedir 白名单。
+ *
+ * 设计原则：
+ *  - 只追加缺失项，已在白名单的不重复添加
+ *  - 改前自动备份到 .user.ini.bak.YmdHis
+ *  - 不动 open_basedir 以外的任何配置
+ *  - 没有 .user.ini 时按当前站点目录推断默认值并创建
+ *
+ * 返回 ['ok' => bool, 'note'|'reason' => string]。
+ *
+ * 注意：PHP-FPM 用 user_ini.cache_ttl（默认 300s）缓存 .user.ini，
+ * 所以改完后页面不会立即看到效果——这条信息会写在 note 里告诉用户。
+ */
+function fix_open_basedir_for_proc(): array {
+    $user_ini = __DIR__ . '/.user.ini';
+    $required = ['/proc/cpuinfo', '/proc/meminfo', '/proc/uptime'];
+
+    // case 1: .user.ini 不存在 — 创建一份只包含 open_basedir 的最小文件
+    if (!is_file($user_ini)) {
+        $line = "open_basedir=" . __DIR__ . "/:/tmp/:" . implode(':', $required) . "\n";
+        if (@file_put_contents($user_ini, $line) === false) {
+            return ['ok' => false, 'reason' => '.user.ini 不存在且无法创建（站点根目录可能不可写）'];
+        }
+        return [
+            'ok' => true,
+            'note' => '已新建 .user.ini 并写入 open_basedir。修改最长 5 分钟内生效（PHP-FPM user_ini 缓存），或联系管理员重启 PHP-FPM 立即生效。',
+        ];
+    }
+
+    // case 2: 不可读 / 不可写
+    if (!is_readable($user_ini) || !is_writable($user_ini)) {
+        return ['ok' => false, 'reason' => '.user.ini 不可写。请确保它的 owner 是 PHP-FPM 进程（通常 www）且权限 ≥ 0644。'];
+    }
+
+    $content = (string)@file_get_contents($user_ini);
+    if ($content === '') {
+        return ['ok' => false, 'reason' => '.user.ini 读取失败或为空'];
+    }
+
+    // case 3: 已包含全部 3 个路径 — 无需再写
+    $missing = array_values(array_filter($required, static fn($p) => strpos($content, $p) === false));
+    if (empty($missing)) {
+        return [
+            'ok' => true,
+            'note' => '.user.ini 已包含全部所需路径。如果设置页指标仍显示受限，请等 PHP-FPM user_ini 缓存（默认 5 分钟）失效后再刷新。',
+        ];
+    }
+
+    // 备份（best-effort，失败不阻断）
+    @copy($user_ini, $user_ini . '.bak.' . date('YmdHis'));
+
+    // 把缺失项追加到第一行 open_basedir= 后面
+    $append = ':' . implode(':', $missing);
+    $count = 0;
+    $new_content = preg_replace_callback(
+        '/^(open_basedir\s*=\s*[^\r\n]+?)(\s*)$/m',
+        static function ($m) use ($append) {
+            return rtrim($m[1]) . $append;
+        },
+        $content,
+        1,
+        $count
+    );
+
+    // case 4: .user.ini 里没有 open_basedir 行 — 在文件顶部插入一行（同时包含站点目录与 /tmp）
+    if ($count === 0) {
+        $new_line = "open_basedir=" . __DIR__ . "/:/tmp/:" . implode(':', $required) . "\n";
+        $new_content = $new_line . $content;
+    }
+
+    if (@file_put_contents($user_ini, $new_content) === false) {
+        return ['ok' => false, 'reason' => '.user.ini 写入失败'];
+    }
+
+    return [
+        'ok' => true,
+        'note' => '已更新 .user.ini，追加 ' . count($missing) . ' 个路径。修改最长 5 分钟内生效（PHP-FPM user_ini 缓存），或联系管理员重启 PHP-FPM 立即生效。',
+    ];
+}

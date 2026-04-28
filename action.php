@@ -293,6 +293,16 @@ switch ($action) {
         }
         break;
 
+    case 'fix_open_basedir':
+        // 仅 admin 可调用——is_api_request_authorized() 已覆盖此前置校验。
+        $result = fix_open_basedir_for_proc();
+        if (!empty($result['ok'])) {
+            success_response(['message' => $result['note'] ?? '已修复']);
+        } else {
+            error_response($result['reason'] ?? '修复失败', 500);
+        }
+        break;
+
     default:
         error_response('无效操作');
         break;
