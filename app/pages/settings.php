@@ -378,6 +378,15 @@ $current_compression_mode = get_compression_mode();
 $configured_upload_limit_bytes = (int)MAX_FILE_SIZE;
 $runtime_upload_limit_bytes = get_php_upload_limit_bytes();
 $metrics = get_server_runtime_metrics();
+
+// 沙箱探测：决定是否在 settings 页顶部显示一键修复 banner，
+// 以及把无法读取的指标显示为「受沙箱限制」而不是误导性的 fallback 数字。
+$sandbox_blocked_paths = detect_sandbox_blocked_paths();
+$has_sandbox_warning = !empty($sandbox_blocked_paths);
+$cpu_cores_blocked = $has_sandbox_warning && in_array('/proc/cpuinfo', $sandbox_blocked_paths, true);
+$memory_blocked = $has_sandbox_warning && in_array('/proc/meminfo', $sandbox_blocked_paths, true);
+$uptime_blocked = $has_sandbox_warning && in_array('/proc/uptime', $sandbox_blocked_paths, true);
+
 $current_php_sapi = (string)($metrics['php_sapi'] ?? php_sapi_name());
 $server_ip = (string)($metrics['server_ip'] ?? '-');
 $server_os = (string)($metrics['os'] ?? '-');
@@ -405,10 +414,16 @@ $compression_capability = is_array($metrics['capability'] ?? null) ? $metrics['c
     'avif' => false,
     'webp' => false,
 ];
-$memory_text = (string)($metrics['memory']['text'] ?? '-');
+// metrics 文本：沙箱挡住数据源时显示「受沙箱限制」而不是误导性的 fallback 数字
+// （比如 PHP 进程 RSS 不等于系统物理内存）
+$memory_text = $memory_blocked
+    ? '受沙箱限制'
+    : (string)($metrics['memory']['text'] ?? '-');
 $memory_peak_text = (string)($metrics['memory']['peak_text'] ?? '-');
 $cpu_load_text = (string)($metrics['cpu_load']['text'] ?? '不可用');
-$cpu_cores_text = isset($metrics['cpu_cores']) && is_numeric($metrics['cpu_cores']) ? (string)$metrics['cpu_cores'] : '不可用';
+$cpu_cores_text = $cpu_cores_blocked
+    ? '受沙箱限制'
+    : (isset($metrics['cpu_cores']) && is_numeric($metrics['cpu_cores']) ? (string)$metrics['cpu_cores'] : '不可用');
 $disk_text = (string)($metrics['disk']['text'] ?? '-');
 $disk_free_text = (string)($metrics['disk']['free_text'] ?? '-');
 $memory_usage_percent = max(0.0, min(100.0, (float)($metrics['memory']['usage_percent'] ?? 0)));
@@ -433,6 +448,82 @@ require_once APP_ROOT . '/header.php';
         </div>
 
         <div class="page-shell-body">
+            <?php if ($has_sandbox_warning): ?>
+            <aside class="sandbox-banner" id="sandboxBanner" role="alert">
+                <div class="sandbox-banner-icon" aria-hidden="true">
+                    <i class="fa-light fa-shield-exclamation"></i>
+                </div>
+                <div class="sandbox-banner-body">
+                    <strong class="sandbox-banner-title">系统状态读取受限</strong>
+                    <p class="sandbox-banner-desc">
+                        PHP 沙箱（open_basedir）挡住了
+                        <code><?= htmlspecialchars(implode(' / ', $sandbox_blocked_paths)) ?></code>，
+                        导致 CPU 核数 / 内存 / Uptime 显示异常。
+                        点「一键修复」会把这 3 个公开系统信息文件追加到站点根目录
+                        <code>.user.ini</code> 的白名单（修改前自动备份），最长 5 分钟内生效。
+                    </p>
+                    <div class="sandbox-banner-actions">
+                        <button type="button" class="btn btn-primary btn-sm" id="sandboxFixBtn">
+                            <i class="fa-light fa-wand-magic-sparkles"></i>
+                            <span>一键修复</span>
+                        </button>
+                        <button type="button" class="btn btn-ghost btn-sm" id="sandboxDismissBtn">
+                            稍后再说
+                        </button>
+                    </div>
+                </div>
+            </aside>
+            <style>
+                .sandbox-banner { display:flex; gap:14px; align-items:flex-start; padding:14px 18px; margin-bottom:18px; border:1px solid var(--border-warn, #f0b429); background:var(--bg-warn, rgba(240,180,41,.08)); border-radius:10px; }
+                .sandbox-banner-icon { font-size:24px; color:var(--border-warn, #f0b429); line-height:1; padding-top:2px; }
+                .sandbox-banner-body { flex:1; min-width:0; }
+                .sandbox-banner-title { display:block; font-size:15px; margin-bottom:4px; }
+                .sandbox-banner-desc { font-size:13px; line-height:1.6; color:var(--text-2, #555); margin:0 0 10px; }
+                .sandbox-banner-desc code { font-size:12px; padding:1px 6px; background:rgba(0,0,0,.06); border-radius:4px; }
+                .sandbox-banner-actions { display:flex; gap:8px; }
+                .sandbox-banner-actions .btn { font-size:13px; }
+            </style>
+            <script>
+                (function () {
+                    const banner = document.getElementById('sandboxBanner');
+                    if (!banner) return;
+                    const fixBtn = document.getElementById('sandboxFixBtn');
+                    const dismissBtn = document.getElementById('sandboxDismissBtn');
+
+                    dismissBtn?.addEventListener('click', () => banner.remove());
+
+                    fixBtn?.addEventListener('click', async () => {
+                        const original = fixBtn.innerHTML;
+                        fixBtn.disabled = true;
+                        fixBtn.innerHTML = '<i class="fa-light fa-spinner fa-spin"></i> <span>修复中…</span>';
+                        try {
+                            const fd = new FormData();
+                            fd.append('action', 'fix_open_basedir');
+                            fd.append('csrf_token', window.CSRF_TOKEN || '');
+                            const resp = await fetch('/action.php', { method:'POST', body:fd, credentials:'same-origin' });
+                            const data = await resp.json();
+                            if (data.status === 'success') {
+                                fixBtn.innerHTML = '<i class="fa-light fa-check"></i> <span>已修复</span>';
+                                if (window.ImgEt?.Utils?.showNotification) {
+                                    ImgEt.Utils.showNotification(data.message || '已修复，最长 5 分钟内生效', 'success');
+                                }
+                            } else {
+                                throw new Error(data.message || '修复失败');
+                            }
+                        } catch (err) {
+                            fixBtn.disabled = false;
+                            fixBtn.innerHTML = original;
+                            const msg = (err && err.message) || '修复失败';
+                            if (window.ImgEt?.Utils?.showNotification) {
+                                ImgEt.Utils.showNotification('修复失败：' + msg, 'error');
+                            } else {
+                                alert('修复失败：' + msg);
+                            }
+                        }
+                    });
+                })();
+            </script>
+            <?php endif; ?>
             <div class="settings-layout">
                 <form method="post" class="settings-panel">
                     <?= csrf_token_input() ?>
