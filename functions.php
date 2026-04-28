@@ -3134,9 +3134,15 @@ function get_distro_info(): array {
     $name    = $kv['NAME'] ?? $fallback['name'];
     $version = $kv['VERSION_ID'] ?? '';
 
-    // 优先使用 NAME + VERSION_ID 拼出干净串（"Debian 13"），
-    // 拿不到 VERSION_ID 时退回 PRETTY_NAME（"Debian GNU/Linux 13 (trixie)"）。
-    $pretty = $version !== '' ? trim($name . ' ' . $version) : ($kv['PRETTY_NAME'] ?? $name);
+    // 把 NAME 里的 "GNU/Linux" / "Linux" 通用后缀去掉，得到品牌名
+    // ("Debian GNU/Linux" → "Debian", "Ubuntu" → "Ubuntu")。
+    $brand = trim((string)preg_replace('~\s*(GNU/)?Linux\s*$~i', '', $name));
+    if ($brand === '') {
+        $brand = $name;
+    }
+
+    // 品牌 + VERSION_ID（"Debian 13"），拿不到 VERSION_ID 时退回 PRETTY_NAME。
+    $pretty = $version !== '' ? trim($brand . ' ' . $version) : ($kv['PRETTY_NAME'] ?? $name);
 
     return [
         'id'      => $id,
