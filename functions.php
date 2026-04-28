@@ -3100,11 +3100,11 @@ function format_filesize($bytes) {
  * 采集服务器运行状态（用于设置页实时面板）
  */
 function get_server_uptime_seconds(): ?int {
-    if (is_readable('/proc/uptime')) {
-        $raw = @file_get_contents('/proc/uptime');
-        if (is_string($raw) && preg_match('/^\s*([0-9]+(?:\.[0-9]+)?)/', $raw, $matches)) {
-            return max(0, (int)floor((float)$matches[1]));
-        }
+    // 不用 is_readable 探测——它不接受 @ 抑制，会在 open_basedir 限制下打出警告。
+    // 直接 @file_get_contents 即可，访问被禁时返回 false 落到下面的 fallback。
+    $raw = @file_get_contents('/proc/uptime');
+    if (is_string($raw) && preg_match('/^\s*([0-9]+(?:\.[0-9]+)?)/', $raw, $matches)) {
+        return max(0, (int)floor((float)$matches[1]));
     }
 
     if (function_exists('shell_exec')) {
