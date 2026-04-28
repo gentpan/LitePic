@@ -1299,22 +1299,22 @@ class ImageProcessor extends BaseProcessor {
         ImgEt.DialogManager.showCustomDialog('压缩完成', content);
     }
 
-    static #showWebPResult(data) {
+    static #showConvertResult(data, format) {
         const safeFilename = escapeHtml(data.filename);
         const safeUrl = escapeHtml(data.url);
         const content = `
-            <div class="webp-result">
+            <div class="convert-result">
                 <div class="result-item"><span>转换成功:</span><span>${safeFilename}</span></div>
                 <div class="result-item"><span>文件大小:</span><span>${escapeHtml(data.size_text)}</span></div>
                 <div class="result-preview"><img src="${safeUrl}" alt="${safeFilename}" loading="lazy"></div>
             </div>`;
-        ImgEt.DialogManager.showCustomDialog('转换完成', content);
+        ImgEt.DialogManager.showCustomDialog(`${format} 转换完成`, content);
     }
 
-    static async #addWebPCard(data, imgCard) {
+    static async #addConvertedCard(data, imgCard) {
         try {
             const newCardHtml = await ApiService.getCardTemplate(data);
-            // 在原卡片后插入新的 WebP 卡片
+            // 在原卡片后插入新生成的卡片
             imgCard.insertAdjacentHTML('afterend', newCardHtml);
             const newCard = imgCard.nextElementSibling;
             const gallery = document.querySelector('.gallery');
@@ -1345,7 +1345,7 @@ class ImageProcessor extends BaseProcessor {
             // 更新计数显示
             GalleryManager.updateImageCount();
         } catch (err) {
-            console.error('添加 WebP 卡片失败:', err);
+            console.error('添加转换卡片失败:', err);
         }
     }
 }
