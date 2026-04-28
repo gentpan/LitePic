@@ -3104,12 +3104,59 @@ function format_filesize($bytes) {
  * open_basedir 受限时（is_readable 不被 @ 抑制）leak Warning。
  */
 function get_distro_info(): array {
-    $fallback = [
-        'id'      => strtolower(PHP_OS_FAMILY ?: 'unknown'),
-        'name'    => php_uname('s'),
-        'version' => php_uname('r'),
-        'pretty'  => trim(php_uname('s') . ' ' . php_uname('r')),
-    ];
+    // open_basedir 受限的环境（如宝塔 .user.ini 默认白名单）会让 /etc/os-release
+    // 读不到。退路：从内核 build 标签里嗅探发行版名字 + 版本，比 "Linux x.y.z" 友好。
+    $fallback = (static function (): array {
+        $kernel_version = (string)php_uname('v'); // e.g. "#1 SMP ... Debian 6.12.74-2 (2026-03-08)"
+        $kernel_release = (string)php_uname('r'); // e.g. "6.12.74+deb13+1-amd64"
+        $distro_brands = [
+            'debian'   => 'Debian',
+            'ubuntu'   => 'Ubuntu',
+            'fedora'   => 'Fedora',
+            'centos'   => 'CentOS',
+            'rhel'     => 'RHEL',
+            'redhat'   => 'Red Hat',
+            'suse'     => 'SUSE',
+            'opensuse' => 'openSUSE',
+            'arch'     => 'Arch',
+            'alpine'   => 'Alpine',
+        ];
+        $needle = $kernel_version . ' ' . $kernel_release;
+        $detected_id = '';
+        $detected_brand = '';
+        foreach ($distro_brands as $key => $brand) {
+            if (stripos($needle, $key) !== false) {
+                $detected_id = $key;
+                $detected_brand = $brand;
+                break;
+            }
+        }
+
+        // 试着抓主版本号：Debian/Ubuntu 的 kernel release 常含 "deb13" / "ubu22"。
+        $version = '';
+        if ($detected_id !== '' && preg_match('/(?:' . preg_quote(substr($detected_id, 0, 3), '/') . ')(\d+)/i', $kernel_release, $m)) {
+            $version = $m[1];
+        } elseif ($detected_id !== '' && preg_match('/' . preg_quote($detected_id, '/') . '\D*(\d+(?:\.\d+)?)/i', $kernel_version, $m)) {
+            $version = $m[1];
+        }
+
+        if ($detected_brand !== '') {
+            return [
+                'id'      => $detected_id,
+                'name'    => $detected_brand,
+                'version' => $version,
+                'pretty'  => $version !== '' ? ($detected_brand . ' ' . $version) : $detected_brand,
+            ];
+        }
+
+        // 真嗅不出来时，至少别出现 "Linux 6.12.74+deb13+1-amd64"
+        return [
+            'id'      => strtolower(PHP_OS_FAMILY ?: 'unknown'),
+            'name'    => php_uname('s'),
+            'version' => '',
+            'pretty'  => php_uname('s'),
+        ];
+    })();
 
     $raw = @file_get_contents('/etc/os-release');
     if (!is_string($raw) || $raw === '') {
