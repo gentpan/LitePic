@@ -1,0 +1,184 @@
+@layer components {
+  .recent-uploads {
+    @apply bg-surface border border-border rounded-md;
+    padding: 1rem;
+    transition: background var(--theme-transition), color var(--theme-transition), box-shadow var(--theme-transition), transform 200ms ease;
+  }
+
+  .recent-uploads:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .recent-header {
+    @apply flex justify-between items-center border-b border-border;
+    margin-bottom: var(--spacing-lg);
+    padding: 10px 14px;
+    gap: 12px;
+  }
+
+  .recent-header h3 {
+    @apply flex items-center gap-2 m-0 text-dark;
+    font-size: 1.1rem;
+  }
+
+  .recent-count {
+    @apply text-gray text-sm font-normal;
+  }
+
+  .view-all {
+    @apply flex items-center gap-2 text-primary no-underline text-sm rounded-sm;
+    padding: var(--spacing-sm) var(--spacing);
+    transition: var(--transition);
+  }
+
+  .view-all:hover {
+    @apply bg-light;
+    transform: translateX(5px);
+  }
+
+  .upload-grid {
+    @apply grid grid-cols-5 gap-0 border-t border-l border-border;
+    padding: 14px;
+  }
+
+  .img-box {
+    @apply relative rounded-md overflow-hidden bg-surface border-r border-b border-border transition-all duration-300 ease-in-out aspect-[10/7] h-auto self-start;
+  }
+
+  .img-box:hover {
+    transform: none;
+  }
+
+  .img-box img {
+    @apply w-full h-full object-cover block transition-transform duration-300 ease-in-out;
+  }
+
+  .img-box:hover img {
+    transform: scale(1.05);
+  }
+
+  .img-box.deleting {
+    animation: deleteCard 0.3s ease forwards;
+  }
+
+  .img-overlay {
+    @apply absolute bottom-0 left-0 right-0 p-4 flex gap-2 opacity-0 translate-y-full;
+    background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+    transition: var(--transition);
+  }
+
+  .img-box:hover .img-overlay {
+    @apply opacity-100 translate-y-0;
+  }
+
+  .img-overlay .action-btn {
+    @apply w-8 h-8 rounded-sm border-none bg-white/90 text-dark cursor-pointer flex items-center justify-center;
+    transition: var(--transition);
+  }
+
+  .img-overlay .action-btn:hover {
+    transform: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+
+  .img-overlay .copy-btn:hover {
+    @apply bg-primary text-white;
+  }
+
+  .img-overlay .delete-btn:hover {
+    @apply bg-danger text-white;
+  }
+
+  .recent-empty {
+    @apply flex items-center justify-center text-gray border border-dashed border-border;
+    grid-column: 1 / -1;
+    min-height: 120px;
+    gap: 10px;
+  }
+
+  /* 暗色模式下的图片操作按钮样式 */
+  html[data-theme="dark"] .img-overlay .action-btn {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  html[data-theme="dark"] .img-overlay .action-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
+    transform: none;
+  }
+
+  html[data-theme="dark"] .img-overlay .copy-btn:hover {
+    @apply bg-primary;
+    border-color: var(--primary);
+    color: #ffffff;
+  }
+
+  html[data-theme="dark"] .img-overlay .delete-btn:hover {
+    @apply bg-danger;
+    border-color: var(--danger);
+    color: #ffffff;
+  }
+
+  html[data-theme="dark"] .img-overlay .action-btn i {
+    font-size: 1.1rem;
+    transition: transform 0.2s ease;
+  }
+
+  html[data-theme="dark"] .img-overlay .action-btn:hover i {
+    transform: scale(1.1);
+  }
+
+  html[data-theme="dark"] .img-overlay {
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(2px);
+  }
+
+  html[data-theme="dark"] .recent-uploads {
+    background: var(--upload-box-bg);
+    border: 1px solid var(--upload-border);
+  }
+
+  html[data-theme="dark"] .recent-header h3 {
+    color: var(--upload-text);
+  }
+
+  html[data-theme="dark"] .recent-count {
+    color: var(--upload-hint);
+  }
+
+  html[data-theme="dark"] .img-box {
+    background: var(--progress-item-bg);
+    border: 1px solid var(--upload-border);
+  }
+
+  @media (max-width: 768px) {
+    .recent-uploads {
+      padding: var(--spacing);
+    }
+
+    .upload-grid {
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    }
+
+    .img-overlay .action-btn {
+      @apply w-7 h-7;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .upload-grid {
+      @apply grid-cols-2 gap-2;
+      padding: var(--spacing-sm);
+    }
+
+    .img-overlay {
+      @apply p-2;
+    }
+  }
+}

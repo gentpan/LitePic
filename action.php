@@ -280,6 +280,10 @@ switch ($action) {
         break;
 
     case 'delete':
+        $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+        if (!in_array($ext, ALLOWED_TYPES, true)) {
+            error_response('只能删除允许的图片类型', 400);
+        }
         remote_storage_delete_file_and_thumbnail($file);
         $webp = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.webp', $path);
         $avif = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.avif', $path);

@@ -919,7 +919,7 @@ function remote_storage_restore_all_to_local(): array {
 
             $target_path = rtrim(UPLOAD_PATH_LOCAL, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
             $target_dir = dirname($target_path);
-            if (!is_dir($target_dir) && !mkdir($target_dir, 0777, true) && !is_dir($target_dir)) {
+            if (!is_dir($target_dir) && !mkdir($target_dir, 0755, true) && !is_dir($target_dir)) {
                 $failed++;
                 $errors[] = '创建目录失败: ' . $target_dir;
                 continue;
@@ -1003,7 +1003,7 @@ function create_thumbnail(string $filename, bool $force = false): bool {
     }
 
     $thumb_dir = dirname($thumb_path);
-    if (!is_dir($thumb_dir) && !mkdir($thumb_dir, 0777, true)) {
+    if (!is_dir($thumb_dir) && !mkdir($thumb_dir, 0755, true)) {
         return false;
     }
 
@@ -1043,6 +1043,8 @@ function create_thumbnail(string $filename, bool $force = false): bool {
     imagecopyresampled($thumb, $source, 0, 0, 0, 0, $target_width, $target_height, $source_width, $source_height);
 
     $saved = imagejpeg($thumb, $thumb_path, THUMBNAIL_QUALITY);
+    imagedestroy($source);
+    imagedestroy($thumb);
 
     return $saved;
 }
@@ -1117,7 +1119,7 @@ function get_storage_path() {
         $path = UPLOAD_PATH_LOCAL . $year . DIRECTORY_SEPARATOR . $month . DIRECTORY_SEPARATOR;
         
         if (!is_dir($path)) {
-            mkdir($path, 0777, true);
+            mkdir($path, 0755, true);
         }
         
         return $path;
@@ -1138,7 +1140,7 @@ function get_storage_path_by_timestamp(int $timestamp): string {
         $month = date('m', $timestamp);
         $path = UPLOAD_PATH_LOCAL . $year . DIRECTORY_SEPARATOR . $month . DIRECTORY_SEPARATOR;
         if (!is_dir($path)) {
-            mkdir($path, 0777, true);
+            mkdir($path, 0755, true);
         }
         return $path;
     }
@@ -1294,7 +1296,7 @@ function scan_and_import_uploads(array $options = []): array {
             } else {
                 $mtime = @filemtime($source_path);
                 $target_dir = get_storage_path_by_timestamp($mtime !== false ? (int)$mtime : time());
-                if (!is_dir($target_dir) && !mkdir($target_dir, 0777, true)) {
+                if (!is_dir($target_dir) && !mkdir($target_dir, 0755, true)) {
                     $report['failed']++;
                     $report['errors'][] = '创建目录失败: ' . $target_dir;
                     continue;
@@ -1416,7 +1418,8 @@ function get_file_path($filename) {
     
     if (STORAGE_TYPE === 'date') {
         // 尝试仅在标准日期目录中查找文件
-        $files = glob(UPLOAD_PATH_LOCAL . '[0-9][0-9][0-9][0-9]/[0-1][0-9]/' . $filename);
+        $safe_filename = str_replace(['*', '?', '[', ']'], '', $filename);
+        $files = glob(UPLOAD_PATH_LOCAL . '[0-9][0-9][0-9][0-9]/[0-1][0-9]/' . $safe_filename);
         if (!empty($files)) {
             $files = array_values(array_filter($files, static function (string $path): bool {
                 $normalized = str_replace('\\', '/', $path);
@@ -1697,7 +1700,7 @@ function save_original_filename($system_name, $original_name) {
     }
     
     $map[$system_name] = $original_name;
-    file_put_contents($map_file, json_encode($map, JSON_PRETTY_PRINT));
+    file_put_contents($map_file, json_encode($map, JSON_PRETTY_PRINT), LOCK_EX);
 }
 
 /**
@@ -1726,7 +1729,7 @@ function debug_log($message, $data = null, $type = 'info') {
     $log_file = LOG_PATH . DIRECTORY_SEPARATOR . date('Y-m-d') . '.log';
     
     if (!is_dir(dirname($log_file))) {
-        mkdir(dirname($log_file), 0777, true);
+        mkdir(dirname($log_file), 0755, true);
     }
     
     $log = sprintf(
@@ -2612,6 +2615,7 @@ function save_image_with_type($image, $filepath, $mime) {
             imagegif($image, $filepath);
             break;
     }
+    imagedestroy($image);
 }
 
 /**
@@ -2657,10 +2661,14 @@ function convert_to_webp($filepath) {
         $original_filename = get_original_filename($original_identifier) ?? basename($filepath);
         $webp_filename = get_image_identifier_from_path($webp_path) ?? basename($webp_path);
         save_original_filename($webp_filename, $original_filename);
+        imagedestroy($source);
 
         return true;
     } catch (Exception $e) {
         error_log("WebP conversion error: " . $e->getMessage());
+        if (isset($source) && is_resource($source)) {
+            imagedestroy($source);
+        }
         return false;
     }
 }
@@ -2705,10 +2713,14 @@ function convert_to_avif($filepath) {
         $original_filename = get_original_filename($original_identifier) ?? basename($filepath);
         $avif_filename = get_image_identifier_from_path($avif_path) ?? basename($avif_path);
         save_original_filename($avif_filename, $original_filename);
+        imagedestroy($source);
 
         return true;
     } catch (Exception $e) {
         error_log("AVIF conversion error: " . $e->getMessage());
+        if (isset($source) && is_resource($source)) {
+            imagedestroy($source);
+        }
         return false;
     }
 }
@@ -2965,7 +2977,7 @@ function handle_uploaded_files(array $files): array {
         $storage_path = get_storage_path();
         $target = $storage_path . $filename;
 
-        if (!is_dir($storage_path) && !mkdir($storage_path, 0777, true) && !is_dir($storage_path)) {
+        if (!is_dir($storage_path) && !mkdir($storage_path, 0755, true) && !is_dir($storage_path)) {
             $results[] = [
                 'status' => 'error',
                 'message' => "文件 {$original_name} 存储目录创建失败",
@@ -3048,30 +3060,6 @@ function handle_uploaded_files(array $files): array {
     }
 
     return $results;
-}
-
-/**
- * 保存设置
- */
-function save_settings($settings) {
-    $config_path = __DIR__ . '/config.php';
-    $config_content = file_get_contents($config_path);
-    
-    foreach ($settings as $key => $value) {
-        if (is_array($value)) {
-            $value_str = '[' . implode(', ', $value) . ']';
-        } else if (is_bool($value)) {
-            $value_str = $value ? 'true' : 'false';
-        } else {
-            $value_str = "'" . addslashes($value) . "'";
-        }
-        
-        $pattern = "/define\('$key',\s*[^)]+\);/";
-        $replacement = "define('$key', $value_str);";
-        $config_content = preg_replace($pattern, $replacement, $config_content);
-    }
-    
-    file_put_contents($config_path, $config_content);
 }
 
 /**
@@ -3440,23 +3428,6 @@ function get_server_runtime_metrics(): array {
             'webp' => function_exists('imagewebp'),
         ],
     ];
-}
-
-/**
- * 获取访问量
- */
-function get_visit_count() {
-    $count_file = __DIR__ . '/data/visit_count.txt';
-    
-    if (!is_dir(dirname($count_file))) {
-        mkdir(dirname($count_file), 0777, true);
-    }
-    
-    $count = file_exists($count_file) ? (int)file_get_contents($count_file) : 0;
-    $count++;
-    file_put_contents($count_file, $count);
-    
-    return $count;
 }
 
 /**
@@ -3894,15 +3865,21 @@ function validate_upload_mime(string $tmp_name, string $ext): bool {
         return false;
     }
 
-    // SVG 单独处理：需检查是否包含恶意脚本（基础防护）
+    // SVG 单独处理：需检查是否包含恶意脚本
     if ($ext === 'svg') {
         $content = file_get_contents($tmp_name);
         if ($content === false) {
             return false;
         }
-        $lower = strtolower($content);
-        // 检测常见的危险标签和事件处理器
-        $dangerous = ['<script', 'javascript:', 'onload=', 'onerror=', 'onmouseover=', 'onfocus='];
+        // 解码 HTML 实体后再检查（防止 &#x3c;script 绕过）
+        $decoded = html_entity_decode($content, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $lower = strtolower($decoded);
+        // 检测危险标签、事件处理器及 foreignObject
+        $dangerous = [
+            '<script', 'javascript:', 'onload=', 'onerror=', 'onmouseover=',
+            'onfocus=', 'onbegin=', 'onend=', 'onactivate=', 'onclick=',
+            '<foreignobject', 'xlink:href', 'data:image/svg+xml',
+        ];
         foreach ($dangerous as $d) {
             if (str_contains($lower, $d)) {
                 return false;

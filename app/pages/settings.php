@@ -438,7 +438,7 @@ $disk_usage_percent = max(0.0, min(100.0, (float)($metrics['disk']['usage_percen
 require_once APP_ROOT . '/header.php';
 ?>
 
-<main class="container page-main">
+<main class="page-container page-main">
     <section class="page-shell">
         <div class="page-shell-header">
             <h2 class="page-shell-title">
@@ -463,11 +463,11 @@ require_once APP_ROOT . '/header.php';
                         <code>.user.ini</code> 的白名单（修改前自动备份），最长 5 分钟内生效。
                     </p>
                     <div class="sandbox-banner-actions">
-                        <button type="button" class="btn btn-primary btn-sm" id="sandboxFixBtn">
+                        <button type="button" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-sm text-xs font-medium cursor-pointer border-0 bg-primary text-white hover:bg-primary/90 transition-colors" id="sandboxFixBtn">
                             <i class="fa-light fa-wand-magic-sparkles"></i>
                             <span>一键修复</span>
                         </button>
-                        <button type="button" class="btn btn-ghost btn-sm" id="sandboxDismissBtn">
+                        <button type="button" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-sm text-xs font-medium cursor-pointer border-0 bg-transparent text-gray hover:text-dark hover:bg-light transition-colors" id="sandboxDismissBtn">
                             稍后再说
                         </button>
                     </div>
@@ -481,8 +481,7 @@ require_once APP_ROOT . '/header.php';
                 .sandbox-banner-desc { font-size:13px; line-height:1.6; color:var(--text-2, #555); margin:0 0 10px; }
                 .sandbox-banner-desc code { font-size:12px; padding:1px 6px; background:rgba(0,0,0,.06); border-radius:4px; }
                 .sandbox-banner-actions { display:flex; gap:8px; }
-                .sandbox-banner-actions .btn { font-size:13px; }
-            </style>
+                            </style>
             <script>
                 (function () {
                     const banner = document.getElementById('sandboxBanner');
@@ -529,8 +528,8 @@ require_once APP_ROOT . '/header.php';
                     <?= csrf_token_input() ?>
                     <input type="hidden" name="form_action" value="save_settings">
 
-                    <section class="settings-block settings-block-runtime">
-                        <div class="settings-block-header">
+                    <section class="grid gap-3.5 bg-surface border border-border p-3.5 rounded-md settings-block-runtime">
+                        <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
                             <h3>服务器信息</h3>
                             <p>运行环境与压缩能力检测</p>
                         </div>
@@ -592,20 +591,20 @@ require_once APP_ROOT . '/header.php';
                                 <span class="runtime-section-label">环境信息</span>
                             </div>
                             <div class="runtime-meta-grid">
-                                <article class="server-info-item">
-                                    <span class="server-info-label">PHP 版本</span>
-                                    <span class="server-info-value" id="metricPhpVersion"><?= htmlspecialchars((string)($metrics['php_version'] ?? PHP_VERSION)) ?></span>
+                                <article class="border border-border p-4 grid gap-2">
+                                    <span class="text-sm text-gray">PHP 版本</span>
+                                    <span class="text-base text-dark break-all" id="metricPhpVersion"><?= htmlspecialchars((string)($metrics['php_version'] ?? PHP_VERSION)) ?></span>
                                 </article>
-                                <article class="server-info-item">
-                                    <span class="server-info-label">系统版本</span>
-                                    <span class="server-info-value" id="metricOs" data-distro-id="<?= htmlspecialchars($server_distro_id) ?>">
+                                <article class="border border-border p-4 grid gap-2">
+                                    <span class="text-sm text-gray">系统版本</span>
+                                    <span class="text-base text-dark break-all" id="metricOs" data-distro-id="<?= htmlspecialchars($server_distro_id) ?>">
                                         <i class="fa-brands <?= htmlspecialchars($server_distro_icon) ?>" aria-hidden="true"></i>
                                         <?= htmlspecialchars($server_os) ?>
                                     </span>
                                 </article>
-                                <article class="server-info-item">
-                                    <span class="server-info-label">服务器 IP</span>
-                                    <span class="server-info-value" id="metricServerIp"><?= htmlspecialchars($server_ip) ?></span>
+                                <article class="border border-border p-4 grid gap-2">
+                                    <span class="text-sm text-gray">服务器 IP</span>
+                                    <span class="text-base text-dark break-all" id="metricServerIp"><?= htmlspecialchars($server_ip) ?></span>
                                 </article>
                             </div>
                         </div>
@@ -615,39 +614,39 @@ require_once APP_ROOT . '/header.php';
                                 <span class="runtime-section-label">上传与能力</span>
                             </div>
                             <?php $upload_ok = $runtime_upload_limit_bytes >= $configured_upload_limit_bytes; ?>
-                            <div class="server-capability-grid">
-                                <article class="server-capability-item">
-                                    <div class="capability-row">
-                                        <span class="server-info-label">上传上限</span>
-                                        <span class="capability-value" id="metricUploadLimit">
+                            <div class="grid grid-cols-5 gap-3.5">
+                                <article class="border border-border p-4 grid gap-2">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="text-sm text-gray">上传上限</span>
+                                        <span class="text-sm text-dark whitespace-nowrap overflow-hidden text-ellipsis" id="metricUploadLimit">
                                             <?= htmlspecialchars(format_filesize($runtime_upload_limit_bytes) . ' / ' . format_filesize($configured_upload_limit_bytes)) ?>
                                         </span>
                                     </div>
-                                    <span class="status-pill <?= $upload_ok ? 'is-on' : 'is-warn' ?>" id="metricUploadStatus">
+                                    <span class="inline-flex items-center justify-center min-h-[28px] px-2.5 text-sm leading-none border border-transparent whitespace-nowrap <?= $upload_ok ? 'is-on' : 'is-warn' ?>" id="metricUploadStatus">
                                         <?= $upload_ok ? '一致' : '未生效' ?>
                                     </span>
                                 </article>
-                                <article class="server-capability-item">
-                                    <span class="server-info-label">GD 扩展</span>
-                                    <span class="status-pill <?= $compression_capability['gd'] ? 'is-on' : 'is-off' ?>" id="metricCapGd">
+                                <article class="border border-border p-4 grid gap-2">
+                                    <span class="text-sm text-gray">GD 扩展</span>
+                                    <span class="inline-flex items-center justify-center min-h-[28px] px-2.5 text-sm leading-none border border-transparent whitespace-nowrap <?= $compression_capability['gd'] ? 'is-on' : 'is-off' ?>" id="metricCapGd">
                                         <?= $compression_capability['gd'] ? '已启用' : '未启用' ?>
                                     </span>
                                 </article>
-                                <article class="server-capability-item">
-                                    <span class="server-info-label">ImageMagick 扩展</span>
-                                    <span class="status-pill <?= $compression_capability['imagick'] ? 'is-on' : 'is-off' ?>" id="metricCapImagick">
+                                <article class="border border-border p-4 grid gap-2">
+                                    <span class="text-sm text-gray">ImageMagick 扩展</span>
+                                    <span class="inline-flex items-center justify-center min-h-[28px] px-2.5 text-sm leading-none border border-transparent whitespace-nowrap <?= $compression_capability['imagick'] ? 'is-on' : 'is-off' ?>" id="metricCapImagick">
                                         <?= $compression_capability['imagick'] ? '已启用' : '未启用' ?>
                                     </span>
                                 </article>
-                                <article class="server-capability-item">
-                                    <span class="server-info-label">AVIF 支持</span>
-                                    <span class="status-pill <?= $compression_capability['avif'] ? 'is-on' : 'is-off' ?>" id="metricCapAvif">
+                                <article class="border border-border p-4 grid gap-2">
+                                    <span class="text-sm text-gray">AVIF 支持</span>
+                                    <span class="inline-flex items-center justify-center min-h-[28px] px-2.5 text-sm leading-none border border-transparent whitespace-nowrap <?= $compression_capability['avif'] ? 'is-on' : 'is-off' ?>" id="metricCapAvif">
                                         <?= $compression_capability['avif'] ? '已启用' : '未启用' ?>
                                     </span>
                                 </article>
-                                <article class="server-capability-item">
-                                    <span class="server-info-label">WebP 支持</span>
-                                    <span class="status-pill <?= $compression_capability['webp'] ? 'is-on' : 'is-off' ?>" id="metricCapWebp">
+                                <article class="border border-border p-4 grid gap-2">
+                                    <span class="text-sm text-gray">WebP 支持</span>
+                                    <span class="inline-flex items-center justify-center min-h-[28px] px-2.5 text-sm leading-none border border-transparent whitespace-nowrap <?= $compression_capability['webp'] ? 'is-on' : 'is-off' ?>" id="metricCapWebp">
                                         <?= $compression_capability['webp'] ? '已启用' : '未启用' ?>
                                     </span>
                                 </article>
@@ -655,28 +654,28 @@ require_once APP_ROOT . '/header.php';
                         </div>
                     </section>
 
-                    <section class="settings-block">
-                        <div class="settings-block-header">
+                    <section class="grid gap-3.5 bg-surface border border-border p-3.5 rounded-md">
+                        <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
                             <h3>基础设置</h3>
                             <p>站点信息、上传规则和压缩策略</p>
                         </div>
 
-                        <div class="settings-cols">
-                            <div class="field">
+                        <div class="grid grid-cols-2 gap-3.5">
+                            <div class="grid gap-2">
                                 <label for="siteName">站点名称</label>
-                                <input id="siteName" class="settings-input" type="text" name="site_name" value="<?= htmlspecialchars(SITE_NAME) ?>">
+                                <input id="siteName" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="site_name" value="<?= htmlspecialchars(SITE_NAME) ?>">
                             </div>
-                            <div class="field">
+                            <div class="grid gap-2">
                                 <label for="siteDescription">站点描述</label>
-                                <input id="siteDescription" class="settings-input" type="text" name="site_description" value="<?= htmlspecialchars(SITE_DESCRIPTION) ?>">
+                                <input id="siteDescription" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="site_description" value="<?= htmlspecialchars(SITE_DESCRIPTION) ?>">
                             </div>
-                            <div class="field">
+                            <div class="grid gap-2">
                                 <label for="maxFileSize">最大上传大小（MB）</label>
-                                <input id="maxFileSize" class="settings-number" type="number" min="1" max="50" name="max_file_size_mb" value="<?= (int)round(MAX_FILE_SIZE / 1024 / 1024) ?>">
+                                <input id="maxFileSize" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="number" min="1" max="50" name="max_file_size_mb" value="<?= (int)round(MAX_FILE_SIZE / 1024 / 1024) ?>">
                             </div>
-                            <div class="field">
+                            <div class="grid gap-2">
                                 <label for="compressionMode">压缩方式</label>
-                                <select id="compressionMode" class="settings-input" name="compression_mode">
+                                <select id="compressionMode" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" name="compression_mode">
                                     <option value="hybrid" <?= $current_compression_mode === 'hybrid' ? 'selected' : '' ?>>混合模式（ImageMagick -> GD -> TinyPNG）</option>
                                     <option value="local" <?= $current_compression_mode === 'local' ? 'selected' : '' ?>>仅本地（ImageMagick -> GD）</option>
                                     <option value="imagemagick" <?= $current_compression_mode === 'imagemagick' ? 'selected' : '' ?>>仅 ImageMagick</option>
@@ -684,102 +683,102 @@ require_once APP_ROOT . '/header.php';
                                     <option value="tinypng" <?= $current_compression_mode === 'tinypng' ? 'selected' : '' ?>>仅 TinyPNG API</option>
                                 </select>
                             </div>
-                            <div class="field">
+                            <div class="grid gap-2">
                                 <label for="convertPreferredFormat">转换优先格式</label>
-                                <select id="convertPreferredFormat" class="settings-input" name="convert_preferred_format">
+                                <select id="convertPreferredFormat" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" name="convert_preferred_format">
                                     <option value="webp" <?= CONVERT_PREFERRED_FORMAT === 'webp' ? 'selected' : '' ?>>WebP</option>
                                     <option value="avif" <?= CONVERT_PREFERRED_FORMAT === 'avif' ? 'selected' : '' ?>>AVIF</option>
                                 </select>
                             </div>
                         </div>
 
-                        <div class="checks">
-                            <label class="check-item">
+                        <div class="grid gap-2.5">
+                            <label class="inline-flex items-center gap-2.5 min-h-[34px] text-base">
                                 <input id="autoCompressOnUpload" type="checkbox" name="auto_compress_on_upload" value="1" <?= AUTO_COMPRESS_ON_UPLOAD ? 'checked' : '' ?>>
                                 <span>上传后自动压缩（支持 JPG/JPEG/PNG）</span>
                             </label>
-                            <label class="check-item">
+                            <label class="inline-flex items-center gap-2.5 min-h-[34px] text-base">
                                 <input id="autoConvertWebpOnUpload" type="checkbox" name="auto_convert_webp_on_upload" value="1" <?= AUTO_CONVERT_WEBP_ON_UPLOAD ? 'checked' : '' ?>>
                                 <span>上传后自动转换 WebP（支持 JPG/JPEG/PNG/GIF）</span>
                             </label>
-                            <label class="check-item">
+                            <label class="inline-flex items-center gap-2.5 min-h-[34px] text-base">
                                 <input id="autoConvertAvifOnUpload" type="checkbox" name="auto_convert_avif_on_upload" value="1" <?= AUTO_CONVERT_AVIF_ON_UPLOAD ? 'checked' : '' ?>>
                                 <span>上传后自动转换 AVIF（支持 JPG/JPEG/PNG/GIF）</span>
                             </label>
-                            <label class="check-item">
+                            <label class="inline-flex items-center gap-2.5 min-h-[34px] text-base">
                                 <input id="keepOriginalAfterProcess" type="checkbox" name="keep_original_after_process" value="1" <?= KEEP_ORIGINAL_AFTER_PROCESS ? 'checked' : '' ?>>
                                 <span>转换或压缩后保留原图</span>
                             </label>
                         </div>
                     </section>
 
-                    <section class="settings-block">
-                        <div class="settings-block-header">
+                    <section class="grid gap-3.5 bg-surface border border-border p-3.5 rounded-md">
+                        <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
                             <h3>远程存储同步（R2 / S3）</h3>
                             <p>上传后自动同步原图和缩略图到对象存储</p>
                         </div>
 
-                        <div class="settings-cols">
-                            <div class="settings-col">
-                                <div class="field">
+                        <div class="grid grid-cols-2 gap-3.5">
+                            <div class="grid gap-3 content-start">
+                                <div class="grid gap-2">
                                     <label for="remoteStorageMode">同步模式</label>
-                                    <select id="remoteStorageMode" class="settings-input" name="remote_storage_mode">
+                                    <select id="remoteStorageMode" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" name="remote_storage_mode">
                                         <option value="off" <?= REMOTE_STORAGE_MODE === 'off' ? 'selected' : '' ?>>关闭</option>
                                         <option value="sync" <?= REMOTE_STORAGE_MODE === 'sync' ? 'selected' : '' ?>>同步（实时上传）</option>
                                         <option value="backup" <?= REMOTE_STORAGE_MODE === 'backup' ? 'selected' : '' ?>>备份（当前同实时上传）</option>
                                     </select>
                                 </div>
-                                <div class="field">
+                                <div class="grid gap-2">
                                     <label for="s3Provider">存储提供商</label>
-                                    <select id="s3Provider" class="settings-input" name="s3_provider">
+                                    <select id="s3Provider" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" name="s3_provider">
                                         <option value="r2" <?= S3_PROVIDER === 'r2' ? 'selected' : '' ?>>Cloudflare R2</option>
                                         <option value="s3" <?= S3_PROVIDER === 's3' ? 'selected' : '' ?>>Amazon S3</option>
                                     </select>
                                 </div>
-                                <div class="field">
+                                <div class="grid gap-2">
                                     <label for="s3Bucket">Bucket</label>
-                                    <input id="s3Bucket" class="settings-input" type="text" name="s3_bucket" value="<?= htmlspecialchars(S3_BUCKET) ?>">
+                                    <input id="s3Bucket" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="s3_bucket" value="<?= htmlspecialchars(S3_BUCKET) ?>">
                                 </div>
-                                <div class="field">
+                                <div class="grid gap-2">
                                     <label for="s3Region">Region</label>
-                                    <input id="s3Region" class="settings-input" type="text" name="s3_region" value="<?= htmlspecialchars(S3_REGION) ?>" placeholder="R2 建议 auto">
+                                    <input id="s3Region" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="s3_region" value="<?= htmlspecialchars(S3_REGION) ?>" placeholder="R2 建议 auto">
                                 </div>
                             </div>
 
-                            <div class="settings-col">
-                                <div class="field">
+                            <div class="grid gap-3 content-start">
+                                <div class="grid gap-2">
                                     <label for="s3Endpoint">Endpoint</label>
-                                    <input id="s3Endpoint" class="settings-input" type="text" name="s3_endpoint" value="<?= htmlspecialchars(S3_ENDPOINT) ?>" placeholder="https://<accountid>.r2.cloudflarestorage.com">
+                                    <input id="s3Endpoint" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="s3_endpoint" value="<?= htmlspecialchars(S3_ENDPOINT) ?>" placeholder="https://<accountid>.r2.cloudflarestorage.com">
                                 </div>
-                                <div class="field">
+                                <div class="grid gap-2">
                                     <label for="s3Key">Access Key</label>
-                                    <input id="s3Key" class="settings-input" type="text" name="s3_key" value="<?= htmlspecialchars(S3_KEY) ?>">
+                                    <input id="s3Key" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="s3_key" value="<?= htmlspecialchars(S3_KEY) ?>">
                                 </div>
-                                <div class="field">
+                                <div class="grid gap-2">
                                     <label for="s3Secret">Secret Key</label>
-                                    <input id="s3Secret" class="settings-input" type="password" name="s3_secret" value="<?= htmlspecialchars(S3_SECRET) ?>">
+                                    <input id="s3Secret" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="password" name="s3_secret" value="<?= htmlspecialchars(S3_SECRET) ?>">
                                 </div>
-                                <div class="field">
+                                <div class="grid gap-2">
                                     <label for="s3PathPrefix">对象路径前缀</label>
-                                    <input id="s3PathPrefix" class="settings-input" type="text" name="s3_path_prefix" value="<?= htmlspecialchars(S3_PATH_PREFIX) ?>" placeholder="uploads">
+                                    <input id="s3PathPrefix" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="s3_path_prefix" value="<?= htmlspecialchars(S3_PATH_PREFIX) ?>" placeholder="uploads">
                                 </div>
-                                <div class="field">
+                                <div class="grid gap-2">
                                     <label for="s3PublicBaseUrl">公网访问域名（可选）</label>
-                                    <input id="s3PublicBaseUrl" class="settings-input" type="text" name="s3_public_base_url" value="<?= htmlspecialchars(S3_PUBLIC_BASE_URL) ?>" placeholder="https://cdn.example.com">
+                                    <input id="s3PublicBaseUrl" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="s3_public_base_url" value="<?= htmlspecialchars(S3_PUBLIC_BASE_URL) ?>" placeholder="https://cdn.example.com">
                                 </div>
                             </div>
                         </div>
 
-                        <p class="settings-meta">说明：当前版本支持实时同步上传与删除。建议先保存后再执行连接测试。</p>
+                        <p class="m-0 text-sm text-gray">说明：当前版本支持实时同步上传与删除。建议先保存后再执行连接测试。</p>
 
-                        <div class="settings-submit-row">
-                            <button type="submit" class="btn" name="form_action" value="test_remote_storage">
+                        <div class="flex justify-start gap-2.5">
+                            <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border border-border bg-light text-dark hover:bg-gray/10 transition-colors" name="form_action" value="test_remote_storage">
                                 <i class="fa-light fa-plug-circle-check"></i>
                                 测试 R2/S3 连接
                             </button>
                             <button
                                 type="submit"
-                                class="btn js-remote-sync-all-btn"
+                                class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border border-border bg-light text-dark hover:bg-gray/10 transition-colors js-remote-sync-all-btn"
                                 name="form_action"
                                 value="sync_remote_storage_all"
                                 onclick="return confirm('确定要将所有本地图片同步到远程存储吗？此操作可能需要较长时间。')"
@@ -789,7 +788,7 @@ require_once APP_ROOT . '/header.php';
                             </button>
                             <button
                                 type="submit"
-                                class="btn js-remote-restore-all-btn"
+                                class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border border-border bg-light text-dark hover:bg-gray/10 transition-colors js-remote-restore-all-btn"
                                 name="form_action"
                                 value="restore_remote_storage_all"
                                 onclick="return confirm('确定要从远程存储恢复到本地吗？这会覆盖本地同名文件。')"
@@ -800,7 +799,7 @@ require_once APP_ROOT . '/header.php';
                             <button
                                 type="submit"
                                 data-busy-text="正在清空远程对象，请勿关闭页面..."
-                                class="btn btn-danger js-remote-purge-btn"
+                                class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-danger text-white hover:bg-danger/90 transition-colors js-remote-purge-btn"
                                 name="form_action"
                                 value="purge_remote_storage"
                                 onclick="return confirm('警告：此操作将清空远程存储中的所有对象，且不可恢复！确定继续吗？')">
@@ -810,54 +809,54 @@ require_once APP_ROOT . '/header.php';
                         </div>
                     </section>
 
-                    <section class="settings-block">
-                        <div class="settings-block-header">
+                    <section class="grid gap-3.5 bg-surface border border-border p-3.5 rounded-md">
+                        <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
                             <h3>扫描导入</h3>
                             <p>扫描 upload / uploads 并导入图库，可选生成缩略图、压缩或转换</p>
                         </div>
-                        <div class="checks">
-                            <label class="check-item scan-option">
+                        <div class="grid gap-2.5">
+                            <label class="inline-flex items-center gap-2.5 min-h-[34px] text-base scan-option">
                                 <input id="scanCreateThumbnail" type="checkbox" name="scan_create_thumbnail" value="1" checked>
                                 <span>导入时生成缩略图</span>
                             </label>
-                            <label class="check-item scan-option">
+                            <label class="inline-flex items-center gap-2.5 min-h-[34px] text-base scan-option">
                                 <input id="scanAutoCompress" type="checkbox" name="scan_auto_compress" value="1">
                                 <span>导入时自动压缩（JPG/JPEG/PNG）</span>
                             </label>
-                            <label class="check-item scan-option">
+                            <label class="inline-flex items-center gap-2.5 min-h-[34px] text-base scan-option">
                                 <input id="scanAutoWebp" type="checkbox" name="scan_auto_webp" value="1" checked>
                                 <span>导入时自动转 WebP（JPG/JPEG/PNG/GIF）</span>
                             </label>
-                            <label class="check-item scan-option">
+                            <label class="inline-flex items-center gap-2.5 min-h-[34px] text-base scan-option">
                                 <input id="scanAutoAvif" type="checkbox" name="scan_auto_avif" value="1">
                                 <span>导入时自动转 AVIF（JPG/JPEG/PNG/GIF）</span>
                             </label>
                         </div>
-                        <div class="settings-submit-row">
-                            <button type="submit" class="btn" name="form_action" value="scan_import_uploads">
+                        <div class="flex justify-start gap-2.5">
+                            <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border border-border bg-light text-dark hover:bg-gray/10 transition-colors" name="form_action" value="scan_import_uploads">
                                 <i class="fa-light fa-folder-open"></i>
                                 扫描导入 upload/uploads
                             </button>
-                            <button type="submit" class="btn" name="form_action" value="generate_all_thumbnails">
+                            <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border border-border bg-light text-dark hover:bg-gray/10 transition-colors" name="form_action" value="generate_all_thumbnails">
                                 <i class="fa-light fa-images"></i>
                                 一键生成全部缩略图
                             </button>
                         </div>
                     </section>
 
-                    <section class="settings-block">
-                        <div class="settings-block-header">
+                    <section class="grid gap-3.5 bg-surface border border-border p-3.5 rounded-md">
+                        <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
                             <h3>安全设置</h3>
                             <p>管理后台访问密钥（Cookie Secure 自动按 HTTPS 生效）</p>
                         </div>
 
-                        <div class="field">
+                        <div class="grid gap-2">
                             <label for="adminApiKey">管理员 API Key</label>
-                            <div class="secret-input-wrap">
-                                <input id="adminApiKey" class="settings-input has-toggle" type="password" name="admin_api_key" value="<?= htmlspecialchars(ADMIN_API_KEY) ?>" autocomplete="off">
+                            <div class="relative">
+                                <input id="adminApiKey" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border has-toggle pr-[50px]" type="password" name="admin_api_key" value="<?= htmlspecialchars(ADMIN_API_KEY) ?>" autocomplete="off">
                                 <button
                                     type="button"
-                                    class="secret-toggle-btn"
+                                    class="absolute right-px top-px bottom-px w-12 border-0 border-l border-border bg-transparent text-gray cursor-pointer"
                                     data-target="adminApiKey"
                                     aria-label="显示或隐藏 API Key"
                                     title="显示/隐藏 API Key">
@@ -868,25 +867,25 @@ require_once APP_ROOT . '/header.php';
 
                     </section>
 
-                    <div class="settings-submit-row">
-                        <button type="submit" class="btn btn-primary">
+                    <div class="flex justify-start gap-2.5">
+                        <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-primary text-white hover:bg-primary/90 transition-colors">
                             <i class="fa-light fa-floppy-disk"></i>
                             保存设置
                         </button>
                     </div>
                 </form>
 
-                <section class="settings-block">
-                    <div class="settings-block-header">
+                <section class="grid gap-3.5 bg-surface border border-border p-3.5 rounded-md">
+                    <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
                         <h3>API Token 管理（第三方上传）</h3>
                         <p>可创建、复制和撤销上传 Token</p>
                     </div>
 
-                    <form method="post" class="inline-form">
+                    <form method="post" class="grid grid-cols-[1fr_auto] gap-2.5 items-center">
                         <?= csrf_token_input() ?>
                         <input type="hidden" name="form_action" value="create_token">
-                        <input class="settings-input" type="text" name="token_name" placeholder="Token 名称（如：wordpress-prod）">
-                        <button type="submit" class="btn btn-primary">
+                        <input class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="token_name" placeholder="Token 名称（如：wordpress-prod）">
+                        <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-primary text-white hover:bg-primary/90 transition-colors">
                             <i class="fa-light fa-key"></i>
                             创建 Token
                         </button>
@@ -895,17 +894,17 @@ require_once APP_ROOT . '/header.php';
                     <?php if ($created_token !== ''): ?>
                         <div class="settings-callout">
                             <strong>新 Token（仅显示一次）</strong>
-                            <div class="inline-form">
-                                <input class="settings-input token-input" type="text" readonly value="<?= htmlspecialchars($created_token) ?>">
-                                <button type="button" class="btn copy-token-btn" data-copy="<?= htmlspecialchars($created_token) ?>">复制</button>
+                            <div class="grid grid-cols-[1fr_auto] gap-2.5 items-center">
+                                <input class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" readonly value="<?= htmlspecialchars($created_token) ?>">
+                                <button type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border border-border bg-light text-dark hover:bg-gray/10 transition-colors copy-token-btn" data-copy="<?= htmlspecialchars($created_token) ?>">复制</button>
                             </div>
                         </div>
                     <?php endif; ?>
 
-                    <p class="settings-meta">当前启用 Token：<?= count($active_tokens) ?> 个。出于安全原因，已创建 Token 不再长期明文展示。</p>
+                    <p class="m-0 text-sm text-gray">当前启用 Token：<?= count($active_tokens) ?> 个。出于安全原因，已创建 Token 不再长期明文展示。</p>
 
-                    <div class="settings-table-wrap">
-                        <table class="settings-table">
+                    <div class="overflow-auto border border-border">
+                        <table class="w-full border-collapse">
                             <thead>
                                 <tr>
                                     <th>名称</th>
@@ -932,7 +931,7 @@ require_once APP_ROOT . '/header.php';
                                                 <?= csrf_token_input() ?>
                                                 <input type="hidden" name="form_action" value="revoke_token">
                                                 <input type="hidden" name="token_id" value="<?= htmlspecialchars((string)$token['id']) ?>">
-                                                <button type="submit" class="btn btn-danger">撤销</button>
+                                                <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-danger text-white hover:bg-danger/90 transition-colors">撤销</button>
                                             </form>
                                         </td>
                                     </tr>
@@ -948,21 +947,21 @@ require_once APP_ROOT . '/header.php';
                     </div>
                 </section>
 
-                <section class="settings-block">
-                    <div class="settings-block-header">
+                <section class="grid gap-3.5 bg-surface border border-border p-3.5 rounded-md">
+                    <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
                         <h3>Passkey 管理</h3>
                         <p>无密码登录（生物识别 / 设备 PIN）</p>
                     </div>
 
-                    <button type="button" class="btn btn-primary" id="passkeyRegisterBtn">
+                    <button type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-primary text-white hover:bg-primary/90 transition-colors" id="passkeyRegisterBtn">
                         <i class="fa-light fa-fingerprint"></i>
                         注册新 Passkey
                     </button>
 
-                    <p class="settings-meta">已注册 <span id="passkeyCount">0</span> 个 Passkey。支持系统 PIN、指纹、面容等生物识别方式登录。</p>
+                    <p class="m-0 text-sm text-gray">已注册 <span id="passkeyCount">0</span> 个 Passkey。支持系统 PIN、指纹、面容等生物识别方式登录。</p>
 
-                    <div class="settings-table-wrap">
-                        <table class="settings-table" id="passkeyTable">
+                    <div class="overflow-auto border border-border">
+                        <table class="w-full border-collapse" id="passkeyTable">
                             <thead>
                                 <tr>
                                     <th>凭证 ID</th>
@@ -980,27 +979,27 @@ require_once APP_ROOT . '/header.php';
                     </div>
                 </section>
 
-                <section class="settings-block">
-                    <div class="settings-block-header">
+                <section class="grid gap-3.5 bg-surface border border-border p-3.5 rounded-md">
+                    <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
                         <h3>图片压缩 API 管理（TinyPNG）</h3>
                         <p>多 Key 轮询与调用监控</p>
                     </div>
 
-                    <form method="post" class="inline-form inline-form-3">
+                    <form method="post" class="grid grid-cols-[1fr_auto] gap-2.5 items-center grid-cols-[minmax(0,240px)_1fr_auto]">
                         <?= csrf_token_input() ?>
                         <input type="hidden" name="form_action" value="add_compression_api">
-                        <input class="settings-input" type="text" name="compression_api_name" placeholder="名称（如：tinify-main）">
-                        <input class="settings-input" type="text" name="compression_api_key" placeholder="输入 TinyPNG API Key">
-                        <button type="submit" class="btn btn-primary">
+                        <input class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="compression_api_name" placeholder="名称（如：tinify-main）">
+                        <input class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="compression_api_key" placeholder="输入 TinyPNG API Key">
+                        <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-primary text-white hover:bg-primary/90 transition-colors">
                             <i class="fa-light fa-plus"></i>
                             添加 Key
                         </button>
                     </form>
 
-                    <p class="settings-meta">已配置 <?= count($compression_api_keys) ?> 个，启用中 <?= $compression_api_active_count ?> 个。系统优先使用调用次数较少的 Key，并记录每个 Key 的调用统计。</p>
+                    <p class="m-0 text-sm text-gray">已配置 <?= count($compression_api_keys) ?> 个，启用中 <?= $compression_api_active_count ?> 个。系统优先使用调用次数较少的 Key，并记录每个 Key 的调用统计。</p>
 
-                    <div class="settings-table-wrap">
-                        <table class="settings-table">
+                    <div class="overflow-auto border border-border">
+                        <table class="w-full border-collapse">
                             <thead>
                                 <tr>
                                     <th>名称</th>
@@ -1045,19 +1044,19 @@ require_once APP_ROOT . '/header.php';
                                         <td><?= htmlspecialchars($last_used_at) ?></td>
                                         <td><?= htmlspecialchars($last_result) ?></td>
                                         <td>
-                                            <div class="table-actions">
+                                            <div class="flex gap-2 flex-wrap">
                                                 <form method="post">
                                                     <?= csrf_token_input() ?>
                                                     <input type="hidden" name="form_action" value="toggle_compression_api">
                                                     <input type="hidden" name="compression_api_id" value="<?= htmlspecialchars($id) ?>">
                                                     <input type="hidden" name="enable" value="<?= $enabled ? '0' : '1' ?>">
-                                                    <button type="submit" class="btn"><?= $enabled ? '禁用' : '启用' ?></button>
+                                                    <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border border-border bg-light text-dark hover:bg-gray/10 transition-colors"><?= $enabled ? '禁用' : '启用' ?></button>
                                                 </form>
                                                 <form method="post" onsubmit="return confirm('确定要删除此压缩 API Key 吗？')">
                                                     <?= csrf_token_input() ?>
                                                     <input type="hidden" name="form_action" value="delete_compression_api">
                                                     <input type="hidden" name="compression_api_id" value="<?= htmlspecialchars($id) ?>">
-                                                    <button type="submit" class="btn btn-danger">删除</button>
+                                                    <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-danger text-white hover:bg-danger/90 transition-colors">删除</button>
                                                 </form>
                                             </div>
                                         </td>
@@ -1418,7 +1417,7 @@ require_once APP_ROOT . '/header.php';
                             <td>${cred.createdAt}</td>
                             <td>${cred.lastUsedAt || '-'}</td>
                             <td>
-                                <button type="button" class="btn btn-danger passkey-delete-btn" data-id="${escapeHtml(cred.credentialId)}">
+                                <button type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-danger text-white hover:bg-danger/90 transition-colors passkey-delete-btn" data-id="${escapeHtml(cred.credentialId)}">
                                     删除
                                 </button>
                             </td>

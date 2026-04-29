@@ -30,6 +30,7 @@ RUN a2enmod rewrite
 RUN echo '<Directory /var/www/html>\n\
     Options -Indexes +FollowSymLinks\n\
     AllowOverride All\n\
+    DirectorySlash Off\n\
     Require all granted\n\
 </Directory>' > /etc/apache2/conf-available/litepic.conf \
     && a2enconf litepic

@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+session_init_safe();
+
 $is_logged_in = ADMIN_API_KEY !== '' &&
     isset($_COOKIE[API_KEY_COOKIE]) &&
     hash_equals(hash('sha256', ADMIN_API_KEY), (string)$_COOKIE[API_KEY_COOKIE]);
@@ -13,26 +15,18 @@ $is_logged_in = ADMIN_API_KEY !== '' &&
     <title><?= isset($page_title) && trim((string)$page_title) !== '' ? trim((string)$page_title) . ' - ' : '' ?><?= htmlspecialchars(SITE_NAME) ?></title>
     <meta name="description" content="<?= htmlspecialchars(SITE_DESCRIPTION) ?>">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/favicon/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon/favicon-16x16.png">
+    <link rel="manifest" href="/static/favicon/site.webmanifest">
     <link rel="shortcut icon" href="/favicon.ico" />
 
     <?php
-    $css_modules = ['base', 'components', 'upload', 'recent', 'layout', 'gallery', 'settings', 'stats', 'docs', 'viewimage'];
-    $css_ver_base = is_file(__DIR__ . '/assets/css/modules/base.css') ? (string)filemtime(__DIR__ . '/assets/css/modules/base.css') : '1';
-    if (defined('DEBUG') && DEBUG): ?>
-    <!-- 开发模式：加载独立 CSS 模块 -->
-    <?php foreach ($css_modules as $mod): ?>
-    <link rel="stylesheet" href="/assets/css/modules/<?= htmlspecialchars($mod, ENT_QUOTES, 'UTF-8') ?>.css?v=<?= htmlspecialchars($css_ver_base, ENT_QUOTES, 'UTF-8') ?>">
-    <?php endforeach; ?>
-    <?php else:
-        $css_bundle = 'assets/css/main.min.css';
-        if (!is_file(__DIR__ . '/' . $css_bundle)) {
-            $css_bundle = 'assets/css/main.css';
-        }
-        $css_file = __DIR__ . '/' . $css_bundle;
-        $css_ver = is_file($css_file) ? (string)filemtime($css_file) : '1';
+    $css_bundle = 'assets/css/main.css';
+    $css_file = __DIR__ . '/' . $css_bundle;
+    $css_ver = is_file($css_file) ? (string)filemtime($css_file) : '1';
     ?>
     <link rel="stylesheet" href="/<?= htmlspecialchars(ltrim($css_bundle, '/'), ENT_QUOTES, 'UTF-8') ?>?v=<?= htmlspecialchars($css_ver, ENT_QUOTES, 'UTF-8') ?>">
-    <?php endif; ?>
     <link rel="stylesheet" href="https://icons.bluecdn.com/fontawesome-pro/css/all.min.css"> <!-- Font Awesome Pro CDN -->
     <script>
         // 全局 CSRF Token（用于前端 AJAX 请求）
@@ -45,102 +39,64 @@ $is_logged_in = ADMIN_API_KEY !== '' &&
     <div id="notification" class="notification-container"></div>
 
     <!-- 顶部导航 -->
-    <header class="site-header">
-        <div class="header-container">
-            <div class="logo">
-                <a href="/" title="返回首页" class="logo-link" aria-label="返回首页">
-                    <span class="logo-icon" aria-hidden="true">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
-                            <path fill="#1777ff" d="M448 32l-448 0 0 448 448 0 0-448zM128 112a48 48 0 1 1 0 96 48 48 0 1 1 0-96zm16 160l46.1 69.1 81.9-133.1 128 208-352 0 96-144z"/>
-                        </svg>
+    <header class="site-header fixed top-0 left-0 right-0 z-50 flex justify-center pt-4 px-4 transition-transform duration-300 ease-out">
+        <div class="header-pill flex items-center gap-2 rounded-full">
+            <!-- 左侧品牌 -->
+            <div class="header-pill-brand flex items-center shrink-0">
+                <a href="/" title="返回首页" class="logo-link inline-flex items-center gap-2.5 no-underline text-inherit" aria-label="返回首页">
+                    <span class="logo-icon w-7 h-7 inline-flex items-center justify-center leading-none" aria-hidden="true">
+                        <img src="/static/logo.png" alt="" class="logo-img-light w-full h-full" />
+                        <img src="/static/logo-dark.png" alt="" class="logo-img-dark w-full h-full" />
                     </span>
-                    <span class="logo-text"><?= htmlspecialchars(SITE_NAME) ?></span>
+                    <span class="logo-divider w-px h-5 opacity-20"></span>
+                    <span class="logo-text font-logo font-bold text-lg"><?= htmlspecialchars(SITE_NAME) ?></span>
                 </a>
             </div>
-            <nav class="main-nav">
+
+            <!-- 中间导航 -->
+            <nav class="main-nav flex items-center gap-1">
                 <?php
                 // 定义导航项（使用无后缀路由）
-                $uriPath = parse_url((string)($_SERVER['REQUEST_URI'] ?? '/upload'), PHP_URL_PATH);
-                $current_path = is_string($uriPath) && $uriPath !== '' ? rtrim($uriPath, '/') : '/upload';
+                $uriPath = parse_url((string)($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
+                $current_path = is_string($uriPath) && $uriPath !== '' ? rtrim($uriPath, '/') : '/';
                 if ($current_path === '') {
-                    $current_path = '/upload';
+                    $current_path = '/';
                 }
 
+                // 导航项
                 $nav_items = [
-                    '/upload' => ['首页', 'fa-home'],
-                    '/docs' => ['文档', 'fa-book'],
-                    '/stats' => ['统计', 'fa-chart-line']
+                    '/' => ['首页', 'fa-home'],
+                    '/stats' => ['统计', 'fa-chart-line'],
                 ];
 
-                // 登录后添加额外导航项
+                // 登录后增加图库和设置
                 if ($is_logged_in) {
-                    $nav_items = [
-                        '/upload' => ['首页', 'fa-home'],
-                        '/gallery' => ['图库', 'fa-images'],
-                        '/docs' => ['文档', 'fa-book'],
-                        '/stats' => ['统计', 'fa-chart-line'],
-                        '/settings' => ['设置', 'fa-gear']
-                    ];
+                    $nav_items['/gallery'] = ['图库', 'fa-images'];
+                    $nav_items['/settings'] = ['设置', 'fa-gear'];
                 }
 
                 // 输出导航项
                 foreach ($nav_items as $route => $info): ?>
                     <?php
                     $active = $current_path === $route
-                        || ($route === '/upload' && ($current_path === '/' || $current_path === '/index.php'));
+                        || ($route === '/' && $current_path === '/index.php');
                     ?>
                     <a href="<?= htmlspecialchars($route) ?>"
-                        class="nav-link <?= $active ? 'active' : '' ?>"
+                        class="nav-link <?= $active ? 'active' : '' ?> flex items-center gap-2 px-3 py-1.5 bg-transparent border-0 cursor-pointer text-sm font-medium no-underline transition-colors duration-200 rounded-full"
                         title="<?= $info[0] ?>">
                         <i class="fa-light <?= $info[1] ?>"></i>
                         <span><?= $info[0] ?></span>
                     </a>
                 <?php endforeach; ?>
-
-                <!-- 登录/退出按钮 -->
-                <div class="nav-auth">
-                    <?php if ($is_logged_in): ?>
-                        <button class="nav-btn logout-btn"
-                                title="退出登录"
-                                type="button"
-                                data-cookie-name="<?= htmlspecialchars(API_KEY_COOKIE) ?>">
-                            <i class="fa-light fa-right-from-bracket"></i>
-                            <span>退出</span>
-                        </button>
-                    <?php else: ?>
-                        <button
-                            class="nav-btn login-btn"
-                            type="button"
-                            title="登录">
-                            <i class="fa-light fa-right-to-bracket"></i>
-                            <span>登录</span>
-                        </button>
-                        <div id="loginPanel" class="login-panel" aria-hidden="true">
-                            <div class="login-panel-header">
-                                <i class="fa-light fa-key"></i>
-                                <span>管理员登录</span>
-                            </div>
-                            <div class="login-form">
-                                <div class="input-group">
-                                    <i class="fa-light fa-lock"></i>
-                                    <input type="password"
-                                        id="apiKey"
-                                        placeholder="请输入API Key"
-                                        autocomplete="off">
-                                </div>
-                                <button type="button" class="login-submit">
-                                    <i class="fa-light fa-arrow-right-to-bracket"></i>
-                                    <span>登录</span>
-                                </button>
-                                <button type="button" class="login-submit login-passkey-btn" style="margin-top:8px;background:transparent;border:1px solid var(--border-color);color:var(--text);">
-                                    <i class="fa-light fa-fingerprint"></i>
-                                    <span>使用 Passkey 登录</span>
-                                </button>
-                            </div>
-                        </div>
-                    <?php endif; ?>
-                </div>
             </nav>
+
+            <!-- 右侧 CTA -->
+            <div class="header-pill-cta relative inline-flex items-center shrink-0">
+                <a href="/upload" class="nav-cta-btn inline-flex items-center gap-2 px-5 py-2 text-sm font-medium no-underline transition-colors duration-200 rounded-full">
+                    <i class="fa-light fa-cloud-arrow-up"></i>
+                    <span>上传</span>
+                </a>
+            </div>
         </div>
     </header>
 
