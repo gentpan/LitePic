@@ -4,7 +4,7 @@
 
 **轻量级、安全、美观的 PHP 图床程序**
 
-[![Version](https://img.shields.io/badge/version-2.2.0-blue?style=flat-square)](https://github.com/gentpan/LitePic)
+[![Version](https://img.shields.io/badge/version-3.0.0-blue?style=flat-square)](https://github.com/gentpan/LitePic)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 [![PHP](https://img.shields.io/badge/PHP-8.0%2B-777bb4?style=flat-square&logo=php)](https://php.net)
 [![JavaScript](https://img.shields.io/badge/JavaScript-ES6%2B-f7df1e?style=flat-square&logo=javascript)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)

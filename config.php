@@ -103,7 +103,7 @@ $default_scheme = $is_https ? 'https' : 'http';
 // 基础配置
 define('SITE_NAME', env_value('SITE_NAME', 'LitePic'));
 define('SITE_DESCRIPTION', env_value('SITE_DESCRIPTION', '轻量级图床程序'));
-define('SITE_VERSION', '2.3.0');
+define('SITE_VERSION', '3.0.0');
 
 // 网站路径配置
 define('SITE_URL', env_value('SITE_URL', $default_scheme . '://' . $default_host));
