@@ -27,7 +27,8 @@ uploads/*.tiff
 uploads/*.tif
 uploads/.thumbs/
 
-# 构建产物
+# 构建产物 / 依赖
+node_modules/
 release/*.zip
 
 # WordPress 插件（单独分发，不纳入主仓库）

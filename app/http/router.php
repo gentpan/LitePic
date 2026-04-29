@@ -13,10 +13,11 @@ function resolve_page_for_path(string $path): ?string
     }
 
     $routes = [
-        '/' => 'upload',
+        '/' => 'home',
         '/upload' => 'upload',
         '/gallery' => 'gallery',
-        '/docs' => 'docs',
+        '/docs'    => 'usage',
+        '/api'     => 'api',
         '/settings' => 'settings',
         '/stats' => 'stats',
     ];

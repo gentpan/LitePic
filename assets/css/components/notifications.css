@@ -1,0 +1,167 @@
+@layer components {
+
+  /* ==========================================================================
+     通知容器
+     ========================================================================== */
+
+  .notification-container {
+    @apply fixed z-[9999] flex flex-col pointer-events-none;
+    top: calc(var(--header-offset) + 12px);
+    right: 20px;
+    gap: 8px;
+  }
+
+  /* ==========================================================================
+     通知项目
+     ========================================================================== */
+
+  .notification-item {
+    @apply flex items-center pointer-events-auto rounded-md;
+    width: 320px;
+    gap: 12px;
+    padding: 12px 16px;
+    background: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --tw-translate-x: 100%;
+    translate: var(--tw-translate-x) var(--tw-translate-y);
+    opacity: 0;
+    transition: all 0.3s ease;
+    border-left: 3px solid transparent;
+  }
+
+  .notification-item.show {
+    --tw-translate-x: 0;
+    translate: var(--tw-translate-x) var(--tw-translate-y);
+    opacity: 1;
+  }
+
+  .notification-item i {
+    @apply flex items-center justify-center flex-shrink-0 text-lg;
+    width: 20px;
+    height: 20px;
+  }
+
+  .notification-item span {
+    @apply flex-1 text-sm text-dark;
+    line-height: 1.4;
+  }
+
+  /* ==========================================================================
+     关闭按钮
+     ========================================================================== */
+
+  .notification-close {
+    @apply flex items-center justify-center border-0 bg-transparent rounded-sm cursor-pointer opacity-50 flex-shrink-0;
+    width: 20px;
+    height: 20px;
+    transition: all 0.2s ease;
+  }
+
+  .notification-close:hover {
+    @apply opacity-100;
+  }
+
+  .notification-close i {
+    @apply text-sm;
+  }
+
+  /* ==========================================================================
+     通知类型样式
+     ========================================================================== */
+
+  .notification-item.success {
+    background: #f6ffed;
+    border-left-color: var(--success);
+  }
+
+  .notification-item.success i {
+    @apply text-success;
+  }
+
+  .notification-item.error {
+    background: #fff2f0;
+    border-left-color: var(--danger);
+  }
+
+  .notification-item.error i {
+    @apply text-danger;
+  }
+
+  .notification-item.warning {
+    background: #fffbe6;
+    border-left-color: var(--warning);
+  }
+
+  .notification-item.warning i {
+    @apply text-warning;
+  }
+
+  .notification-item.info {
+    background: #e6f7ff;
+    border-left-color: var(--info);
+  }
+
+  .notification-item.info i {
+    @apply text-info;
+  }
+
+  /* ==========================================================================
+     暗色主题通知样式
+     ========================================================================== */
+
+  html[data-theme="dark"] .notification-item {
+    background: var(--notification-bg);
+    border: 1px solid var(--notification-border);
+    box-shadow: var(--notification-shadow);
+    backdrop-filter: blur(10px);
+  }
+
+  html[data-theme="dark"] .notification-item span {
+    color: var(--notification-text);
+  }
+
+  html[data-theme="dark"] .notification-item.success {
+    background: var(--success-bg);
+    border-left-color: var(--success);
+  }
+
+  html[data-theme="dark"] .notification-item.error {
+    background: var(--error-bg);
+    border-left-color: var(--danger);
+  }
+
+  html[data-theme="dark"] .notification-item.warning {
+    background: var(--warning-bg);
+    border-left-color: var(--warning);
+  }
+
+  html[data-theme="dark"] .notification-item.info {
+    background: var(--info-bg);
+    border-left-color: var(--info);
+  }
+
+  html[data-theme="dark"] .notification-close {
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  html[data-theme="dark"] .notification-close:hover {
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  html[data-theme="dark"] .notification-item.success i {
+    color: var(--success);
+  }
+
+  html[data-theme="dark"] .notification-item.error i {
+    color: var(--danger);
+  }
+
+  html[data-theme="dark"] .notification-item.warning i {
+    color: var(--warning);
+  }
+
+  html[data-theme="dark"] .notification-item.info i {
+    color: var(--info);
+  }
+
+}

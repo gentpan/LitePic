@@ -1,0 +1,265 @@
+@import "tailwindcss";
+
+/* Ubuntu font for logo */
+@font-face {
+  font-family: "Ubuntu";
+  src: url("https://static.utterlog.com/fonts/ubuntu-400.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Ubuntu";
+  src: url("https://static.utterlog.com/fonts/ubuntu-500.woff2") format("woff2");
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Ubuntu";
+  src: url("https://static.utterlog.com/fonts/ubuntu-700.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
+/* ==========================================================================
+   Tailwind CSS v4 — CSS-first configuration
+   ========================================================================== */
+
+@source "./*.php";
+@source "./app/**/*.php";
+@source "./assets/js/**/*.js";
+
+/* Dark mode via data-theme attribute (matches existing JS toggle) */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ==========================================================================
+   Design Tokens — mapped to Tailwind theme namespace
+   ========================================================================== */
+@theme {
+  /* Semantic colors bound to CSS variables for automatic dark-mode switching */
+  --color-primary: var(--primary);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-gray: var(--gray);
+  --color-dark: var(--dark);
+  --color-light: var(--light);
+  --color-surface: var(--surface);
+  --color-border: var(--border-color);
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* Typography */
+  --font-family-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft JhengHei", "Microsoft YaHei", "Noto Sans CJK SC", "Helvetica Neue", Arial, sans-serif;
+  --font-family-mono: Menlo, Monaco, Consolas, "IBM Plex Mono", monospace;
+  --font-logo: "Ubuntu", sans-serif;
+}
+
+/* ==========================================================================
+   CSS Custom Properties (existing variable system preserved)
+   ========================================================================== */
+:root {
+  --primary: #0052D9;
+  --success: #28a745;
+  --danger: #dc3545;
+  --warning: #ffc107;
+  --info: #17a2b8;
+  --gray: #6c757d;
+  --dark: #292929;
+  --light: #f8f9fa;
+  --surface: #ffffff;
+  --border-color: #e2e8f0;
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1);
+
+  --theme-transition: 220ms ease;
+  --footer-safe-space: 96px;
+  --header-offset: 80px;
+  --page-gap: 14px;
+  --control-h: 44px;
+
+  /* Logo & home overlay theme variables */
+  --logo-light-opacity: 1;
+  --logo-dark-opacity: 0;
+  --home-overlay-opacity: 0;
+  --nav-cta-bg: #0052D9;
+  --nav-cta-color: #ffffff;
+}
+
+html[data-theme="dark"] {
+  --primary: #0052D9;
+  --success: #22c55e;
+  --danger: #ff6b6b;
+  --warning: #ffc107;
+  --info: #17a2b8;
+
+  --light: #0c0c0c;
+  --surface: #121212;
+  --dark: #ffffff;
+  --gray: #9aa0a6;
+  --border-color: #202020;
+  --shadow: 0 4px 6px -1px rgba(0,0,0,0.3), 0 2px 4px -2px rgba(0,0,0,0.2);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.4), 0 4px 6px -4px rgba(0,0,0,0.3);
+
+  --logo-light-opacity: 0;
+  --logo-dark-opacity: 1;
+  --home-overlay-opacity: 1;
+  --nav-cta-bg: #ffffff;
+  --nav-cta-color: var(--light);
+}
+
+/* Dark mode scrollbar overrides */
+html[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #333;
+}
+
+html[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+html[data-theme="dark"] * {
+  scrollbar-color: #333 transparent;
+}
+
+/* ==========================================================================
+   Base layer — global resets
+   ========================================================================== */
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: var(--font-family-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scrollbar-gutter: stable;
+  }
+
+  /* Custom scrollbar — follows theme colors */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--gray);
+  }
+
+  /* Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) transparent;
+  }
+
+  body {
+    color: var(--dark);
+    background: var(--light);
+    min-height: 100vh;
+    padding-bottom: var(--footer-safe-space);
+    display: flex;
+    flex-direction: column;
+    transition: background var(--theme-transition), color var(--theme-transition);
+  }
+
+  input, select, textarea, button {
+    font-family: inherit;
+    border-radius: var(--radius-sm);
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+}
+
+/* ==========================================================================
+   Component layers — imported from individual module files
+   ========================================================================== */
+@import "./components/base.css";
+@import "./components/notifications.css";
+@import "./components/dialogs.css";
+@import "./components/layout.css";
+@import "./components/upload.css";
+@import "./components/recent.css";
+@import "./components/gallery.css";
+@import "./components/settings.css";
+@import "./components/stats.css";
+@import "./components/docs.css";
+@import "./components/viewimage.css";
+
+/* ==========================================================================
+   Keyframe animations
+   ========================================================================== */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes deleteCard {
+  to { opacity: 0; transform: scale(0.95); }
+}
+
+@keyframes logo-slide {
+  0%,100% { bottom: -20px; }
+  25%,75% { bottom: -2px; }
+  20%,80% { bottom: 2px; }
+}
+
+@keyframes logo-rotate {
+  0% { transform: rotate(-15deg); }
+  25%,75% { transform: rotate(0deg); }
+  100% { transform: rotate(25deg); }
+}
+
+@keyframes home-bg-zoom {
+  from { transform: scale(1); }
+  to { transform: scale(1.12); }
+}
+
+/* ==========================================================================
+   Responsive / misc
+   ========================================================================== */
+@media (max-width: 768px) {
+  :root {
+    --footer-safe-space: 168px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.home-guest::before {
+    animation: none;
+    transform: scale(1);
+  }
+}

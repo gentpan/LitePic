@@ -143,7 +143,7 @@ class ImageCard {
         $preferred = CONVERT_PREFERRED_FORMAT;
         ?>
         <div class="<?= $this->show_select ? 'img-actions' : 'img-overlay' ?>">
-            <button class="action-btn copy-btn" 
+            <button class="w-8 h-8 rounded-sm border-none bg-white/90 text-dark cursor-pointer flex items-center justify-center hover:bg-primary hover:text-white transition-colors copy-btn" 
                     title="复制链接"
                     type="button">
                 <i class="fa-light fa-copy"></i>
@@ -156,7 +156,7 @@ class ImageCard {
             ?>
 
             <?php if ($this->show_comp && $canCompress): ?>
-            <button class="action-btn compress-btn" 
+            <button class="w-8 h-8 rounded-sm border-none bg-white/90 text-dark cursor-pointer flex items-center justify-center hover:bg-primary hover:text-white transition-colors compress-btn" 
                     title="压缩图片"
                     type="button">
                 <i class="fa-light fa-compress"></i>
@@ -165,13 +165,13 @@ class ImageCard {
             
             <?php if ($this->show_webp && $canConvert): ?>
             <?php if ($preferred === 'avif'): ?>
-            <button class="action-btn avif-btn" 
+            <button class="w-8 h-8 rounded-sm border-none bg-white/90 text-dark cursor-pointer flex items-center justify-center hover:bg-primary hover:text-white transition-colors avif-btn" 
                     title="转换AVIF"
                     type="button">
                 <i class="fa-light fa-image"></i>
             </button>
             <?php else: ?>
-            <button class="action-btn webp-btn" 
+            <button class="w-8 h-8 rounded-sm border-none bg-white/90 text-dark cursor-pointer flex items-center justify-center hover:bg-primary hover:text-white transition-colors webp-btn" 
                     title="转换WebP"
                     type="button">
                 <i class="fa-light fa-image"></i>
@@ -179,7 +179,7 @@ class ImageCard {
             <?php endif; ?>
             <?php endif; ?>
             
-            <button class="action-btn delete-btn" 
+            <button class="w-8 h-8 rounded-sm border-none bg-white/90 text-dark cursor-pointer flex items-center justify-center hover:bg-primary hover:text-white transition-colors delete-btn" 
                     title="删除图片"
                     type="button">
                 <i class="fa-light fa-trash"></i>

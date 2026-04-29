@@ -1,0 +1,190 @@
+@layer components {
+  .docs-shell {
+    @apply overflow-hidden;
+  }
+
+  .docs-hero {
+    @apply flex flex-col gap-[10px];
+  }
+
+  .docs-hero-desc {
+    @apply m-0 text-gray text-[0.95rem];
+  }
+
+  .docs-hero-badges {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .docs-badge {
+    @apply inline-flex items-center h-7 px-2.5 border border-border bg-surface text-gray text-[0.75rem] whitespace-nowrap rounded-sm;
+  }
+
+  .docs-layout {
+    @apply grid gap-3;
+  }
+
+  .docs-card {
+    @apply border border-border bg-surface p-3.5 rounded-md;
+    transition: background var(--theme-transition), color var(--theme-transition), box-shadow var(--theme-transition), transform 200ms ease;
+  }
+
+  .docs-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .docs-card-featured {
+    background: color-mix(in srgb, var(--surface, #fff) 94%, var(--primary) 6%);
+  }
+
+  .docs-card h3 {
+    @apply m-0 mb-2.5 text-base font-semibold text-primary;
+  }
+
+  .docs-card h4 {
+    @apply m-0 mb-1.5 text-[0.9rem] font-semibold text-dark inline-flex items-center gap-1.5;
+  }
+
+  .docs-card p {
+    @apply m-0 text-gray leading-[1.65];
+  }
+
+  .docs-card p + p {
+    @apply mt-2;
+  }
+
+  .docs-grid {
+    @apply grid gap-2.5;
+  }
+
+  .docs-grid-2 {
+    @apply grid-cols-2;
+  }
+
+  .docs-item {
+    @apply border border-border p-3 bg-surface rounded-md;
+  }
+
+  .docs-list,
+  .docs-steps {
+    @apply m-0 pl-[18px] text-gray;
+  }
+
+  .docs-list li,
+  .docs-steps li {
+    @apply my-1 leading-[1.65];
+  }
+
+  .docs-note {
+    @apply mt-2 p-2.5 border border-border rounded-md;
+    background: color-mix(in srgb, var(--surface, #fff) 96%, #000 4%);
+  }
+
+  .docs-table {
+    @apply w-full border-collapse text-[0.86rem];
+  }
+
+  .docs-table th,
+  .docs-table td {
+    @apply border border-border p-2 text-left align-top;
+  }
+
+  .docs-table th {
+    @apply text-dark font-semibold;
+    width: 22%;
+    background: color-mix(in srgb, var(--surface, #fff) 92%, #000 8%);
+  }
+
+  .docs-code-block {
+    @apply mt-2.5 border border-[#181818] bg-[#181818] rounded-md;
+  }
+
+  .docs-code-title {
+    @apply h-8 flex items-center px-2.5 border-b border-[#303030] bg-[#222] text-[#9fb3cf] text-[0.78rem];
+  }
+
+  .docs-code {
+    @apply m-0 bg-[#181818] text-[#dbe8ff] p-2.5 overflow-x-auto text-[0.8rem] leading-[1.55];
+  }
+
+  .docs-code code {
+    @apply block font-mono text-inherit;
+  }
+
+  /* 强制代码块内部不受行内 code 灰底规则影响 */
+  pre.docs-code,
+  pre.docs-code code {
+    background: #181818 !important;
+    border: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .docs-code .tok-cmd { color: #60a5fa; }
+  .docs-code .tok-opt { color: #c084fc; }
+  .docs-code .tok-key { color: #f59e0b; }
+  .docs-code .tok-string { color: #34d399; }
+  .docs-code .tok-number { color: #f472b6; }
+  .docs-code .tok-bool { color: #38bdf8; }
+  .docs-code .tok-url { color: #22d3ee; }
+
+  .docs-card p code,
+  .docs-card li code,
+  .docs-card td code,
+  .docs-card th code {
+    @apply font-mono border border-border py-px px-1;
+    background: color-mix(in srgb, var(--surface, #fff) 88%, #000 12%);
+  }
+
+  html[data-theme="dark"] .docs-card {
+    background: var(--surface);
+  }
+
+  html[data-theme="dark"] .docs-item {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  html[data-theme="dark"] .docs-code-block {
+    border-color: #181818;
+  }
+
+  html[data-theme="dark"] .docs-code-title {
+    background: #222;
+    border-bottom-color: #303030;
+    color: #9fb3cf;
+  }
+
+  html[data-theme="dark"] .docs-code {
+    background: #181818;
+    color: var(--dark);
+  }
+
+  @media (max-width: 900px) {
+    .docs-grid-2 {
+      grid-template-columns: 1fr;
+    }
+
+    .docs-table th {
+      width: 34%;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .docs-card {
+      padding: 12px;
+    }
+
+    .docs-code {
+      font-size: 0.76rem;
+    }
+
+    .docs-table {
+      font-size: 0.8rem;
+    }
+
+    .docs-table th,
+    .docs-table td {
+      padding: 7px;
+    }
+  }
+}

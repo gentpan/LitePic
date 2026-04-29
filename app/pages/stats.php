@@ -108,7 +108,7 @@ $sizes_counts = array_values($stats['by_size_range']);
 require_once APP_ROOT . '/header.php';
 ?>
 
-<main class="container page-main">
+<main class="page-container page-main">
     <section class="page-shell">
         <div class="page-shell-header">
             <h2 class="page-shell-title">
@@ -117,66 +117,66 @@ require_once APP_ROOT . '/header.php';
             </h2>
         </div>
         <div class="page-shell-body">
-            <div class="stats-wrapper">
+            <div class="stats-wrapper text-dark">
         <!-- 总览圆形卡片 -->
-        <div class="stats-circles">
-            <div class="stat-circle">
-                <div class="stat-circle-inner">
-                    <div class="stat-circle-icon"><i class="fa-light fa-images"></i></div>
-                    <div class="stat-circle-value"><?= number_format($stats['total_images']) ?></div>
-                    <div class="stat-circle-label">总图片数</div>
+        <div class="stats-circles flex flex-wrap justify-center gap-8 mb-6">
+            <div class="stat-circle bg-surface border border-border rounded-full flex items-center justify-center transition-transform duration-300 cursor-default">
+                <div class="stat-circle-inner flex flex-col items-center text-center gap-1">
+                    <div class="stat-circle-icon text-[1.4rem] text-primary"><i class="fa-light fa-images"></i></div>
+                    <div class="stat-circle-value text-[1.25rem] font-bold text-dark leading-[1.2]"><?= number_format($stats['total_images']) ?></div>
+                    <div class="stat-circle-label text-[0.8rem] text-gray font-semibold tracking-wide">总图片数</div>
                 </div>
             </div>
 
-            <div class="stat-circle">
-                <div class="stat-circle-inner">
-                    <div class="stat-circle-icon"><i class="fa-light fa-hard-drive"></i></div>
-                    <div class="stat-circle-value"><?= format_filesize($stats['total_size']) ?></div>
-                    <div class="stat-circle-label">总存储空间</div>
+            <div class="stat-circle bg-surface border border-border rounded-full flex items-center justify-center transition-transform duration-300 cursor-default">
+                <div class="stat-circle-inner flex flex-col items-center text-center gap-1">
+                    <div class="stat-circle-icon text-[1.4rem] text-primary"><i class="fa-light fa-hard-drive"></i></div>
+                    <div class="stat-circle-value text-[1.25rem] font-bold text-dark leading-[1.2]"><?= format_filesize($stats['total_size']) ?></div>
+                    <div class="stat-circle-label text-[0.8rem] text-gray font-semibold tracking-wide">总存储空间</div>
                 </div>
             </div>
 
-            <div class="stat-circle">
-                <div class="stat-circle-inner">
-                    <div class="stat-circle-icon"><i class="fa-light fa-calendar-days"></i></div>
-                    <div class="stat-circle-value">
+            <div class="stat-circle bg-surface border border-border rounded-full flex items-center justify-center transition-transform duration-300 cursor-default">
+                <div class="stat-circle-inner flex flex-col items-center text-center gap-1">
+                    <div class="stat-circle-icon text-[1.4rem] text-primary"><i class="fa-light fa-calendar-days"></i></div>
+                    <div class="stat-circle-value text-[1.25rem] font-bold text-dark leading-[1.2]">
                         <?php
                         $current_month = date('Y-m');
                         $monthly_count = $stats['by_month'][$current_month]['count'] ?? 0;
                         echo number_format($monthly_count);
                         ?>
                     </div>
-                    <div class="stat-circle-label">本月上传</div>
+                    <div class="stat-circle-label text-[0.8rem] text-gray font-semibold tracking-wide">本月上传</div>
                 </div>
             </div>
         </div>
 
         <!-- 图表区域 -->
-        <div class="stats-charts">
-            <div class="chart-container">
+        <div class="stats-charts grid grid-cols-2 gap-4 mb-4">
+            <div class="chart-container bg-surface border border-border p-4 flex flex-col">
                 <h3>月度上传统计</h3>
                 <canvas id="monthlyChart"></canvas>
             </div>
 
-            <div class="chart-container">
+            <div class="chart-container bg-surface border border-border p-4 flex flex-col">
                 <h3>年度上传趋势</h3>
                 <canvas id="yearlyTrendChart"></canvas>
             </div>
 
-            <div class="chart-container">
+            <div class="chart-container bg-surface border border-border p-4 flex flex-col">
                 <h3>文件类型分布</h3>
                 <canvas id="typeChart"></canvas>
             </div>
 
-            <div class="chart-container">
+            <div class="chart-container bg-surface border border-border p-4 flex flex-col">
                 <h3>文件大小分布</h3>
                 <canvas id="sizeChart"></canvas>
             </div>
         </div>
 
         <!-- 详细表格 -->
-        <div class="stats-tables">
-            <div class="stats-table">
+        <div class="stats-tables grid grid-cols-2 gap-4">
+            <div class="stats-table bg-surface border border-border p-[0.85rem] overflow-hidden">
                 <h3>年度统计</h3>
                 <div class="table-wrap">
                     <table>
@@ -196,7 +196,7 @@ require_once APP_ROOT . '/header.php';
                 </div>
             </div>
 
-            <div class="stats-table">
+            <div class="stats-table bg-surface border border-border p-[0.85rem] overflow-hidden">
                 <h3>月度统计</h3>
                 <div class="table-wrap">
                     <table>

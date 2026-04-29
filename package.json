@@ -1,0 +1,34 @@
+{
+  "name": "img.xifeng.net",
+  "version": "1.0.0",
+  "description": "<div align=\"center\">",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "build:css": "npx @tailwindcss/cli -i assets/css/tailwind.css -o assets/css/main.css",
+    "build:css:min": "npx @tailwindcss/cli -i assets/css/tailwind.css -o assets/css/main.css --minify",
+    "watch:css": "npx @tailwindcss/cli -i assets/css/tailwind.css -o assets/css/main.css --watch",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gentpan/LitePIc.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/gentpan/LitePIc/issues"
+  },
+  "homepage": "https://github.com/gentpan/LitePIc#readme",
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.2.4",
+    "@tailwindcss/postcss": "^4.2.4",
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.12",
+    "tailwindcss": "^4.2.4"
+  }
+}

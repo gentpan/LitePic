@@ -1,0 +1,145 @@
+@layer components {
+  .stats-wrapper {
+    @apply text-dark;
+  }
+
+  /* ===== 总览圆形卡片 ===== */
+  .stats-circles {
+    @apply flex justify-center gap-8 mb-6 flex-wrap;
+  }
+
+  .stat-circle {
+    @apply w-[140px] h-[140px] rounded-full bg-surface border border-border flex items-center justify-center transition-transform duration-300 ease-out cursor-default;
+  }
+
+  .stat-circle:hover {
+    @apply -translate-y-[3px];
+  }
+
+  .stat-circle-inner {
+    @apply flex flex-col items-center text-center gap-1;
+  }
+
+  .stat-circle-icon {
+    @apply text-[1.4rem] text-primary;
+  }
+
+  .stat-circle-value {
+    @apply text-[1.25rem] font-bold text-dark leading-[1.2];
+  }
+
+  .stat-circle-label {
+    @apply text-[0.8rem] text-gray font-semibold tracking-wide;
+  }
+
+  /* ===== 图表区域 ===== */
+  .stats-charts {
+    @apply grid grid-cols-2 gap-4 mb-4;
+  }
+
+  .chart-container {
+    @apply bg-surface border border-border p-4 min-h-[280px] flex flex-col overflow-hidden rounded-md;
+    transition: background var(--theme-transition), color var(--theme-transition), box-shadow var(--theme-transition), transform 200ms ease;
+  }
+
+  .chart-container:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .chart-container h3 {
+    @apply m-0 mb-3 text-[0.9rem] font-semibold text-dark;
+  }
+
+  .chart-container canvas {
+    @apply block w-full h-auto max-h-[360px] flex-1;
+  }
+
+  #typeChart {
+    max-height: 260px !important;
+  }
+
+  /* ===== 表格区域 ===== */
+  .stats-tables {
+    @apply grid grid-cols-2 gap-4;
+  }
+
+  .stats-table {
+    @apply bg-surface border border-border p-[0.85rem] overflow-hidden rounded-md;
+  }
+
+  .stats-table h3 {
+    @apply m-0 mb-3 text-[0.9rem] font-semibold text-dark;
+  }
+
+  .stats-table table {
+    @apply w-full border-collapse text-[0.9rem];
+  }
+
+  .stats-table thead th {
+    @apply text-left py-[0.55rem] px-[0.6rem] font-semibold text-[0.82rem] text-gray border-b border-border bg-transparent whitespace-nowrap;
+  }
+
+  .stats-table tbody td {
+    @apply py-2 px-[0.6rem] text-dark border-b border-border text-[0.88rem] whitespace-nowrap overflow-hidden text-ellipsis;
+  }
+
+  .stats-table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+
+  .stats-table tbody tr:hover td {
+    background: rgba(0,0,0,0.015);
+  }
+
+  /* ===== 响应式 ===== */
+  @media (max-width: 992px) {
+    .stats-charts,
+    .stats-tables {
+      grid-template-columns: 1fr;
+    }
+    .stats-circles { gap: 1.25rem; }
+    .chart-container { min-height: 240px; }
+  }
+
+  @media (max-width: 680px) {
+    .stats-circles { gap: 1rem; }
+    .stat-circle { width: 120px; height: 120px; }
+    .stat-circle-icon { font-size: 1.2rem; }
+    .stat-circle-value { font-size: 1.1rem; }
+    .stat-circle-label { font-size: 0.75rem; }
+    .chart-container { min-height: 200px; padding: 0.75rem; }
+    .stats-table thead th,
+    .stats-table tbody td { padding: 0.45rem; font-size: 0.85rem; }
+  }
+
+  /* ===== 暗色模式 ===== */
+  html[data-theme="dark"] .stat-circle {
+    background: #0f0f0f;
+    border-color: rgba(255,255,255,0.04);
+  }
+
+  html[data-theme="dark"] .chart-container,
+  html[data-theme="dark"] .stats-table {
+    background: #0f0f0f;
+    border-color: rgba(255,255,255,0.04);
+  }
+
+  html[data-theme="dark"] .stat-circle-icon { color: #fff; }
+
+  html[data-theme="dark"] .stats-table thead th {
+    color: #9aa0a6;
+    border-color: rgba(255,255,255,0.06);
+  }
+
+  html[data-theme="dark"] .stats-table tbody td {
+    color: #bdbdbd;
+    border-color: rgba(255,255,255,0.04);
+  }
+
+  /* ===== 打印优化 ===== */
+  @media print {
+    .chart-container canvas { height: 180px !important; }
+    .stats-wrapper { margin: 0; padding: 0; }
+  }
+}

@@ -1,0 +1,188 @@
+@layer components {
+
+  /* ==========================================================================
+     确认对话框
+     ========================================================================== */
+
+  .confirm-dialog {
+    @apply fixed top-0 left-0 w-screen h-screen items-center justify-center z-[9999];
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+    display: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+  }
+
+  .confirm-dialog.active {
+    @apply flex opacity-100 visible;
+  }
+
+  .confirm-dialog-content {
+    @apply bg-surface w-[90%] rounded-md;
+    max-width: 400px;
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-20px);
+    transition: transform 0.3s ease;
+  }
+
+  .confirm-dialog.active .confirm-dialog-content {
+    transform: translateY(0);
+  }
+
+  /* ==========================================================================
+     自定义对话框
+     ========================================================================== */
+
+  .custom-dialog {
+    @apply fixed top-0 left-0 w-screen h-screen items-center justify-center z-[9999];
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+    display: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+  }
+
+  .custom-dialog.active {
+    @apply flex opacity-100 visible;
+  }
+
+  .custom-dialog-content {
+    @apply bg-surface w-[90%] rounded-md;
+    max-width: 500px;
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-20px);
+    transition: transform 0.3s ease;
+  }
+
+  .custom-dialog.active .custom-dialog-content {
+    transform: translateY(0);
+  }
+
+  /* ==========================================================================
+     对话框头部
+     ========================================================================== */
+
+  .dialog-header {
+    @apply flex items-center justify-between p-4;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .dialog-header h3 {
+    @apply flex items-center gap-2 m-0;
+    font-size: 1.1rem;
+    color: var(--dark);
+  }
+
+  .dialog-header h3 i {
+    @apply text-primary;
+  }
+
+  /* 关闭按钮 */
+  .dialog-close {
+    @apply flex items-center justify-center border-0 bg-transparent rounded-sm cursor-pointer text-gray;
+    width: 32px;
+    height: 32px;
+    transition: all 0.3s ease;
+  }
+
+  .dialog-close:hover {
+    @apply text-dark;
+    background: var(--light);
+    transform: rotate(90deg);
+  }
+
+  /* ==========================================================================
+     对话框内容与底部
+     ========================================================================== */
+
+  .dialog-body {
+    @apply text-dark;
+    padding: var(--spacing-lg);
+  }
+
+  .dialog-footer {
+    @apply flex justify-end p-4;
+    gap: var(--spacing-sm);
+    border-top: 1px solid var(--border-color);
+  }
+
+  /* ==========================================================================
+     结果对话框
+     ========================================================================== */
+
+  .compress-result,
+  .webp-result {
+    padding: var(--spacing);
+  }
+
+  .result-item {
+    @apply flex justify-between py-2 px-0;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .result-item:last-child {
+    border-bottom: none;
+  }
+
+  .result-item.success {
+    @apply text-success font-medium;
+  }
+
+  .result-preview {
+    @apply text-center mt-4;
+  }
+
+  .result-preview img {
+    @apply max-w-full rounded-md;
+  }
+
+  /* ==========================================================================
+     对话框暗色样式
+     ========================================================================== */
+
+  html[data-theme="dark"] .confirm-dialog {
+    background: var(--dialog-bg);
+  }
+
+  html[data-theme="dark"] .confirm-dialog-content,
+  html[data-theme="dark"] .custom-dialog-content {
+    border: 1px solid var(--dialog-border);
+    box-shadow: var(--dialog-shadow);
+  }
+
+  html[data-theme="dark"] .dialog-header {
+    border-color: var(--dialog-border);
+  }
+
+  html[data-theme="dark"] .dialog-close:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+  }
+
+  html[data-theme="dark"] .dialog-footer {
+    border-color: var(--dialog-border);
+  }
+
+  html[data-theme="dark"] .result-item {
+    border-color: var(--dialog-border);
+  }
+
+  /* ==========================================================================
+     响应式设计
+     ========================================================================== */
+
+  @media (max-width: 768px) {
+    .confirm-dialog-content,
+    .custom-dialog-content {
+      margin: var(--spacing);
+    }
+
+    .dialog-footer button {
+      padding: 0.5rem;
+      font-size: 0.8rem;
+    }
+  }
+
+}

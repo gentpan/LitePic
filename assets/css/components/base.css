@@ -1,0 +1,113 @@
+@layer components {
+
+  /* ==========================================================================
+     布局组件
+     ========================================================================== */
+
+  .page-container {
+    @apply flex-1 w-full max-w-[1280px] mx-auto mt-[80px] mb-[45px] px-4 flex flex-col;
+    gap: var(--spacing-lg);
+  }
+
+  /* ==========================================================================
+     通用组件
+     ========================================================================== */
+
+  .content-box {
+    @apply bg-surface p-8 rounded-md;
+    box-shadow: var(--shadow-lg);
+    transition: background var(--theme-transition), color var(--theme-transition), box-shadow var(--theme-transition);
+  }
+
+  /* ==========================================================================
+     工具类
+     ========================================================================== */
+
+  /* Flexbox 工具类 */
+  .flex {
+    @apply flex;
+  }
+
+  .flex-col {
+    @apply flex-col;
+  }
+
+  .items-center {
+    @apply items-center;
+  }
+
+  .justify-center {
+    @apply justify-center;
+  }
+
+  .justify-between {
+    @apply justify-between;
+  }
+
+  /* 间距工具类 */
+  .gap-sm {
+    gap: var(--spacing-sm);
+  }
+
+  .gap {
+    gap: var(--spacing);
+  }
+
+  .gap-lg {
+    gap: var(--spacing-lg);
+  }
+
+  /* ==========================================================================
+     响应式设计
+     ========================================================================== */
+
+  @media (max-width: 768px) {
+    .page-container {
+      @apply px-4;
+    }
+
+    /* 上传区域响应式 */
+    .upload-box {
+      padding: var(--spacing);
+    }
+
+    .drop-zone {
+      padding: var(--spacing-xl) var(--spacing);
+      min-height: 200px;
+    }
+
+    .file-input-wrapper i {
+      font-size: 3rem;
+    }
+
+    .upload-tips .text {
+      font-size: 1rem;
+    }
+
+    /* 最近上传响应式 */
+    .recent-uploads {
+      padding: var(--spacing);
+    }
+
+    .upload-grid {
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    }
+
+    .img-overlay .action-btn {
+      width: 28px;
+      height: 28px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .upload-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--spacing-sm);
+    }
+
+    .img-overlay {
+      padding: var(--spacing-sm);
+    }
+  }
+
+}

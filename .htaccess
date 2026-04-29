@@ -1,4 +1,8 @@
 RewriteEngine On
+DirectorySlash Off
+
+# 优先拦截 /api 路径（避免与 api/ 真实目录冲突）
+RewriteRule ^api/?$ index.php [QSA,L]
 
 # 禁止访问敏感文件和目录
 RedirectMatch 403 ^/\.env
@@ -15,11 +19,12 @@ RedirectMatch 403 ^/logs/
     RewriteRule ^uploads/.*\.php$ - [F,L]
 </IfModule>
 
-# 真实文件/目录直接访问
+# 真实文件/目录直接访问（/api 路径除外，需路由到单入口）
+RewriteCond %{REQUEST_URI} !^/api/?$
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
 # 统一单入口无后缀路由
 RewriteRule ^$ index.php [QSA,L]
-RewriteRule ^(upload|gallery|docs|settings|stats)/?$ index.php [QSA,L]
+RewriteRule ^(upload|gallery|docs|api|settings|stats)/?$ index.php [QSA,L]

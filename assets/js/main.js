@@ -106,7 +106,7 @@ window.ImgEt.Utils = {
         
         item.innerHTML = `
             <i class="fa-light ${icons[type] || icons.info}" aria-hidden="true"></i>
-            <span>${message}</span>
+            <span class="flex-1 text-sm leading-relaxed">${escapeHtml(message)}</span>
             <button class="notification-close" aria-label="关闭通知">
                 <i class="fa-light fa-times"></i>
             </button>
@@ -173,8 +173,8 @@ window.ImgEt.Utils = {
                 <div class="copy-option">
                     <div class="copy-option-header">URL</div>
                     <div class="copy-option-content">
-                        <input type="text" value="${safeUrl}" readonly>
-                        <button class="copy-btn" data-copy="${safeUrl}">
+                        <input type="text" value="${safeUrl}" readonly class="flex-1 bg-light border border-border px-3 py-2 text-sm text-dark">
+                        <button class="copy-btn inline-flex items-center justify-center w-10 h-10 bg-light border-l border-border text-gray hover:text-primary hover:bg-primary/5" data-copy="${safeUrl}">
                             <i class="fa-light fa-copy"></i>
                         </button>
                     </div>
@@ -182,8 +182,8 @@ window.ImgEt.Utils = {
                 <div class="copy-option">
                     <div class="copy-option-header">HTML</div>
                     <div class="copy-option-content">
-                        <input type="text" value="&lt;img src=&quot;${safeUrl}&quot; alt=&quot;${safeFilename}&quot;&gt;" readonly>
-                        <button class="copy-btn" data-copy="&lt;img src=&quot;${safeUrl}&quot; alt=&quot;${safeFilename}&quot;&gt;">
+                        <input type="text" value="&lt;img src=&quot;${safeUrl}&quot; alt=&quot;${safeFilename}&quot;&gt;" readonly class="flex-1 bg-light border border-border px-3 py-2 text-sm text-dark">
+                        <button class="copy-btn inline-flex items-center justify-center w-10 h-10 bg-light border-l border-border text-gray hover:text-primary hover:bg-primary/5" data-copy="&lt;img src=&quot;${safeUrl}&quot; alt=&quot;${safeFilename}&quot;&gt;">
                             <i class="fa-light fa-copy"></i>
                         </button>
                     </div>
@@ -191,8 +191,8 @@ window.ImgEt.Utils = {
                 <div class="copy-option">
                     <div class="copy-option-header">Markdown</div>
                     <div class="copy-option-content">
-                        <input type="text" value="![${safeFilename}](${safeUrl})" readonly>
-                        <button class="copy-btn" data-copy="![${safeFilename}](${safeUrl})">
+                        <input type="text" value="![${safeFilename}](${safeUrl})" readonly class="flex-1 bg-light border border-border px-3 py-2 text-sm text-dark">
+                        <button class="copy-btn inline-flex items-center justify-center w-10 h-10 bg-light border-l border-border text-gray hover:text-primary hover:bg-primary/5" data-copy="![${safeFilename}](${safeUrl})">
                             <i class="fa-light fa-copy"></i>
                         </button>
                     </div>
@@ -200,8 +200,8 @@ window.ImgEt.Utils = {
                 <div class="copy-option">
                     <div class="copy-option-header">BBCode</div>
                     <div class="copy-option-content">
-                        <input type="text" value="[img]${safeUrl}[/img]" readonly>
-                        <button class="copy-btn" data-copy="[img]${safeUrl}[/img]">
+                        <input type="text" value="[img]${safeUrl}[/img]" readonly class="flex-1 bg-light border border-border px-3 py-2 text-sm text-dark">
+                        <button class="copy-btn inline-flex items-center justify-center w-10 h-10 bg-light border-l border-border text-gray hover:text-primary hover:bg-primary/5" data-copy="[img]${safeUrl}[/img]">
                             <i class="fa-light fa-copy"></i>
                         </button>
                     </div>
@@ -249,7 +249,7 @@ if (!window.ImgEt.DialogManager) {
             dialog.innerHTML = `
                 <div class="custom-dialog-content">
                     <div class="dialog-header">
-                        <h3>${safeTitle}</h3>
+                        <h3 class="flex items-center gap-2 text-dark">${safeTitle}</h3>
                         <button type="button" class="dialog-close">
                             <i class="fa-light fa-times"></i>
                         </button>
@@ -308,8 +308,8 @@ if (!window.ImgEt.DialogManager) {
             dialog.innerHTML = `
                 <div class="confirm-dialog-content">
                     <div class="dialog-header">
-                        <h3>
-                            <i class="fa-light fa-question-circle"></i>
+                        <h3 class="flex items-center gap-2 text-dark">
+                            <i class="fa-light fa-question-circle text-primary"></i>
                             ${safeTitle}
                         </h3>
                         <button type="button" class="dialog-close">
@@ -317,14 +317,14 @@ if (!window.ImgEt.DialogManager) {
                         </button>
                     </div>
                     <div class="dialog-body">
-                        <p>${safeMessage}</p>
+                        <p class="text-dark">${safeMessage}</p>
                     </div>
                     <div class="dialog-footer">
-                        <button type="button" class="btn btn-cancel">
+                        <button type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-light text-gray hover:bg-gray/10 transition-colors">
                             <i class="fa-light fa-times"></i>
                             取消
                         </button>
-                        <button type="button" class="btn btn-danger">
+                        <button type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-danger text-white hover:bg-danger/90 transition-colors">
                             <i class="fa-light fa-check"></i>
                             确认
                         </button>
@@ -352,8 +352,8 @@ if (!window.ImgEt.DialogManager) {
 
             const closeBtn = dialog.querySelector('.dialog-close');
             closeBtn.addEventListener('click', closeDialog);
-            dialog.querySelector('.btn-cancel').addEventListener('click', closeDialog);
-            dialog.querySelector('.btn-danger').addEventListener('click', () => {
+            dialog.querySelector('.dialog-footer button:first-child').addEventListener('click', closeDialog);
+            dialog.querySelector('.dialog-footer button:last-child').addEventListener('click', () => {
                 if (typeof onConfirm === 'function' && !dialog.confirmed) {
                     dialog.confirmed = true;
                     onConfirm();
@@ -1363,8 +1363,8 @@ class BatchProcessor extends BaseProcessor {
             item.className = 'notification-item info batch-delete-progress show';
             item.setAttribute('role', 'status');
             item.innerHTML = `
-                <i class="fa-light fa-spinner-third fa-spin" aria-hidden="true"></i>
-                <span class="batch-delete-text"></span>
+                <i class="fa-light fa-spinner-third fa-spin text-info" aria-hidden="true"></i>
+                <span class="batch-delete-text flex-1 text-sm"></span>
             `;
             host.appendChild(item);
         }
@@ -1497,7 +1497,7 @@ class GalleryManager {
         container.dataset.eventsBound = '1';
         container.addEventListener('click', e => {
             const btn = e.target.closest('.action-btn');
-            if (!btn) return;
+            if (!btn || btn.classList.contains('copy-btn')) return;
             const card = btn.closest('.img-box');
             const filename = card?.dataset.filename;
             if (!filename) return;
@@ -1980,7 +1980,7 @@ class UploadManager {
         item.className = 'progress-item';
         item.innerHTML = `
             <div class="progress-header">
-                <span class="filename">${filename}</span>
+                <span class="filename">${escapeHtml(filename)}</span>
                 <span class="progress-percent">0%</span>
             </div>
             <div class="progress-bar">
@@ -1988,8 +1988,8 @@ class UploadManager {
             </div>
             <div class="progress-status">
                 <span class="progress-text">
-                    <i class="fa-light fa-spinner fa-spin" style="color: var(--success)"></i>
-                    <span>准备上传...</span>
+                    <i class="fa-light fa-spinner fa-spin text-success"></i>
+                    <span class="text-success">准备上传...</span>
                 </span>
             </div>
         `;
@@ -2095,8 +2095,8 @@ class UploadManager {
         elements.progressBar.style.width = `${percent}%`;
         elements.progressPercent.textContent = `${percent}%`;
         elements.progressText.innerHTML = `
-            <i class="fa-light fa-spinner fa-spin" style="color: var(--success)"></i>
-            <span style="color: var(--success)">
+            <i class="fa-light fa-spinner fa-spin text-success"></i>
+            <span class="text-success">
                 上传中... ${percent}%
             </span>
         `;
@@ -2115,8 +2115,8 @@ class UploadManager {
             : '上传成功，服务器处理中...';
 
         elements.progressText.innerHTML = `
-            <i class="fa-light fa-gear fa-spin" style="color: var(--primary)"></i>
-            <span style="color: var(--primary)">
+            <i class="fa-light fa-gear fa-spin text-primary"></i>
+            <span class="text-primary">
                 ${stageText}
             </span>
         `;
@@ -2237,8 +2237,8 @@ class UploadManager {
         progressBar.style.width = '100%';
         progressBar.classList.add('success');
         progressText.innerHTML = `
-            <i class="fa-light fa-check-circle" style="color: var(--success)"></i>
-            <span style="color: var(--success)">上传完成</span>
+            <i class="fa-light fa-check-circle text-success"></i>
+            <span class="text-success">上传完成</span>
         `;
 
         const reportLines = this.buildProcessingReport(result);
@@ -2263,8 +2263,8 @@ class UploadManager {
         
         progressBar.style.backgroundColor = 'var(--danger)';
         progressText.innerHTML = `
-            <i class="fa-light fa-times-circle" style="color: var(--danger)"></i>
-            <span style="color: var(--danger)">${message}</span>
+            <i class="fa-light fa-times-circle text-danger"></i>
+            <span class="text-danger">${escapeHtml(message)}</span>
         `;
         this.fadeOutProgressItem(progressItem);
     }
@@ -2557,11 +2557,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 div.style.marginTop = '8px';
                 div.style.fontSize = '0.9rem';
                 div.innerHTML = top.map(p => {
-                    return `<div style="display:flex;justify-content:space-between;padding:2px 0">
-                        <span style="color:var(--gray)">${p.label}</span>
-                        <span style="font-weight:600">${p.value} (${formatPercent(p.value / total)})</span>
+                    return `<div class="flex justify-between py-0.5">
+                        <span class="text-gray">${p.label}</span>
+                        <span class="font-semibold">${p.value} (${formatPercent(p.value / total)})</span>
                     </div>`;
-                }).join('') + `<div style="border-top:1px solid var(--border-color);padding-top:6px;margin-top:6px;color:var(--gray);font-size:0.85rem">总计: ${pairs.reduce((a,b)=>a+b.value,0)} 张</div>`;
+                }).join('') + `<div class="border-t border-border pt-1.5 mt-1.5 text-gray text-sm">总计: ${pairs.reduce((a,b)=>a+b.value,0)} 张</div>`;
 
                 parent.appendChild(div);
             }
