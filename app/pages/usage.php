@@ -46,7 +46,7 @@ require_once APP_ROOT . '/header.php';
             <!-- 项目简介 -->
             <section class="docs-card docs-card-featured">
                 <h3>项目简介</h3>
-                <p><strong>LitePic V2.3</strong> 是一个轻量级 PHP 图床系统，提供本地上传、第三方 API 上传、自动缩略图、自动压缩、多格式转换（WebP / AVIF）、图库管理、统计分析以及 R2/S3 远程同步能力。</p>
+                <p><strong>LitePic V3.0</strong> 是一个轻量级 PHP 图床系统，提供本地上传、第三方 API 上传、自动缩略图、自动压缩、多格式转换（WebP / AVIF）、图库管理、统计分析以及 R2/S3 远程同步能力。</p>
                 <p>系统设计目标是<strong>"上传不中断"</strong>：即使压缩或格式转换失败，原始上传流程仍可继续完成，并在处理结果中返回具体原因。后台图库支持批量压缩、批量转换、批量删除与多种链接复制格式。</p>
             </section>
 

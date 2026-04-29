@@ -17,7 +17,7 @@ require_once APP_ROOT . '/header.php';
             <div class="home-hero-mark" aria-hidden="true">
                 <i class="fa-brands fa-upwork"></i>
             </div>
-            <h1 class="home-hero-title">LitePic V2.3</h1>
+            <h1 class="home-hero-title">LitePic V3.0</h1>
             <p class="home-hero-description">
                 轻量级 PHP 图床，支持 API Token 上传、缩略图、自动压缩与 WebP 转换、
                 图库管理、统计面板、文档页、以及 R2/S3 同步。
