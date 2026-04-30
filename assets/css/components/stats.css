@@ -1,15 +1,41 @@
 @layer components {
+  .stats-shell {
+    overflow: hidden;
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    background:
+      linear-gradient(180deg,
+        color-mix(in srgb, var(--surface) 96%, var(--light) 4%),
+        color-mix(in srgb, var(--surface) 90%, var(--light) 10%));
+    border-color: color-mix(in srgb, var(--border-color) 72%, transparent);
+  }
+
+  .stats-shell .page-shell-body {
+    padding: 22px;
+  }
+
   .stats-wrapper {
     @apply text-dark;
+    display: grid;
+    gap: 22px;
   }
 
   /* ===== 总览圆形卡片 ===== */
   .stats-circles {
-    @apply flex justify-center gap-8 mb-6 flex-wrap;
+    @apply flex justify-center gap-8 flex-wrap;
+    margin-bottom: 0;
   }
 
   .stat-circle {
     @apply w-[140px] h-[140px] rounded-full bg-surface border border-border flex items-center justify-center transition-transform duration-300 ease-out cursor-default;
+    border-color: color-mix(in srgb, var(--border-color) 62%, transparent);
+    background:
+      linear-gradient(180deg,
+        color-mix(in srgb, var(--surface) 94%, transparent),
+        color-mix(in srgb, var(--surface) 84%, var(--light) 16%));
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.7) inset,
+      0 8px 22px rgba(15, 23, 42, 0.04);
   }
 
   .stat-circle:hover {
@@ -32,13 +58,40 @@
     @apply text-[0.8rem] text-gray font-semibold tracking-wide;
   }
 
+  .access-log-summary {
+    display: grid;
+    gap: 6px;
+    padding: 14px 16px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--primary) 5%, var(--surface) 95%);
+    color: var(--gray);
+    font-size: 0.88rem;
+    line-height: 1.6;
+  }
+
+  .access-log-summary strong {
+    color: var(--dark);
+    margin-right: 8px;
+  }
+
   /* ===== 图表区域 ===== */
   .stats-charts {
-    @apply grid grid-cols-2 gap-4 mb-4;
+    @apply grid grid-cols-2 gap-4;
+    margin-bottom: 0;
   }
 
   .chart-container {
-    @apply bg-surface border border-border p-4 min-h-[280px] flex flex-col overflow-hidden rounded-md;
+    @apply bg-surface border border-border p-4 min-h-[280px] flex flex-col overflow-hidden;
+    border-radius: var(--radius-md);
+    border-color: color-mix(in srgb, var(--border-color) 68%, transparent);
+    background:
+      linear-gradient(180deg,
+        color-mix(in srgb, var(--surface) 94%, transparent),
+        color-mix(in srgb, var(--surface) 88%, var(--light) 12%));
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.72) inset,
+      0 14px 38px rgba(15, 23, 42, 0.06);
     transition: background var(--theme-transition), color var(--theme-transition), box-shadow var(--theme-transition), transform 200ms ease;
   }
 
@@ -65,11 +118,24 @@
   }
 
   .stats-table {
-    @apply bg-surface border border-border p-[0.85rem] overflow-hidden rounded-md;
+    @apply bg-surface border border-border p-[0.85rem] overflow-hidden;
+    border-radius: var(--radius-md);
+    border-color: color-mix(in srgb, var(--border-color) 68%, transparent);
+    background:
+      linear-gradient(180deg,
+        color-mix(in srgb, var(--surface) 94%, transparent),
+        color-mix(in srgb, var(--surface) 88%, var(--light) 12%));
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.72) inset,
+      0 14px 38px rgba(15, 23, 42, 0.06);
   }
 
   .stats-table h3 {
     @apply m-0 mb-3 text-[0.9rem] font-semibold text-dark;
+  }
+
+  .stats-table-wide {
+    grid-column: 1 / -1;
   }
 
   .stats-table table {
@@ -114,18 +180,29 @@
   }
 
   /* ===== 暗色模式 ===== */
+  html[data-theme="dark"] .stats-shell {
+    background: linear-gradient(180deg, #0c0c0c, #090909);
+  }
+
   html[data-theme="dark"] .stat-circle {
-    background: #0f0f0f;
-    border-color: rgba(255,255,255,0.04);
+    background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.025));
+    border-color: rgba(255,255,255,0.08);
+    box-shadow: none;
   }
 
   html[data-theme="dark"] .chart-container,
   html[data-theme="dark"] .stats-table {
-    background: #0f0f0f;
-    border-color: rgba(255,255,255,0.04);
+    background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.025));
+    border-color: rgba(255,255,255,0.08);
+    box-shadow: none;
   }
 
   html[data-theme="dark"] .stat-circle-icon { color: #fff; }
+
+  html[data-theme="dark"] .access-log-summary {
+    background: rgba(0, 82, 217, 0.12);
+    border-color: rgba(255,255,255,0.08);
+  }
 
   html[data-theme="dark"] .stats-table thead th {
     color: #9aa0a6;
@@ -141,5 +218,16 @@
   @media print {
     .chart-container canvas { height: 180px !important; }
     .stats-wrapper { margin: 0; padding: 0; }
+  }
+
+  @media (max-width: 768px) {
+    .stats-shell .page-shell-body {
+      padding: 14px;
+    }
+
+    .chart-container,
+    .stats-table {
+      border-radius: var(--radius-md);
+    }
   }
 }

@@ -7,40 +7,28 @@ if (!defined('APP_ROOT')) {
 
 $page_title = 'API 文档';
 
-$allowed_types = array_map(static fn(string $ext): string => '.' . strtoupper($ext), ALLOWED_TYPES);
-$allowed_types_text = implode(' / ', $allowed_types);
-$max_upload_mb = (int)round(MAX_FILE_SIZE / 1024 / 1024);
-$compression_mode = strtoupper(get_compression_mode());
-$remote_mode = strtoupper((string)REMOTE_STORAGE_MODE);
-$thumb_size = THUMBNAIL_MAX_WIDTH . 'x' . THUMBNAIL_MAX_HEIGHT;
-
 require_once APP_ROOT . '/header.php';
 ?>
 
 <main class="page-container page-main">
-    <section class="page-shell docs-shell overflow-hidden">
-        <div class="page-shell-header docs-hero flex flex-col gap-[10px]">
+    <section class="page-shell docs-shell">
+        <div class="page-shell-header docs-hero">
             <h2 class="page-shell-title">
                 <i class="fa-light fa-code"></i>
                 <span>API 文档</span>
             </h2>
-            <p class="docs-hero-desc text-gray text-[0.95rem]">第三方上传接口与后台操作接口的完整说明。</p>
-            <div class="docs-hero-badges flex flex-wrap gap-2">
-                <span class="docs-badge inline-flex items-center border border-border bg-surface text-gray rounded-md">支持格式 <?= htmlspecialchars($allowed_types_text) ?></span>
-                <span class="docs-badge inline-flex items-center border border-border bg-surface text-gray rounded-md">单文件上限 <?= $max_upload_mb ?>MB</span>
-                <span class="docs-badge inline-flex items-center border border-border bg-surface text-gray rounded-md">缩略图 <?= htmlspecialchars($thumb_size) ?></span>
-                <span class="docs-badge inline-flex items-center border border-border bg-surface text-gray rounded-md">压缩模式 <?= htmlspecialchars($compression_mode) ?></span>
-                <span class="docs-badge inline-flex items-center border border-border bg-surface text-gray rounded-md">远程存储 <?= htmlspecialchars($remote_mode) ?></span>
-            </div>
+            <p class="docs-hero-desc">版本化接口、第三方上传、图库读取与后台操作接口的完整说明。</p>
         </div>
 
-        <div class="page-shell-body docs-layout grid gap-3">
-            <section class="docs-card docs-card-featured border border-border bg-surface rounded-md">
-                <h3>第三方上传 API</h3>
-                <table class="docs-table w-full border-collapse">
+        <div class="page-shell-body docs-layout">
+            <section class="docs-card docs-card-featured">
+                <h3>版本化 API 总览</h3>
+                <table class="docs-table">
                     <tbody>
-                        <tr><th>接口</th><td><code>POST /api/upload.php</code></td></tr>
-                        <tr><th>导出</th><td><code>GET /api/export.php</code>，支持分页或 <code>all=1</code> 全量导出</td></tr>
+                        <tr><th>上传</th><td><code>POST /api/v1</code></td></tr>
+                        <tr><th>图库</th><td><code>GET /api/v1/list</code>，支持分页、搜索和排序</td></tr>
+                        <tr><th>导出</th><td><code>GET /api/v1/export</code>，支持分页或 <code>all=1</code> 全量导出</td></tr>
+                        <tr><th>后台操作</th><td><code>POST /api/v1/action</code>，支持压缩、WebP、AVIF、删除</td></tr>
                         <tr><th>鉴权</th><td><code>X-API-Key: &lt;token&gt;</code> 或 <code>Authorization: Bearer &lt;token&gt;</code></td></tr>
                         <tr><th>文件字段</th><td><code>image</code> / <code>image[]</code> / <code>file</code> / <code>files[]</code></td></tr>
                         <tr><th>返回</th><td><code>results[]</code>，逐文件给出 <code>status</code> / <code>url</code> / <code>thumbnail_url</code> / <code>processing</code></td></tr>
@@ -48,19 +36,30 @@ require_once APP_ROOT . '/header.php';
                 </table>
             </section>
 
-            <section class="docs-card border border-border bg-surface rounded-md">
+            <section class="docs-card">
+                <h3>WordPress 插件对接</h3>
+                <ol class="docs-steps">
+                    <li>在插件设置中填写图床地址（例如 <code>https://your-domain.com</code>）。</li>
+                    <li>填写 API Token，并点击"连接测试"。</li>
+                    <li>开启"WordPress 上传同步到图床"。</li>
+                    <li>在文章编辑器中使用"插入图床图片"按钮，选择已上传图片或直接上传。</li>
+                </ol>
+                <p class="docs-note">推荐在插件中优先使用 <code>/api/v1</code> 作为上传入口，返回结构稳定且带处理报告。</p>
+            </section>
+
+            <section class="docs-card">
                 <h3>cURL 示例</h3>
-                <div class="docs-code-block border border-[#181818] bg-[#181818] rounded-md">
-                    <div class="docs-code-title flex items-center border-b border-[#303030] bg-[#222] text-[#9fb3cf]">上传多张图片</div>
-                    <pre class="docs-code bg-[#181818] text-[#dbe8ff] overflow-x-auto" data-lang="bash"><code>curl -X POST "https://your-domain.com/api/upload.php" \
+                <div class="docs-code-block">
+                    <div class="docs-code-title">上传多张图片</div>
+                    <pre class="docs-code" data-lang="bash"><code>curl -X POST "https://your-domain.com/api/v1" \
   -H "Authorization: Bearer ltp_xxxxxxxxx" \
   -F "image[]=@/path/a.jpg" \
   -F "image[]=@/path/b.png"</code></pre>
                 </div>
 
-                <div class="docs-code-block border border-[#181818] bg-[#181818] rounded-md">
-                    <div class="docs-code-title flex items-center border-b border-[#303030] bg-[#222] text-[#9fb3cf]">成功返回示例（节选）</div>
-                    <pre class="docs-code bg-[#181818] text-[#dbe8ff] overflow-x-auto" data-lang="json"><code>{
+                <div class="docs-code-block">
+                    <div class="docs-code-title">成功返回示例（节选）</div>
+                    <pre class="docs-code" data-lang="json"><code>{
   "status": "success",
   "results": [
     {
@@ -80,16 +79,53 @@ require_once APP_ROOT . '/header.php';
 }</code></pre>
                 </div>
 
-                <div class="docs-code-block border border-[#181818] bg-[#181818] rounded-md">
-                    <div class="docs-code-title flex items-center border-b border-[#303030] bg-[#222] text-[#9fb3cf]">导出全部图片</div>
-                    <pre class="docs-code bg-[#181818] text-[#dbe8ff] overflow-x-auto" data-lang="bash"><code>curl "https://your-domain.com/api/export.php?all=1" \
+                <div class="docs-code-block">
+                    <div class="docs-code-title">导出全部图片</div>
+                    <pre class="docs-code" data-lang="bash"><code>curl "https://your-domain.com/api/v1/export?all=1" \
   -H "Authorization: Bearer ltp_xxxxxxxxx"</code></pre>
                 </div>
             </section>
 
-            <section class="docs-card border border-border bg-surface rounded-md">
-                <h3>后台图片操作接口（已登录/已鉴权）</h3>
-                <table class="docs-table w-full border-collapse">
+            <section class="docs-card">
+                <h3>功能覆盖</h3>
+                <p class="docs-note">以下接口均有后端实现；普通上传 Token 可上传和执行导出读取，图库列表与压缩、转换、删除等后台操作需要管理员登录或管理员主密钥。</p>
+                <table class="docs-table">
+                    <thead>
+                        <tr>
+                            <th>能力</th>
+                            <th>请求</th>
+                            <th>权限</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>上传图片</td>
+                            <td><code>POST /api/v1</code></td>
+                            <td>上传 Token / 管理员</td>
+                        </tr>
+                        <tr>
+                            <td>图库列表</td>
+                            <td><code>GET /api/v1/list?page=1&amp;per_page=20</code></td>
+                            <td>管理员主密钥 / 管理员登录</td>
+                        </tr>
+                        <tr>
+                            <td>迁移导出</td>
+                            <td><code>GET /api/v1/export?all=1</code></td>
+                            <td>上传 Token / 管理员</td>
+                        </tr>
+                        <tr>
+                            <td>图片处理</td>
+                            <td><code>POST /api/v1/action</code></td>
+                            <td>管理员主密钥 / 管理员登录</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="docs-card">
+                <h3>后台图片操作接口</h3>
+                <p class="docs-note">页面内调用会附带 <code>csrf_token</code>；外部脚本需使用管理员主密钥，不建议使用普通上传 Token 执行后台操作。</p>
+                <table class="docs-table">
                     <thead>
                         <tr>
                             <th>操作</th>
@@ -100,18 +136,23 @@ require_once APP_ROOT . '/header.php';
                     <tbody>
                         <tr>
                             <td>压缩</td>
-                            <td><code>POST /action.php (form-data: action=compress, file=xxx.jpg, csrf_token=...)</code></td>
+                            <td><code>POST /api/v1/action (form-data: action=compress, file=xxx.jpg, csrf_token=...)</code></td>
                             <td>仅支持 JPG/JPEG/PNG，返回压缩比例和体积变化。</td>
                         </tr>
                         <tr>
                             <td>转 WebP</td>
-                            <td><code>POST /action.php (form-data: action=webp, file=xxx.png, csrf_token=...)</code></td>
+                            <td><code>POST /api/v1/action (form-data: action=webp, file=xxx.png, csrf_token=...)</code></td>
                             <td>支持 JPG/JPEG/PNG/GIF，成功后返回新文件 URL。</td>
                         </tr>
                         <tr>
+                            <td>转 AVIF</td>
+                            <td><code>POST /api/v1/action (form-data: action=avif, file=xxx.jpg, csrf_token=...)</code></td>
+                            <td>支持 JPG/JPEG/PNG/GIF，需 PHP 8.1+ 且 GD 支持 AVIF。</td>
+                        </tr>
+                        <tr>
                             <td>删除</td>
-                            <td><code>POST /action.php (form-data: action=delete, file=xxx.webp, csrf_token=...)</code></td>
-                            <td>删除原图并清理缩略图，必要时联动远程存储删除。</td>
+                            <td><code>POST /api/v1/action (form-data: action=delete, file=xxx.webp, csrf_token=...)</code></td>
+                            <td>删除原图并清理缩略图，远程对象进入 24 小时延迟删除队列。</td>
                         </tr>
                     </tbody>
                 </table>

@@ -3,8 +3,18 @@ declare(strict_types=1);
 
 /**
  * 图库列表 API
- * GET /api/list.php?page=1&per_page=20&q=keyword&sort=date-desc
+ * GET /api/v1/list?page=1&per_page=20&q=keyword&sort=date-desc
  */
+
+if (!defined('LITEPIC_API_V1_DISPATCH')) {
+    header('Content-Type: application/json; charset=utf-8');
+    http_response_code(404);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'API route not found',
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
@@ -17,8 +27,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     exit;
 }
 
-require_once '../config.php';
-require_once '../functions.php';
+require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../functions.php';
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
     error_response('仅支持 GET 请求', 405);

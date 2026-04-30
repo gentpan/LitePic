@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+.user.ini.bak.*
 *.log
 tmp/
 .cache/
@@ -14,6 +15,11 @@ Thumbs.db
 # 运行时数据（不应提交）
 data/*.json
 data/*.txt
+data/watermarks/
+static/images/background-*.jpg
+static/images/background-*.jpeg
+static/images/background-*.png
+static/images/background-*.webp
 uploads/filename_map.json
 uploads/*.jpg
 uploads/*.jpeg

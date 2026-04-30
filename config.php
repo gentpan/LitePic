@@ -104,6 +104,16 @@ $default_scheme = $is_https ? 'https' : 'http';
 define('SITE_NAME', env_value('SITE_NAME', 'LitePic'));
 define('SITE_DESCRIPTION', env_value('SITE_DESCRIPTION', '轻量级图床程序'));
 define('SITE_VERSION', '3.0.0');
+$home_background_image = (string)env_value('HOME_BACKGROUND_IMAGE', '/static/images/background.jpg');
+$home_background_image_path = parse_url($home_background_image, PHP_URL_PATH);
+if (
+    !is_string($home_background_image_path) ||
+    !preg_match('#^/static/images/[A-Za-z0-9._/-]+$#', $home_background_image_path) ||
+    str_contains($home_background_image_path, '..')
+) {
+    $home_background_image = '/static/images/background.jpg';
+}
+define('HOME_BACKGROUND_IMAGE', $home_background_image);
 
 // 网站路径配置
 define('SITE_URL', env_value('SITE_URL', $default_scheme . '://' . $default_host));
@@ -112,10 +122,21 @@ define('UPLOAD_PATH_LOCAL', __DIR__ . DIRECTORY_SEPARATOR . 'uploads' . DIRECTOR
 define('STATIC_PATH', '/static/');
 
 // 图片相关配置
-define('ALLOWED_TYPES', [
+$supported_image_types = [
     'jpg', 'jpeg', 'png', 'gif', 'webp', 'avif',
     'ico', 'svg', 'bmp', 'tiff', 'tif'
-]);
+];
+define('SUPPORTED_IMAGE_TYPES', $supported_image_types);
+define('ALLOWED_TYPES', SUPPORTED_IMAGE_TYPES);
+
+$allowed_upload_types = array_values(array_intersect(
+    array_map('strtolower', env_csv('UPLOAD_ALLOWED_TYPES', SUPPORTED_IMAGE_TYPES)),
+    SUPPORTED_IMAGE_TYPES
+));
+if (empty($allowed_upload_types)) {
+    $allowed_upload_types = SUPPORTED_IMAGE_TYPES;
+}
+define('ALLOWED_UPLOAD_TYPES', $allowed_upload_types);
 define('MAX_FILE_SIZE', max(1, (int)env_value('MAX_FILE_SIZE_MB', 20)) * 1024 * 1024);
 define('MIN_IMAGE_WIDTH', 20);
 define('MIN_IMAGE_HEIGHT', 20);
@@ -155,11 +176,58 @@ define('AUTO_CONVERT_WEBP_ON_UPLOAD', env_bool('AUTO_CONVERT_WEBP_ON_UPLOAD', fa
 define('AUTO_CONVERT_AVIF_ON_UPLOAD', env_bool('AUTO_CONVERT_AVIF_ON_UPLOAD', false));
 define('CONVERT_PREFERRED_FORMAT', in_array(strtolower((string)env_value('CONVERT_PREFERRED_FORMAT', 'webp')), ['webp', 'avif'], true) ? strtolower((string)env_value('CONVERT_PREFERRED_FORMAT', 'webp')) : 'webp');
 define('KEEP_ORIGINAL_AFTER_PROCESS', env_bool('KEEP_ORIGINAL_AFTER_PROCESS', false));
-define('COMPRESSION_MODE', (string)env_value('COMPRESSION_MODE', 'hybrid'));
+define('COMPRESSION_MODE', (string)env_value('COMPRESSION_MODE', 'imagemagick'));
 
-// 远程存储（S3 / Cloudflare R2）
-define('REMOTE_STORAGE_MODE', strtolower((string)env_value('REMOTE_STORAGE_MODE', 'off'))); // off|sync|backup
-define('S3_PROVIDER', strtolower((string)env_value('S3_PROVIDER', 'r2'))); // r2|s3
+// 水印与防盗链
+$watermark_position = strtolower((string)env_value('WATERMARK_POSITION', 'bottom-right'));
+if (!in_array($watermark_position, ['bottom-right', 'bottom-left', 'top-right', 'top-left', 'center'], true)) {
+    $watermark_position = 'bottom-right';
+}
+$watermark_color = (string)env_value('WATERMARK_COLOR', '#ffffff');
+if (!preg_match('/^#[0-9a-fA-F]{6}$/', $watermark_color)) {
+    $watermark_color = '#ffffff';
+}
+define('WATERMARK_ENABLED', env_bool('WATERMARK_ENABLED', false));
+define('WATERMARK_TEXT', (string)env_value('WATERMARK_TEXT', SITE_NAME));
+define('WATERMARK_POSITION', $watermark_position);
+define('WATERMARK_OPACITY', max(1, min(100, (int)env_value('WATERMARK_OPACITY', 100))));
+define('WATERMARK_FONT_SIZE', max(8, min(72, (int)env_value('WATERMARK_FONT_SIZE', 18))));
+define('WATERMARK_MARGIN', max(0, min(240, (int)env_value('WATERMARK_MARGIN', 18))));
+define('WATERMARK_COLOR', $watermark_color);
+define('WATERMARK_FONT_PATH', (string)env_value('WATERMARK_FONT_PATH', ''));
+$watermark_image_path = (string)env_value('WATERMARK_IMAGE_PATH', '');
+$watermark_type = strtolower((string)env_value('WATERMARK_TYPE', $watermark_image_path !== '' ? 'image' : 'text'));
+if (!in_array($watermark_type, ['text', 'image'], true)) {
+    $watermark_type = 'text';
+}
+define('WATERMARK_TYPE', $watermark_type);
+define('WATERMARK_IMAGE_PATH', $watermark_image_path);
+define('WATERMARK_IMAGE_WIDTH', max(24, min(800, (int)env_value('WATERMARK_IMAGE_WIDTH', 160))));
+define('WATERMARK_PANEL_ENABLED', env_bool('WATERMARK_PANEL_ENABLED', true));
+define('WATERMARK_PANEL_OPACITY', max(1, min(100, (int)env_value('WATERMARK_PANEL_OPACITY', 34))));
+define('WATERMARK_PANEL_PADDING', max(0, min(80, (int)env_value('WATERMARK_PANEL_PADDING', 10))));
+define('WATERMARK_PANEL_RADIUS', max(0, min(80, (int)env_value('WATERMARK_PANEL_RADIUS', 10))));
+define('HOTLINK_PROTECTION_ENABLED', env_bool('HOTLINK_PROTECTION_ENABLED', false));
+define('HOTLINK_ALLOWED_DOMAINS', env_csv('HOTLINK_ALLOWED_DOMAINS', []));
+define('HOTLINK_ALLOW_EMPTY_REFERER', env_bool('HOTLINK_ALLOW_EMPTY_REFERER', true));
+
+// Web 服务器访问日志统计（统计 /uploads/... 与 /i/... 图片请求）
+define('ACCESS_LOG_STATS_ENABLED', env_bool('ACCESS_LOG_STATS_ENABLED', true));
+define('ACCESS_LOG_PATHS', env_csv('ACCESS_LOG_PATHS', []));
+define('ACCESS_LOG_CACHE_TTL', max(30, min(86400, (int)env_value('ACCESS_LOG_CACHE_TTL', 300))));
+define('ACCESS_LOG_MAX_BYTES', max(1048576, min(524288000, (int)env_value('ACCESS_LOG_MAX_BYTES', 20971520))));
+
+// 远程存储（S3 兼容协议，Cloudflare R2 / AWS S3 通用）
+$remote_storage_usage = strtolower((string)env_value('REMOTE_STORAGE_USAGE', env_value('REMOTE_STORAGE_MODE', 'backup')));
+if ($remote_storage_usage === 'sync') {
+    $remote_storage_usage = 'backup';
+}
+if (!in_array($remote_storage_usage, ['backup', 'storage'], true)) {
+    $remote_storage_usage = 'backup';
+}
+define('REMOTE_STORAGE_USAGE', $remote_storage_usage);
+define('REMOTE_STORAGE_MODE', 'sync');
+define('S3_PROVIDER', 's3');
 define('S3_BUCKET', (string)env_value('S3_BUCKET', ''));
 define('S3_REGION', (string)env_value('S3_REGION', 'auto'));
 define('S3_ENDPOINT', (string)env_value('S3_ENDPOINT', ''));
@@ -167,6 +235,7 @@ define('S3_KEY', (string)env_value('S3_KEY', ''));
 define('S3_SECRET', (string)env_value('S3_SECRET', ''));
 define('S3_PATH_PREFIX', trim((string)env_value('S3_PATH_PREFIX', 'uploads'), '/'));
 define('S3_PUBLIC_BASE_URL', rtrim((string)env_value('S3_PUBLIC_BASE_URL', ''), '/'));
+define('REMOTE_STORAGE_DELETE_DELAY_SECONDS', max(0, (int)env_value('REMOTE_STORAGE_DELETE_DELAY_SECONDS', 86400)));
 
 // TinyPNG API Key 列表（建议放在 .env: TINIFY_API_KEYS=key1,key2）
 define('TINIFY_API_KEYS', env_csv('TINIFY_API_KEYS', []));

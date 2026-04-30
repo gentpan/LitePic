@@ -101,7 +101,7 @@ class ImageCard {
             'WEBP' => 'WebP',
             'AVIF' => 'AVIF',
             'GIF' => 'GIF 动图',
-            'SVG' => 'SVG 矢量',
+            'SVG' => 'SVG',
             'ICO' => 'ICON',
             'BMP' => 'BMP 位图',
             'TIFF' => 'TIFF',
@@ -118,19 +118,20 @@ class ImageCard {
                 <div class="img-name" title="<?= htmlspecialchars($raw_name) ?>">
                     <?= htmlspecialchars($display_name) ?>
                 </div>
-                <span class="img-format-tag <?= htmlspecialchars($format_class) ?>"><?= htmlspecialchars($format_label) ?></span>
             </div>
             <div class="img-meta">
-                <span class="img-size" title="文件大小">
-                    <i class="fa-light fa-hard-drive"></i>
-                    <?= format_filesize($this->info['size']) ?>
-                </span>
-                <?php if ($format_code !== 'SVG' && $format_code !== 'AVIF'): ?>
-                <span class="img-dimensions" title="图片尺寸">
+                <span class="img-meta-badge img-dimensions img-dimensions-badge" title="图片尺寸">
                     <i class="fa-light fa-expand"></i>
-                    <?= $this->info['dimensions'] ?>
+                    <span><?= htmlspecialchars((string)$this->info['dimensions']) ?></span>
                 </span>
-                <?php endif; ?>
+                <span class="img-meta-badge img-size img-size-badge" title="文件大小">
+                    <i class="fa-light fa-hard-drive"></i>
+                    <span class="img-size-value"><?= format_filesize($this->info['size']) ?></span>
+                </span>
+                <span class="img-meta-badge img-format-tag <?= htmlspecialchars($format_class) ?>" title="图片格式">
+                    <i class="fa-light fa-file-image"></i>
+                    <span><?= htmlspecialchars($format_label) ?></span>
+                </span>
             </div>
 
         </div>
@@ -143,7 +144,7 @@ class ImageCard {
         $preferred = CONVERT_PREFERRED_FORMAT;
         ?>
         <div class="<?= $this->show_select ? 'img-actions' : 'img-overlay' ?>">
-            <button class="w-8 h-8 rounded-sm border-none bg-white/90 text-dark cursor-pointer flex items-center justify-center hover:bg-primary hover:text-white transition-colors copy-btn" 
+            <button class="action-btn copy-btn"
                     title="复制链接"
                     type="button">
                 <i class="fa-light fa-copy"></i>
@@ -156,7 +157,7 @@ class ImageCard {
             ?>
 
             <?php if ($this->show_comp && $canCompress): ?>
-            <button class="w-8 h-8 rounded-sm border-none bg-white/90 text-dark cursor-pointer flex items-center justify-center hover:bg-primary hover:text-white transition-colors compress-btn" 
+            <button class="action-btn compress-btn"
                     title="压缩图片"
                     type="button">
                 <i class="fa-light fa-compress"></i>
@@ -165,13 +166,13 @@ class ImageCard {
             
             <?php if ($this->show_webp && $canConvert): ?>
             <?php if ($preferred === 'avif'): ?>
-            <button class="w-8 h-8 rounded-sm border-none bg-white/90 text-dark cursor-pointer flex items-center justify-center hover:bg-primary hover:text-white transition-colors avif-btn" 
+            <button class="action-btn avif-btn"
                     title="转换AVIF"
                     type="button">
                 <i class="fa-light fa-image"></i>
             </button>
             <?php else: ?>
-            <button class="w-8 h-8 rounded-sm border-none bg-white/90 text-dark cursor-pointer flex items-center justify-center hover:bg-primary hover:text-white transition-colors webp-btn" 
+            <button class="action-btn webp-btn"
                     title="转换WebP"
                     type="button">
                 <i class="fa-light fa-image"></i>
@@ -179,7 +180,7 @@ class ImageCard {
             <?php endif; ?>
             <?php endif; ?>
             
-            <button class="w-8 h-8 rounded-sm border-none bg-white/90 text-dark cursor-pointer flex items-center justify-center hover:bg-primary hover:text-white transition-colors delete-btn" 
+            <button class="action-btn delete-btn"
                     title="删除图片"
                     type="button">
                 <i class="fa-light fa-trash"></i>

@@ -3,6 +3,8 @@ DirectorySlash Off
 
 # 优先拦截 /api 路径（避免与 api/ 真实目录冲突）
 RewriteRule ^api/?$ index.php [QSA,L]
+RewriteRule ^api/v1(/.*)?$ index.php [QSA,L]
+RewriteRule ^i(/.*)?$ index.php [QSA,L]
 
 # 禁止访问敏感文件和目录
 RedirectMatch 403 ^/\.env
@@ -17,6 +19,11 @@ RedirectMatch 403 ^/logs/
 # 禁止在 uploads 目录执行 PHP（即使上传了恶意脚本也无法执行）
 <IfModule mod_rewrite.c>
     RewriteRule ^uploads/.*\.php$ - [F,L]
+
+    # 可选：严格防盗链时取消注释，并改成你的域名
+    # RewriteCond %{HTTP_REFERER} !^$
+    # RewriteCond %{HTTP_REFERER} !^https?://([^/]+\.)?example\.com(/|$) [NC]
+    # RewriteRule ^uploads/ - [F,L]
 </IfModule>
 
 # 真实文件/目录直接访问（/api 路径除外，需路由到单入口）
@@ -28,3 +35,4 @@ RewriteRule ^ - [L]
 # 统一单入口无后缀路由
 RewriteRule ^$ index.php [QSA,L]
 RewriteRule ^(upload|gallery|docs|api|settings|stats)/?$ index.php [QSA,L]
+RewriteRule ^i/.*$ index.php [QSA,L]

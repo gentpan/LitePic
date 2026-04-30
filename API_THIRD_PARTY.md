@@ -2,8 +2,8 @@
 
 ## Endpoint
 
-- `POST /api/upload.php`
-- `GET /api/export.php`
+- `POST /api/v1`
+- `GET /api/v1/export`
 
 ## 鉴权方式
 
@@ -18,9 +18,9 @@
 - 或 `THIRD_PARTY_API_KEYS`（环境变量，逗号分隔）
 - 或在 `settings.php` 的“API Token 管理”中创建的 Token
 
-这些凭据仅用于上传接口，不再授予图库管理、删除或系统状态读取权限。
+这些凭据仅用于上传和导出接口，不再授予图库管理、删除或系统状态读取权限。
 
-导出接口 `GET /api/export.php` 支持使用相同的上传 Token 读取图片清单，适合跨图床迁移时拉取全量图片地址。
+导出接口 `GET /api/v1/export` 支持使用相同的上传 Token 读取图片清单，适合跨图床迁移时拉取全量图片地址。
 
 ## 请求参数
 
@@ -33,7 +33,7 @@
 
 ## 导出参数
 
-`GET /api/export.php` 支持：
+`GET /api/v1/export` 支持：
 
 - `page`：页码，默认 `1`
 - `per_page`：每页数量，默认 `100`，最大 `500`
@@ -60,7 +60,7 @@
 ## cURL 示例
 
 ```bash
-curl -X POST "https://your-domain.com/api/upload.php" \
+curl -X POST "https://your-domain.com/api/v1" \
   -H "X-API-Key: your-third-party-key" \
   -F "image=@/path/to/demo.png"
 ```
@@ -68,6 +68,6 @@ curl -X POST "https://your-domain.com/api/upload.php" \
 ## 导出示例
 
 ```bash
-curl "https://your-domain.com/api/export.php?all=1" \
+curl "https://your-domain.com/api/v1/export?all=1" \
   -H "Authorization: Bearer your-third-party-key"
 ```

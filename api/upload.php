@@ -7,6 +7,16 @@ declare(strict_types=1);
  * 鉴权: X-API-Key 或 Authorization: Bearer <key>
  */
 
+if (!defined('LITEPIC_API_V1_DISPATCH')) {
+    header('Content-Type: application/json; charset=utf-8');
+    http_response_code(404);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'API route not found',
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Vary: Origin');
@@ -23,8 +33,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     exit;
 }
 
-require_once '../config.php';
-require_once '../functions.php';
+require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../functions.php';
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     error_response('仅支持 POST 请求', 405);

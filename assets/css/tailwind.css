@@ -19,6 +19,18 @@
   font-weight: 700;
   font-display: swap;
 }
+@font-face {
+  font-family: "Google Sans Code";
+  src: url("https://static.utterlog.com/fonts/google-sans-code-400.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Google Sans Code";
+  src: url("https://static.utterlog.com/fonts/google-sans-code-700.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
 
 /* ==========================================================================
    Tailwind CSS v4 — CSS-first configuration
@@ -48,13 +60,15 @@
   --color-border: var(--border-color);
 
   /* Radius */
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-sm: 4px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
 
   /* Typography */
-  --font-family-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft JhengHei", "Microsoft YaHei", "Noto Sans CJK SC", "Helvetica Neue", Arial, sans-serif;
-  --font-family-mono: Menlo, Monaco, Consolas, "IBM Plex Mono", monospace;
+  --font-sans: "Noto Sans SC", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft JhengHei", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  --font-family-sans: "Noto Sans SC", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft JhengHei", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Google Sans Code", Menlo, Monaco, Consolas, monospace;
+  --font-family-mono: "Google Sans Code", Menlo, Monaco, Consolas, monospace;
   --font-logo: "Ubuntu", sans-serif;
 }
 
@@ -79,9 +93,15 @@
 
   --theme-transition: 220ms ease;
   --footer-safe-space: 96px;
-  --header-offset: 80px;
+  --header-offset: 100px;
   --page-gap: 14px;
   --control-h: 44px;
+
+  /* Header glass, extracted from the old frosted menu style */
+  --header-bg: rgba(255, 255, 255, 0.78);
+  --header-border: rgba(226, 232, 240, 0.72);
+  --header-shadow: 0 4px 20px rgba(15, 23, 42, 0.12);
+  --header-blur: blur(18px) saturate(160%);
 
   /* Logo & home overlay theme variables */
   --logo-light-opacity: 1;
@@ -89,6 +109,7 @@
   --home-overlay-opacity: 0;
   --nav-cta-bg: #0052D9;
   --nav-cta-color: #ffffff;
+  --font-code: "Google Sans Code", Menlo, Monaco, Consolas, monospace;
 }
 
 html[data-theme="dark"] {
@@ -106,11 +127,17 @@ html[data-theme="dark"] {
   --shadow: 0 4px 6px -1px rgba(0,0,0,0.3), 0 2px 4px -2px rgba(0,0,0,0.2);
   --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.4), 0 4px 6px -4px rgba(0,0,0,0.3);
 
+  --header-bg: rgba(15, 17, 22, 0.95);
+  --header-border: rgba(255, 255, 255, 0.04);
+  --header-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  --header-blur: blur(18px) saturate(160%);
+
   --logo-light-opacity: 0;
   --logo-dark-opacity: 1;
   --home-overlay-opacity: 1;
   --nav-cta-bg: #ffffff;
   --nav-cta-color: var(--light);
+  color-scheme: dark;
 }
 
 /* Dark mode scrollbar overrides */
@@ -141,6 +168,8 @@ html[data-theme="dark"] * {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     scrollbar-gutter: stable;
+    background: var(--light);
+    color-scheme: light;
   }
 
   /* Custom scrollbar — follows theme colors */
@@ -172,7 +201,7 @@ html[data-theme="dark"] * {
     color: var(--dark);
     background: var(--light);
     min-height: 100vh;
-    padding-bottom: var(--footer-safe-space);
+    padding-bottom: 0;
     display: flex;
     flex-direction: column;
     transition: background var(--theme-transition), color var(--theme-transition);
@@ -243,9 +272,13 @@ html[data-theme="dark"] * {
   100% { transform: rotate(25deg); }
 }
 
+@keyframes logo-spin-clockwise {
+  to { transform: rotate(360deg); }
+}
+
 @keyframes home-bg-zoom {
   from { transform: scale(1); }
-  to { transform: scale(1.12); }
+  to { transform: scale(1.15); }
 }
 
 /* ==========================================================================

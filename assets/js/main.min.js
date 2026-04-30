@@ -3,6 +3,85 @@
 /* ===== script.js ===== */
 window.ImgEt = window.ImgEt || {};
 
+/* ===== nav-indicator.js ===== */
+(function () {
+    function initNavIndicator() {
+        const nav = document.querySelector('.main-nav');
+        if (!nav) return;
+
+        const indicator = nav.querySelector('.nav-indicator');
+        const links = Array.from(nav.querySelectorAll('.nav-link'));
+        if (!indicator || links.length === 0) return;
+
+        const activeLink = () => nav.querySelector('.nav-link.active');
+        let resizeTimer = null;
+
+        const moveTo = (target) => {
+            if (!target || !nav.contains(target)) return;
+
+            const navRect = nav.getBoundingClientRect();
+            const targetRect = target.getBoundingClientRect();
+
+            nav.style.setProperty('--nav-indicator-x', `${targetRect.left - navRect.left}px`);
+            nav.style.setProperty('--nav-indicator-y', `${targetRect.top - navRect.top}px`);
+            nav.style.setProperty('--nav-indicator-w', `${targetRect.width}px`);
+            nav.style.setProperty('--nav-indicator-h', `${targetRect.height}px`);
+            nav.classList.add('is-indicator-ready');
+        };
+
+        const restore = () => {
+            nav.classList.remove('is-indicator-hovering');
+            const active = activeLink();
+            if (active) {
+                moveTo(active);
+            } else {
+                nav.classList.remove('is-indicator-ready');
+            }
+        };
+
+        links.forEach((link) => {
+            link.addEventListener('pointerenter', () => {
+                nav.classList.add('is-indicator-hovering');
+                moveTo(link);
+            });
+            link.addEventListener('focus', () => {
+                nav.classList.add('is-indicator-hovering');
+                moveTo(link);
+            });
+        });
+
+        nav.addEventListener('pointerleave', restore);
+        nav.addEventListener('focusout', () => {
+            if (!nav.contains(document.activeElement)) {
+                restore();
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            window.clearTimeout(resizeTimer);
+            resizeTimer = window.setTimeout(restore, 80);
+        });
+
+        if ('ResizeObserver' in window) {
+            const observer = new ResizeObserver(restore);
+            observer.observe(nav);
+            links.forEach((link) => observer.observe(link));
+        }
+
+        if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === 'function') {
+            document.fonts.ready.then(restore).catch(() => {});
+        }
+
+        requestAnimationFrame(restore);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initNavIndicator);
+    } else {
+        initNavIndicator();
+    }
+})();
+
 /**
  * HTML 转义辅助函数（防止 XSS）
  * @param {string} str
@@ -60,20 +139,32 @@ window.ImgEt.Utils = {
      * 显示通知消息
      * @param {string} message 消息内容
      * @param {string} type 消息类型 (success/error/warning/info)
+     * @param {Object} options 显示选项
      */
-    showNotification(message, type = 'info') {
+    showNotification(message, type = 'info', options = {}) {
         try {
-            const notification = document.getElementById('notification');
+            const normalizedOptions = options && typeof options === 'object' ? options : {};
+            const variants = normalizedOptions.variant
+                ? (Array.isArray(normalizedOptions.variant)
+                    ? normalizedOptions.variant
+                    : String(normalizedOptions.variant).split(/\s+/))
+                : [];
+            const notification = variants.includes('auth')
+                ? this.getAuthNotificationContainer()
+                : variants.includes('process')
+                    ? this.getProcessNotificationContainer()
+                    : document.getElementById('notification');
             if (!notification) return;
 
-            const item = this.createNotificationItem(message, type);
+            const item = this.createNotificationItem(message, type, normalizedOptions);
             notification.appendChild(item);
             
             // 添加显示动画
             requestAnimationFrame(() => item.classList.add('show'));
             
             // 自动关闭
-            const hideTimeout = setTimeout(() => this.hide(item), 3000);
+            const duration = Number.isFinite(normalizedOptions.duration) ? normalizedOptions.duration : 3000;
+            const hideTimeout = setTimeout(() => this.hide(item), duration);
             
             // 手动关闭
             const closeBtn = item.querySelector('.notification-close');
@@ -89,10 +180,40 @@ window.ImgEt.Utils = {
     },
 
     /**
+     * 获取登录提示专用容器
+     * @private
+     */
+    getAuthNotificationContainer() {
+        let notification = document.getElementById('authNotification');
+        if (!notification) {
+            notification = document.createElement('div');
+            notification.id = 'authNotification';
+            notification.className = 'auth-toast-container';
+            document.body.appendChild(notification);
+        }
+        return notification;
+    },
+
+    /**
+     * 获取图片处理结果通知容器
+     * @private
+     */
+    getProcessNotificationContainer() {
+        let notification = document.getElementById('processNotification');
+        if (!notification) {
+            notification = document.createElement('div');
+            notification.id = 'processNotification';
+            notification.className = 'process-toast-container';
+            document.body.appendChild(notification);
+        }
+        return notification;
+    },
+
+    /**
      * 创建通知项
      * @private
      */
-    createNotificationItem(message, type) {
+    createNotificationItem(message, type, options = {}) {
         const icons = {
             success: 'fa-check-circle',
             error: 'fa-exclamation-circle',
@@ -101,16 +222,47 @@ window.ImgEt.Utils = {
         };
 
         const item = document.createElement('div');
-        item.className = `notification-item ${type}`;
+        const classes = ['notification-item', type];
+        let isAuthNotification = false;
+        if (options.variant) {
+            const variants = Array.isArray(options.variant)
+                ? options.variant
+                : String(options.variant).split(/\s+/);
+            variants.filter(Boolean).forEach(variant => classes.push(`notification-${variant}`));
+            isAuthNotification = variants.includes('auth');
+        }
+        item.className = classes.join(' ');
         item.setAttribute('role', 'alert');
-        
-        item.innerHTML = `
-            <i class="fa-light ${icons[type] || icons.info}" aria-hidden="true"></i>
-            <span class="flex-1 text-sm leading-relaxed">${escapeHtml(message)}</span>
-            <button class="notification-close" aria-label="关闭通知">
-                <i class="fa-light fa-times"></i>
-            </button>
-        `;
+        const iconHtml = isAuthNotification
+            ? `<span class="notification-auth-icon" aria-hidden="true"><i class="fa-light ${icons[type] || icons.info}"></i></span>`
+            : `<i class="fa-light ${icons[type] || icons.info}" aria-hidden="true"></i>`;
+
+        if (options.title || options.detail || options.meta) {
+            const title = options.title || message;
+            const detail = options.detail || '';
+            const meta = options.meta || '';
+            item.innerHTML = `
+                ${isAuthNotification
+                    ? `<span class="notification-auth-icon" aria-hidden="true"><i class="fa-light ${options.icon || icons[type] || icons.info}"></i></span>`
+                    : `<i class="fa-light ${options.icon || icons[type] || icons.info}" aria-hidden="true"></i>`}
+                <div class="notification-copy">
+                    <strong>${escapeHtml(title)}</strong>
+                    ${detail ? `<span>${escapeHtml(detail)}</span>` : ''}
+                    ${meta ? `<em>${escapeHtml(meta)}</em>` : ''}
+                </div>
+                <button class="notification-close" aria-label="关闭通知">
+                    <i class="fa-light fa-times"></i>
+                </button>
+            `;
+        } else {
+            item.innerHTML = `
+                ${iconHtml}
+                <span class="flex-1 text-sm leading-relaxed">${escapeHtml(message)}</span>
+                <button class="notification-close" aria-label="关闭通知">
+                    <i class="fa-light fa-times"></i>
+                </button>
+            `;
+        }
 
         return item;
     },
@@ -295,39 +447,35 @@ if (!window.ImgEt.DialogManager) {
             document.addEventListener('keydown', escHandler);
         },
 
-        showConfirmDialog(title, message, onConfirm) {
+        showConfirmDialog(title, message, onConfirm, options = {}) {
             // 关闭所有已存在的确认弹窗，防止叠加
             document.querySelectorAll('.confirm-dialog').forEach(d => {
                 if (typeof d.closeHandler === 'function') d.closeHandler();
             });
 
+            const normalizedOptions = options && typeof options === 'object' ? options : {};
+            const isDanger = normalizedOptions.danger === true;
             const safeTitle = escapeHtml(title);
             const safeMessage = escapeHtml(message);
+            const cancelText = escapeHtml(normalizedOptions.cancelText || '取消');
+            const confirmText = escapeHtml(normalizedOptions.confirmText || (isDanger ? '删除' : '确认'));
+            const iconClass = isDanger ? 'fa-trash' : 'fa-check';
             const dialog = document.createElement('div');
-            dialog.className = 'confirm-dialog';
+            dialog.className = `confirm-dialog${isDanger ? ' confirm-dialog-danger' : ''}`;
             dialog.innerHTML = `
                 <div class="confirm-dialog-content">
-                    <div class="dialog-header">
-                        <h3 class="flex items-center gap-2 text-dark">
-                            <i class="fa-light fa-question-circle text-primary"></i>
-                            ${safeTitle}
-                        </h3>
-                        <button type="button" class="dialog-close">
-                            <i class="fa-light fa-times"></i>
-                        </button>
-                    </div>
-                    <div class="dialog-body">
-                        <p class="text-dark">${safeMessage}</p>
-                    </div>
-                    <div class="dialog-footer">
-                        <button type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-light text-gray hover:bg-gray/10 transition-colors">
-                            <i class="fa-light fa-times"></i>
-                            取消
-                        </button>
-                        <button type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-danger text-white hover:bg-danger/90 transition-colors">
-                            <i class="fa-light fa-check"></i>
-                            确认
-                        </button>
+                    <div class="confirm-dialog-body">
+                        <h3 class="confirm-dialog-title">${safeTitle}</h3>
+                        <p class="confirm-dialog-message">${safeMessage}</p>
+                        <div class="confirm-dialog-actions">
+                            <button type="button" class="confirm-dialog-btn confirm-dialog-cancel">
+                                ${cancelText}
+                            </button>
+                            <button type="button" class="confirm-dialog-btn confirm-dialog-submit">
+                                <i class="fa-light ${iconClass}" aria-hidden="true"></i>
+                                <span>${confirmText}</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -350,10 +498,8 @@ if (!window.ImgEt.DialogManager) {
 
             dialog.closeHandler = closeDialog; // 挂载关闭句柄
 
-            const closeBtn = dialog.querySelector('.dialog-close');
-            closeBtn.addEventListener('click', closeDialog);
-            dialog.querySelector('.dialog-footer button:first-child').addEventListener('click', closeDialog);
-            dialog.querySelector('.dialog-footer button:last-child').addEventListener('click', () => {
+            dialog.querySelector('.confirm-dialog-cancel').addEventListener('click', closeDialog);
+            dialog.querySelector('.confirm-dialog-submit').addEventListener('click', () => {
                 if (typeof onConfirm === 'function' && !dialog.confirmed) {
                     dialog.confirmed = true;
                     onConfirm();
@@ -403,6 +549,45 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+function initLicenseDialog() {
+    const trigger = document.querySelector('[data-license-dialog]');
+    if (!trigger || trigger.dataset.licenseBound === '1') return;
+
+    trigger.dataset.licenseBound = '1';
+    trigger.addEventListener('click', () => {
+        if (!window.ImgEt?.DialogManager) return;
+
+        const content = `
+            <div class="litepic-license-dialog">
+                <p class="license-lead">LitePic 是一款开源 PHP 单机版图床程序，适合个人、自托管和轻量团队场景使用。</p>
+                <div class="license-meta">
+                    <div class="license-meta-row">
+                        <span class="license-meta-label"><i class="fa-light fa-code-branch" aria-hidden="true"></i>项目地址</span>
+                        <a href="https://github.com/gentpan/LitePic" target="_blank" rel="noopener noreferrer">github.com/gentpan/LitePic</a>
+                    </div>
+                    <div class="license-meta-row">
+                        <span class="license-meta-label"><i class="fa-light fa-user-pen" aria-hidden="true"></i>作者</span>
+                        <a href="https://github.com/gentpan" target="_blank" rel="noopener noreferrer">gentpan</a>
+                    </div>
+                    <div class="license-meta-row">
+                        <span class="license-meta-label"><i class="fa-light fa-scale-balanced" aria-hidden="true"></i>开源协议</span>
+                        <span>MIT License</span>
+                    </div>
+                    <div class="license-meta-row">
+                        <span class="license-meta-label"><i class="fa-light fa-circle-question" aria-hidden="true"></i>问题反馈</span>
+                        <a href="https://github.com/gentpan/LitePic/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a>
+                    </div>
+                </div>
+                <p class="license-note">二次开发、分发或商用时，请保留版权与协议声明，并以仓库中的 LICENSE 文件为准。</p>
+            </div>
+        `;
+
+        ImgEt.DialogManager.showCustomDialog('版权说明', content);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', initLicenseDialog);
+
 // 缩略图右键时临时切换为原图地址，确保“查看图片/在新标签打开图片”走原图
 document.addEventListener('contextmenu', (e) => {
     const img = e.target.closest('.img-box img[data-original-url], .img-card img[data-original-url]');
@@ -434,10 +619,22 @@ document.addEventListener('contextmenu', (e) => {
     const html = document.documentElement;
     const themeGroup = document.querySelector('.theme-mode-toggle');
     const themeButtons = themeGroup ? Array.from(themeGroup.querySelectorAll('[data-theme-mode]')) : [];
+    const themeMenuToggle = document.querySelector('[data-theme-menu-toggle]');
+    const themeWrapper = themeMenuToggle?.closest('.theme-toggle-footer') || themeGroup?.closest('.theme-toggle-footer') || null;
+    const themeFooter = themeWrapper?.closest('.site-footer') || null;
+    const themeTriggerIcon = document.querySelector('[data-theme-trigger-icon]');
+    const themeIconMap = {
+        dark: 'fa-moon',
+        light: 'fa-sun-bright',
+        system: 'fa-display'
+    };
 
     function applyTheme(mode) {
+        const forceDark = document.body?.classList.contains('home-guest') === true;
         let applied = mode;
-        if (mode === 'system') {
+        if (forceDark) {
+            applied = 'dark';
+        } else if (mode === 'system') {
             const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             applied = prefersDark ? 'dark' : 'light';
         }
@@ -445,12 +642,18 @@ document.addEventListener('contextmenu', (e) => {
         // 设置主题
         if (applied === 'dark') {
             html.setAttribute('data-theme', 'dark');
+            html.style.backgroundColor = '#0c0c0c';
+            html.style.colorScheme = 'dark';
         } else {
             html.removeAttribute('data-theme');
+            html.style.backgroundColor = '#f8f9fa';
+            html.style.colorScheme = 'light';
         }
         
-        localStorage.setItem(KEY, mode);
-        syncThemeButtons(mode);
+        if (!forceDark) {
+            localStorage.setItem(KEY, mode);
+        }
+        syncThemeButtons(forceDark ? 'dark' : mode);
     }
 
     function syncThemeButtons(mode) {
@@ -460,6 +663,16 @@ document.addEventListener('contextmenu', (e) => {
             btn.setAttribute('aria-checked', isActive ? 'true' : 'false');
             btn.classList.toggle('is-active', isActive);
         });
+        if (themeTriggerIcon) {
+            themeTriggerIcon.className = `fa-light ${themeIconMap[mode] || themeIconMap.system}`;
+        }
+    }
+
+    function setThemeMenuOpen(open) {
+        if (!themeWrapper || !themeMenuToggle) return;
+        themeWrapper.classList.toggle('is-open', open);
+        themeFooter?.classList.toggle('theme-menu-open', open);
+        themeMenuToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
     }
 
     function initTheme() {
@@ -468,10 +681,33 @@ document.addEventListener('contextmenu', (e) => {
 
         if (themeButtons.length) {
             themeButtons.forEach((btn) => {
-                btn.addEventListener('click', () => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
                     const mode = btn.getAttribute('data-theme-mode') || 'system';
                     applyTheme(mode);
+                    setThemeMenuOpen(false);
+                    themeMenuToggle?.focus({ preventScroll: true });
                 });
+            });
+        }
+
+        if (themeMenuToggle && themeWrapper) {
+            themeMenuToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                setThemeMenuOpen(!themeWrapper.classList.contains('is-open'));
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!themeWrapper.classList.contains('is-open')) return;
+                if (themeWrapper.contains(e.target)) return;
+                setThemeMenuOpen(false);
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key !== 'Escape') return;
+                if (!themeWrapper.classList.contains('is-open')) return;
+                setThemeMenuOpen(false);
+                themeMenuToggle.focus({ preventScroll: true });
             });
         }
 
@@ -512,6 +748,86 @@ document.addEventListener('contextmenu', (e) => {
             console.error('Theme initialization failed:', e);
         }
     });
+})();
+
+/* ---------------------------
+   首页 footer 显示：无滚动页面中监听向下滚轮/触摸
+   --------------------------- */
+(function() {
+    const body = document.body;
+    if (!body || !body.classList.contains('home-guest')) return;
+
+    let touchStartY = 0;
+    const showFooter = () => {
+        body.classList.add('home-footer-visible');
+    };
+    const hideFooter = () => {
+        body.classList.remove('home-footer-visible');
+    };
+
+    window.addEventListener('wheel', (event) => {
+        if (event.deltaY > 0) {
+            showFooter();
+        } else if (event.deltaY < 0) {
+            hideFooter();
+        }
+    }, { passive: true });
+
+    window.addEventListener('touchstart', (event) => {
+        touchStartY = event.touches?.[0]?.clientY || 0;
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (event) => {
+        const currentY = event.touches?.[0]?.clientY || 0;
+        if (touchStartY - currentY > 24) {
+            showFooter();
+            touchStartY = currentY;
+        } else if (currentY - touchStartY > 24) {
+            hideFooter();
+            touchStartY = currentY;
+        }
+    }, { passive: true });
+
+    const formatBytes = (bytes) => {
+        const size = Number(bytes) || 0;
+        if (size <= 0) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+        const index = Math.min(units.length - 1, Math.floor(Math.log(size) / Math.log(1024)));
+        const value = size / Math.pow(1024, index);
+        const formatted = value % 1 === 0 ? String(value) : value.toFixed(1).replace(/\\.0$/, '');
+        return `${formatted} ${units[index]}`;
+    };
+
+    const animateNumber = (el, target, formatter) => {
+        const duration = 900;
+        const startTime = performance.now();
+        const endValue = Math.max(0, Number(target) || 0);
+        const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+
+        const frame = (now) => {
+            const progress = Math.min(1, (now - startTime) / duration);
+            const current = Math.round(endValue * easeOut(progress));
+            el.textContent = formatter(current);
+            if (progress < 1) {
+                requestAnimationFrame(frame);
+            } else {
+                el.textContent = formatter(endValue);
+            }
+        };
+
+        el.textContent = formatter(0);
+        requestAnimationFrame(frame);
+    };
+
+    const stats = document.querySelector('[data-home-stats]');
+    if (stats) {
+        stats.querySelectorAll('[data-count-to]').forEach((el) => {
+            animateNumber(el, el.getAttribute('data-count-to'), (value) => value.toLocaleString());
+        });
+        stats.querySelectorAll('[data-size-to]').forEach((el) => {
+            animateNumber(el, el.getAttribute('data-size-to'), formatBytes);
+        });
+    }
 })();
 
 // 上传页面的图片卡片交互（仅处理 copy，delete 由 GalleryManager.initUploadPage 统一处理）
@@ -579,6 +895,8 @@ window.ApiManager = {
 
         // 存储元素引用
         this.elements = elements;
+        this.activeLoginButton = null;
+        this.activeLoginRedirect = '';
 
         // 绑定事件
         this.bindEvents();
@@ -618,7 +936,14 @@ window.ApiManager = {
             button.setAttribute('aria-expanded', 'false');
             button.addEventListener('click', (e) => {
                 e.preventDefault();
-                this.toggleLoginPanel();
+                if (button.dataset.authenticated === '1' && button.dataset.loginRedirect) {
+                    window.location.href = button.dataset.loginRedirect;
+                    return;
+                }
+                if (button.dataset.loginMessage) {
+                    ImgEt.Utils.showNotification(button.dataset.loginMessage, 'info', { variant: 'auth' });
+                }
+                this.toggleLoginPanel(button);
             });
         });
 
@@ -639,8 +964,17 @@ window.ApiManager = {
             // 点击外部关闭下拉面板
             document.addEventListener('click', (e) => {
                 if (!panel.classList.contains('active')) return;
+                const clickedClose = e.target.closest('[data-login-close]');
+                if (clickedClose && panel.contains(clickedClose)) {
+                    this.hideLoginPanel();
+                    return;
+                }
+                if (panel.dataset.modal === '1' && e.target === panel) {
+                    this.hideLoginPanel();
+                    return;
+                }
                 const clickedInsidePanel = panel.contains(e.target);
-                const clickedButton = primaryLoginButton.contains(e.target);
+                const clickedButton = loginButtons.some((button) => button.contains(e.target));
                 if (!clickedInsidePanel && !clickedButton) {
                     this.hideLoginPanel();
                 }
@@ -655,26 +989,34 @@ window.ApiManager = {
         });
     },
 
-    toggleLoginPanel() {
+    toggleLoginPanel(triggerButton = null) {
         const panel = document.getElementById('loginPanel');
         if (!panel) return;
-        if (panel.classList.contains('active')) {
+        const isSameTrigger = triggerButton && this.activeLoginButton === triggerButton;
+        if (panel.classList.contains('active') && (!triggerButton || isSameTrigger)) {
             this.hideLoginPanel();
         } else {
-            this.showLoginPanel();
+            this.showLoginPanel(triggerButton);
         }
     },
 
     // 显示登录下拉
-    showLoginPanel() {
+    showLoginPanel(triggerButton = null) {
         const panel = document.getElementById('loginPanel');
         const input = document.getElementById('apiKey');
-        const button = this.primaryLoginButton || document.querySelector('.login-btn');
+        const button = triggerButton || this.primaryLoginButton || document.querySelector('.login-btn');
         
         if (!panel || !input) return;
         
+        this.activeLoginButton = button;
+        this.activeLoginRedirect = button?.dataset?.loginRedirect || '';
+        panel.dataset.activeRedirect = this.activeLoginRedirect;
         panel.classList.add('active');
         panel.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('login-modal-open');
+        this.elements?.loginButtons?.forEach((loginButton) => {
+            loginButton.setAttribute('aria-expanded', loginButton === button ? 'true' : 'false');
+        });
         if (button) button.setAttribute('aria-expanded', 'true');
         input.value = ''; // 清空输入
         setTimeout(() => input.focus(), 100); // 延迟聚焦
@@ -683,12 +1025,34 @@ window.ApiManager = {
     // 隐藏登录下拉
     hideLoginPanel() {
         const panel = document.getElementById('loginPanel');
-        const button = this.primaryLoginButton || document.querySelector('.login-btn');
         if (!panel) return;
         
         panel.classList.remove('active');
         panel.setAttribute('aria-hidden', 'true');
-        if (button) button.setAttribute('aria-expanded', 'false');
+        document.body.classList.remove('login-modal-open');
+        delete panel.dataset.activeRedirect;
+        this.elements?.loginButtons?.forEach((loginButton) => {
+            loginButton.setAttribute('aria-expanded', 'false');
+        });
+        this.activeLoginButton = null;
+        this.activeLoginRedirect = '';
+    },
+
+    getLoginSuccessRedirect() {
+        const panel = document.getElementById('loginPanel');
+        return this.activeLoginRedirect || panel?.dataset?.activeRedirect || panel?.dataset?.successRedirect || this.primaryLoginButton?.dataset?.loginRedirect || '';
+    },
+
+    finishLogin() {
+        const redirect = this.getLoginSuccessRedirect();
+        this.hideLoginPanel();
+        setTimeout(() => {
+            if (redirect) {
+                window.location.href = redirect;
+            } else {
+                window.location.reload();
+            }
+        }, 1000);
     },
 
     // 登录处理
@@ -697,14 +1061,14 @@ window.ApiManager = {
         const submit = document.querySelector('.login-submit');
         
         if (!input || !submit) {
-            ImgEt.Utils.showNotification('系统错误', 'error');
+            ImgEt.Utils.showNotification('系统错误', 'error', { variant: 'auth' });
             return;
         }
 
         const apiKey = input.value.trim();
         
         if (!apiKey) {
-            ImgEt.Utils.showNotification('请输入API Key', 'error');
+            ImgEt.Utils.showNotification('请输入API Key', 'error', { variant: 'auth' });
             input.focus();
             return;
         }
@@ -736,17 +1100,14 @@ window.ApiManager = {
 
             // 修正：检查 data.status 是否为 'success'，而不是 data.success
             if (data.status === 'success') {
-                ImgEt.Utils.showNotification('登录成功', 'success');
-                this.hideLoginPanel();
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1000);
+                ImgEt.Utils.showNotification('登录成功', 'success', { variant: 'auth' });
+                this.finishLogin();
             } else {
                 throw new Error(data.message || 'API Key 无效');
             }
         } catch (error) {
             console.error('Login error:', error);
-            ImgEt.Utils.showNotification(error.message || '登录失败，请重试', 'error');
+            ImgEt.Utils.showNotification(error.message || '登录失败，请重试', 'error', { variant: 'auth' });
             input.focus();
         } finally {
             // 恢复提交按钮
@@ -758,7 +1119,7 @@ window.ApiManager = {
     // Passkey 登录
     async passkeyLogin() {
         if (!window.PublicKeyCredential) {
-            ImgEt.Utils.showNotification('您的浏览器不支持 Passkey', 'error');
+            ImgEt.Utils.showNotification('您的浏览器不支持 Passkey', 'error', { variant: 'auth' });
             return;
         }
 
@@ -796,15 +1157,14 @@ window.ApiManager = {
 
             const verifyData = await verifyRes.json();
             if (verifyData.status === 'success') {
-                ImgEt.Utils.showNotification('Passkey 登录成功', 'success');
-                this.hideLoginPanel();
-                setTimeout(() => window.location.reload(), 1000);
+                ImgEt.Utils.showNotification('Passkey 登录成功', 'success', { variant: 'auth' });
+                this.finishLogin();
             } else {
                 throw new Error(verifyData.message || 'Passkey 验证失败');
             }
         } catch (error) {
             console.error('Passkey login error:', error);
-            ImgEt.Utils.showNotification(error.message || 'Passkey 登录失败', 'error');
+            ImgEt.Utils.showNotification(error.message || 'Passkey 登录失败', 'error', { variant: 'auth' });
         }
     },
 
@@ -857,7 +1217,7 @@ window.ApiManager = {
             
             // 只检查服务器响应，不再手动操作 cookie
             if (data.status === 'success') {
-                ImgEt.Utils.showNotification('已退出登录', 'success');
+                ImgEt.Utils.showNotification('已退出登录', 'success', { variant: 'auth' });
                 
                 // 延迟跳转
                 setTimeout(() => {
@@ -869,7 +1229,7 @@ window.ApiManager = {
             }
         } catch (error) {
             console.error('Logout error:', error);
-            ImgEt.Utils.showNotification(error.message || '退出失败', 'error');
+            ImgEt.Utils.showNotification(error.message || '退出失败', 'error', { variant: 'auth' });
         }
     }
 };
@@ -895,6 +1255,32 @@ window.addEventListener('load', () => {
 
 // 认证按钮全局兜底：防止局部初始化失败导致登录/退出按钮无响应
 document.addEventListener('click', async (e) => {
+    const activePanel = document.getElementById('loginPanel');
+    const closeBtn = e.target.closest('[data-login-close]');
+    if (closeBtn && activePanel && activePanel.contains(closeBtn)) {
+        e.preventDefault();
+        if (window.ApiManager && typeof window.ApiManager.hideLoginPanel === 'function') {
+            window.ApiManager.hideLoginPanel();
+        } else {
+            activePanel.classList.remove('active');
+            activePanel.setAttribute('aria-hidden', 'true');
+            delete activePanel.dataset.activeRedirect;
+            document.body.classList.remove('login-modal-open');
+        }
+        return;
+    }
+    if (activePanel?.dataset?.modal === '1' && activePanel.classList.contains('active') && e.target === activePanel) {
+        if (window.ApiManager && typeof window.ApiManager.hideLoginPanel === 'function') {
+            window.ApiManager.hideLoginPanel();
+        } else {
+            activePanel.classList.remove('active');
+            activePanel.setAttribute('aria-hidden', 'true');
+            delete activePanel.dataset.activeRedirect;
+            document.body.classList.remove('login-modal-open');
+        }
+        return;
+    }
+
     const logoutBtn = e.target.closest('.logout-btn');
     if (logoutBtn && logoutBtn.dataset.authBound !== '1') {
         e.preventDefault();
@@ -916,21 +1302,46 @@ document.addEventListener('click', async (e) => {
             if (response.ok && data?.status === 'success') {
                 window.location.href = '/';
             } else {
-                window.ImgEt?.Utils?.showNotification?.(data?.message || '退出失败', 'error');
+                window.ImgEt?.Utils?.showNotification?.(data?.message || '退出失败', 'error', { variant: 'auth' });
             }
         } catch (_) {
-            window.ImgEt?.Utils?.showNotification?.('退出失败', 'error');
+            window.ImgEt?.Utils?.showNotification?.('退出失败', 'error', { variant: 'auth' });
         }
+        return;
+    }
+
+    const authToastBtn = e.target.closest('.auth-toast-btn');
+    if (authToastBtn) {
+        e.preventDefault();
+        const message = authToastBtn.dataset.authMessage || '登录后操作';
+        window.ImgEt?.Utils?.showNotification?.(message, 'info', { variant: 'auth' });
         return;
     }
 
     const loginBtn = e.target.closest('.login-btn');
     if (loginBtn && loginBtn.dataset.authBound !== '1') {
         e.preventDefault();
+        if (loginBtn.dataset.authenticated === '1' && loginBtn.dataset.loginRedirect) {
+            window.location.href = loginBtn.dataset.loginRedirect;
+            return;
+        }
+        if (loginBtn.dataset.loginMessage) {
+            window.ImgEt?.Utils?.showNotification?.(loginBtn.dataset.loginMessage, 'info', { variant: 'auth' });
+        }
         const panel = document.getElementById('loginPanel');
+        if (window.ApiManager && typeof window.ApiManager.toggleLoginPanel === 'function') {
+            window.ApiManager.toggleLoginPanel(loginBtn);
+            return;
+        }
         if (panel) {
             panel.classList.toggle('active');
             panel.setAttribute('aria-hidden', panel.classList.contains('active') ? 'false' : 'true');
+            if (panel.classList.contains('active')) {
+                panel.dataset.activeRedirect = loginBtn.dataset.loginRedirect || '';
+            } else {
+                delete panel.dataset.activeRedirect;
+            }
+            document.body.classList.toggle('login-modal-open', panel.classList.contains('active'));
         }
     }
 }, false);
@@ -1007,12 +1418,13 @@ class ApiService {
                 dimensions: data.dimensions || '',
                 format: data.format || '',
                 time: Date.now(),
-                url: data.url
+                url: data.url,
+                thumb_url: data.thumb_url || data.thumbnail_url || data.url
             })
         });
 
-        // 使用 action.php 渲染端点输出卡片 HTML
-        const res = await fetch('/action.php?action=render_card', {
+        // 使用版本化 action 端点输出卡片 HTML
+        const res = await fetch('/api/v1/action?action=render_card', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -1069,15 +1481,19 @@ class DeleteManager extends BaseProcessor {
 
         const isBatch = Array.isArray(target);
         const message = isBatch
-            ? `确定要删除选中的 ${target.length} 张图片吗？`
-            : `确定要删除图片 ${target} 吗？`;
+            ? `删除后，选中的 ${target.length} 张图片将不可恢复，相关图片链接也将失效。确认删除吗？`
+            : `删除后，该图片将不可恢复，相关图片链接也将失效。确认删除吗？`;
+        const title = isBatch ? '批量删除图片' : '永久删除图片';
 
-        ImgEt.DialogManager.showConfirmDialog('删除确认', message, async () => {
+        ImgEt.DialogManager.showConfirmDialog(title, message, async () => {
             if (isBatch) {
                 await BatchProcessor.process('delete', target);
             } else {
                 await this.processSingle(target);
             }
+        }, {
+            danger: true,
+            confirmText: '删除'
         });
     }
 
@@ -1091,7 +1507,7 @@ class DeleteManager extends BaseProcessor {
             const displayName = imgCard?.querySelector('.img-name')?.textContent?.trim() || filename;
 
             // 2. 执行删除请求
-            await ApiService.request('/action.php', {
+            await ApiService.request('/api/v1/action', {
                 action: 'delete',
                 file: filename,
                 csrf_token: window.CSRF_TOKEN || ''
@@ -1141,7 +1557,13 @@ class DeleteManager extends BaseProcessor {
             GalleryManager.updateImageCount();
             // 只有在非批量模式才补位（避免重复请求）
             if (!suppressLoad) {
-                try { await this.#loadNewImages(1); } catch (e) { /* already handled inside */ }
+                try {
+                    if (document.querySelector('.gallery-shell')) {
+                        await GalleryManager.refreshCurrentPage();
+                    } else {
+                        await this.#loadNewImages(1);
+                    }
+                } catch (e) { /* already handled inside */ }
             }
         }, this.#updateDelay);
     }
@@ -1162,7 +1584,7 @@ class DeleteManager extends BaseProcessor {
                 ? document.querySelectorAll('.img-card').length
                 : uploadGrid.querySelectorAll('.img-box').length;
 
-            const response = await ApiService.request('/action.php', {
+            const response = await ApiService.request('/api/v1/action', {
                 action: 'get_next_image',
                 current_count: currentCount,
                 count: count
@@ -1219,7 +1641,7 @@ class DeleteManager extends BaseProcessor {
  * ImageProcessor - 单图处理 (压缩 / WebP)
  */
 class ImageProcessor extends BaseProcessor {
-    static async processSingleCompress(filename, imgCard) {
+    static async processSingleCompress(filename, imgCard, options = {}) {
         if (this.isProcessing()) {
             ImgEt.Utils.showNotification('有操作正在进行中', 'warning');
             return;
@@ -1229,13 +1651,17 @@ class ImageProcessor extends BaseProcessor {
         GalleryManager.setButtonLoadingState(btn, true, 'compress');
 
         try {
-            const data = await ApiService.request('/action.php', { action: 'compress', file: filename, csrf_token: window.CSRF_TOKEN || '' }, { method: 'POST' });
-            const sizeText = imgCard.querySelector('.img-size');
+            const data = await ApiService.request('/api/v1/action', { action: 'compress', file: filename, csrf_token: window.CSRF_TOKEN || '' }, { method: 'POST' });
+            const sizeText = imgCard.querySelector('.img-size-value') || imgCard.querySelector('.img-size');
             if (sizeText && data?.size_text) sizeText.textContent = data.size_text;
-            this.#showCompressResult(data);
-            ImgEt.Utils.showNotification('压缩成功', 'success');
+            if (options.notify !== false) {
+                this.#showCompressToast(data);
+            }
+            return data;
         } catch (error) {
-            ImgEt.Utils.showNotification(`压缩失败: ${error.message}`, 'error');
+            if (options.notifyError !== false) {
+                ImgEt.Utils.showNotification(`压缩失败: ${error.message}`, 'error');
+            }
             throw error;
         } finally {
             GalleryManager.setButtonLoadingState(btn, false, 'compress');
@@ -1243,7 +1669,7 @@ class ImageProcessor extends BaseProcessor {
         }
     }
 
-    static async processSingleWebP(filename, imgCard) {
+    static async processSingleWebP(filename, imgCard, options = {}) {
         if (this.isProcessing()) {
             ImgEt.Utils.showNotification('有操作正在进行中', 'warning');
             return;
@@ -1253,12 +1679,19 @@ class ImageProcessor extends BaseProcessor {
         GalleryManager.setButtonLoadingState(btn, true, 'webp');
 
         try {
-            const data = await ApiService.request('/action.php', { action: 'webp', file: filename, csrf_token: window.CSRF_TOKEN || '' }, { method: 'POST' });
-            this.#showConvertResult(data, 'WebP');
+            const data = await ApiService.request('/api/v1/action', { action: 'webp', file: filename, csrf_token: window.CSRF_TOKEN || '' }, { method: 'POST' });
+            if (options.dialog !== false) {
+                this.#showConvertResult(data, 'WebP');
+            }
             await this.#addConvertedCard(data, imgCard);
-            ImgEt.Utils.showNotification('转换成功', 'success');
+            if (options.notify !== false) {
+                this.#showConvertToast(data, 'WebP');
+            }
+            return data;
         } catch (error) {
-            ImgEt.Utils.showNotification(`转换失败: ${error.message}`, 'error');
+            if (options.notifyError !== false) {
+                ImgEt.Utils.showNotification(`转换失败: ${error.message}`, 'error');
+            }
             throw error;
         } finally {
             GalleryManager.setButtonLoadingState(btn, false, 'webp');
@@ -1266,7 +1699,7 @@ class ImageProcessor extends BaseProcessor {
         }
     }
 
-    static async processSingleAvif(filename, imgCard) {
+    static async processSingleAvif(filename, imgCard, options = {}) {
         if (this.isProcessing()) {
             ImgEt.Utils.showNotification('有操作正在进行中', 'warning');
             return;
@@ -1276,12 +1709,19 @@ class ImageProcessor extends BaseProcessor {
         GalleryManager.setButtonLoadingState(btn, true, 'avif');
 
         try {
-            const data = await ApiService.request('/action.php', { action: 'avif', file: filename, csrf_token: window.CSRF_TOKEN || '' }, { method: 'POST' });
-            this.#showConvertResult(data, 'AVIF');
+            const data = await ApiService.request('/api/v1/action', { action: 'avif', file: filename, csrf_token: window.CSRF_TOKEN || '' }, { method: 'POST' });
+            if (options.dialog !== false) {
+                this.#showConvertResult(data, 'AVIF');
+            }
             await this.#addConvertedCard(data, imgCard);
-            ImgEt.Utils.showNotification('转换成功', 'success');
+            if (options.notify !== false) {
+                this.#showConvertToast(data, 'AVIF');
+            }
+            return data;
         } catch (error) {
-            ImgEt.Utils.showNotification(`转换失败: ${error.message}`, 'error');
+            if (options.notifyError !== false) {
+                ImgEt.Utils.showNotification(`转换失败: ${error.message}`, 'error');
+            }
             throw error;
         } finally {
             GalleryManager.setButtonLoadingState(btn, false, 'avif');
@@ -1289,26 +1729,104 @@ class ImageProcessor extends BaseProcessor {
         }
     }
 
-    static #showCompressResult(data) {
-        const content = `
-            <div class="compress-result">
-                <div class="result-item"><span>原始大小:</span><span>${escapeHtml(data.original_size)}</span></div>
-                <div class="result-item"><span>压缩后:</span><span>${escapeHtml(data.compressed_size)}</span></div>
-                <div class="result-item success"><span>节省空间:</span><span>${escapeHtml(data.saved_size)} (${escapeHtml(data.saved_percent)}%)</span></div>
-            </div>`;
-        ImgEt.DialogManager.showCustomDialog('压缩完成', content);
+    static #showCompressToast(data) {
+        const originalSize = data.original_size || '0 B';
+        const compressedSize = data.compressed_size || data.size_text || '0 B';
+        const savedSize = data.saved_size || '0 B';
+        const savedPercent = Number.isFinite(Number(data.saved_percent))
+            ? Number(data.saved_percent).toFixed(1).replace(/\.0$/, '')
+            : '0';
+        ImgEt.Utils.showNotification(
+            '压缩完成',
+            'success',
+            {
+                variant: ['process', 'compress'],
+                title: '压缩完成',
+                detail: `${originalSize} → ${compressedSize}`,
+                meta: `节省 ${savedSize} (${savedPercent}%)`,
+                icon: 'fa-arrows-minimize',
+                duration: 4800
+            }
+        );
+    }
+
+    static #showConvertToast(data, format) {
+        const beforeSize = data.before_size_text || data.original_size || '0 B';
+        const afterSize = data.after_size_text || data.size_text || '0 B';
+        const savedSize = data.saved_size_text || data.saved_size || '0 B';
+        const savedPercent = Number.isFinite(Number(data.saved_percent))
+            ? Number(data.saved_percent).toFixed(1).replace(/\.0$/, '')
+            : '0';
+        ImgEt.Utils.showNotification(
+            `${format} 转换完成`,
+            'success',
+            {
+                variant: ['process', 'convert'],
+                title: `${format} 转换完成`,
+                detail: `${beforeSize} → ${afterSize}`,
+                meta: `节省 ${savedSize} (${savedPercent}%)`,
+                icon: 'fa-wand-magic-sparkles',
+                duration: 4800
+            }
+        );
     }
 
     static #showConvertResult(data, format) {
         const safeFilename = escapeHtml(data.filename);
         const safeUrl = escapeHtml(data.url);
+        const safePreviewUrl = escapeHtml(data.thumbnail_url || data.url);
+        const beforeSize = escapeHtml(data.before_size_text || data.original_size || '0 B');
+        const afterSize = escapeHtml(data.after_size_text || data.size_text || '0 B');
+        const savedSize = escapeHtml(data.saved_size_text || data.saved_size || '0 B');
+        const savedPercent = Number.isFinite(Number(data.saved_percent))
+            ? Number(data.saved_percent).toFixed(1).replace(/\.0$/, '')
+            : '0';
         const content = `
             <div class="convert-result">
-                <div class="result-item"><span>转换成功:</span><span>${safeFilename}</span></div>
-                <div class="result-item"><span>文件大小:</span><span>${escapeHtml(data.size_text)}</span></div>
-                <div class="result-preview"><img src="${safeUrl}" alt="${safeFilename}" loading="lazy"></div>
+                <div class="convert-result-preview">
+                    <img src="${safePreviewUrl}" alt="${safeFilename}" loading="lazy">
+                    <span class="convert-result-format">${escapeHtml(format)}</span>
+                </div>
+                <div class="convert-result-stats" aria-label="转换结果">
+                    <div class="convert-stat">
+                        <span>转换前</span>
+                        <strong>${beforeSize}</strong>
+                    </div>
+                    <div class="convert-stat is-current">
+                        <span>转换后</span>
+                        <strong>${afterSize}</strong>
+                    </div>
+                    <div class="convert-stat is-saved">
+                        <span>节省</span>
+                        <strong class="convert-saved-value">
+                            <span>${savedSize}</span>
+                            <em>${escapeHtml(savedPercent)}%</em>
+                        </strong>
+                    </div>
+                </div>
+                <div class="convert-result-file">
+                    <div class="convert-file-label">
+                        <i class="fa-light fa-link" aria-hidden="true"></i>
+                        <span>新文件 URL</span>
+                    </div>
+                    <div class="convert-file-copy">
+                        <input type="text" value="${safeUrl}" readonly aria-label="转换后的文件 URL">
+                        <button type="button" class="convert-copy-btn" data-copy="${safeUrl}" title="复制新文件 URL" aria-label="复制新文件 URL">
+                            <i class="fa-light fa-copy" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
             </div>`;
         ImgEt.DialogManager.showCustomDialog(`${format} 转换完成`, content);
+        const dialogs = Array.from(document.querySelectorAll('.custom-dialog'));
+        const dialog = dialogs[dialogs.length - 1];
+        dialog?.querySelector('.custom-dialog-content')?.classList.add('convert-dialog-content');
+        dialog?.querySelector('.convert-copy-btn')?.addEventListener('click', (event) => {
+            const button = event.currentTarget;
+            if (button instanceof HTMLElement && button.dataset.copy) {
+                ImgEt.Utils.copyToClipboard(button.dataset.copy, button);
+            }
+        });
     }
 
     static async #addConvertedCard(data, imgCard) {
@@ -1354,6 +1872,16 @@ class ImageProcessor extends BaseProcessor {
  * BatchProcessor - 批量处理
  */
 class BatchProcessor extends BaseProcessor {
+    static #getActionStyle(action) {
+        if (action === 'compress') {
+            return { text: '压缩', variant: 'compress', icon: 'fa-arrows-minimize' };
+        }
+        if (action === 'webp' || action === 'avif') {
+            return { text: '转换', variant: 'convert', icon: 'fa-wand-magic-sparkles' };
+        }
+        return { text: '删除', variant: 'delete', icon: 'fa-trash' };
+    }
+
     static #upsertDeleteProgressToast(done, total) {
         const host = document.getElementById('notification');
         if (!host) return;
@@ -1377,6 +1905,78 @@ class BatchProcessor extends BaseProcessor {
         if (item) item.remove();
     }
 
+    static #upsertProcessProgressToast(action, done, total) {
+        const host = ImgEt.Utils.getProcessNotificationContainer();
+        if (!host) return;
+        const style = this.#getActionStyle(action);
+        const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+        let item = host.querySelector('.notification-item.batch-process-progress');
+        if (!item) {
+            item = document.createElement('div');
+            item.className = `notification-item info notification-process notification-batch notification-${style.variant} batch-process-progress show`;
+            item.setAttribute('role', 'status');
+            item.innerHTML = `
+                <i class="fa-light fa-spinner-third fa-spin" aria-hidden="true"></i>
+                <div class="notification-copy">
+                    <strong>批量${style.text}处理中</strong>
+                    <span class="batch-process-detail"></span>
+                    <em class="batch-process-meta"></em>
+                </div>
+            `;
+            host.appendChild(item);
+        }
+
+        item.classList.toggle('notification-compress', style.variant === 'compress');
+        item.classList.toggle('notification-convert', style.variant === 'convert');
+        const detail = item.querySelector('.batch-process-detail');
+        const meta = item.querySelector('.batch-process-meta');
+        if (detail) detail.textContent = `${done}/${total} 张`;
+        if (meta) meta.textContent = `${percent}%`;
+    }
+
+    static #removeProcessProgressToast() {
+        const item = document.querySelector('#processNotification .notification-item.batch-process-progress, #notification .notification-item.batch-process-progress');
+        if (item) item.remove();
+    }
+
+    static #resetSelection() {
+        const selectAllCheckbox = document.querySelector('#selectAll');
+        if (selectAllCheckbox) selectAllCheckbox.checked = false;
+        document.querySelectorAll('.select-img:checked').forEach(cb => cb.checked = false);
+        GalleryManager.updateSelectedCount();
+        GalleryManager.updateImageCount();
+    }
+
+    static async #queueBatchAvif(files) {
+        const data = await ApiService.request('/api/v1/action', {
+            action: 'queue_avif',
+            files: JSON.stringify(files),
+            csrf_token: window.CSRF_TOKEN || ''
+        }, { method: 'POST' });
+
+        const queued = Number(data?.queued || 0);
+        const skipped = Number(data?.skipped || 0);
+        const failed = Number(data?.failed || 0);
+        const pending = Number(data?.task_status?.pending || 0);
+        const details = [`已加入 AVIF 异步任务 ${queued} 张`];
+        if (skipped > 0) details.push(`跳过 ${skipped} 张`);
+        if (failed > 0) details.push(`失败 ${failed} 张`);
+        if (pending > 0) details.push(`队列待处理 ${pending} 个`);
+
+        ImgEt.Utils.showNotification(
+            '批量转换已入队',
+            failed > 0 ? 'warning' : 'success',
+            {
+                variant: ['process', 'batch', 'convert'],
+                title: '批量转换已入队',
+                detail: details.join('，'),
+                meta: '请到设置页处理导入任务',
+                icon: 'fa-list-check',
+                duration: 5200
+            }
+        );
+    }
+
     static async start(action) {
         if (this.isProcessing()) {
             ImgEt.Utils.showNotification('有操作正在进行中', 'warning');
@@ -1389,19 +1989,46 @@ class BatchProcessor extends BaseProcessor {
             return;
         }
 
-        const actionText = { compress: '压缩', webp: '转WebP', avif: '转AVIF', delete: '删除' }[action] || action;
-        const message = `确定要批量${actionText}选中的 ${selectedFiles.length} 张图片吗？`;
+        const actionStyle = this.#getActionStyle(action);
+        const actionText = actionStyle.text;
+        const message = action === 'delete'
+            ? `删除后，选中的 ${selectedFiles.length} 张图片将不可恢复，相关图片链接也将失效。确认删除吗？`
+            : action === 'avif' && selectedFiles.length > 1
+            ? `确定要将选中的 ${selectedFiles.length} 张图片加入 AVIF 异步任务队列吗？`
+            : `确定要批量${actionText}选中的 ${selectedFiles.length} 张图片吗？`;
+        const title = action === 'delete' ? '批量删除图片' : `批量${actionText}确认`;
+        const confirmOptions = action === 'delete'
+            ? { danger: true, confirmText: '删除' }
+            : {};
 
-        ImgEt.DialogManager.showConfirmDialog(`批量${actionText}确认`, message, () => {
+        ImgEt.DialogManager.showConfirmDialog(title, message, () => {
             this.process(action, selectedFiles);
-        });
+        }, confirmOptions);
     }
 
     static async process(action, files) {
+        if (action === 'avif' && files.length > 1) {
+            this.startProcessing();
+            try {
+                await this.#queueBatchAvif(files);
+                this.#resetSelection();
+            } catch (error) {
+                ImgEt.Utils.showNotification(`AVIF 任务入队失败: ${error.message}`, 'error');
+            } finally {
+                this.endProcessing();
+            }
+            return;
+        }
+
         this.startProcessing();
         const results = { success: 0, fail: 0 };
         const total = files.length;
-        const actionText = { compress: '压缩', webp: '转WebP', avif: '转AVIF', delete: '删除' }[action] || action;
+        const actionStyle = this.#getActionStyle(action);
+        const actionText = actionStyle.text;
+
+        if (action !== 'delete') {
+            this.#upsertProcessProgressToast(action, 0, total);
+        }
 
         for (const [index, filename] of files.entries()) {
             const imgCard = document.querySelector(getImageCardSelector(filename));
@@ -1413,17 +2040,19 @@ class BatchProcessor extends BaseProcessor {
             if (action === 'delete') {
                 this.#upsertDeleteProgressToast(index + 1, total);
             } else {
-                const progress = Math.round(((index + 1) / total) * 100);
-                ImgEt.Utils.showNotification(`处理中 (${progress}%): ${actionText} ${filename}`, 'info');
+                this.#upsertProcessProgressToast(action, index + 1, total);
             }
 
             try {
                 switch (action) {
                     case 'compress':
-                        await ImageProcessor.processSingleCompress(filename, imgCard);
+                        await ImageProcessor.processSingleCompress(filename, imgCard, { notify: false, notifyError: false });
                         break;
                     case 'webp':
-                        await ImageProcessor.processSingleWebP(filename, imgCard);
+                        await ImageProcessor.processSingleWebP(filename, imgCard, { notify: false, notifyError: false, dialog: false });
+                        break;
+                    case 'avif':
+                        await ImageProcessor.processSingleAvif(filename, imgCard, { notify: false, notifyError: false, dialog: false });
                         break;
                     case 'delete':
                         await DeleteManager.processSingle(filename, true, {
@@ -1442,26 +2071,40 @@ class BatchProcessor extends BaseProcessor {
 
         if (action === 'delete') {
             this.#removeDeleteProgressToast();
+        } else {
+            this.#removeProcessProgressToast();
         }
 
-        ImgEt.Utils.showNotification(
-            `批量${actionText}完成: ${results.success}张成功${results.fail ? `, ${results.fail}张失败` : ''}`,
-            results.fail ? 'warning' : 'success'
-        );
+        if (action === 'delete') {
+            ImgEt.Utils.showNotification(
+                `批量${actionText}完成: ${results.success}张成功${results.fail ? `, ${results.fail}张失败` : ''}`,
+                results.fail ? 'warning' : 'success'
+            );
+        } else {
+            ImgEt.Utils.showNotification(
+                `批量${actionText}完成`,
+                results.fail ? 'warning' : 'success',
+                {
+                    variant: ['process', 'batch', actionStyle.variant],
+                    title: `批量${actionText}完成`,
+                    detail: `${results.success}/${total} 张成功`,
+                    meta: results.fail ? `${results.fail} 张失败` : '全部处理完成',
+                    icon: results.fail ? 'fa-triangle-exclamation' : actionStyle.icon,
+                    duration: 5200
+                }
+            );
+        }
 
         // 重置选择状态
-        const selectAllCheckbox = document.querySelector('#selectAll');
-        if (selectAllCheckbox) selectAllCheckbox.checked = false;
-        document.querySelectorAll('.select-img:checked').forEach(cb => cb.checked = false);
-        GalleryManager.updateSelectedCount();
-        GalleryManager.updateImageCount();
+        this.#resetSelection();
 
-        // 批量删除后补位加载（带保护）
+        // 批量删除后重拉当前页，确保后续页图片补位和分页导航同步
         if (action === 'delete' && results.success > 0) {
-            if (typeof DeleteManager.loadNewImages === 'function') {
-                try { await DeleteManager.loadNewImages(results.success); } catch (e) { /* ignore, already notified */ }
-            } else {
-                console.warn('DeleteManager.loadNewImages not available');
+            try {
+                await GalleryManager.refreshCurrentPage();
+            } catch (error) {
+                console.warn('刷新图库失败:', error);
+                ImgEt.Utils.showNotification('图片已删除，刷新图库失败，请手动刷新页面', 'warning');
             }
         }
 
@@ -1602,6 +2245,49 @@ class GalleryManager {
         this.elements.gallery?.addEventListener('change', e => {
             if (e.target.classList.contains('select-img')) this.updateSelectedCount();
         });
+    }
+
+    static async refreshCurrentPage() {
+        const shell = document.querySelector('.gallery-shell');
+        if (!shell) return false;
+
+        const preserved = {
+            type: this.elements.filterType?.value || 'all',
+            sort: this.elements.filterSort?.value || 'date-desc',
+            search: this.elements.searchInput?.value || ''
+        };
+
+        const response = await fetch(window.location.href, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'text/html'
+            },
+            cache: 'no-store',
+            credentials: 'same-origin'
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const html = await response.text();
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const nextShell = doc.querySelector('.gallery-shell');
+        if (!nextShell) {
+            throw new Error('未找到图库内容');
+        }
+
+        shell.replaceWith(nextShell);
+        this.initGalleryPage();
+
+        if (this.elements.filterType) this.elements.filterType.value = preserved.type;
+        if (this.elements.filterSort) this.elements.filterSort.value = preserved.sort;
+        if (this.elements.searchInput) this.elements.searchInput.value = preserved.search;
+        this.filterGallery();
+        this.updateSelectedCount();
+
+        return true;
     }
 
     static handleImageAction(btn, card, filename) {
@@ -1787,13 +2473,29 @@ class UploadManager {
         this.initElements();
         this.batchTotal = 0;
         this.batchCompleted = 0;
+        this.batchSucceeded = 0;
+        this.batchFailed = 0;
         this.batchNotified = false;
         this.activeUploads = 0;
         this.uploadQueue = [];
+        this.uploadRecords = new Map();
+        this.uploadSequence = 0;
+        this.activeRunIds = new Set();
+        this.batchRunId = 0;
+        this.progressItem = null;
+        this.batchProgressVisible = false;
         this.completedUploads = [];
+        this.headerUploadButton = document.querySelector('.nav-cta-btn[href="/upload"]');
+        this.headerUploadIcon = this.headerUploadButton?.querySelector('i') || null;
+        this.headerUploadLabel = this.headerUploadButton?.querySelector('span') || null;
+        this.headerUploadDefaultIcon = this.headerUploadIcon ? this.headerUploadIcon.className : '';
+        this.headerUploadDefaultText = this.headerUploadLabel ? this.headerUploadLabel.textContent : '上传';
+        this.lastNavigationNoticeAt = 0;
         this.maxSize = UploadManager.CONFIG.MAX_SIZE;
         this.autoCompressEnabled = false;
         this.autoWebpEnabled = false;
+        this.autoAvifEnabled = false;
+        this.allowedExtensions = new Set();
         if (this.elements.imageInput && this.elements.imageInput.dataset.maxSize) {
             const parsed = parseInt(this.elements.imageInput.dataset.maxSize, 10);
             if (Number.isFinite(parsed) && parsed > 0) {
@@ -1803,9 +2505,17 @@ class UploadManager {
         if (this.elements.imageInput) {
             this.autoCompressEnabled = this.elements.imageInput.dataset.autoCompress === '1';
             this.autoWebpEnabled = this.elements.imageInput.dataset.autoWebp === '1';
+            this.autoAvifEnabled = this.elements.imageInput.dataset.autoAvif === '1';
+            const allowedTypes = String(this.elements.imageInput.dataset.allowedTypes || '')
+                .split(',')
+                .map(type => type.trim().replace(/^\./, '').toLowerCase())
+                .filter(Boolean);
+            this.allowedExtensions = new Set(allowedTypes);
         }
         if (!this.elements.dropZone) return;
         this.bindEvents();
+        this.bindUploadProcessingSettings();
+        this.renderUploadQueue();
     }
 
     /**
@@ -1816,6 +2526,12 @@ class UploadManager {
             dropZone: document.getElementById('dropZone'),
             uploadForm: document.getElementById('uploadForm'),
             imageInput: document.getElementById('imageInput'),
+            processingControls: document.querySelector('[data-upload-processing-controls]'),
+            queuePanel: document.getElementById('uploadQueuePanel'),
+            queueList: document.getElementById('uploadQueueList'),
+            queueCount: document.getElementById('uploadQueueCount'),
+            clearQueueBtn: document.getElementById('clearUploadQueue'),
+            uploadAllBtn: document.getElementById('uploadAllQueued'),
             progressBar: document.querySelector('.progress-bar-inner'),
             progressText: document.querySelector('.progress-text'),
             uploadProgress: document.getElementById('uploadProgress')
@@ -1838,6 +2554,142 @@ class UploadManager {
 
         // 粘贴上传
         document.addEventListener('paste', this.handlePaste.bind(this));
+        document.addEventListener('click', this.handleNavigationWhileUploading.bind(this), true);
+
+        this.elements.uploadAllBtn?.addEventListener('click', () => this.uploadAllQueued());
+        this.elements.clearQueueBtn?.addEventListener('click', () => this.clearUploadQueue());
+        this.elements.queueList?.addEventListener('click', this.handleQueueAction.bind(this));
+    }
+
+    bindUploadProcessingSettings() {
+        const controls = this.elements.processingControls;
+        if (!controls) return;
+
+        const toggles = Array.from(controls.querySelectorAll('[data-upload-setting-toggle]'));
+        if (toggles.length === 0) return;
+
+        toggles.forEach(toggle => {
+            toggle.addEventListener('change', () => {
+                const changed = toggle.dataset.uploadSettingToggle || '';
+                this.saveUploadProcessingSettings(changed, toggle);
+            });
+        });
+    }
+
+    getUploadProcessingState() {
+        const controls = this.elements.processingControls;
+        const compressToggle = controls?.querySelector('[data-upload-setting-toggle="compress"]');
+        const convertToggle = controls?.querySelector('[data-upload-setting-toggle="convert"]');
+        return {
+            compress: !!compressToggle?.checked,
+            convert: !!convertToggle?.checked,
+            format: String(controls?.dataset.convertFormat || 'webp').toLowerCase()
+        };
+    }
+
+    async saveUploadProcessingSettings(changed, activeToggle = null) {
+        const controls = this.elements.processingControls;
+        if (!controls) return;
+
+        const before = {
+            compress: this.autoCompressEnabled,
+            convert: this.autoWebpEnabled || this.autoAvifEnabled,
+            webp: this.autoWebpEnabled,
+            avif: this.autoAvifEnabled,
+            format: String(controls.dataset.convertFormat || 'webp').toLowerCase()
+        };
+        const state = this.getUploadProcessingState();
+        const csrfToken = controls.dataset.csrfToken || '';
+        const toggleShell = activeToggle?.closest('.upload-setting-toggle') || null;
+
+        if (toggleShell) {
+            toggleShell.classList.add('is-saving');
+        }
+
+        try {
+            const formData = new FormData();
+            formData.append('form_action', 'save_upload_processing');
+            formData.append('ajax', '1');
+            formData.append('csrf_token', csrfToken);
+            formData.append('changed', changed || '');
+            formData.append('auto_compress_on_upload', state.compress ? '1' : '0');
+            formData.append('auto_convert_on_upload', state.convert ? '1' : '0');
+            formData.append('convert_preferred_format', state.format === 'avif' ? 'avif' : 'webp');
+
+            const response = await fetch('/upload', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok || !data?.success) {
+                throw new Error(data?.message || '保存上传处理设置失败');
+            }
+
+            this.applyUploadProcessingSettings(data.settings || {});
+            if (window.ImgEt?.Utils?.showNotification) {
+                ImgEt.Utils.showNotification(data.message || '上传处理设置已更新', 'success');
+            }
+        } catch (error) {
+            this.applyUploadProcessingSettings({
+                auto_compress_on_upload: before.compress,
+                auto_convert_on_upload: before.convert,
+                auto_convert_webp_on_upload: before.webp,
+                auto_convert_avif_on_upload: before.avif,
+                convert_preferred_format: before.format,
+                compression_label: before.compress ? '已开启' : '关闭',
+                conversion_label: before.convert ? before.format.toUpperCase() : '关闭'
+            });
+            if (window.ImgEt?.Utils?.showNotification) {
+                ImgEt.Utils.showNotification(error.message || '保存上传处理设置失败', 'error');
+            }
+        } finally {
+            if (toggleShell) {
+                toggleShell.classList.remove('is-saving');
+            }
+        }
+    }
+
+    applyUploadProcessingSettings(settings) {
+        const controls = this.elements.processingControls;
+        const imageInput = this.elements.imageInput;
+        if (!controls || !imageInput) return;
+
+        const autoCompress = !!settings.auto_compress_on_upload;
+        const autoWebp = !!settings.auto_convert_webp_on_upload;
+        const autoAvif = !!settings.auto_convert_avif_on_upload;
+        const autoConvert = autoWebp || autoAvif || !!settings.auto_convert_on_upload;
+        const format = String(settings.convert_preferred_format || controls.dataset.convertFormat || 'webp').toLowerCase();
+
+        this.autoCompressEnabled = autoCompress;
+        this.autoWebpEnabled = autoConvert && format === 'webp';
+        this.autoAvifEnabled = autoConvert && format === 'avif';
+        imageInput.dataset.autoCompress = this.autoCompressEnabled ? '1' : '0';
+        imageInput.dataset.autoWebp = this.autoWebpEnabled ? '1' : '0';
+        imageInput.dataset.autoAvif = this.autoAvifEnabled ? '1' : '0';
+        controls.dataset.convertFormat = format === 'avif' ? 'avif' : 'webp';
+
+        const compressToggle = controls.querySelector('[data-upload-setting-toggle="compress"]');
+        const convertToggle = controls.querySelector('[data-upload-setting-toggle="convert"]');
+        if (compressToggle) {
+            compressToggle.checked = this.autoCompressEnabled;
+            compressToggle.closest('.upload-setting-toggle')?.classList.toggle('is-active', this.autoCompressEnabled);
+        }
+        if (convertToggle) {
+            convertToggle.checked = this.autoWebpEnabled || this.autoAvifEnabled;
+            convertToggle.closest('.upload-setting-toggle')?.classList.toggle('is-active', this.autoWebpEnabled || this.autoAvifEnabled);
+        }
+
+        const compressValue = controls.querySelector('[data-upload-compress-value]');
+        const convertValue = controls.querySelector('[data-upload-convert-value]');
+        if (compressValue) {
+            compressValue.textContent = this.autoCompressEnabled ? (settings.compression_label || '开启') : '关闭';
+        }
+        if (convertValue) {
+            convertValue.textContent = (this.autoWebpEnabled || this.autoAvifEnabled)
+                ? (settings.conversion_label || (format === 'avif' ? 'AVIF' : 'WebP'))
+                : '关闭';
+        }
     }
 
     /**
@@ -1871,25 +2723,163 @@ class UploadManager {
         }
     }
 
+    isBatchUploading() {
+        return this.batchTotal > 0 && this.batchCompleted < this.batchTotal;
+    }
+
+    handleNavigationWhileUploading(event) {
+        if (!this.isBatchUploading()) return;
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+        const link = event.target.closest('a[href]');
+        if (!link) return;
+        if ((link.target && link.target !== '_self') || link.hasAttribute('download')) return;
+
+        const rawHref = link.getAttribute('href') || '';
+        if (
+            rawHref === '' ||
+            rawHref.startsWith('#') ||
+            rawHref.startsWith('javascript:') ||
+            rawHref.startsWith('mailto:') ||
+            rawHref.startsWith('tel:')
+        ) return;
+
+        let url;
+        try {
+            url = new URL(link.href, window.location.href);
+        } catch (_) {
+            return;
+        }
+        if (url.origin !== window.location.origin) return;
+        if (url.pathname === window.location.pathname && url.search === window.location.search && url.hash === window.location.hash) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        window.open(url.href, '_blank', 'noopener');
+
+        const now = Date.now();
+        if (now - this.lastNavigationNoticeAt > 1500 && window.ImgEt?.Utils?.showNotification) {
+            this.lastNavigationNoticeAt = now;
+            ImgEt.Utils.showNotification('上传继续进行，已在新标签打开页面', 'info');
+        }
+    }
+
     /**
      * 处理文件上传
      */
     handleFiles(files) {
         if (!this.validateEnvironment() || !this.validateFiles(files)) return;
 
-        // 清空并显示进度区域
-        this.resetProgressArea();
-
-        // 过滤有效文件并放入并发队列
         const validFiles = this.filterValidFiles(files);
-        this.batchTotal = validFiles.length;
+        if (validFiles.length === 0) return;
+
+        validFiles.forEach(file => this.createUploadRecord(file));
+        if (this.elements.imageInput) {
+            this.elements.imageInput.value = '';
+        }
+        this.renderUploadQueue();
+        ImgEt.Utils.showNotification(`已加入队列 ${validFiles.length} 个文件`, 'success');
+    }
+
+    startUploadRun(records, showBatchProgress = false) {
+        const pendingRecords = records.filter(record => record && ['queued', 'failed'].includes(record.state));
+        if (pendingRecords.length === 0) {
+            ImgEt.Utils.showNotification('没有待上传的文件', 'warning');
+            return;
+        }
+        if (this.isBatchUploading()) {
+            ImgEt.Utils.showNotification('上传正在进行中，请等待当前任务完成', 'warning');
+            return;
+        }
+
+        this.batchRunId += 1;
+        this.batchProgressVisible = !!showBatchProgress;
+        if (this.batchProgressVisible) {
+            this.resetProgressArea();
+        } else {
+            this.progressItem = null;
+            if (this.elements.uploadProgress) {
+                this.elements.uploadProgress.classList.remove('active');
+                this.elements.uploadProgress.classList.add('is-hidden');
+                this.elements.uploadProgress.style.display = '';
+                this.elements.uploadProgress.innerHTML = '';
+            }
+            this.updateHeaderUploadProgress(0, true);
+        }
+
+        this.batchTotal = pendingRecords.length;
         this.batchCompleted = 0;
+        this.batchSucceeded = 0;
+        this.batchFailed = 0;
         this.batchNotified = false;
         this.activeUploads = 0;
-        this.uploadQueue = validFiles.slice();
+        this.completedUploads = [];
+        this.activeRunIds = new Set(pendingRecords.map(record => record.id));
+        this.uploadQueue = pendingRecords.map(record => {
+            record.state = 'queued';
+            record.loaded = 0;
+            record.error = '';
+            return record;
+        });
 
         if (this.batchTotal > 0) {
+            this.renderUploadQueue();
+            this.updateBatchProgressUI();
             this.processUploadQueue();
+        }
+    }
+
+    uploadAllQueued() {
+        this.startUploadRun(Array.from(this.uploadRecords.values()), true);
+    }
+
+    uploadSingleQueued(id) {
+        const record = this.uploadRecords.get(Number(id));
+        if (!record) return;
+        this.startUploadRun([record], false);
+    }
+
+    clearUploadQueue() {
+        if (this.isBatchUploading()) {
+            ImgEt.Utils.showNotification('上传进行中，暂不能清空队列', 'warning');
+            return;
+        }
+        this.uploadRecords.forEach(record => {
+            if (record.previewUrl) {
+                URL.revokeObjectURL(record.previewUrl);
+            }
+        });
+        this.uploadRecords.clear();
+        this.uploadQueue = [];
+        this.activeRunIds.clear();
+        this.renderUploadQueue();
+    }
+
+    removeQueuedRecord(id) {
+        const record = this.uploadRecords.get(Number(id));
+        if (!record) return;
+        if (record.state === 'uploading' || record.state === 'processing') {
+            ImgEt.Utils.showNotification('上传中的文件不能移除', 'warning');
+            return;
+        }
+        if (record.previewUrl) {
+            URL.revokeObjectURL(record.previewUrl);
+        }
+        this.uploadRecords.delete(record.id);
+        this.uploadQueue = this.uploadQueue.filter(item => item.id !== record.id);
+        this.activeRunIds.delete(record.id);
+        this.renderUploadQueue();
+    }
+
+    handleQueueAction(event) {
+        const button = event.target.closest('[data-queue-action]');
+        if (!button) return;
+
+        const id = button.dataset.recordId;
+        if (button.dataset.queueAction === 'upload') {
+            this.uploadSingleQueued(id);
+        } else if (button.dataset.queueAction === 'remove') {
+            this.removeQueuedRecord(id);
         }
     }
 
@@ -1924,7 +2914,14 @@ class UploadManager {
     filterValidFiles(files) {
         const maxSizeLabel = this.formatSize(this.maxSize);
         const validFiles = Array.from(files).filter(file => {
-            if (!file.type.startsWith('image/')) {
+            const extension = this.getFileExtension(file.name);
+            if (!extension || (this.allowedExtensions.size > 0 && !this.allowedExtensions.has(extension))) {
+                const allowedLabel = this.getAllowedExtensionsLabel();
+                ImgEt.Utils.showNotification(`${file.name} 不在允许上传格式内（${allowedLabel}）`, 'error');
+                return false;
+            }
+
+            if (file.type && !file.type.startsWith('image/')) {
                 ImgEt.Utils.showNotification(`${file.name} 不是有效的图片文件`, 'error');
                 return false;
             }
@@ -1943,44 +2940,182 @@ class UploadManager {
         return validFiles;
     }
 
+    getFileExtension(filename) {
+        const name = String(filename || '').trim();
+        const dot = name.lastIndexOf('.');
+        if (dot < 0 || dot === name.length - 1) return '';
+        return name.slice(dot + 1).toLowerCase();
+    }
+
+    getAllowedExtensionsLabel() {
+        if (this.allowedExtensions.size === 0) return '当前未配置';
+        return Array.from(this.allowedExtensions)
+            .map(ext => `.${ext.toUpperCase()}`)
+            .join(' / ');
+    }
+
+    createUploadRecord(file) {
+        const id = ++this.uploadSequence;
+        const record = {
+            id,
+            file,
+            name: file.name || `image-${id}`,
+            extension: this.getFileExtension(file.name),
+            previewUrl: file.type && file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
+            loaded: 0,
+            total: Number.isFinite(file.size) && file.size > 0 ? file.size : 1,
+            state: 'queued',
+            error: ''
+        };
+        this.uploadRecords.set(id, record);
+        return record;
+    }
+
+    getQueueRecords() {
+        return Array.from(this.uploadRecords.values());
+    }
+
+    getQueueStatus(record) {
+        const status = {
+            queued: ['等待上传', 'is-queued', 'fa-clock'],
+            uploading: ['上传中', 'is-uploading', 'fa-spinner fa-spin'],
+            processing: ['处理中', 'is-processing', 'fa-gear fa-spin'],
+            done: ['已完成', 'is-done', 'fa-check'],
+            failed: [record.error || '失败', 'is-failed', 'fa-triangle-exclamation']
+        }[record.state] || ['等待上传', 'is-queued', 'fa-clock'];
+
+        return { text: status[0], className: status[1], icon: status[2] };
+    }
+
+    renderUploadQueue() {
+        const panel = this.elements.queuePanel;
+        const list = this.elements.queueList;
+        if (!panel || !list) return;
+
+        const records = this.getQueueRecords();
+        const pendingCount = records.filter(record => ['queued', 'failed'].includes(record.state)).length;
+        const active = this.isBatchUploading();
+        panel.classList.toggle('is-empty', records.length === 0);
+        panel.classList.toggle('is-active', records.length > 0);
+
+        if (this.elements.queueCount) {
+            this.elements.queueCount.textContent = String(records.length);
+        }
+        if (this.elements.uploadAllBtn) {
+            this.elements.uploadAllBtn.disabled = pendingCount === 0 || active;
+        }
+        if (this.elements.clearQueueBtn) {
+            this.elements.clearQueueBtn.disabled = records.length === 0 || active;
+        }
+
+        if (records.length === 0) {
+            list.innerHTML = `
+                <div class="upload-queue-empty">
+                    <i class="fa-light fa-images"></i>
+                    <span>选择图片后会先加入队列，不会自动上传</span>
+                </div>
+            `;
+            return;
+        }
+
+        list.innerHTML = records.map(record => {
+            const status = this.getQueueStatus(record);
+            const progress = Math.round(this.getRecordProgress(record) * 100);
+            const removable = record.state !== 'uploading' && record.state !== 'processing';
+            const uploadable = ['queued', 'failed'].includes(record.state) && !active;
+            const thumb = record.previewUrl
+                ? `<img src="${record.previewUrl}" alt="">`
+                : `<i class="fa-light fa-file-image"></i>`;
+            return `
+                <article class="upload-queue-item ${status.className}" data-record-id="${record.id}">
+                    <div class="upload-queue-thumb">${thumb}</div>
+                    <div class="upload-queue-meta">
+                        <strong title="${escapeHtml(record.name)}">${escapeHtml(record.name)}</strong>
+                        <span>${escapeHtml(this.formatSize(record.total))} · .${escapeHtml((record.extension || 'IMG').toUpperCase())}</span>
+                    </div>
+                    <div class="upload-queue-state">
+                        <span><i class="fa-light ${status.icon}"></i>${escapeHtml(status.text)}</span>
+                        <em>${progress}%</em>
+                    </div>
+                    <div class="upload-queue-progress" aria-hidden="true"><span style="width:${progress}%"></span></div>
+                    <div class="upload-queue-row-actions">
+                        <button type="button" data-queue-action="upload" data-record-id="${record.id}" ${uploadable ? '' : 'disabled'} title="上传此文件">
+                            <i class="fa-light fa-cloud-arrow-up"></i>
+                        </button>
+                        <button type="button" data-queue-action="remove" data-record-id="${record.id}" ${removable ? '' : 'disabled'} title="移除此文件">
+                            <i class="fa-light fa-xmark"></i>
+                        </button>
+                    </div>
+                </article>
+            `;
+        }).join('');
+    }
+
     /**
      * 重置进度区域
      */
     resetProgressArea() {
         this.elements.uploadProgress.innerHTML = '';
+        this.progressItem = this.createBatchProgressItem();
+        this.elements.uploadProgress.appendChild(this.progressItem);
+        this.elements.uploadProgress.classList.remove('is-hidden');
         this.elements.uploadProgress.style.display = 'block';
         requestAnimationFrame(() => this.elements.uploadProgress.classList.add('active'));
+        this.updateHeaderUploadProgress(0, true);
+    }
+
+    hideProgressArea(runId) {
+        if (runId !== this.batchRunId || !this.elements.uploadProgress) return;
+        this.elements.uploadProgress.classList.remove('active');
+        window.setTimeout(() => {
+            if (runId !== this.batchRunId || !this.elements.uploadProgress) return;
+            this.elements.uploadProgress.classList.add('is-hidden');
+            this.elements.uploadProgress.style.display = '';
+            this.elements.uploadProgress.innerHTML = '';
+            this.progressItem = null;
+        }, UploadManager.CONFIG.FADE_DURATION);
     }
 
     /**
      * 上传单个文件
      */
-    uploadSingleFile(file) {
-        const progressItem = this.createProgressItem(file.name);
-        this.elements.uploadProgress.appendChild(progressItem);
-
+    uploadSingleFile(record) {
+        if (!record || !record.file) return;
+        record.state = 'uploading';
+        record.loaded = 0;
         this.activeUploads += 1;
+        this.updateBatchProgressUI();
 
-        const settle = () => {
+        const settle = (success = false) => {
             this.activeUploads = Math.max(0, this.activeUploads - 1);
             this.batchCompleted += 1;
+            if (success) {
+                this.batchSucceeded += 1;
+                record.state = 'done';
+            } else {
+                this.batchFailed += 1;
+                record.state = 'failed';
+            }
+            record.loaded = record.total;
+            this.renderUploadQueue();
+            this.updateBatchProgressUI();
             this.processUploadQueue();
             this.checkUploadComplete();
         };
 
-        const xhr = this.createUploadRequest(file, progressItem, settle);
-        xhr.send(this.createFormData(file));
+        const xhr = this.createUploadRequest(record.file, record, settle);
+        xhr.send(this.createFormData(record.file));
     }
 
     /**
      * 创建进度条元素
      */
-    createProgressItem(filename) {
+    createBatchProgressItem() {
         const item = document.createElement('div');
-        item.className = 'progress-item';
+        item.className = 'progress-item progress-item-batch';
         item.innerHTML = `
             <div class="progress-header">
-                <span class="filename">${escapeHtml(filename)}</span>
+                <span class="filename">批量上传准备中</span>
                 <span class="progress-percent">0%</span>
             </div>
             <div class="progress-bar">
@@ -1991,6 +3126,7 @@ class UploadManager {
                     <i class="fa-light fa-spinner fa-spin text-success"></i>
                     <span class="text-success">准备上传...</span>
                 </span>
+                <span class="progress-count">0/0</span>
             </div>
         `;
         return item;
@@ -1999,15 +3135,15 @@ class UploadManager {
     /**
      * 创建上传请求
      */
-    createUploadRequest(file, progressItem, settle) {
+    createUploadRequest(file, record, settle) {
         const xhr = new XMLHttpRequest();
 
         // 配置请求
         xhr.timeout = this.getTimeoutForFileSize(file.size);
-        xhr.open('POST', '/api/upload.php');
+        xhr.open('POST', '/api/v1');
 
         // 绑定事件处理
-        this.bindUploadEvents(xhr, file, progressItem, settle);
+        this.bindUploadEvents(xhr, file, record, settle);
 
         return xhr;
     }
@@ -2024,56 +3160,51 @@ class UploadManager {
 
     processUploadQueue() {
         while (this.activeUploads < UploadManager.CONFIG.MAX_CONCURRENT && this.uploadQueue.length > 0) {
-            const file = this.uploadQueue.shift();
-            this.uploadSingleFile(file);
+            const record = this.uploadQueue.shift();
+            this.uploadSingleFile(record);
         }
     }
 
     /**
      * 绑定上传事件
      */
-    bindUploadEvents(xhr, file, progressItem, settle) {
-        const elements = {
-            progressBar: progressItem.querySelector('.progress-bar-inner'),
-            progressText: progressItem.querySelector('.progress-text'),
-            progressPercent: progressItem.querySelector('.progress-percent')
-        };
+    bindUploadEvents(xhr, file, record, settle) {
         let settled = false;
-        const settleOnce = () => {
+        const settleOnce = (success = false) => {
             if (settled) return;
             settled = true;
-            settle();
+            settle(success);
         };
 
         // 错误处理
         xhr.addEventListener('timeout', () => {
-            this.handleUploadError(progressItem, `上传超时（${Math.round(xhr.timeout / 1000)} 秒）`);
-            settleOnce();
+            this.handleUploadError(record, `上传超时（${Math.round(xhr.timeout / 1000)} 秒）`);
+            settleOnce(false);
         });
         xhr.addEventListener('error', () => {
-            this.handleUploadError(progressItem, '网络错误');
-            settleOnce();
+            this.handleUploadError(record, '网络错误');
+            settleOnce(false);
         });
         xhr.addEventListener('abort', () => {
-            this.handleUploadError(progressItem, '上传取消');
-            settleOnce();
+            this.handleUploadError(record, '上传取消');
+            settleOnce(false);
         });
 
         // 进度处理
         xhr.upload.addEventListener('progress', (e) => {
             if (e.lengthComputable) {
-                this.updateProgress(elements, e.loaded, e.total);
+                this.updateProgress(record, e.loaded, e.total);
             }
         });
 
         xhr.upload.addEventListener('load', () => {
-            this.showServerProcessing(elements);
+            this.showServerProcessing(record);
         });
 
         // 完成处理
         xhr.addEventListener('load', () => {
-            this.handleUploadComplete(xhr, file, progressItem);
-            settleOnce();
+            const success = this.handleUploadComplete(xhr, file, record);
+            settleOnce(success);
         });
     }
 
@@ -2089,43 +3220,164 @@ class UploadManager {
     /**
      * 更新上传进度
      */
-    updateProgress(elements, loaded, total) {
-        const percent = ((loaded / total) * 100).toFixed(1);
-        
-        elements.progressBar.style.width = `${percent}%`;
-        elements.progressPercent.textContent = `${percent}%`;
-        elements.progressText.innerHTML = `
-            <i class="fa-light fa-spinner fa-spin text-success"></i>
-            <span class="text-success">
-                上传中... ${percent}%
-            </span>
-        `;
+    updateProgress(record, loaded, total) {
+        if (!record) return;
+        record.state = 'uploading';
+        record.loaded = loaded;
+        record.total = total > 0 ? total : record.total;
+        this.updateBatchProgressUI();
     }
 
-    showServerProcessing(elements) {
-        elements.progressBar.style.width = '100%';
-        elements.progressPercent.textContent = '100%';
-
+    showServerProcessing(record) {
+        if (!record) return;
+        record.state = 'processing';
+        record.loaded = record.total;
         const tasks = [];
         if (this.autoCompressEnabled) tasks.push('开始压缩');
         if (this.autoWebpEnabled) tasks.push('开始转换 WebP');
+        if (this.autoAvifEnabled) tasks.push('开始转换 AVIF');
+        record.processingText = tasks.length > 0
+            ? `服务器处理中：${tasks.join('，')}`
+            : '服务器处理中';
+        this.updateBatchProgressUI();
+    }
 
-        const stageText = tasks.length > 0
-            ? `上传成功，${tasks.join('，')}`
-            : '上传成功，服务器处理中...';
+    getRecordProgress(record) {
+        if (!record) return 0;
+        if (record.state === 'done' || record.state === 'failed') return 1;
+        if (record.state === 'processing') return 0.95;
+        if (record.state === 'uploading') {
+            const total = record.total > 0 ? record.total : 1;
+            return Math.max(0, Math.min(0.9, (record.loaded / total) * 0.9));
+        }
+        return 0;
+    }
 
-        elements.progressText.innerHTML = `
-            <i class="fa-light fa-gear fa-spin text-primary"></i>
-            <span class="text-primary">
-                ${stageText}
-            </span>
-        `;
+    getBatchPercent() {
+        const records = Array.from(this.uploadRecords.values())
+            .filter(record => this.activeRunIds.has(record.id));
+        if (records.length === 0) return 0;
+        const progress = records.reduce((sum, record) => sum + this.getRecordProgress(record), 0) / records.length;
+        return Math.max(0, Math.min(100, Math.round(progress * 100)));
+    }
+
+    updateBatchProgressUI() {
+        const percent = this.getBatchPercent();
+        const progressBar = this.progressItem?.querySelector('.progress-bar-inner') || null;
+        const progressText = this.progressItem?.querySelector('.progress-text') || null;
+        const progressPercent = this.progressItem?.querySelector('.progress-percent') || null;
+        const progressCount = this.progressItem?.querySelector('.progress-count') || null;
+        const filename = this.progressItem?.querySelector('.filename') || null;
+        const isFinished = this.batchTotal > 0 && this.batchCompleted >= this.batchTotal;
+
+        if (this.progressItem) {
+            this.progressItem.classList.toggle('is-complete', isFinished && this.batchFailed === 0);
+            this.progressItem.classList.toggle('is-failed', isFinished && this.batchFailed > 0);
+            if (progressBar) {
+                progressBar.style.width = `${percent}%`;
+                progressBar.classList.toggle('success', isFinished && this.batchFailed === 0);
+                progressBar.classList.toggle('danger', isFinished && this.batchFailed > 0);
+            }
+        }
+        this.renderUploadQueue();
+        if (progressPercent) {
+            progressPercent.textContent = `${percent}%`;
+        }
+        if (progressCount) {
+            progressCount.textContent = `${this.batchCompleted}/${this.batchTotal}`;
+        }
+
+        const activeNames = Array.from(this.uploadRecords.values())
+            .filter(record => this.activeRunIds.has(record.id))
+            .filter(record => record.state === 'uploading' || record.state === 'processing')
+            .slice(0, UploadManager.CONFIG.MAX_CONCURRENT)
+            .map(record => record.name);
+        if (filename) {
+            filename.textContent = activeNames.length > 0 ? activeNames.join(' / ') : '批量上传';
+        }
+
+        let icon = 'fa-spinner fa-spin text-success';
+        let textClass = 'text-success';
+        let message = `上传中 · 并发 ${this.activeUploads}`;
+
+        if (this.batchCompleted >= this.batchTotal && this.batchTotal > 0) {
+            if (this.batchFailed > 0) {
+                icon = 'fa-triangle-exclamation text-danger';
+                textClass = 'text-danger';
+                message = `完成 ${this.batchSucceeded} 个，失败 ${this.batchFailed} 个`;
+            } else {
+                icon = 'fa-check-circle text-success';
+                textClass = 'text-success';
+                message = '全部上传完成';
+            }
+        } else if (Array.from(this.uploadRecords.values()).some(record => this.activeRunIds.has(record.id) && record.state === 'processing')) {
+            icon = 'fa-gear fa-spin text-primary';
+            textClass = 'text-primary';
+            message = '上传完成，服务器处理中';
+        } else if (this.batchCompleted === 0 && this.activeUploads === 0) {
+            message = '准备上传...';
+        }
+
+        if (progressText) {
+            progressText.innerHTML = `
+                <i class="fa-light ${icon}"></i>
+                <span class="${textClass}">${escapeHtml(message)}</span>
+            `;
+        }
+
+        this.updateHeaderUploadProgress(percent, this.batchCompleted < this.batchTotal);
+    }
+
+    updateHeaderUploadProgress(percent, active) {
+        const button = this.headerUploadButton;
+        if (!button) return;
+
+        const safePercent = Math.max(0, Math.min(100, Math.round(percent || 0)));
+        button.style.setProperty('--upload-progress', `${safePercent}%`);
+
+        if (active) {
+            button.classList.add('is-uploading');
+            button.classList.remove('is-upload-complete', 'is-upload-error');
+            if (this.headerUploadIcon) {
+                this.headerUploadIcon.className = 'fa-light fa-spinner fa-spin';
+            }
+            if (this.headerUploadLabel) {
+                this.headerUploadLabel.textContent = `${safePercent}%`;
+            }
+            return;
+        }
+
+        button.classList.remove('is-uploading');
+        button.classList.toggle('is-upload-error', this.batchFailed > 0);
+        button.classList.toggle('is-upload-complete', this.batchFailed === 0 && this.batchTotal > 0);
+        button.style.setProperty('--upload-progress', '100%');
+        if (this.headerUploadIcon) {
+            this.headerUploadIcon.className = this.batchFailed > 0
+                ? 'fa-light fa-triangle-exclamation'
+                : 'fa-light fa-check';
+        }
+        if (this.headerUploadLabel) {
+            this.headerUploadLabel.textContent = this.batchFailed > 0 ? '失败' : '完成';
+        }
+
+        const resetRunId = this.batchRunId;
+        window.setTimeout(() => {
+            if (resetRunId !== this.batchRunId) return;
+            button.classList.remove('is-upload-complete', 'is-upload-error');
+            button.style.removeProperty('--upload-progress');
+            if (this.headerUploadIcon) {
+                this.headerUploadIcon.className = this.headerUploadDefaultIcon;
+            }
+            if (this.headerUploadLabel) {
+                this.headerUploadLabel.textContent = this.headerUploadDefaultText;
+            }
+        }, 2200);
     }
 
     /**
      * 处理上传完成
      */
-    handleUploadComplete(xhr, file, progressItem) {
+    handleUploadComplete(xhr, file, record) {
         try {
             let response = null;
             try {
@@ -2156,13 +3408,13 @@ class UploadManager {
             }
 
             // 修改这里：使用原始文件名显示成功消息
-            this.showUploadSuccess(file.name, progressItem, result);
+            this.showUploadSuccess(file.name, record, result);
             this.completedUploads.push(result);
             return true;
 
         } catch (err) {
             console.error('Upload error:', err);
-            this.handleUploadError(progressItem, err.message);
+            this.handleUploadError(record, err.message);
             return false;
         }
     }
@@ -2230,43 +3482,39 @@ class UploadManager {
         return lines;
     }
 
-    showUploadSuccess(filename, progressItem, result = null) {
-        const progressBar = progressItem.querySelector('.progress-bar-inner');
-        const progressText = progressItem.querySelector('.progress-text');
-
-        progressBar.style.width = '100%';
-        progressBar.classList.add('success');
-        progressText.innerHTML = `
-            <i class="fa-light fa-check-circle text-success"></i>
-            <span class="text-success">上传完成</span>
-        `;
-
+    showUploadSuccess(filename, record, result = null) {
+        if (record) {
+            record.state = 'done';
+            record.loaded = record.total;
+        }
         const reportLines = this.buildProcessingReport(result);
         const hasReport = Array.isArray(reportLines) && reportLines.length > 0;
         const hasSkip = hasReport && reportLines.some(line => line.includes('未压缩') || line.includes('未转 WebP'));
 
         // 单文件上传时显示成功通知，批量上传时只在全部完成后统一通知
         if (this.batchTotal <= 1) {
-            const msg = hasReport ? `${filename} 上传成功：${reportLines.join('；')}` : `${filename} 上传成功`;
-            ImgEt.Utils.showNotification(msg, hasSkip ? 'warning' : 'success');
+            const detail = hasReport ? `上传成功：${reportLines.join('；')}` : '上传成功';
+            ImgEt.Utils.showNotification('', hasSkip ? 'warning' : 'success', {
+                variant: 'upload',
+                title: filename,
+                detail,
+                icon: hasSkip ? 'fa-triangle-exclamation' : 'fa-check-circle'
+            });
         }
 
-        this.fadeOutProgressItem(progressItem);
+        this.updateBatchProgressUI();
     }
 
     /**
      * 处理上传错误
      */
-    handleUploadError(progressItem, message) {
-        const progressBar = progressItem.querySelector('.progress-bar-inner');
-        const progressText = progressItem.querySelector('.progress-text');
-        
-        progressBar.style.backgroundColor = 'var(--danger)';
-        progressText.innerHTML = `
-            <i class="fa-light fa-times-circle text-danger"></i>
-            <span class="text-danger">${escapeHtml(message)}</span>
-        `;
-        this.fadeOutProgressItem(progressItem);
+    handleUploadError(record, message) {
+        if (record) {
+            record.state = 'failed';
+            record.loaded = record.total;
+            record.error = message || '上传失败';
+        }
+        this.updateBatchProgressUI();
     }
 
     /**
@@ -2293,7 +3541,14 @@ class UploadManager {
         if (this.batchTotal > 0 && this.batchCompleted >= this.batchTotal && this.activeUploads === 0 && !this.batchNotified) {
             this.batchNotified = true;
             if (this.batchTotal > 1) {
-                ImgEt.Utils.showNotification('所有文件上传完成', 'success');
+                const message = this.batchFailed > 0
+                    ? `上传完成：成功 ${this.batchSucceeded} 个，失败 ${this.batchFailed} 个`
+                    : `所有文件上传完成，共 ${this.batchSucceeded} 个`;
+                ImgEt.Utils.showNotification(message, this.batchFailed > 0 ? 'warning' : 'success');
+            }
+            const finishedRunId = this.batchRunId;
+            if (this.batchProgressVisible && this.progressItem) {
+                window.setTimeout(() => this.hideProgressArea(finishedRunId), 2600);
             }
 
             // 动态插入新上传的卡片（替代刷新页面），最多保留 5 个
@@ -2317,8 +3572,11 @@ class UploadManager {
                     if (last) last.remove();
                 }
                 GalleryManager.updateImageCount();
-                this.completedUploads = [];
             }
+            this.completedUploads = [];
+            this.activeRunIds.clear();
+            this.batchProgressVisible = false;
+            this.renderUploadQueue();
         }
     }
 }
@@ -2670,6 +3928,125 @@ document.addEventListener('DOMContentLoaded', function () {
     document.addEventListener('DOMContentLoaded', run);
   } else {
     run();
+  }
+})();
+
+
+/* ===== docs-code-copy.js ===== */
+(function () {
+  const copyIcon = '<i class="fa-light fa-copy" aria-hidden="true"></i>';
+  const checkIcon = '<i class="fa-light fa-check" aria-hidden="true"></i>';
+
+  function notify(message, type) {
+    if (window.ImgEt?.Utils?.showNotification) {
+      window.ImgEt.Utils.showNotification(message, type);
+    }
+  }
+
+  async function writeClipboard(text) {
+    let clipboardError = null;
+
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return;
+      } catch (error) {
+        clipboardError = error;
+      }
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.top = '-9999px';
+    textarea.style.left = '-9999px';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+
+    const copied = document.execCommand('copy');
+    textarea.remove();
+
+    if (!copied) {
+      throw clipboardError || new Error('Copy command failed');
+    }
+  }
+
+  function getCodeText(block) {
+    const code = block.querySelector('pre.docs-code code, pre.docs-code');
+    return code ? code.textContent : '';
+  }
+
+  function resetButton(btn) {
+    btn.classList.remove('is-copied');
+    btn.innerHTML = copyIcon;
+    btn.title = '复制代码';
+    btn.setAttribute('aria-label', '复制代码');
+  }
+
+  function markCopied(btn) {
+    window.clearTimeout(btn._docsCopyTimer);
+    btn.classList.add('is-copied');
+    btn.innerHTML = checkIcon;
+    btn.title = '复制成功';
+    btn.setAttribute('aria-label', '复制成功');
+    btn._docsCopyTimer = window.setTimeout(() => resetButton(btn), 1600);
+  }
+
+  function normalizeTitle(title) {
+    if (title.querySelector('.docs-code-title-text')) return;
+
+    const label = document.createElement('span');
+    label.className = 'docs-code-title-text';
+    label.textContent = title.textContent.trim();
+
+    title.textContent = '';
+    title.appendChild(label);
+  }
+
+  function init() {
+    document.querySelectorAll('.docs-code-block').forEach((block) => {
+      const title = block.querySelector('.docs-code-title');
+      if (!title || title.querySelector('.docs-copy-btn')) return;
+
+      normalizeTitle(title);
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'docs-copy-btn';
+      btn.innerHTML = copyIcon;
+      btn.title = '复制代码';
+      btn.setAttribute('aria-label', '复制代码');
+
+      btn.addEventListener('click', async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const text = getCodeText(block);
+        if (!text) {
+          notify('没有可复制的代码', 'error');
+          return;
+        }
+
+        try {
+          await writeClipboard(text);
+          markCopied(btn);
+          notify('复制成功', 'success');
+        } catch (error) {
+          console.error('Docs code copy failed:', error);
+          notify('复制失败，请手动复制', 'error');
+        }
+      });
+
+      title.appendChild(btn);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
   }
 })();
 

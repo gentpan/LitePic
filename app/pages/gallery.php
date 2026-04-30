@@ -96,11 +96,11 @@ class GalleryManager {
         require_once APP_ROOT . '/header.php';
         ?>
 
-        <main class="page-container page-main flex flex-col gap-3.5">
-            <div class="gallery-card page-shell bg-surface border border-border overflow-hidden transition-colors">
+        <main class="page-container page-main gallery-main">
+            <section class="page-shell gallery-shell gallery-card">
                 <?= $this->renderHeader() ?>
                 <?= $this->renderBody() ?>
-            </div>
+            </section>
         </main>
 
         <?php
@@ -110,17 +110,17 @@ class GalleryManager {
     private function renderHeader(): string {
         ob_start();
         ?>
-        <div class="gallery-card-header page-shell-header flex items-center justify-between gap-3">
-            <div class="header-left flex items-center gap-3">
-                <h2 class="page-shell-title inline-flex items-center gap-2 text-primary">
+        <div class="gallery-card-header page-shell-header">
+            <div class="header-left">
+                <h2 class="page-shell-title">
                     <i class="fa-light fa-images"></i>
                     <span>图片库</span>
-                    <small class="total-count text-sm text-gray font-normal" data-total="<?= $this->all_images_count ?>">
+                    <small class="total-count" data-total="<?= $this->all_images_count ?>">
                         (共 <?= number_format($this->all_images_count) ?> 张图片)
                     </small>
                 </h2>
             </div>
-            <div class="header-right flex items-center gap-3 flex-1 justify-end">
+            <div class="header-right">
                 <?= $this->renderFilters() ?>
                 <?= $this->renderSearch() ?>
             </div>
@@ -132,14 +132,14 @@ class GalleryManager {
     private function renderFilters(): string {
         ob_start();
         ?>
-        <div class="gallery-filters flex items-center gap-2 px-0.5 bg-light rounded-md h-9">
-            <select class="filter-type min-w-[120px] h-9 px-3 text-sm bg-light border border-border text-dark" id="filterType" name="filter_type">
+        <div class="gallery-filters">
+            <select class="filter-type" id="filterType" name="filter_type">
                 <option value="all">所有类型</option>
                 <?php foreach (ALLOWED_TYPES as $type): ?>
                     <option value="<?= $type ?>">.<?= strtoupper($type) ?></option>
                 <?php endforeach; ?>
             </select>
-            <select class="filter-sort h-9 px-3 text-sm bg-light border border-border text-dark" id="filterSort" name="filter_sort">
+            <select class="filter-sort" id="filterSort" name="filter_sort">
                 <option value="date-desc">最新上传</option>
                 <option value="date-asc">最早上传</option>
                 <option value="size-desc">大小递减</option>
@@ -153,8 +153,8 @@ class GalleryManager {
     private function renderSearch(): string {
         ob_start();
         ?>
-        <div class="gallery-search relative flex-shrink-0 w-60 h-9">
-            <input type="text" placeholder="搜索图片..." class="search-input w-full h-9 pl-9 pr-3 text-sm bg-light border border-border text-dark" id="searchInput" name="search_query">
+        <div class="gallery-search">
+            <input type="text" placeholder="搜索图片..." class="search-input" id="searchInput" name="search_query">
             <i class="fa-light fa-search"></i>
         </div>
         <?php
@@ -164,7 +164,7 @@ class GalleryManager {
     private function renderBody(): string {
         ob_start();
         ?>
-        <div class="gallery-card-body page-shell-body flex flex-col">
+        <div class="gallery-card-body page-shell-body">
             <?= $this->renderBatchControls() ?>
             <?= $this->renderGallery() ?>
             <?= $this->renderPagination() ?>
@@ -174,26 +174,33 @@ class GalleryManager {
     }
 
     private function renderBatchControls(): string {
+        $compression_labels = [
+            'tinypng' => 'TinyPNG',
+            'gd' => 'GD',
+            'imagemagick' => 'ImageMagick',
+        ];
+        $compression_label = $compression_labels[strtolower((string)COMPRESSION_MODE)] ?? (string)COMPRESSION_MODE;
+        $conversion_label = CONVERT_PREFERRED_FORMAT === 'avif' ? 'AVIF' : 'WebP';
         ob_start();
         ?>
-        <div class="batch-controls flex items-center justify-between gap-3 w-full py-2.5 px-4 bg-light border-t border-border">
-            <div class="batch-left flex items-center gap-3 text-gray">
-                <label class="select-all inline-flex items-center gap-2 cursor-pointer select-none">
-                    <input type="checkbox" id="selectAll" class="w-[18px] h-[18px] accent-primary cursor-pointer">
+        <div class="batch-controls">
+            <div class="batch-left">
+                <label class="select-all">
+                    <input type="checkbox" id="selectAll">
                     <span>全选</span>
                 </label>
-                <span class="selected-count text-sm text-gray">已选择 0 张图片</span>
+                <span class="selected-count">已选择 0 张图片</span>
             </div>
-            <div class="batch-right inline-flex gap-2 items-center">
-                <button type="button" class="batch-btn inline-flex items-center gap-2 py-2 px-3 rounded-md border-none bg-light text-dark cursor-pointer font-semibold" data-action="compress" disabled>
+            <div class="batch-right">
+                <button type="button" class="batch-btn" data-action="compress" title="按后台默认压缩方式：<?= htmlspecialchars($compression_label) ?>" disabled>
                     <i class="fa-light fa-compress"></i>
                     <span>批量压缩</span>
                 </button>
-                <button type="button" class="batch-btn inline-flex items-center gap-2 py-2 px-3 rounded-md border-none bg-light text-dark cursor-pointer font-semibold" data-action="<?= CONVERT_PREFERRED_FORMAT === 'avif' ? 'avif' : 'webp' ?>" disabled>
+                <button type="button" class="batch-btn" data-action="<?= CONVERT_PREFERRED_FORMAT === 'avif' ? 'avif' : 'webp' ?>" title="按后台默认转换格式：<?= htmlspecialchars($conversion_label) ?>" disabled>
                     <i class="fa-light fa-image"></i>
-                    <span>批量转<?= CONVERT_PREFERRED_FORMAT === 'avif' ? 'AVIF' : 'WebP' ?></span>
+                    <span>批量转换</span>
                 </button>
-                <button type="button" class="batch-btn delete bg-danger text-white inline-flex items-center gap-2 py-2 px-3 rounded-md border-none cursor-pointer font-semibold" data-action="delete" disabled>
+                <button type="button" class="batch-btn delete" data-action="delete" disabled>
                     <i class="fa-light fa-trash"></i>
                     <span>批量删除</span>
                 </button>
@@ -206,7 +213,7 @@ class GalleryManager {
     private function renderGallery(): string {
         ob_start();
         ?>
-        <div class="gallery grid grid-cols-4 gap-4 p-4">
+        <div class="gallery">
             <?php
             foreach ($this->paged_images as $img) {
                 $info = get_image_info($img);
@@ -237,41 +244,41 @@ class GalleryManager {
 
         ob_start();
         ?>
-        <nav class="pagination my-4 flex justify-center" aria-label="分页导航">
+        <nav class="pagination" aria-label="分页导航">
             <form method="post" class="pagination-form">
-                <ul class="pagination-list list-none flex gap-1.5 p-0 m-0 flex-wrap">
+                <ul class="pagination-list">
                     <li>
-                        <button type="submit" name="page" value="<?= $this->normalizePage(1) ?>" class="page-link inline-flex min-w-9 h-9 px-2.5 items-center justify-center border border-border rounded-md bg-surface text-dark no-underline text-sm" aria-label="第一页" <?= $current === 1 ? 'disabled aria-disabled="true"' : '' ?>>«</button>
+                        <button type="submit" name="page" value="<?= $this->normalizePage(1) ?>" class="page-link" aria-label="第一页" <?= $current === 1 ? 'disabled aria-disabled="true"' : '' ?>>«</button>
                     </li>
                     <li>
-                        <button type="submit" name="page" value="<?= $this->normalizePage($current - 1) ?>" class="page-link inline-flex min-w-9 h-9 px-2.5 items-center justify-center border border-border rounded-md bg-surface text-dark no-underline text-sm" aria-label="上一页" <?= $current === 1 ? 'disabled aria-disabled="true"' : '' ?>>‹</button>
+                        <button type="submit" name="page" value="<?= $this->normalizePage($current - 1) ?>" class="page-link" aria-label="上一页" <?= $current === 1 ? 'disabled aria-disabled="true"' : '' ?>>‹</button>
                     </li>
 
                     <?php if ($start > 1): ?>
-                        <li><button type="submit" name="page" value="1" class="page-link inline-flex min-w-9 h-9 px-2.5 items-center justify-center border border-border rounded-md bg-surface text-dark no-underline text-sm">1</button></li>
-                        <?php if ($start > 2): ?><li><span class="page-ellipsis inline-flex items-center text-gray px-1">…</span></li><?php endif; ?>
+                        <li><button type="submit" name="page" value="1" class="page-link">1</button></li>
+                        <?php if ($start > 2): ?><li><span class="page-ellipsis">…</span></li><?php endif; ?>
                     <?php endif; ?>
 
                     <?php for ($i = $start; $i <= $end; $i++): ?>
                         <li>
                             <?php if ($i === $current): ?>
-                                <span class="page-link active bg-primary text-white border-primary pointer-events-none" aria-current="page"><?= $i ?></span>
+                                <span class="page-link active" aria-current="page"><?= $i ?></span>
                             <?php else: ?>
-                                <button type="submit" name="page" value="<?= $i ?>" class="page-link inline-flex min-w-9 h-9 px-2.5 items-center justify-center border border-border rounded-md bg-surface text-dark no-underline text-sm"><?= $i ?></button>
+                                <button type="submit" name="page" value="<?= $i ?>" class="page-link"><?= $i ?></button>
                             <?php endif; ?>
                         </li>
                     <?php endfor; ?>
 
                     <?php if ($end < $total): ?>
-                        <?php if ($end < $total - 1): ?><li><span class="page-ellipsis inline-flex items-center text-gray px-1">…</span></li><?php endif; ?>
-                        <li><button type="submit" name="page" value="<?= $total ?>" class="page-link inline-flex min-w-9 h-9 px-2.5 items-center justify-center border border-border rounded-md bg-surface text-dark no-underline text-sm"><?= $total ?></button></li>
+                        <?php if ($end < $total - 1): ?><li><span class="page-ellipsis">…</span></li><?php endif; ?>
+                        <li><button type="submit" name="page" value="<?= $total ?>" class="page-link"><?= $total ?></button></li>
                     <?php endif; ?>
 
                     <li>
-                        <button type="submit" name="page" value="<?= $this->normalizePage($current + 1) ?>" class="page-link inline-flex min-w-9 h-9 px-2.5 items-center justify-center border border-border rounded-md bg-surface text-dark no-underline text-sm" aria-label="下一页" <?= $current === $total ? 'disabled aria-disabled="true"' : '' ?>>›</button>
+                        <button type="submit" name="page" value="<?= $this->normalizePage($current + 1) ?>" class="page-link" aria-label="下一页" <?= $current === $total ? 'disabled aria-disabled="true"' : '' ?>>›</button>
                     </li>
                     <li>
-                        <button type="submit" name="page" value="<?= $this->normalizePage($total) ?>" class="page-link inline-flex min-w-9 h-9 px-2.5 items-center justify-center border border-border rounded-md bg-surface text-dark no-underline text-sm" aria-label="最后一页" <?= $current === $total ? 'disabled aria-disabled="true"' : '' ?>>»</button>
+                        <button type="submit" name="page" value="<?= $this->normalizePage($total) ?>" class="page-link" aria-label="最后一页" <?= $current === $total ? 'disabled aria-disabled="true"' : '' ?>>»</button>
                     </li>
                 </ul>
             </form>

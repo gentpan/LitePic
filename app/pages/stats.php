@@ -8,6 +8,11 @@ if (!defined('APP_ROOT')) {
 
 // 获取所有图片
 $images = get_uploaded_images();
+$access_stats = get_access_log_stats();
+$access_total_requests = (int)($access_stats['total_requests'] ?? 0);
+$access_top_images = is_array($access_stats['top'] ?? null) ? $access_stats['top'] : [];
+$access_readable_paths = is_array($access_stats['readable_paths'] ?? null) ? $access_stats['readable_paths'] : [];
+$access_unreadable_count = count(is_array($access_stats['unreadable_paths'] ?? null) ? $access_stats['unreadable_paths'] : []);
 
 // 统计数据初始化
 $stats = [
@@ -109,7 +114,7 @@ require_once APP_ROOT . '/header.php';
 ?>
 
 <main class="page-container page-main">
-    <section class="page-shell">
+    <section class="page-shell stats-shell">
         <div class="page-shell-header">
             <h2 class="page-shell-title">
                 <i class="fa-light fa-chart-line"></i>
@@ -117,66 +122,88 @@ require_once APP_ROOT . '/header.php';
             </h2>
         </div>
         <div class="page-shell-body">
-            <div class="stats-wrapper text-dark">
+            <div class="stats-wrapper">
         <!-- 总览圆形卡片 -->
-        <div class="stats-circles flex flex-wrap justify-center gap-8 mb-6">
-            <div class="stat-circle bg-surface border border-border rounded-full flex items-center justify-center transition-transform duration-300 cursor-default">
-                <div class="stat-circle-inner flex flex-col items-center text-center gap-1">
-                    <div class="stat-circle-icon text-[1.4rem] text-primary"><i class="fa-light fa-images"></i></div>
-                    <div class="stat-circle-value text-[1.25rem] font-bold text-dark leading-[1.2]"><?= number_format($stats['total_images']) ?></div>
-                    <div class="stat-circle-label text-[0.8rem] text-gray font-semibold tracking-wide">总图片数</div>
+        <div class="stats-circles">
+            <div class="stat-circle">
+                <div class="stat-circle-inner">
+                    <div class="stat-circle-icon"><i class="fa-light fa-images"></i></div>
+                    <div class="stat-circle-value"><?= number_format($stats['total_images']) ?></div>
+                    <div class="stat-circle-label">总图片数</div>
                 </div>
             </div>
 
-            <div class="stat-circle bg-surface border border-border rounded-full flex items-center justify-center transition-transform duration-300 cursor-default">
-                <div class="stat-circle-inner flex flex-col items-center text-center gap-1">
-                    <div class="stat-circle-icon text-[1.4rem] text-primary"><i class="fa-light fa-hard-drive"></i></div>
-                    <div class="stat-circle-value text-[1.25rem] font-bold text-dark leading-[1.2]"><?= format_filesize($stats['total_size']) ?></div>
-                    <div class="stat-circle-label text-[0.8rem] text-gray font-semibold tracking-wide">总存储空间</div>
+            <div class="stat-circle">
+                <div class="stat-circle-inner">
+                    <div class="stat-circle-icon"><i class="fa-light fa-hard-drive"></i></div>
+                    <div class="stat-circle-value"><?= format_filesize($stats['total_size']) ?></div>
+                    <div class="stat-circle-label">总存储空间</div>
                 </div>
             </div>
 
-            <div class="stat-circle bg-surface border border-border rounded-full flex items-center justify-center transition-transform duration-300 cursor-default">
-                <div class="stat-circle-inner flex flex-col items-center text-center gap-1">
-                    <div class="stat-circle-icon text-[1.4rem] text-primary"><i class="fa-light fa-calendar-days"></i></div>
-                    <div class="stat-circle-value text-[1.25rem] font-bold text-dark leading-[1.2]">
+            <div class="stat-circle">
+                <div class="stat-circle-inner">
+                    <div class="stat-circle-icon"><i class="fa-light fa-calendar-days"></i></div>
+                    <div class="stat-circle-value">
                         <?php
                         $current_month = date('Y-m');
                         $monthly_count = $stats['by_month'][$current_month]['count'] ?? 0;
                         echo number_format($monthly_count);
                         ?>
                     </div>
-                    <div class="stat-circle-label text-[0.8rem] text-gray font-semibold tracking-wide">本月上传</div>
+                    <div class="stat-circle-label">本月上传</div>
+                </div>
+            </div>
+
+            <div class="stat-circle">
+                <div class="stat-circle-inner">
+                    <div class="stat-circle-icon"><i class="fa-light fa-eye"></i></div>
+                    <div class="stat-circle-value"><?= number_format($access_total_requests) ?></div>
+                    <div class="stat-circle-label">图片请求</div>
                 </div>
             </div>
         </div>
 
+        <div class="access-log-summary">
+            <div>
+                <strong>访问日志统计</strong>
+                <span>
+                    <?= !empty($access_stats['enabled']) ? '已启用' : '未启用' ?>，
+                    已扫描 <?= number_format((int)($access_stats['scanned_lines'] ?? 0)) ?> 行，
+                    匹配 <?= number_format((int)($access_stats['matched_requests'] ?? 0)) ?> 次图片请求。
+                </span>
+            </div>
+            <div>
+                可读日志 <?= count($access_readable_paths) ?> 个<?= $access_unreadable_count > 0 ? '，不可读 ' . $access_unreadable_count . ' 个' : '' ?><?= !empty($access_stats['truncated']) ? '，已按最大扫描大小截取最近日志' : '' ?>。
+            </div>
+        </div>
+
         <!-- 图表区域 -->
-        <div class="stats-charts grid grid-cols-2 gap-4 mb-4">
-            <div class="chart-container bg-surface border border-border p-4 flex flex-col">
+        <div class="stats-charts">
+            <div class="chart-container">
                 <h3>月度上传统计</h3>
                 <canvas id="monthlyChart"></canvas>
             </div>
 
-            <div class="chart-container bg-surface border border-border p-4 flex flex-col">
+            <div class="chart-container">
                 <h3>年度上传趋势</h3>
                 <canvas id="yearlyTrendChart"></canvas>
             </div>
 
-            <div class="chart-container bg-surface border border-border p-4 flex flex-col">
+            <div class="chart-container">
                 <h3>文件类型分布</h3>
                 <canvas id="typeChart"></canvas>
             </div>
 
-            <div class="chart-container bg-surface border border-border p-4 flex flex-col">
+            <div class="chart-container">
                 <h3>文件大小分布</h3>
                 <canvas id="sizeChart"></canvas>
             </div>
         </div>
 
         <!-- 详细表格 -->
-        <div class="stats-tables grid grid-cols-2 gap-4">
-            <div class="stats-table bg-surface border border-border p-[0.85rem] overflow-hidden">
+        <div class="stats-tables">
+            <div class="stats-table">
                 <h3>年度统计</h3>
                 <div class="table-wrap">
                     <table>
@@ -196,7 +223,7 @@ require_once APP_ROOT . '/header.php';
                 </div>
             </div>
 
-            <div class="stats-table bg-surface border border-border p-[0.85rem] overflow-hidden">
+            <div class="stats-table">
                 <h3>月度统计</h3>
                 <div class="table-wrap">
                     <table>
@@ -211,6 +238,38 @@ require_once APP_ROOT . '/header.php';
                                 <td><?= format_filesize($data['size']) ?></td>
                             </tr>
                         <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="stats-table stats-table-wide">
+                <h3>图片请求 Top 20</h3>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>图片</th><th>请求次数</th><th>访问地址</th></tr>
+                        </thead>
+                        <tbody>
+                        <?php if (empty($access_top_images)): ?>
+                            <tr>
+                                <td colspan="3">暂无 access.log 图片请求记录</td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($access_top_images as $item): ?>
+                                <tr>
+                                    <td title="<?= htmlspecialchars((string)($item['filename'] ?? '')) ?>">
+                                        <?= htmlspecialchars((string)($item['original_name'] ?? $item['filename'] ?? '')) ?>
+                                    </td>
+                                    <td><?= number_format((int)($item['request_count'] ?? 0)) ?></td>
+                                    <td>
+                                        <a href="<?= htmlspecialchars((string)($item['url'] ?? '#')) ?>" target="_blank" rel="noopener">
+                                            <?= htmlspecialchars((string)($item['url'] ?? '')) ?>
+                                        </a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                         </tbody>
                     </table>
                 </div>
