@@ -385,10 +385,6 @@
     font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   }
 
-  .settings-block-runtime .runtime-section-head {
-    @apply mb-3;
-  }
-
   .settings-block-runtime .runtime-resource-grid {
     @apply grid grid-cols-2 gap-4;
   }

@@ -1,13 +1,23 @@
 <?php
 declare(strict_types=1);
 
+if (!defined('LITEPIC_API_V1_DISPATCH')) {
+    header('Content-Type: application/json; charset=utf-8');
+    http_response_code(404);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'API route not found',
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 // API 响应必须保持 JSON，避免 warning/notices 混入响应体
 ini_set('display_errors', '0');
 ini_set('html_errors', '0');
 error_reporting(E_ALL);
 
-require_once 'config.php';
-require_once 'functions.php';
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/functions.php';
 
 // 在任何通用参数校验之前，先处理特殊动作
 $action = (string)($_REQUEST['action'] ?? '');
@@ -37,13 +47,23 @@ if ($action === 'render_card') {
         exit;
     }
 
+    $stored_info = get_image_info($img);
+    if (is_array($stored_info)) {
+        $info = array_merge($info, $stored_info);
+    }
+
     $info = array_merge([
         'filename' => $img,
         'size' => 0,
         'time' => time(),
         'url' => get_img_url($img),
+        'thumb_url' => get_img_url($img),
         'dimensions' => '',
     ], $info);
+
+    if (empty($info['thumb_url'])) {
+        $info['thumb_url'] = $info['url'];
+    }
 
     $type = (string)($_POST['type'] ?? 'gallery');
     $isGallery = $type === 'gallery';
@@ -60,8 +80,13 @@ if ($action === 'render_card') {
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, GET');
-header('Access-Control-Allow-Headers: Content-Type, X-API-Key, Authorization');
+header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, X-API-Key, Authorization, X-Requested-With');
+
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
 
 if ($action === 'get_next_image') {
     if (!is_api_request_authorized()) {
@@ -121,32 +146,96 @@ if ($action === '') {
     error_response('未指定操作');
 }
 
-// 站点级管理动作（不绑定单文件），在通用 file/CSRF 校验前 early-exit。
-if ($action === 'fix_open_basedir') {
-    if (!is_admin()) {
-        error_response('权限不足', 403);
-    }
-    $csrf = (string)($_POST['csrf_token'] ?? $_GET['csrf_token'] ?? '');
-    if (!csrf_token_verify($csrf)) {
-        error_response('CSRF Token 无效或已过期', 403);
-    }
-    $result = fix_open_basedir_for_proc();
-    if (!empty($result['ok'])) {
-        success_response(['message' => $result['note'] ?? '已修复']);
-    }
-    error_response($result['reason'] ?? '修复失败', 500);
-}
-
-if ($file === '') {
-    error_response('未指定文件');
-}
-
 // 管理员操作需要 CSRF 校验（第三方 API Key 仅允许上传/读取，不允许删除/压缩等管理操作）
 if (is_admin()) {
     $csrf = (string)($_POST['csrf_token'] ?? $_GET['csrf_token'] ?? '');
     if (!csrf_token_verify($csrf)) {
         error_response('CSRF Token 无效或已过期', 403);
     }
+}
+
+if ($action === 'queue_avif') {
+    if (!is_admin()) {
+        error_response('权限不足', 403);
+    }
+
+    $raw_files = $_POST['files'] ?? '';
+    $files = [];
+    if (is_array($raw_files)) {
+        $files = $raw_files;
+    } elseif (is_string($raw_files) && trim($raw_files) !== '') {
+        $decoded = json_decode($raw_files, true);
+        if (is_array($decoded)) {
+            $files = $decoded;
+        }
+    }
+
+    if (empty($files)) {
+        error_response('未指定要加入任务队列的图片', 400);
+    }
+
+    $result = [
+        'queued' => 0,
+        'skipped' => 0,
+        'failed' => 0,
+        'errors' => [],
+    ];
+    $seen = [];
+
+    foreach ($files as $raw_file) {
+        $filename = normalize_image_identifier((string)$raw_file);
+        if ($filename === '' || isset($seen[$filename])) {
+            $result['skipped']++;
+            continue;
+        }
+        $seen[$filename] = true;
+
+        $source_path = get_file_path($filename);
+        $ext = strtolower((string)pathinfo($filename, PATHINFO_EXTENSION));
+        if (!is_file($source_path)) {
+            $result['failed']++;
+            $result['errors'][] = '图片不存在: ' . $filename;
+            continue;
+        }
+        if (!can_convert_avif_extension($ext)) {
+            $result['skipped']++;
+            continue;
+        }
+
+        $queued = import_task_enqueue($filename, [
+            'create_thumbnail' => true,
+            'auto_avif' => true,
+            'watermark' => defined('WATERMARK_ENABLED') && WATERMARK_ENABLED,
+            'remote_sync' => remote_storage_enabled() && remote_storage_config_valid(),
+        ]);
+        if ($queued) {
+            $result['queued']++;
+        } else {
+            $result['failed']++;
+            $result['errors'][] = '任务入队失败: ' . $filename;
+        }
+    }
+
+    if ($result['queued'] === 0 && $result['failed'] > 0) {
+        error_response(implode('；', array_slice($result['errors'], 0, 3)), 500);
+    }
+    if ($result['queued'] === 0) {
+        error_response('没有可转换为 AVIF 的图片', 400);
+    }
+
+    $status = import_task_queue_status();
+    success_response([
+        'message' => sprintf('已加入 AVIF 异步任务队列：%d 张', $result['queued']),
+        'queued' => $result['queued'],
+        'skipped' => $result['skipped'],
+        'failed' => $result['failed'],
+        'errors' => array_slice($result['errors'], 0, 5),
+        'task_status' => $status,
+    ]);
+}
+
+if ($file === '') {
+    error_response('未指定文件');
 }
 
 // 获取文件路径
@@ -212,6 +301,10 @@ switch ($action) {
             if (!is_string($webp_path) || $webp_path === '') {
                 throw new Exception('WebP 输出路径无效');
             }
+            $before_size = filesize($path);
+            if ($before_size === false || $before_size <= 0) {
+                throw new Exception('原文件大小不可读');
+            }
             
             if (convert_to_webp($path)) {
                 if (!file_exists($webp_path)) {
@@ -219,9 +312,19 @@ switch ($action) {
                 }
 
                 $webp_filename = get_image_identifier_from_path($webp_path) ?? basename($webp_path);
+                $watermark = apply_watermark_to_image($webp_filename);
+                clearstatcache(true, $webp_path);
                 $webp_size = filesize($webp_path);
+                if ($webp_size === false || $webp_size <= 0) {
+                    throw new Exception('WebP 文件大小不可读');
+                }
+                $saved_size = max(0, $before_size - $webp_size);
+                $saved_percent = $before_size > 0 ? round(($saved_size / $before_size) * 100, 1) : 0;
                 
-                create_thumbnail($webp_filename, true);
+                $thumbnail_url = get_img_url($webp_filename);
+                if (create_thumbnail($webp_filename, true)) {
+                    $thumbnail_url = get_thumbnail_url($webp_filename);
+                }
                 $remote_sync = remote_storage_sync_file_and_thumbnail($webp_filename);
                 success_response([
                     'message' => 'WebP 转换成功',
@@ -229,6 +332,15 @@ switch ($action) {
                     'url' => get_img_url($webp_filename),
                     'size' => $webp_size,
                     'size_text' => format_filesize($webp_size),
+                    'before_size' => $before_size,
+                    'after_size' => $webp_size,
+                    'before_size_text' => format_filesize($before_size),
+                    'after_size_text' => format_filesize($webp_size),
+                    'saved_size' => $saved_size,
+                    'saved_size_text' => format_filesize($saved_size),
+                    'saved_percent' => $saved_percent,
+                    'thumbnail_url' => $thumbnail_url,
+                    'watermark' => $watermark,
                     'remote_storage' => $remote_sync,
                 ]);
             } else {
@@ -251,6 +363,10 @@ switch ($action) {
             if (!is_string($avif_path) || $avif_path === '') {
                 throw new Exception('AVIF 输出路径无效');
             }
+            $before_size = filesize($path);
+            if ($before_size === false || $before_size <= 0) {
+                throw new Exception('原文件大小不可读');
+            }
             
             if (convert_to_avif($path)) {
                 if (!file_exists($avif_path)) {
@@ -258,9 +374,19 @@ switch ($action) {
                 }
 
                 $avif_filename = get_image_identifier_from_path($avif_path) ?? basename($avif_path);
+                $watermark = apply_watermark_to_image($avif_filename);
+                clearstatcache(true, $avif_path);
                 $avif_size = filesize($avif_path);
+                if ($avif_size === false || $avif_size <= 0) {
+                    throw new Exception('AVIF 文件大小不可读');
+                }
+                $saved_size = max(0, $before_size - $avif_size);
+                $saved_percent = $before_size > 0 ? round(($saved_size / $before_size) * 100, 1) : 0;
                 
-                create_thumbnail($avif_filename, true);
+                $thumbnail_url = get_img_url($avif_filename);
+                if (create_thumbnail($avif_filename, true)) {
+                    $thumbnail_url = get_thumbnail_url($avif_filename);
+                }
                 $remote_sync = remote_storage_sync_file_and_thumbnail($avif_filename);
                 success_response([
                     'message' => 'AVIF 转换成功',
@@ -268,6 +394,15 @@ switch ($action) {
                     'url' => get_img_url($avif_filename),
                     'size' => $avif_size,
                     'size_text' => format_filesize($avif_size),
+                    'before_size' => $before_size,
+                    'after_size' => $avif_size,
+                    'before_size_text' => format_filesize($before_size),
+                    'after_size_text' => format_filesize($avif_size),
+                    'saved_size' => $saved_size,
+                    'saved_size_text' => format_filesize($saved_size),
+                    'saved_percent' => $saved_percent,
+                    'thumbnail_url' => $thumbnail_url,
+                    'watermark' => $watermark,
                     'remote_storage' => $remote_sync,
                 ]);
             } else {
@@ -306,7 +441,8 @@ switch ($action) {
                 @unlink($avif);
                 delete_thumbnail((string)(get_image_identifier_from_path($avif) ?? basename($avif)));
             }
-            success_response(['message' => '删除成功']);
+            $message = remote_storage_credentials_valid() ? '删除成功，远程对象将在 24 小时后删除' : '删除成功';
+            success_response(['message' => $message]);
         } else {
             // 改进: 使用 500 状态码
             error_response('删除失败', 500);

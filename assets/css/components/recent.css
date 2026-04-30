@@ -1,61 +1,109 @@
 @layer components {
   .recent-uploads {
-    @apply bg-surface border border-border rounded-md;
-    padding: 1rem;
-    transition: background var(--theme-transition), color var(--theme-transition), box-shadow var(--theme-transition), transform 200ms ease;
-  }
-
-  .recent-uploads:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
+    display: grid;
+    gap: 16px;
+    padding: 22px 24px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
+    border-radius: var(--radius-md);
+    background:
+      linear-gradient(180deg,
+        color-mix(in srgb, var(--surface) 94%, transparent),
+        color-mix(in srgb, var(--surface) 88%, var(--light) 12%));
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.72) inset,
+      0 14px 38px rgba(15, 23, 42, 0.06);
+    transition: background var(--theme-transition), color var(--theme-transition), box-shadow var(--theme-transition);
   }
 
   .recent-header {
-    @apply flex justify-between items-center border-b border-border;
-    margin-bottom: var(--spacing-lg);
-    padding: 10px 14px;
-    gap: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    min-height: 44px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 74%, transparent);
   }
 
   .recent-header h3 {
-    @apply flex items-center gap-2 m-0 text-dark;
-    font-size: 1.1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    color: var(--dark);
+    font-size: 1rem;
+    font-weight: 650;
+  }
+
+  .recent-header h3 i {
+    width: 22px;
+    min-width: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
   }
 
   .recent-count {
-    @apply text-gray text-sm font-normal;
+    color: var(--gray);
+    font-size: 0.86rem;
+    font-weight: 500;
   }
 
   .view-all {
-    @apply flex items-center gap-2 text-primary no-underline text-sm rounded-sm;
-    padding: var(--spacing-sm) var(--spacing);
-    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    padding: 0 10px;
+    border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border-color) 82%);
+    border-radius: 0;
+    color: var(--primary);
+    font-size: 0.86rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
   }
 
   .view-all:hover {
-    @apply bg-light;
-    transform: translateX(5px);
+    background: color-mix(in srgb, var(--primary) 6%, var(--surface) 94%);
+    border-color: color-mix(in srgb, var(--primary) 34%, var(--border-color) 66%);
+    transform: translateX(2px);
   }
 
   .upload-grid {
-    @apply grid grid-cols-5 gap-0 border-t border-l border-border;
-    padding: 14px;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
   }
 
   .img-box {
-    @apply relative rounded-md overflow-hidden bg-surface border-r border-b border-border transition-all duration-300 ease-in-out aspect-[10/7] h-auto self-start;
+    position: relative;
+    align-self: start;
+    aspect-ratio: 10 / 7;
+    height: auto;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--border-color) 66%, transparent);
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--surface) 88%, var(--light) 12%);
+    transition: border-color 160ms ease, box-shadow 160ms ease;
   }
 
   .img-box:hover {
-    transform: none;
+    border-color: color-mix(in srgb, var(--primary) 36%, var(--border-color) 64%);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
   }
 
   .img-box img {
-    @apply w-full h-full object-cover block transition-transform duration-300 ease-in-out;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 260ms ease;
   }
 
   .img-box:hover img {
-    transform: scale(1.05);
+    transform: scale(1.045);
   }
 
   .img-box.deleting {
@@ -63,122 +111,135 @@
   }
 
   .img-overlay {
-    @apply absolute bottom-0 left-0 right-0 p-4 flex gap-2 opacity-0 translate-y-full;
-    background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
-    transition: var(--transition);
+    position: absolute;
+    inset: auto 0 0 0;
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    opacity: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.66), transparent);
+    transform: translateY(100%);
+    transition: opacity 180ms ease, transform 180ms ease;
   }
 
   .img-box:hover .img-overlay {
-    @apply opacity-100 translate-y-0;
+    opacity: 1;
+    transform: translateY(0);
   }
 
   .img-overlay .action-btn {
-    @apply w-8 h-8 rounded-sm border-none bg-white/90 text-dark cursor-pointer flex items-center justify-center;
-    transition: var(--transition);
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 0;
+    background: rgba(255,255,255,0.92);
+    color: var(--dark);
+    cursor: pointer;
+    transition: background 160ms ease, color 160ms ease, transform 160ms ease;
   }
 
   .img-overlay .action-btn:hover {
-    transform: none;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    transform: translateY(-1px);
   }
 
   .img-overlay .copy-btn:hover {
-    @apply bg-primary text-white;
+    background: var(--primary);
+    color: #fff;
   }
 
   .img-overlay .delete-btn:hover {
-    @apply bg-danger text-white;
+    background: var(--danger);
+    color: #fff;
   }
 
   .recent-empty {
-    @apply flex items-center justify-center text-gray border border-dashed border-border;
     grid-column: 1 / -1;
     min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     gap: 10px;
-  }
-
-  /* 暗色模式下的图片操作按钮样式 */
-  html[data-theme="dark"] .img-overlay .action-btn {
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.85);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-  }
-
-  html[data-theme="dark"] .img-overlay .action-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
-    color: #ffffff;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    text-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
-    transform: none;
-  }
-
-  html[data-theme="dark"] .img-overlay .copy-btn:hover {
-    @apply bg-primary;
-    border-color: var(--primary);
-    color: #ffffff;
-  }
-
-  html[data-theme="dark"] .img-overlay .delete-btn:hover {
-    @apply bg-danger;
-    border-color: var(--danger);
-    color: #ffffff;
-  }
-
-  html[data-theme="dark"] .img-overlay .action-btn i {
-    font-size: 1.1rem;
-    transition: transform 0.2s ease;
-  }
-
-  html[data-theme="dark"] .img-overlay .action-btn:hover i {
-    transform: scale(1.1);
-  }
-
-  html[data-theme="dark"] .img-overlay {
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(2px);
+    border: 1px dashed color-mix(in srgb, var(--border-color) 74%, transparent);
+    border-radius: 0;
+    color: var(--gray);
+    background: color-mix(in srgb, var(--surface) 90%, var(--light) 10%);
   }
 
   html[data-theme="dark"] .recent-uploads {
-    background: var(--upload-box-bg);
-    border: 1px solid var(--upload-border);
+    background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.025));
+    border-color: rgba(255,255,255,0.08);
+    box-shadow: none;
   }
 
-  html[data-theme="dark"] .recent-header h3 {
-    color: var(--upload-text);
+  html[data-theme="dark"] .recent-header {
+    border-bottom-color: rgba(255,255,255,0.12);
   }
 
-  html[data-theme="dark"] .recent-count {
-    color: var(--upload-hint);
+  html[data-theme="dark"] .img-box,
+  html[data-theme="dark"] .recent-empty {
+    background: rgba(255,255,255,0.04);
+    border-color: rgba(255,255,255,0.1);
   }
 
-  html[data-theme="dark"] .img-box {
-    background: var(--progress-item-bg);
-    border: 1px solid var(--upload-border);
+  html[data-theme="dark"] .img-box:hover {
+    border-color: color-mix(in srgb, var(--primary) 42%, rgba(255,255,255,0.1));
+    box-shadow: none;
+  }
+
+  html[data-theme="dark"] .img-overlay {
+    background: linear-gradient(to top, rgba(0,0,0,0.74), transparent);
+  }
+
+  html[data-theme="dark"] .img-overlay .action-btn {
+    background: rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.88);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  html[data-theme="dark"] .img-overlay .copy-btn:hover {
+    background: var(--primary);
+    color: #fff;
+  }
+
+  html[data-theme="dark"] .img-overlay .delete-btn:hover {
+    background: var(--danger);
+    color: #fff;
+  }
+
+  @media (max-width: 900px) {
+    .upload-grid {
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
   }
 
   @media (max-width: 768px) {
     .recent-uploads {
-      padding: var(--spacing);
-    }
-
-    .upload-grid {
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    }
-
-    .img-overlay .action-btn {
-      @apply w-7 h-7;
+      border-radius: var(--radius-md);
+      padding: 18px;
     }
   }
 
   @media (max-width: 480px) {
+    .recent-header {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
     .upload-grid {
-      @apply grid-cols-2 gap-2;
-      padding: var(--spacing-sm);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
     }
 
     .img-overlay {
-      @apply p-2;
+      padding: 8px;
+    }
+
+    .img-overlay .action-btn {
+      width: 28px;
+      height: 28px;
     }
   }
 }

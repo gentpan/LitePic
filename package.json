@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build:css": "npx @tailwindcss/cli -i assets/css/tailwind.css -o assets/css/main.css",
-    "build:css:min": "npx @tailwindcss/cli -i assets/css/tailwind.css -o assets/css/main.css --minify",
+    "build:css:min": "npx @tailwindcss/cli -i assets/css/tailwind.css -o assets/css/main.css --minify && cp assets/css/main.css assets/css/main.min.css",
     "watch:css": "npx @tailwindcss/cli -i assets/css/tailwind.css -o assets/css/main.css --watch",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

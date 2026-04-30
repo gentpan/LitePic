@@ -77,42 +77,9 @@ function write_env_kv(array $updates): bool {
  */
 function get_uploaded_images() {
     try {
-        if (STORAGE_TYPE === 'date') {
-            $files = [];
-            $years = glob(UPLOAD_PATH_LOCAL . '*', GLOB_ONLYDIR);
-            
-            foreach ($years as $year) {
-                $yearName = basename($year);
-                if ($yearName === '.thumbs' || str_starts_with($yearName, '.')) {
-                    continue;
-                }
-                // 仅允许标准 YYYY 目录，避免 upload/backup 等目录被自动识别进图库
-                if (!preg_match('/^\d{4}$/', $yearName)) {
-                    continue;
-                }
-                $months = glob($year . '/*', GLOB_ONLYDIR);
-                foreach ($months as $month) {
-                    $monthName = basename($month);
-                    if (str_starts_with($monthName, '.')) {
-                        continue;
-                    }
-                    // 仅允许标准 MM 目录
-                    if (!preg_match('/^(0[1-9]|1[0-2])$/', $monthName)) {
-                        continue;
-                    }
-                    $pattern = $month . '/*.{' . implode(',', ALLOWED_TYPES) . '}';
-                    $matched = glob($pattern, GLOB_BRACE);
-                    if (is_array($matched)) {
-                        $files = array_merge($files, $matched);
-                    }
-                }
-            }
-        } else {
-            $files = glob(UPLOAD_PATH_LOCAL . '*.{' . implode(',', ALLOWED_TYPES) . '}', GLOB_BRACE);
-        }
-        
-        if ($files === false) {
-            debug_log("Failed to get files", ['path' => UPLOAD_PATH_LOCAL], 'error');
+        $files = collect_importable_images_from_dir(rtrim(UPLOAD_PATH_LOCAL, DIRECTORY_SEPARATOR));
+
+        if (empty($files)) {
             return [];
         }
         
@@ -215,9 +182,21 @@ function get_image_display_name(string $identifier): string {
 /**
  * 生成图片访问 URL
  */
+function encode_image_identifier_for_url(string $identifier): string {
+    $parts = array_map('rawurlencode', explode('/', trim($identifier, '/')));
+    return implode('/', $parts);
+}
+
 function get_img_url($filename) {
     $identifier = normalize_image_identifier((string)$filename);
     if ($identifier !== '') {
+        $remote_url = remote_storage_public_url_for_identifier($identifier);
+        if ($remote_url !== null) {
+            return $remote_url;
+        }
+        if (defined('HOTLINK_PROTECTION_ENABLED') && HOTLINK_PROTECTION_ENABLED) {
+            return rtrim(SITE_URL, '/') . '/i/' . encode_image_identifier_for_url($identifier);
+        }
         return SITE_URL . UPLOAD_PATH_WEB . $identifier;
     }
 
@@ -225,8 +204,19 @@ function get_img_url($filename) {
         $path = get_file_path($filename);
         $relative = get_image_identifier_from_path($path);
         if ($relative !== null) {
+            $remote_url = remote_storage_public_url_for_identifier($relative);
+            if ($remote_url !== null) {
+                return $remote_url;
+            }
+            if (defined('HOTLINK_PROTECTION_ENABLED') && HOTLINK_PROTECTION_ENABLED) {
+                return rtrim(SITE_URL, '/') . '/i/' . encode_image_identifier_for_url($relative);
+            }
             return SITE_URL . UPLOAD_PATH_WEB . $relative;
         }
+    }
+
+    if (defined('HOTLINK_PROTECTION_ENABLED') && HOTLINK_PROTECTION_ENABLED) {
+        return rtrim(SITE_URL, '/') . '/i/' . rawurlencode(get_image_display_name((string)$filename));
     }
 
     return SITE_URL . UPLOAD_PATH_WEB . get_image_display_name((string)$filename);
@@ -270,6 +260,10 @@ function get_thumbnail_path(string $filename): string {
 function get_thumbnail_url(string $filename): string {
     $thumb_filename = get_thumbnail_filename($filename);
     $identifier = normalize_image_identifier($filename);
+    $remote_url = remote_storage_public_url_for_local_path(get_thumbnail_path($filename));
+    if ($remote_url !== null) {
+        return $remote_url;
+    }
 
     if (STORAGE_TYPE === 'date') {
         $relative = $identifier;
@@ -288,15 +282,6 @@ function get_thumbnail_url(string $filename): string {
     return SITE_URL . UPLOAD_PATH_WEB . '.thumbs/' . $thumb_filename;
 }
 
-function remote_storage_mode(): string {
-    $mode = strtolower(trim((string)REMOTE_STORAGE_MODE));
-    return in_array($mode, ['off', 'sync', 'backup'], true) ? $mode : 'off';
-}
-
-function remote_storage_enabled(): bool {
-    return remote_storage_mode() !== 'off';
-}
-
 function remote_storage_credentials_valid(): bool {
     return S3_BUCKET !== ''
         && S3_KEY !== ''
@@ -304,8 +289,188 @@ function remote_storage_credentials_valid(): bool {
         && S3_ENDPOINT !== '';
 }
 
+function remote_storage_usage(): string {
+    $usage = defined('REMOTE_STORAGE_USAGE') ? strtolower((string)REMOTE_STORAGE_USAGE) : 'backup';
+    return in_array($usage, ['backup', 'storage'], true) ? $usage : 'backup';
+}
+
+function remote_storage_mode(): string {
+    return remote_storage_credentials_valid() ? 'sync' : 'off';
+}
+
+function remote_storage_enabled(): bool {
+    return remote_storage_credentials_valid();
+}
+
 function remote_storage_config_valid(): bool {
-    return remote_storage_enabled() && remote_storage_credentials_valid();
+    return remote_storage_credentials_valid();
+}
+
+function remote_storage_public_delivery_enabled(): bool {
+    return remote_storage_usage() === 'storage'
+        && remote_storage_credentials_valid()
+        && defined('S3_PUBLIC_BASE_URL')
+        && trim((string)S3_PUBLIC_BASE_URL) !== '';
+}
+
+function remote_storage_public_url_for_object_key(string $object_key): ?string {
+    $object_key = trim($object_key, '/');
+    if (!remote_storage_public_delivery_enabled() || $object_key === '') {
+        return null;
+    }
+
+    $base = rtrim((string)S3_PUBLIC_BASE_URL, '/');
+    if ($base === '') {
+        return null;
+    }
+
+    return $base . '/' . remote_storage_encoded_key($object_key);
+}
+
+function remote_storage_public_url_for_identifier(string $identifier): ?string {
+    $identifier = normalize_image_identifier($identifier);
+    if ($identifier === '') {
+        return null;
+    }
+
+    return remote_storage_public_url_for_object_key(remote_storage_prefix() . $identifier);
+}
+
+function remote_storage_public_url_for_local_path(string $local_path): ?string {
+    $object_key = remote_storage_object_key_from_local_path($local_path);
+    if ($object_key === null) {
+        return null;
+    }
+
+    return remote_storage_public_url_for_object_key($object_key);
+}
+
+function remote_storage_delete_queue_file(): string {
+    return __DIR__ . '/data/remote_delete_queue.json';
+}
+
+function remote_storage_read_delete_queue(): array {
+    $path = remote_storage_delete_queue_file();
+    if (!is_file($path)) {
+        return [];
+    }
+
+    $raw = file_get_contents($path);
+    if (!is_string($raw) || trim($raw) === '') {
+        return [];
+    }
+
+    $decoded = json_decode($raw, true);
+    return is_array($decoded) ? $decoded : [];
+}
+
+function remote_storage_write_delete_queue(array $queue): bool {
+    $path = remote_storage_delete_queue_file();
+    $dir = dirname($path);
+    if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+        return false;
+    }
+
+    $normalized = [];
+    foreach ($queue as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $key = trim((string)($item['object_key'] ?? ''));
+        if ($key === '') {
+            continue;
+        }
+        $item['object_key'] = $key;
+        $item['due_at'] = max(0, (int)($item['due_at'] ?? time()));
+        $item['created_at'] = max(0, (int)($item['created_at'] ?? time()));
+        $item['attempts'] = max(0, (int)($item['attempts'] ?? 0));
+        $normalized[$key] = $item;
+    }
+
+    return file_put_contents($path, json_encode(array_values($normalized), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX) !== false;
+}
+
+function remote_storage_queue_delete_object(string $object_key, ?int $delay_seconds = null): void {
+    $object_key = trim($object_key);
+    if ($object_key === '') {
+        return;
+    }
+
+    $delay_seconds = $delay_seconds ?? (defined('REMOTE_STORAGE_DELETE_DELAY_SECONDS') ? (int)REMOTE_STORAGE_DELETE_DELAY_SECONDS : 86400);
+    $due_at = time() + max(0, $delay_seconds);
+    $queue = remote_storage_read_delete_queue();
+    $indexed = [];
+    foreach ($queue as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $key = trim((string)($item['object_key'] ?? ''));
+        if ($key !== '') {
+            $indexed[$key] = $item;
+        }
+    }
+
+    $existing = is_array($indexed[$object_key] ?? null) ? $indexed[$object_key] : [];
+    $indexed[$object_key] = [
+        'object_key' => $object_key,
+        'created_at' => (int)($existing['created_at'] ?? time()),
+        'due_at' => min($due_at, (int)($existing['due_at'] ?? $due_at)),
+        'attempts' => (int)($existing['attempts'] ?? 0),
+        'last_error' => $existing['last_error'] ?? null,
+    ];
+
+    remote_storage_write_delete_queue(array_values($indexed));
+}
+
+function remote_storage_process_delete_queue(int $limit = 25): array {
+    $result = [
+        'processed' => 0,
+        'deleted' => 0,
+        'failed' => 0,
+        'pending' => 0,
+    ];
+
+    $queue = remote_storage_read_delete_queue();
+    if (empty($queue)) {
+        return $result;
+    }
+    if (!remote_storage_credentials_valid()) {
+        $result['pending'] = count($queue);
+        return $result;
+    }
+
+    $now = time();
+    $remaining = [];
+    foreach ($queue as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $key = trim((string)($item['object_key'] ?? ''));
+        if ($key === '') {
+            continue;
+        }
+        $due_at = (int)($item['due_at'] ?? 0);
+        if ($due_at > $now || $result['processed'] >= $limit) {
+            $remaining[] = $item;
+            continue;
+        }
+
+        $result['processed']++;
+        if (remote_storage_delete_object($key)) {
+            $result['deleted']++;
+            continue;
+        }
+
+        $item['attempts'] = (int)($item['attempts'] ?? 0) + 1;
+        $item['last_error'] = 'delete_failed';
+        $item['due_at'] = $now + min(3600 * max(1, (int)$item['attempts']), 86400);
+        $remaining[] = $item;
+        $result['failed']++;
+    }
+
+    $result['pending'] = count($remaining);
+    remote_storage_write_delete_queue($remaining);
+    return $result;
 }
 
 function remote_storage_prefix(): string {
@@ -509,10 +674,14 @@ function remote_storage_delete_object(string $object_key): bool {
 }
 
 function remote_storage_sync_file_and_thumbnail(string $filename): array {
+    remote_storage_process_delete_queue();
+
     $result = [
         'enabled' => remote_storage_enabled(),
         'mode' => remote_storage_mode(),
+        'usage' => remote_storage_usage(),
         'configured' => remote_storage_config_valid(),
+        'public_delivery' => remote_storage_public_delivery_enabled(),
         'uploaded' => [],
         'errors' => [],
     ];
@@ -551,10 +720,8 @@ function remote_storage_sync_file_and_thumbnail(string $filename): array {
 }
 
 function remote_storage_delete_file_and_thumbnail(string $filename): void {
-    // 删除动作优先保证本地与远端一致：只要远端凭证有效即尝试远端删除
-    if (!remote_storage_credentials_valid()) {
-        return;
-    }
+    remote_storage_process_delete_queue();
+
     $keys = [];
     $file_key = remote_storage_object_key_for_filename($filename);
     if (is_string($file_key) && $file_key !== '') {
@@ -566,7 +733,7 @@ function remote_storage_delete_file_and_thumbnail(string $filename): void {
     }
     $keys = array_values(array_unique($keys));
     foreach ($keys as $key) {
-        remote_storage_delete_object($key);
+        remote_storage_queue_delete_object($key);
     }
 }
 
@@ -783,6 +950,9 @@ function remote_storage_delete_all_objects(): array {
 
     $scope = $prefix !== '' ? ('前缀 ' . $prefix) : '整个 Bucket';
     $msg = sprintf('远程清理完成（%s）：成功 %d，失败 %d', $scope, $deleted, $failed);
+    if ($failed === 0) {
+        remote_storage_write_delete_queue([]);
+    }
     return [
         'success' => $failed === 0,
         'message' => $msg,
@@ -792,9 +962,6 @@ function remote_storage_delete_all_objects(): array {
 }
 
 function remote_storage_test_connection(): array {
-    if (!remote_storage_enabled()) {
-        return ['success' => false, 'message' => '当前模式为 off，未启用远程存储'];
-    }
     if (!remote_storage_config_valid()) {
         return ['success' => false, 'message' => 'S3/R2 配置不完整'];
     }
@@ -811,16 +978,17 @@ function remote_storage_test_connection(): array {
         return ['success' => false, 'message' => '连接成功但清理测试文件失败，请检查删除权限'];
     }
 
-    return ['success' => true, 'message' => '连接测试成功'];
+    $queue = remote_storage_process_delete_queue();
+    $suffix = ((int)($queue['deleted'] ?? 0) > 0)
+        ? sprintf('；已处理到期远程删除 %d 个', (int)$queue['deleted'])
+        : '';
+    return ['success' => true, 'message' => '连接测试成功' . $suffix];
 }
 
 /**
  * 一键同步：将当前本地图库（原图+缩略图）全量同步到远端
  */
 function remote_storage_sync_all_local_images(): array {
-    if (!remote_storage_enabled()) {
-        return ['success' => false, 'message' => '远程存储未启用', 'total' => 0, 'synced' => 0, 'failed' => 0];
-    }
     if (!remote_storage_config_valid()) {
         return ['success' => false, 'message' => '远程存储配置不完整', 'total' => 0, 'synced' => 0, 'failed' => 0];
     }
@@ -860,9 +1028,6 @@ function remote_storage_sync_all_local_images(): array {
  * 一键恢复：从远程对象存储下载前缀下全部对象到本地 uploads
  */
 function remote_storage_restore_all_to_local(): array {
-    if (!remote_storage_enabled()) {
-        return ['success' => false, 'message' => '远程存储未启用', 'total' => 0, 'restored' => 0, 'failed' => 0];
-    }
     if (!remote_storage_config_valid()) {
         return ['success' => false, 'message' => '远程存储配置不完整', 'total' => 0, 'restored' => 0, 'failed' => 0];
     }
@@ -1027,6 +1192,10 @@ function create_thumbnail(string $filename, bool $force = false): bool {
     $target_width = max(1, (int)floor($source_width * $scale));
     $target_height = max(1, (int)floor($source_height * $scale));
 
+    if (create_thumbnail_with_imagick($source_path, $thumb_path, $target_width, $target_height)) {
+        return true;
+    }
+
     $source = create_image_resource($source_path, (string)$image_info['mime']);
     if (!$source) {
         return false;
@@ -1047,6 +1216,47 @@ function create_thumbnail(string $filename, bool $force = false): bool {
     imagedestroy($thumb);
 
     return $saved;
+}
+
+/**
+ * 使用 ImageMagick 生成缩略图，避免超大图片被 GD memory_limit 拦截。
+ */
+function create_thumbnail_with_imagick(string $source_path, string $thumb_path, int $target_width, int $target_height): bool {
+    if (!class_exists('Imagick') || $target_width <= 0 || $target_height <= 0) {
+        return false;
+    }
+
+    try {
+        $image = new Imagick();
+        $image->readImage($source_path);
+        $image->setFirstIterator();
+        $frame = $image->getImage();
+        $image->clear();
+        $image->destroy();
+
+        $frame->setImagePage(0, 0, 0, 0);
+        $frame->setImageBackgroundColor('white');
+        if (defined('Imagick::ALPHACHANNEL_REMOVE')) {
+            $frame->setImageAlphaChannel(Imagick::ALPHACHANNEL_REMOVE);
+        }
+        $frame->mergeImageLayers(Imagick::LAYERMETHOD_FLATTEN);
+        $frame->thumbnailImage($target_width, $target_height, true, true);
+        $frame->setImageFormat('jpeg');
+        $frame->setImageCompression(Imagick::COMPRESSION_JPEG);
+        $frame->setImageCompressionQuality(THUMBNAIL_QUALITY);
+
+        $saved = $frame->writeImage($thumb_path);
+        $frame->clear();
+        $frame->destroy();
+
+        return $saved && file_exists($thumb_path);
+    } catch (Throwable $e) {
+        debug_log('ImageMagick thumbnail create failed', [
+            'file' => basename($source_path),
+            'error' => $e->getMessage(),
+        ], 'warning');
+        return false;
+    }
 }
 
 /**
@@ -1184,6 +1394,91 @@ function collect_importable_images_from_dir(string $dir): array {
     return $images;
 }
 
+function scan_import_is_absolute_path(string $path): bool {
+    return $path !== '' && (str_starts_with($path, '/') || preg_match('/^[A-Za-z]:[\\\\\\/]/', $path) === 1);
+}
+
+function resolve_scan_import_sources(string $source_input, array &$errors = []): array {
+    $sources = [];
+    $raw_items = [];
+    $source_input = trim($source_input);
+    $using_default_sources = $source_input === '';
+
+    if ($using_default_sources) {
+        $raw_items = ['upload', 'uploads'];
+    } else {
+        $raw_items = preg_split('/[\r\n,]+/', $source_input) ?: [];
+    }
+
+    foreach ($raw_items as $raw_item) {
+        $raw_item = trim((string)$raw_item);
+        $raw_item = trim($raw_item, " \t\n\r\0\x0B\"'");
+        if ($raw_item === '') {
+            continue;
+        }
+
+        $candidate = scan_import_is_absolute_path($raw_item)
+            ? $raw_item
+            : __DIR__ . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $raw_item);
+        $real = realpath($candidate);
+        if ($real === false || !is_dir($real)) {
+            if (!$using_default_sources) {
+                $errors[] = '目录不存在: ' . $raw_item;
+            }
+            continue;
+        }
+        if (!is_readable($real)) {
+            if (!$using_default_sources) {
+                $errors[] = '目录不可读: ' . $raw_item;
+            }
+            continue;
+        }
+
+        $normalized_key = rtrim(str_replace('\\', '/', $real), '/');
+        $sources[$normalized_key] = $real;
+    }
+
+    return array_values($sources);
+}
+
+function scan_import_relative_identifier(string $source_path, string $source_root): string {
+    $normalized_path = str_replace('\\', '/', $source_path);
+    $normalized_root = rtrim(str_replace('\\', '/', $source_root), '/') . '/';
+    if (str_starts_with($normalized_path, $normalized_root)) {
+        $relative = substr($normalized_path, strlen($normalized_root));
+    } else {
+        $relative = basename($source_path);
+    }
+
+    return normalize_image_identifier($relative);
+}
+
+function unique_import_target_identifier(string $relative_identifier): string {
+    $relative_identifier = normalize_image_identifier($relative_identifier);
+    if ($relative_identifier === '') {
+        return '';
+    }
+
+    $target_path = UPLOAD_PATH_LOCAL . str_replace('/', DIRECTORY_SEPARATOR, $relative_identifier);
+    if (!file_exists($target_path)) {
+        return $relative_identifier;
+    }
+
+    $dir = (string)pathinfo($relative_identifier, PATHINFO_DIRNAME);
+    $name = (string)pathinfo($relative_identifier, PATHINFO_FILENAME);
+    $ext = strtolower((string)pathinfo($relative_identifier, PATHINFO_EXTENSION));
+    $prefix = $dir !== '.' && $dir !== '' ? $dir . '/' : '';
+    for ($i = 1; $i <= 999; $i++) {
+        $candidate = $prefix . $name . '-' . $i . ($ext !== '' ? '.' . $ext : '');
+        $candidate_path = UPLOAD_PATH_LOCAL . str_replace('/', DIRECTORY_SEPARATOR, $candidate);
+        if (!file_exists($candidate_path)) {
+            return $candidate;
+        }
+    }
+
+    return '';
+}
+
 /**
  * 通过 hash 建立当前图库索引，避免重复导入
  */
@@ -1204,33 +1499,354 @@ function build_uploaded_hash_index(): array {
     return $index;
 }
 
+function import_task_queue_file(): string {
+    return __DIR__ . '/data/import_tasks_queue.json';
+}
+
+function import_task_has_work(array $options): bool {
+    return !empty($options['create_thumbnail'])
+        || !empty($options['auto_compress'])
+        || !empty($options['auto_webp'])
+        || !empty($options['auto_avif'])
+        || !empty($options['watermark'])
+        || !empty($options['remote_sync']);
+}
+
+function import_task_normalize(array $item): ?array {
+    $filename = normalize_image_identifier((string)($item['filename'] ?? $item['image'] ?? ''));
+    if ($filename === '') {
+        return null;
+    }
+
+    $task = [
+        'id' => sha1($filename),
+        'filename' => $filename,
+        'create_thumbnail' => !empty($item['create_thumbnail']),
+        'auto_compress' => !empty($item['auto_compress']),
+        'auto_webp' => !empty($item['auto_webp']),
+        'auto_avif' => !empty($item['auto_avif']),
+        'watermark' => !empty($item['watermark']),
+        'remote_sync' => !empty($item['remote_sync']),
+        'created_at' => max(0, (int)($item['created_at'] ?? time())),
+        'updated_at' => max(0, (int)($item['updated_at'] ?? time())),
+        'attempts' => max(0, (int)($item['attempts'] ?? 0)),
+        'last_error' => isset($item['last_error']) ? (string)$item['last_error'] : null,
+    ];
+
+    return import_task_has_work($task) ? $task : null;
+}
+
+function import_task_read_queue(): array {
+    $path = import_task_queue_file();
+    if (!is_file($path)) {
+        return [];
+    }
+
+    $raw = file_get_contents($path);
+    if (!is_string($raw) || trim($raw) === '') {
+        return [];
+    }
+
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded)) {
+        return [];
+    }
+
+    $indexed = [];
+    foreach ($decoded as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $task = import_task_normalize($item);
+        if ($task !== null) {
+            $indexed[$task['id']] = $task;
+        }
+    }
+
+    return array_values($indexed);
+}
+
+function import_task_write_queue(array $queue): bool {
+    $path = import_task_queue_file();
+    $dir = dirname($path);
+    if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+        return false;
+    }
+
+    $indexed = [];
+    foreach ($queue as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $task = import_task_normalize($item);
+        if ($task !== null) {
+            $indexed[$task['id']] = $task;
+        }
+    }
+
+    return file_put_contents($path, json_encode(array_values($indexed), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX) !== false;
+}
+
+function import_task_enqueue(string $filename, array $options): bool {
+    $filename = normalize_image_identifier($filename);
+    if ($filename === '') {
+        return false;
+    }
+
+    $task = import_task_normalize([
+        'filename' => $filename,
+        'create_thumbnail' => !empty($options['create_thumbnail']),
+        'auto_compress' => !empty($options['auto_compress']),
+        'auto_webp' => !empty($options['auto_webp']),
+        'auto_avif' => !empty($options['auto_avif']),
+        'watermark' => !empty($options['watermark']),
+        'remote_sync' => !empty($options['remote_sync']),
+        'created_at' => time(),
+        'updated_at' => time(),
+    ]);
+    if ($task === null) {
+        return false;
+    }
+
+    $queue = import_task_read_queue();
+    $indexed = [];
+    foreach ($queue as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $existing = import_task_normalize($item);
+        if ($existing !== null) {
+            $indexed[$existing['id']] = $existing;
+        }
+    }
+
+    if (isset($indexed[$task['id']])) {
+        $existing = $indexed[$task['id']];
+        foreach (['create_thumbnail', 'auto_compress', 'watermark', 'remote_sync'] as $key) {
+            $task[$key] = !empty($task[$key]) || !empty($existing[$key]);
+        }
+        if (empty($task['auto_webp']) && empty($task['auto_avif'])) {
+            $task['auto_webp'] = !empty($existing['auto_webp']);
+            $task['auto_avif'] = !empty($existing['auto_avif']);
+        }
+        $task['created_at'] = (int)($existing['created_at'] ?? $task['created_at']);
+        $task['attempts'] = (int)($existing['attempts'] ?? 0);
+        $task['last_error'] = $existing['last_error'] ?? null;
+    }
+
+    $indexed[$task['id']] = $task;
+    return import_task_write_queue(array_values($indexed));
+}
+
+function import_task_process_image(array $task): array {
+    $filename = normalize_image_identifier((string)($task['filename'] ?? ''));
+    $result = [
+        'success' => false,
+        'filename' => $filename,
+        'final_filename' => $filename,
+        'thumb_created' => 0,
+        'compressed' => 0,
+        'webp_created' => 0,
+        'avif_created' => 0,
+        'watermark_applied' => 0,
+        'skip_compress' => 0,
+        'skip_webp' => 0,
+        'skip_avif' => 0,
+        'skip_watermark' => 0,
+        'errors' => [],
+    ];
+
+    if ($filename === '') {
+        $result['errors'][] = '任务缺少图片路径';
+        return $result;
+    }
+
+    $path = get_file_path($filename);
+    if (!is_file($path)) {
+        $result['errors'][] = '图片不存在: ' . $filename;
+        return $result;
+    }
+
+    $final_filename = $filename;
+    $ext = strtolower((string)pathinfo($final_filename, PATHINFO_EXTENSION));
+
+    if (!empty($task['auto_compress'])) {
+        if (can_compress_extension($ext)) {
+            $compress_result = compress_image_by_mode(get_file_path($final_filename), 85);
+            if (!empty($compress_result['success'])) {
+                $result['compressed']++;
+            } else {
+                $result['skip_compress']++;
+            }
+        } else {
+            $result['skip_compress']++;
+        }
+    }
+
+    if (!empty($task['auto_webp'])) {
+        if (can_convert_webp_extension($ext)) {
+            $origin_path = get_file_path($final_filename);
+            if (convert_to_webp($origin_path)) {
+                $webp_path = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.webp', $origin_path);
+                if (is_string($webp_path) && is_file($webp_path)) {
+                    $webp_filename = get_image_identifier_from_path($webp_path) ?? basename($webp_path);
+                    if ($webp_filename !== $final_filename) {
+                        if (!KEEP_ORIGINAL_AFTER_PROCESS) {
+                            @unlink($origin_path);
+                            delete_thumbnail($final_filename);
+                        }
+                        $final_filename = $webp_filename;
+                        $ext = strtolower((string)pathinfo($final_filename, PATHINFO_EXTENSION));
+                    }
+                    $result['webp_created']++;
+                } else {
+                    $result['skip_webp']++;
+                }
+            } else {
+                $result['skip_webp']++;
+            }
+        } else {
+            $result['skip_webp']++;
+        }
+    } elseif (!empty($task['auto_avif'])) {
+        if (can_convert_avif_extension($ext)) {
+            $origin_path = get_file_path($final_filename);
+            if (convert_to_avif($origin_path)) {
+                $avif_path = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.avif', $origin_path);
+                if (is_string($avif_path) && is_file($avif_path)) {
+                    $avif_filename = get_image_identifier_from_path($avif_path) ?? basename($avif_path);
+                    if ($avif_filename !== $final_filename) {
+                        if (!KEEP_ORIGINAL_AFTER_PROCESS) {
+                            @unlink($origin_path);
+                            delete_thumbnail($final_filename);
+                        }
+                        $final_filename = $avif_filename;
+                        $ext = strtolower((string)pathinfo($final_filename, PATHINFO_EXTENSION));
+                    }
+                    $result['avif_created']++;
+                } else {
+                    $result['skip_avif']++;
+                }
+            } else {
+                $result['skip_avif']++;
+            }
+        } else {
+            $result['skip_avif']++;
+        }
+    }
+
+    if (!empty($task['watermark'])) {
+        $watermark = apply_watermark_to_image($final_filename);
+        if (!empty($watermark['applied'])) {
+            $result['watermark_applied']++;
+        } elseif (!empty($watermark['enabled'])) {
+            $result['skip_watermark']++;
+        }
+    }
+
+    if (!empty($task['create_thumbnail']) && can_generate_thumbnail($final_filename) && create_thumbnail($final_filename, true)) {
+        $result['thumb_created']++;
+    }
+
+    if (!empty($task['remote_sync']) && remote_storage_enabled() && remote_storage_config_valid()) {
+        remote_storage_sync_file_and_thumbnail($final_filename);
+    }
+
+    $result['success'] = true;
+    $result['final_filename'] = $final_filename;
+    return $result;
+}
+
+function import_task_process_queue(int $limit = 8): array {
+    $limit = max(1, min(50, $limit));
+    $queue = import_task_read_queue();
+    $result = [
+        'processed' => 0,
+        'succeeded' => 0,
+        'failed' => 0,
+        'pending' => 0,
+        'thumb_created' => 0,
+        'compressed' => 0,
+        'webp_created' => 0,
+        'avif_created' => 0,
+        'watermark_applied' => 0,
+        'skip_compress' => 0,
+        'skip_webp' => 0,
+        'skip_avif' => 0,
+        'skip_watermark' => 0,
+        'errors' => [],
+    ];
+
+    if (empty($queue)) {
+        return $result;
+    }
+
+    $remaining = [];
+    foreach ($queue as $task) {
+        if ($result['processed'] >= $limit) {
+            $remaining[] = $task;
+            continue;
+        }
+
+        $result['processed']++;
+        $task_report = import_task_process_image($task);
+        foreach (['thumb_created', 'compressed', 'webp_created', 'avif_created', 'watermark_applied', 'skip_compress', 'skip_webp', 'skip_avif', 'skip_watermark'] as $key) {
+            $result[$key] += (int)($task_report[$key] ?? 0);
+        }
+
+        if (!empty($task_report['success'])) {
+            $result['succeeded']++;
+            continue;
+        }
+
+        $result['failed']++;
+        $errors = is_array($task_report['errors'] ?? null) ? $task_report['errors'] : ['任务处理失败'];
+        $result['errors'] = array_merge($result['errors'], $errors);
+        $task['attempts'] = (int)($task['attempts'] ?? 0) + 1;
+        $task['updated_at'] = time();
+        $task['last_error'] = (string)($errors[0] ?? '任务处理失败');
+        if ($task['attempts'] < 3) {
+            $remaining[] = $task;
+        }
+    }
+
+    $result['pending'] = count($remaining);
+    import_task_write_queue($remaining);
+    return $result;
+}
+
+function import_task_queue_status(): array {
+    $queue = import_task_read_queue();
+    $failed = 0;
+    foreach ($queue as $task) {
+        if ((int)($task['attempts'] ?? 0) > 0) {
+            $failed++;
+        }
+    }
+
+    return [
+        'pending' => count($queue),
+        'failed' => $failed,
+    ];
+}
+
 /**
  * 扫描并导入旧目录图片到当前图床
  * 说明：
- * - 源目录优先扫描 ./upload（旧目录），可选再扫描 ./uploads 根目录内零散文件
- * - 导入时按文件时间放入 YYYY/MM 目录
- * - 自动生成缩略图与文件名映射
+ * - 默认扫描 ./upload 与 ./uploads，也可传入 source_path 指定目录
+ * - 递归扫描源目录与子目录
+ * - 导入时保留源目录内的相对路径
+ * - 自动生成缩略图、压缩、转换等后处理会进入导入任务队列
  */
 function scan_and_import_uploads(array $options = []): array {
     $create_thumb = !array_key_exists('create_thumbnail', $options) || (bool)$options['create_thumbnail'];
     $auto_webp = !empty($options['auto_webp']);
     $auto_avif = !empty($options['auto_avif']);
-    // 转换与压缩互斥，避免流程冲突
-    $auto_compress = !empty($options['auto_compress']) && !$auto_webp && !$auto_avif;
+    $auto_compress = !empty($options['auto_compress']);
+    $queue_processing = !array_key_exists('queue_processing', $options) || (bool)$options['queue_processing'];
 
-    $base_dir = __DIR__;
-    $legacy_dir = $base_dir . DIRECTORY_SEPARATOR . 'upload';
+    $legacy_dir = __DIR__ . DIRECTORY_SEPARATOR . 'upload';
     $current_root = rtrim(UPLOAD_PATH_LOCAL, DIRECTORY_SEPARATOR);
-
-    $sources = [];
-    if (is_dir($legacy_dir)) {
-        $sources[] = $legacy_dir;
-    }
-
-    // 若当前 uploads 根目录存在未纳入日期结构的历史文件，也一并补录
-    if (is_dir($current_root)) {
-        $sources[] = $current_root;
-    }
 
     $report = [
         'scanned' => 0,
@@ -1241,11 +1857,16 @@ function scan_and_import_uploads(array $options = []): array {
         'compressed' => 0,
         'webp_created' => 0,
         'avif_created' => 0,
+        'watermark_applied' => 0,
         'skip_compress' => 0,
         'skip_webp' => 0,
         'skip_avif' => 0,
+        'skip_watermark' => 0,
+        'tasks_queued' => 0,
         'errors' => [],
     ];
+
+    $sources = resolve_scan_import_sources((string)($options['source_path'] ?? ''), $report['errors']);
 
     if (empty($sources)) {
         $report['errors'][] = '未找到可扫描目录（upload / uploads）';
@@ -1264,6 +1885,12 @@ function scan_and_import_uploads(array $options = []): array {
             $normalized = str_replace('\\', '/', $source_path);
             $is_in_current_uploads = str_starts_with($normalized, $current_root_normalized);
             $is_in_legacy_upload = str_starts_with($normalized, $legacy_root_normalized);
+            $relative_identifier = scan_import_relative_identifier($source_path, $source_dir);
+            if ($relative_identifier === '') {
+                $report['failed']++;
+                $report['errors'][] = '路径解析失败: ' . $source_path;
+                continue;
+            }
 
             // 跳过当前系统自动生成缩略图文件
             $base = basename($normalized);
@@ -1294,16 +1921,19 @@ function scan_and_import_uploads(array $options = []): array {
                 save_original_filename($identifier, basename($source_path));
                 $final_filename = $identifier;
             } else {
-                $mtime = @filemtime($source_path);
-                $target_dir = get_storage_path_by_timestamp($mtime !== false ? (int)$mtime : time());
+                $target_identifier = unique_import_target_identifier($relative_identifier);
+                if ($target_identifier === '') {
+                    $report['failed']++;
+                    $report['errors'][] = '目标路径生成失败: ' . $relative_identifier;
+                    continue;
+                }
+                $target_path = UPLOAD_PATH_LOCAL . str_replace('/', DIRECTORY_SEPARATOR, $target_identifier);
+                $target_dir = dirname($target_path);
                 if (!is_dir($target_dir) && !mkdir($target_dir, 0755, true)) {
                     $report['failed']++;
                     $report['errors'][] = '创建目录失败: ' . $target_dir;
                     continue;
                 }
-
-                $new_filename = generate_filename($ext);
-                $target_path = $target_dir . $new_filename;
 
                 if (!@copy($source_path, $target_path)) {
                     $report['failed']++;
@@ -1311,83 +1941,30 @@ function scan_and_import_uploads(array $options = []): array {
                     continue;
                 }
 
+                $mtime = @filemtime($source_path);
                 if ($mtime !== false) {
                     @touch($target_path, (int)$mtime);
                 }
 
-                $final_filename = get_image_identifier_from_path($target_path) ?? $new_filename;
-                save_original_filename($final_filename, basename($source_path));
+                $final_filename = get_image_identifier_from_path($target_path) ?? $target_identifier;
+                save_original_filename($final_filename, $relative_identifier);
             }
 
-            // 导入后可选处理：WebP / AVIF / 压缩 / 缩略图（不支持格式自动跳过）
-            if ($auto_webp) {
-                if (can_convert_webp_extension($ext)) {
-                    $origin_path = get_file_path($final_filename);
-                    if (convert_to_webp($origin_path)) {
-                        $webp_path = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.webp', $origin_path);
-                        if (is_string($webp_path) && is_file($webp_path)) {
-                            $webp_filename = get_image_identifier_from_path($webp_path) ?? basename($webp_path);
-                            if ($webp_filename !== $final_filename) {
-                                if (!KEEP_ORIGINAL_AFTER_PROCESS) {
-                                    @unlink($origin_path);
-                                    delete_thumbnail($final_filename);
-                                }
-                                $final_filename = $webp_filename;
-                            }
-                            $report['webp_created']++;
-                        } else {
-                            $report['skip_webp']++;
-                        }
-                    } else {
-                        $report['skip_webp']++;
-                    }
+            $task_options = [
+                'create_thumbnail' => $create_thumb,
+                'auto_compress' => $auto_compress,
+                'auto_webp' => $auto_webp,
+                'auto_avif' => $auto_avif,
+                'watermark' => defined('WATERMARK_ENABLED') && WATERMARK_ENABLED,
+                'remote_sync' => remote_storage_enabled() && remote_storage_config_valid(),
+            ];
+            if ($queue_processing && import_task_has_work($task_options)) {
+                if (import_task_enqueue($final_filename, $task_options)) {
+                    $report['tasks_queued']++;
                 } else {
-                    $report['skip_webp']++;
+                    $report['failed']++;
+                    $report['errors'][] = '任务入队失败: ' . $final_filename;
                 }
-            } elseif ($auto_avif) {
-                if (can_convert_avif_extension($ext)) {
-                    $origin_path = get_file_path($final_filename);
-                    if (convert_to_avif($origin_path)) {
-                        $avif_path = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.avif', $origin_path);
-                        if (is_string($avif_path) && is_file($avif_path)) {
-                            $avif_filename = get_image_identifier_from_path($avif_path) ?? basename($avif_path);
-                            if ($avif_filename !== $final_filename) {
-                                if (!KEEP_ORIGINAL_AFTER_PROCESS) {
-                                    @unlink($origin_path);
-                                    delete_thumbnail($final_filename);
-                                }
-                                $final_filename = $avif_filename;
-                            }
-                            $report['avif_created']++;
-                        } else {
-                            $report['skip_avif']++;
-                        }
-                    } else {
-                        $report['skip_avif']++;
-                    }
-                } else {
-                    $report['skip_avif']++;
-                }
-            } elseif ($auto_compress) {
-                $final_ext = strtolower((string)pathinfo($final_filename, PATHINFO_EXTENSION));
-                if (can_compress_extension($final_ext)) {
-                    $final_path = get_file_path($final_filename);
-                    $compress_result = compress_image_by_mode($final_path, 85);
-                    if (!empty($compress_result['success'])) {
-                        $report['compressed']++;
-                    } else {
-                        $report['skip_compress']++;
-                    }
-                } else {
-                    $report['skip_compress']++;
-                }
-            }
-
-            if ($create_thumb && can_generate_thumbnail($final_filename) && create_thumbnail($final_filename, true)) {
-                $report['thumb_created']++;
-            }
-            if (remote_storage_enabled() && remote_storage_config_valid()) {
-                remote_storage_sync_file_and_thumbnail($final_filename);
             }
 
             $final_hash = @sha1_file(get_file_path($final_filename));
@@ -1493,6 +2070,72 @@ function detect_real_image_format(string $filepath): string {
 }
 
 /**
+ * 读取 SVG 的固定尺寸。优先 width/height，读不到时使用 viewBox。
+ *
+ * @return array{width:int,height:int}|null
+ */
+function get_svg_dimensions(string $filepath): ?array {
+    if (!is_file($filepath) || !is_readable($filepath)) {
+        return null;
+    }
+
+    $content = @file_get_contents($filepath, false, null, 0, 65536);
+    if (!is_string($content) || $content === '') {
+        return null;
+    }
+
+    if (!preg_match('/<svg\b[^>]*>/i', $content, $tag_match)) {
+        return null;
+    }
+
+    $tag = $tag_match[0];
+    $get_attr = static function (string $name) use ($tag): ?string {
+        if (preg_match('/\b' . preg_quote($name, '/') . '\s*=\s*([\'"])(.*?)\1/i', $tag, $m)) {
+            return trim((string)$m[2]);
+        }
+        return null;
+    };
+
+    $parse_length = static function (?string $value): ?int {
+        if ($value === null || $value === '' || str_contains($value, '%')) {
+            return null;
+        }
+        if (!preg_match('/^(-?\d+(?:\.\d+)?)([a-z]*)$/iu', trim($value), $m)) {
+            return null;
+        }
+        $unit = strtolower((string)($m[2] ?? ''));
+        if ($unit !== '' && $unit !== 'px') {
+            return null;
+        }
+        $number = (float)$m[1];
+        return $number > 0 ? (int)round($number) : null;
+    };
+
+    $width = $parse_length($get_attr('width'));
+    $height = $parse_length($get_attr('height'));
+    if ($width !== null && $height !== null) {
+        return ['width' => $width, 'height' => $height];
+    }
+
+    $view_box = $get_attr('viewBox');
+    if ($view_box !== null) {
+        $parts = preg_split('/[\s,]+/', trim($view_box));
+        if (is_array($parts) && count($parts) >= 4) {
+            $vb_width = (float)$parts[2];
+            $vb_height = (float)$parts[3];
+            if ($vb_width > 0 && $vb_height > 0) {
+                return [
+                    'width' => (int)round($vb_width),
+                    'height' => (int)round($vb_height),
+                ];
+            }
+        }
+    }
+
+    return null;
+}
+
+/**
  * 获取图片信息
  */
 function get_image_info($filename) {
@@ -1516,6 +2159,21 @@ function get_image_info($filename) {
         $upload_time = filemtime($filepath);
         $dimensions = @getimagesize($filepath);
         $format = detect_real_image_format($filepath);
+        $width = (int)($dimensions[0] ?? 0);
+        $height = (int)($dimensions[1] ?? 0);
+        $dimensions_label = $width . 'x' . $height;
+        if ($format === 'SVG') {
+            $svg_dimensions = get_svg_dimensions($filepath);
+            if (is_array($svg_dimensions)) {
+                $width = $svg_dimensions['width'];
+                $height = $svg_dimensions['height'];
+                $dimensions_label = $width . 'x' . $height;
+            } else {
+                $width = 0;
+                $height = 0;
+                $dimensions_label = '矢量图';
+            }
+        }
         
         // 获取原始文件名
         $original_name = get_original_filename($identifier);
@@ -1535,13 +2193,14 @@ function get_image_info($filename) {
             'original_name' => $original_name, // 确保这个字段存在
             'size' => $filesize,
             'filesize' => format_filesize($filesize),
-            'width' => $dimensions[0] ?? 0,
-            'height' => $dimensions[1] ?? 0,
-            'dimensions' => ($dimensions[0] ?? 0) . 'x' . ($dimensions[1] ?? 0),
+            'width' => $width,
+            'height' => $height,
+            'dimensions' => $dimensions_label,
             'format' => $format,
             'time' => $upload_time,
             'url' => get_img_url($identifier),
-            'thumb_url' => $thumb_url
+            'thumb_url' => $thumb_url,
+            'request_count' => get_image_request_count($identifier)
         ];
     } catch (Exception $e) {
         error_log("Error getting image info: " . $e->getMessage());
@@ -1625,6 +2284,7 @@ function build_uploaded_image_api_items(array $images): array {
             'format' => (string)($info['format'] ?? ''),
             'time' => (int)($info['time'] ?? 0),
             'time_text' => date('Y-m-d H:i', (int)($info['time'] ?? time())),
+            'request_count' => (int)($info['request_count'] ?? 0),
         ];
     }
 
@@ -2305,8 +2965,8 @@ function can_convert_preferred_extension(string $ext): bool {
  */
 function get_compression_mode(): string {
     $mode = strtolower(trim((string)COMPRESSION_MODE));
-    $allowed = ['hybrid', 'local', 'imagemagick', 'gd', 'tinypng'];
-    return in_array($mode, $allowed, true) ? $mode : 'hybrid';
+    $allowed = ['tinypng', 'gd', 'imagemagick'];
+    return in_array($mode, $allowed, true) ? $mode : 'imagemagick';
 }
 
 /**
@@ -2314,8 +2974,6 @@ function get_compression_mode(): string {
  */
 function compress_image_by_mode(string $path, int $quality = 85): array {
     $mode = get_compression_mode();
-    $order = [];
-
     switch ($mode) {
         case 'imagemagick':
             $order = ['imagemagick'];
@@ -2326,12 +2984,8 @@ function compress_image_by_mode(string $path, int $quality = 85): array {
         case 'tinypng':
             $order = ['tinypng'];
             break;
-        case 'local':
-            $order = ['imagemagick', 'gd'];
-            break;
-        case 'hybrid':
         default:
-            $order = ['imagemagick', 'gd', 'tinypng'];
+            $order = ['imagemagick'];
             break;
     }
 
@@ -2374,9 +3028,12 @@ function auto_compress_uploaded_image(string $filename): array {
         return $result;
     }
 
-    // 互斥策略：开启自动转 WebP 时，自动压缩跳过
-    if (defined('AUTO_CONVERT_WEBP_ON_UPLOAD') && AUTO_CONVERT_WEBP_ON_UPLOAD) {
-        $result['skip_reason'] = 'webp_enabled';
+    // 互斥策略：开启自动格式转换时，自动压缩跳过
+    if (
+        (defined('AUTO_CONVERT_WEBP_ON_UPLOAD') && AUTO_CONVERT_WEBP_ON_UPLOAD) ||
+        (defined('AUTO_CONVERT_AVIF_ON_UPLOAD') && AUTO_CONVERT_AVIF_ON_UPLOAD)
+    ) {
+        $result['skip_reason'] = 'conversion_enabled';
         return $result;
     }
 
@@ -2638,7 +3295,7 @@ function convert_to_webp($filepath) {
 
         $mime_type = (string)($image_info['mime'] ?? '');
         $source = create_image_resource($filepath, $mime_type);
-        
+
         if (!$source) {
             throw new Exception('无法创建图片资源');
         }
@@ -2648,7 +3305,7 @@ function convert_to_webp($filepath) {
         if (!is_string($webp_path) || $webp_path === '') {
             throw new Exception('无法确定 WebP 输出路径');
         }
-        
+
         // 转换为 WebP
         $result = imagewebp($source, $webp_path, 80);
 
@@ -2690,7 +3347,7 @@ function convert_to_avif($filepath) {
 
         $mime_type = (string)($image_info['mime'] ?? '');
         $source = create_image_resource($filepath, $mime_type);
-        
+
         if (!$source) {
             throw new Exception('无法创建图片资源');
         }
@@ -2700,7 +3357,7 @@ function convert_to_avif($filepath) {
         if (!is_string($avif_path) || $avif_path === '') {
             throw new Exception('无法确定 AVIF 输出路径');
         }
-        
+
         // 转换为 AVIF
         $result = imageavif($source, $avif_path, 80);
 
@@ -2790,6 +3447,730 @@ function create_image_resource($filepath, $mime) {
         default:
             return null;
     }
+}
+
+function can_watermark_extension(string $ext): bool {
+    return in_array(strtolower($ext), ['jpg', 'jpeg', 'png', 'webp', 'avif'], true);
+}
+
+function watermark_hex_to_rgb(string $hex): array {
+    $hex = ltrim(trim($hex), '#');
+    if (!preg_match('/^[0-9a-fA-F]{6}$/', $hex)) {
+        $hex = 'ffffff';
+    }
+
+    return [
+        hexdec(substr($hex, 0, 2)),
+        hexdec(substr($hex, 2, 2)),
+        hexdec(substr($hex, 4, 2)),
+    ];
+}
+
+function watermark_default_font_path(): string {
+    $candidates = [
+        __DIR__ . '/data/watermarks/Ubuntu-Regular.ttf',
+        __DIR__ . '/data/watermarks/Ubuntu-R.ttf',
+        '/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf',
+        '/usr/share/fonts/truetype/ubuntu/Ubuntu-Regular.ttf',
+        '/usr/share/fonts/ubuntu/Ubuntu-R.ttf',
+        '/usr/local/share/fonts/Ubuntu-Regular.ttf',
+        '/Library/Fonts/Ubuntu-R.ttf',
+        '/Library/Fonts/Ubuntu-Regular.ttf',
+    ];
+
+    foreach ($candidates as $path) {
+        if (is_file($path)) {
+            return $path;
+        }
+    }
+
+    return '';
+}
+
+function watermark_resolve_font_path(): string {
+    $configured = trim((string)WATERMARK_FONT_PATH);
+    if ($configured !== '' && is_file($configured)) {
+        return $configured;
+    }
+
+    return watermark_default_font_path();
+}
+
+function save_watermarked_image($image, string $filepath, string $mime): bool {
+    switch ($mime) {
+        case 'image/jpeg':
+            return function_exists('imagejpeg') && imagejpeg($image, $filepath, 90);
+        case 'image/png':
+            imagealphablending($image, false);
+            imagesavealpha($image, true);
+            return function_exists('imagepng') && imagepng($image, $filepath);
+        case 'image/webp':
+            return function_exists('imagewebp') && imagewebp($image, $filepath, 86);
+        case 'image/avif':
+            return function_exists('imageavif') && imageavif($image, $filepath, 82);
+        default:
+            return false;
+    }
+}
+
+function watermark_box_position_xy(
+    int $image_width,
+    int $image_height,
+    int $box_width,
+    int $box_height,
+    int $margin
+): array {
+    switch (WATERMARK_POSITION) {
+        case 'bottom-left':
+            $x = $margin;
+            $y = $image_height - $margin - $box_height;
+            break;
+        case 'top-right':
+            $x = $image_width - $margin - $box_width;
+            $y = $margin;
+            break;
+        case 'top-left':
+            $x = $margin;
+            $y = $margin;
+            break;
+        case 'center':
+            $x = (int)(($image_width - $box_width) / 2);
+            $y = (int)(($image_height - $box_height) / 2);
+            break;
+        case 'bottom-right':
+        default:
+            $x = $image_width - $margin - $box_width;
+            $y = $image_height - $margin - $box_height;
+            break;
+    }
+
+    $x = max($margin, $x);
+    $y = max($margin, $y);
+
+    return [$x, $y];
+}
+
+function watermark_position_xy(
+    int $image_width,
+    int $image_height,
+    int $text_width,
+    int $text_height,
+    int $margin,
+    bool $is_ttf
+): array {
+    [$x, $y] = watermark_box_position_xy($image_width, $image_height, $text_width, $text_height, $margin);
+    return [$x, $is_ttf ? $y + $text_height : $y];
+}
+
+function watermark_allocate_alpha($image, int $r, int $g, int $b, int $opacity) {
+    $opacity = max(0, min(100, $opacity));
+    $alpha = 127 - (int)round(127 * ($opacity / 100));
+    return imagecolorallocatealpha($image, $r, $g, $b, $alpha);
+}
+
+function watermark_draw_rounded_rect($image, int $x, int $y, int $w, int $h, int $radius, int $color): void {
+    $radius = max(0, min($radius, (int)floor(min($w, $h) / 2)));
+    if ($radius <= 0) {
+        imagefilledrectangle($image, $x, $y, $x + $w, $y + $h, $color);
+        return;
+    }
+
+    imagefilledrectangle($image, $x + $radius, $y, $x + $w - $radius, $y + $h, $color);
+    imagefilledrectangle($image, $x, $y + $radius, $x + $w, $y + $h - $radius, $color);
+    imagefilledellipse($image, $x + $radius, $y + $radius, $radius * 2, $radius * 2, $color);
+    imagefilledellipse($image, $x + $w - $radius, $y + $radius, $radius * 2, $radius * 2, $color);
+    imagefilledellipse($image, $x + $radius, $y + $h - $radius, $radius * 2, $radius * 2, $color);
+    imagefilledellipse($image, $x + $w - $radius, $y + $h - $radius, $radius * 2, $radius * 2, $color);
+}
+
+function watermark_draw_frosted_panel($image, int $x, int $y, int $w, int $h): void {
+    if (!defined('WATERMARK_PANEL_ENABLED') || !WATERMARK_PANEL_ENABLED || $w <= 0 || $h <= 0) {
+        return;
+    }
+
+    $source_w = imagesx($image);
+    $source_h = imagesy($image);
+    $x = max(0, min($x, $source_w - 1));
+    $y = max(0, min($y, $source_h - 1));
+    $w = max(1, min($w, $source_w - $x));
+    $h = max(1, min($h, $source_h - $y));
+
+    $patch = imagecreatetruecolor($w, $h);
+    if ($patch) {
+        imagealphablending($patch, false);
+        imagesavealpha($patch, true);
+        imagecopy($patch, $image, 0, 0, $x, $y, $w, $h);
+        if (defined('IMG_FILTER_GAUSSIAN_BLUR')) {
+            for ($i = 0; $i < 4; $i++) {
+                imagefilter($patch, IMG_FILTER_GAUSSIAN_BLUR);
+            }
+        }
+        imagecopy($image, $patch, $x, $y, 0, 0, $w, $h);
+        imagedestroy($patch);
+    }
+
+    $overlay = watermark_allocate_alpha($image, 12, 18, 28, (int)WATERMARK_PANEL_OPACITY);
+    if ($overlay !== false) {
+        watermark_draw_rounded_rect($image, $x, $y, $w, $h, (int)WATERMARK_PANEL_RADIUS, $overlay);
+    }
+}
+
+function watermark_copy_png_with_opacity($dst, $src, int $dst_x, int $dst_y, int $dst_w, int $dst_h, int $opacity): bool {
+    $src_w = imagesx($src);
+    $src_h = imagesy($src);
+    if ($src_w <= 0 || $src_h <= 0 || $dst_w <= 0 || $dst_h <= 0) {
+        return false;
+    }
+
+    $tmp = imagecreatetruecolor($dst_w, $dst_h);
+    if (!$tmp) {
+        return false;
+    }
+
+    imagealphablending($tmp, false);
+    imagesavealpha($tmp, true);
+    $transparent = imagecolorallocatealpha($tmp, 0, 0, 0, 127);
+    imagefilledrectangle($tmp, 0, 0, $dst_w, $dst_h, $transparent);
+    imagecopyresampled($tmp, $src, 0, 0, 0, 0, $dst_w, $dst_h, $src_w, $src_h);
+
+    if ($opacity < 100) {
+        $opacity_ratio = max(0.0, min(1.0, $opacity / 100));
+        for ($y = 0; $y < $dst_h; $y++) {
+            for ($x = 0; $x < $dst_w; $x++) {
+                $rgba = imagecolorat($tmp, $x, $y);
+                $alpha = ($rgba & 0x7F000000) >> 24;
+                $visible = (127 - $alpha) * $opacity_ratio;
+                $new_alpha = 127 - (int)round($visible);
+                imagesetpixel($tmp, $x, $y, ($rgba & 0x00FFFFFF) | ($new_alpha << 24));
+            }
+        }
+    }
+
+    imagecopy($dst, $tmp, $dst_x, $dst_y, 0, 0, $dst_w, $dst_h);
+    imagedestroy($tmp);
+    return true;
+}
+
+function apply_watermark_to_image(string $filename): array {
+    $result = [
+        'enabled' => defined('WATERMARK_ENABLED') && WATERMARK_ENABLED,
+        'attempted' => false,
+        'applied' => false,
+        'skip_reason' => null,
+    ];
+
+    if (empty($result['enabled'])) {
+        $result['skip_reason'] = 'disabled';
+        return $result;
+    }
+
+    $ext = strtolower((string)pathinfo($filename, PATHINFO_EXTENSION));
+    if (!can_watermark_extension($ext)) {
+        $result['skip_reason'] = 'unsupported_format';
+        return $result;
+    }
+
+    $path = get_file_path($filename);
+    if (!is_file($path)) {
+        $result['skip_reason'] = 'missing_file';
+        return $result;
+    }
+
+    $info = @getimagesize($path);
+    if (!is_array($info)) {
+        $result['skip_reason'] = 'invalid_image';
+        return $result;
+    }
+
+    $width = (int)($info[0] ?? 0);
+    $height = (int)($info[1] ?? 0);
+    $mime = (string)($info['mime'] ?? '');
+    if ($width < 80 || $height < 40) {
+        $result['skip_reason'] = 'image_too_small';
+        return $result;
+    }
+
+    $image = create_image_resource($path, $mime);
+    if (!$image) {
+        $result['skip_reason'] = 'resource_failed';
+        return $result;
+    }
+
+    $result['attempted'] = true;
+    imagealphablending($image, true);
+    imagesavealpha($image, true);
+
+    $opacity = max(1, min(100, (int)WATERMARK_OPACITY));
+    [$r, $g, $b] = watermark_hex_to_rgb((string)WATERMARK_COLOR);
+    $color = watermark_allocate_alpha($image, $r, $g, $b, $opacity);
+    $shadow = watermark_allocate_alpha($image, 0, 0, 0, max(1, min(76, $opacity - 16)));
+    if ($color === false || $shadow === false) {
+        imagedestroy($image);
+        $result['skip_reason'] = 'color_failed';
+        return $result;
+    }
+
+    $margin = max(0, (int)WATERMARK_MARGIN);
+    $padding = max(0, (int)(defined('WATERMARK_PANEL_PADDING') ? WATERMARK_PANEL_PADDING : 0));
+    $font_path = watermark_resolve_font_path();
+    $has_ttf = $font_path !== '' && is_file($font_path) && function_exists('imagettfbbox') && function_exists('imagettftext');
+    $image_watermark_path = trim((string)(defined('WATERMARK_IMAGE_PATH') ? WATERMARK_IMAGE_PATH : ''));
+    $has_image_watermark = $image_watermark_path !== ''
+        && is_file($image_watermark_path)
+        && function_exists('imagecreatefrompng')
+        && strtolower((string)pathinfo($image_watermark_path, PATHINFO_EXTENSION)) === 'png';
+    $watermark_type = strtolower((string)(defined('WATERMARK_TYPE') ? WATERMARK_TYPE : 'text'));
+    if (!in_array($watermark_type, ['text', 'image'], true)) {
+        $watermark_type = 'text';
+    }
+
+    if ($watermark_type === 'image') {
+        if (!$has_image_watermark) {
+            imagedestroy($image);
+            $result['skip_reason'] = 'watermark_image_missing';
+            return $result;
+        }
+        $watermark_png = imagecreatefrompng($image_watermark_path);
+        if (!$watermark_png) {
+            imagedestroy($image);
+            $result['skip_reason'] = 'watermark_image_failed';
+            return $result;
+        }
+        imagealphablending($watermark_png, true);
+        imagesavealpha($watermark_png, true);
+
+        $png_w = imagesx($watermark_png);
+        $png_h = imagesy($watermark_png);
+        $max_w = min((int)WATERMARK_IMAGE_WIDTH, max(24, (int)floor($width * 0.38)));
+        $target_w = min($png_w, $max_w);
+        $target_h = (int)round($png_h * ($target_w / max(1, $png_w)));
+        $box_w = $target_w + ($padding * 2);
+        $box_h = $target_h + ($padding * 2);
+        [$box_x, $box_y] = watermark_box_position_xy($width, $height, $box_w, $box_h, $margin);
+        watermark_draw_frosted_panel($image, $box_x, $box_y, $box_w, $box_h);
+        $copied = watermark_copy_png_with_opacity(
+            $image,
+            $watermark_png,
+            $box_x + $padding,
+            $box_y + $padding,
+            $target_w,
+            $target_h,
+            $opacity
+        );
+        imagedestroy($watermark_png);
+
+        if (!$copied) {
+            imagedestroy($image);
+            $result['skip_reason'] = 'watermark_image_copy_failed';
+            return $result;
+        }
+    } else {
+        $text = trim((string)WATERMARK_TEXT);
+        if ($text === '') {
+            imagedestroy($image);
+            $result['skip_reason'] = 'empty_text';
+            return $result;
+        }
+        $has_non_ascii = preg_match('/[^\x20-\x7E]/', $text) === 1;
+
+        if ($has_ttf) {
+            $font_size = max(8, min((int)WATERMARK_FONT_SIZE, max(8, (int)floor($width / 10))));
+            $box = imagettfbbox($font_size, 0, $font_path, $text);
+            if (!is_array($box)) {
+                imagedestroy($image);
+                $result['skip_reason'] = 'font_box_failed';
+                return $result;
+            }
+            $text_width = abs((int)$box[2] - (int)$box[0]);
+            $text_height = abs((int)$box[7] - (int)$box[1]);
+            $box_w = $text_width + ($padding * 2);
+            $box_h = $text_height + ($padding * 2);
+            [$box_x, $box_y] = watermark_box_position_xy($width, $height, $box_w, $box_h, $margin);
+            watermark_draw_frosted_panel($image, $box_x, $box_y, $box_w, $box_h);
+            $x = $box_x + $padding;
+            $y = $box_y + $padding + $text_height;
+            imagettftext($image, $font_size, 0, $x + 1, $y + 1, $shadow, $font_path, $text);
+            imagettftext($image, $font_size, 0, $x, $y, $color, $font_path, $text);
+        } else {
+            if ($has_non_ascii) {
+                imagedestroy($image);
+                $result['skip_reason'] = 'font_required_for_unicode';
+                return $result;
+            }
+            $font = 5;
+            $text_width = imagefontwidth($font) * strlen($text);
+            $text_height = imagefontheight($font);
+            $box_w = $text_width + ($padding * 2);
+            $box_h = $text_height + ($padding * 2);
+            [$box_x, $box_y] = watermark_box_position_xy($width, $height, $box_w, $box_h, $margin);
+            watermark_draw_frosted_panel($image, $box_x, $box_y, $box_w, $box_h);
+            $x = $box_x + $padding;
+            $y = $box_y + $padding;
+            imagestring($image, $font, $x + 1, $y + 1, $text, $shadow);
+            imagestring($image, $font, $x, $y, $text, $color);
+        }
+    }
+
+    $saved = save_watermarked_image($image, $path, $mime);
+    imagedestroy($image);
+
+    if (!$saved) {
+        $result['skip_reason'] = 'save_failed';
+        return $result;
+    }
+
+    clearstatcache(true, $path);
+    $result['applied'] = true;
+    return $result;
+}
+
+function normalize_hotlink_host(string $host): string {
+    $host = strtolower(trim($host));
+    if ($host === '') {
+        return '';
+    }
+    if (str_contains($host, '@')) {
+        $host = substr($host, strrpos($host, '@') + 1);
+    }
+    if (str_starts_with($host, '[')) {
+        $end = strpos($host, ']');
+        return $end === false ? $host : substr($host, 1, $end - 1);
+    }
+    $colon = strpos($host, ':');
+    if ($colon !== false) {
+        $host = substr($host, 0, $colon);
+    }
+    return trim($host, '.');
+}
+
+function hotlink_host_matches(string $referer_host, string $allowed_host): bool {
+    $referer_host = normalize_hotlink_host($referer_host);
+    $allowed_host = normalize_hotlink_host($allowed_host);
+    if ($referer_host === '' || $allowed_host === '') {
+        return false;
+    }
+    if (str_starts_with($allowed_host, '*.')) {
+        $allowed_host = substr($allowed_host, 2);
+    }
+    return $referer_host === $allowed_host || str_ends_with($referer_host, '.' . $allowed_host);
+}
+
+function hotlink_allowed_hosts(): array {
+    $hosts = [];
+    $site_host = parse_url((string)SITE_URL, PHP_URL_HOST);
+    if (is_string($site_host) && $site_host !== '') {
+        $hosts[] = $site_host;
+    }
+    $request_host = (string)($_SERVER['HTTP_HOST'] ?? '');
+    if ($request_host !== '') {
+        $hosts[] = $request_host;
+    }
+    if (defined('HOTLINK_ALLOWED_DOMAINS') && is_array(HOTLINK_ALLOWED_DOMAINS)) {
+        $hosts = array_merge($hosts, HOTLINK_ALLOWED_DOMAINS);
+    }
+
+    $normalized = [];
+    foreach ($hosts as $host) {
+        $host = normalize_hotlink_host((string)$host);
+        if ($host !== '') {
+            $normalized[$host] = true;
+        }
+    }
+
+    return array_keys($normalized);
+}
+
+function is_hotlink_request_allowed(): bool {
+    if (!defined('HOTLINK_PROTECTION_ENABLED') || !HOTLINK_PROTECTION_ENABLED) {
+        return true;
+    }
+
+    $referer = trim((string)($_SERVER['HTTP_REFERER'] ?? ''));
+    if ($referer === '') {
+        return defined('HOTLINK_ALLOW_EMPTY_REFERER') && HOTLINK_ALLOW_EMPTY_REFERER;
+    }
+
+    $referer_host = parse_url($referer, PHP_URL_HOST);
+    if (!is_string($referer_host) || $referer_host === '') {
+        return false;
+    }
+
+    foreach (hotlink_allowed_hosts() as $allowed_host) {
+        if (hotlink_host_matches($referer_host, $allowed_host)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function serve_protected_image(string $identifier): void {
+    $identifier = normalize_image_identifier(rawurldecode($identifier));
+    if ($identifier === '') {
+        http_response_code(404);
+        echo 'Image not found';
+        return;
+    }
+
+    $path = get_file_path($identifier);
+    if (!is_file($path)) {
+        http_response_code(404);
+        echo 'Image not found';
+        return;
+    }
+
+    if (!is_hotlink_request_allowed()) {
+        http_response_code(403);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'Hotlink denied';
+        return;
+    }
+
+    $info = @getimagesize($path);
+    $mime = is_array($info) ? (string)($info['mime'] ?? '') : '';
+    if ($mime === '') {
+        $mime = function_exists('mime_content_type') ? (string)@mime_content_type($path) : 'application/octet-stream';
+    }
+    if ($mime === '') {
+        $mime = 'application/octet-stream';
+    }
+
+    header('Content-Type: ' . $mime);
+    header('Content-Length: ' . (string)filesize($path));
+    header('Cache-Control: public, max-age=31536000, immutable');
+    header('X-Content-Type-Options: nosniff');
+    readfile($path);
+}
+
+function get_access_log_stats_cache_file(): string {
+    return __DIR__ . '/data/access_log_stats_cache.json';
+}
+
+function get_default_access_log_paths(): array {
+    return [
+        __DIR__ . '/logs/access.log',
+        '/var/log/nginx/access.log',
+        '/var/log/apache2/access.log',
+        '/var/log/httpd/access_log',
+        '/usr/local/nginx/logs/access.log',
+        '/www/wwwlogs/' . normalize_hotlink_host((string)($_SERVER['HTTP_HOST'] ?? '')) . '.log',
+    ];
+}
+
+function get_access_log_paths(): array {
+    $paths = [];
+    if (defined('ACCESS_LOG_PATHS') && is_array(ACCESS_LOG_PATHS)) {
+        $paths = ACCESS_LOG_PATHS;
+    }
+    if (empty($paths)) {
+        $paths = get_default_access_log_paths();
+    }
+
+    $normalized = [];
+    foreach ($paths as $path) {
+        $path = trim((string)$path);
+        if ($path === '') {
+            continue;
+        }
+        $normalized[$path] = true;
+    }
+
+    return array_keys($normalized);
+}
+
+function access_log_uri_to_image_identifier(string $uri): ?string {
+    $path = parse_url($uri, PHP_URL_PATH);
+    if (!is_string($path) || $path === '') {
+        $path = $uri;
+    }
+
+    $path = rawurldecode($path);
+    if (str_starts_with($path, UPLOAD_PATH_WEB)) {
+        $identifier = substr($path, strlen(UPLOAD_PATH_WEB));
+    } elseif (str_starts_with($path, '/i/')) {
+        $identifier = substr($path, 3);
+    } else {
+        return null;
+    }
+
+    $identifier = normalize_image_identifier($identifier);
+    if ($identifier === '' || str_contains($identifier, '.thumbs/')) {
+        return null;
+    }
+
+    $ext = strtolower((string)pathinfo($identifier, PATHINFO_EXTENSION));
+    if (!in_array($ext, ALLOWED_TYPES, true)) {
+        return null;
+    }
+
+    return $identifier;
+}
+
+function parse_access_log_line_for_image(string $line): ?string {
+    if (!preg_match('/"(?P<method>GET|HEAD)\s+(?P<uri>\S+)\s+HTTP\/[0-9.]+"\s+(?P<status>\d{3})\b/i', $line, $matches)) {
+        return null;
+    }
+
+    $status = (int)($matches['status'] ?? 0);
+    if ($status < 200 || $status >= 400) {
+        return null;
+    }
+
+    return access_log_uri_to_image_identifier((string)($matches['uri'] ?? ''));
+}
+
+function scan_access_log_file(string $path, int $max_bytes): array {
+    $result = [
+        'path' => $path,
+        'readable' => false,
+        'truncated' => false,
+        'size' => 0,
+        'scanned_lines' => 0,
+        'matched_requests' => 0,
+        'images' => [],
+    ];
+
+    if (!is_file($path) || !is_readable($path)) {
+        return $result;
+    }
+
+    $size = (int)@filesize($path);
+    $result['readable'] = true;
+    $result['size'] = $size;
+    $result['truncated'] = $size > $max_bytes;
+
+    $handle = @fopen($path, 'rb');
+    if (!$handle) {
+        $result['readable'] = false;
+        return $result;
+    }
+
+    if ($size > $max_bytes) {
+        @fseek($handle, -$max_bytes, SEEK_END);
+        fgets($handle); // skip partial first line
+    }
+
+    while (($line = fgets($handle)) !== false) {
+        $result['scanned_lines']++;
+        $identifier = parse_access_log_line_for_image($line);
+        if ($identifier === null) {
+            continue;
+        }
+        $result['matched_requests']++;
+        $result['images'][$identifier] = (int)($result['images'][$identifier] ?? 0) + 1;
+    }
+
+    fclose($handle);
+    return $result;
+}
+
+function get_access_log_stats(bool $force = false): array {
+    static $memory_cache = null;
+    if (!$force && is_array($memory_cache)) {
+        return $memory_cache;
+    }
+
+    $enabled = defined('ACCESS_LOG_STATS_ENABLED') && ACCESS_LOG_STATS_ENABLED;
+    $paths = get_access_log_paths();
+    $cache_file = get_access_log_stats_cache_file();
+    $cache_ttl = defined('ACCESS_LOG_CACHE_TTL') ? (int)ACCESS_LOG_CACHE_TTL : 300;
+    $max_bytes = defined('ACCESS_LOG_MAX_BYTES') ? (int)ACCESS_LOG_MAX_BYTES : 20971520;
+    $cache_key = sha1(json_encode([
+        $enabled,
+        $paths,
+        $max_bytes,
+        SITE_URL,
+        defined('HOTLINK_PROTECTION_ENABLED') && HOTLINK_PROTECTION_ENABLED,
+    ], JSON_UNESCAPED_SLASHES));
+
+    if (!$force && is_file($cache_file)) {
+        $raw = @file_get_contents($cache_file);
+        $cached = is_string($raw) ? json_decode($raw, true) : null;
+        if (
+            is_array($cached) &&
+            ($cached['cache_key'] ?? '') === $cache_key &&
+            time() - (int)($cached['generated_at'] ?? 0) <= $cache_ttl
+        ) {
+            $cached['from_cache'] = true;
+            $memory_cache = $cached;
+            return $cached;
+        }
+    }
+
+    $stats = [
+        'enabled' => $enabled,
+        'paths' => $paths,
+        'readable_paths' => [],
+        'unreadable_paths' => [],
+        'scanned_lines' => 0,
+        'matched_requests' => 0,
+        'total_requests' => 0,
+        'images' => [],
+        'top' => [],
+        'truncated' => false,
+        'max_bytes' => $max_bytes,
+        'generated_at' => time(),
+        'cache_key' => $cache_key,
+        'from_cache' => false,
+    ];
+
+    if (!$enabled) {
+        $memory_cache = $stats;
+        return $stats;
+    }
+
+    foreach ($paths as $path) {
+        $file_stats = scan_access_log_file($path, $max_bytes);
+        if (!empty($file_stats['readable'])) {
+            $stats['readable_paths'][] = [
+                'path' => $path,
+                'size' => (int)($file_stats['size'] ?? 0),
+                'truncated' => !empty($file_stats['truncated']),
+            ];
+        } else {
+            $stats['unreadable_paths'][] = $path;
+            continue;
+        }
+
+        $stats['scanned_lines'] += (int)($file_stats['scanned_lines'] ?? 0);
+        $stats['matched_requests'] += (int)($file_stats['matched_requests'] ?? 0);
+        $stats['truncated'] = $stats['truncated'] || !empty($file_stats['truncated']);
+
+        foreach (($file_stats['images'] ?? []) as $identifier => $count) {
+            $stats['images'][$identifier] = (int)($stats['images'][$identifier] ?? 0) + (int)$count;
+        }
+    }
+
+    arsort($stats['images']);
+    $stats['total_requests'] = array_sum(array_map('intval', $stats['images']));
+    foreach (array_slice($stats['images'], 0, 20, true) as $identifier => $count) {
+        $stats['top'][] = [
+            'filename' => (string)$identifier,
+            'request_count' => (int)$count,
+            'url' => get_img_url((string)$identifier),
+            'original_name' => get_original_filename((string)$identifier) ?? get_image_display_name((string)$identifier),
+        ];
+    }
+
+    $cache_dir = dirname($cache_file);
+    if (!is_dir($cache_dir)) {
+        @mkdir($cache_dir, 0755, true);
+    }
+    @file_put_contents($cache_file, json_encode($stats, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
+
+    $memory_cache = $stats;
+    return $stats;
+}
+
+function get_image_request_count(string $filename, ?array $access_stats = null): int {
+    $identifier = normalize_image_identifier($filename);
+    if ($identifier === '') {
+        return 0;
+    }
+
+    $access_stats = $access_stats ?? get_access_log_stats();
+    $images = is_array($access_stats['images'] ?? null) ? $access_stats['images'] : [];
+    return (int)($images[$identifier] ?? 0);
 }
 
 /**
@@ -2939,7 +4320,7 @@ function handle_uploaded_files(array $files): array {
         }
 
         $ext = strtolower((string)pathinfo($original_name, PATHINFO_EXTENSION));
-        if (!in_array($ext, ALLOWED_TYPES, true)) {
+        if (!in_array($ext, ALLOWED_UPLOAD_TYPES, true)) {
             $results[] = [
                 'status' => 'error',
                 'message' => "文件 {$original_name} 类型不支持",
@@ -3039,6 +4420,8 @@ function handle_uploaded_files(array $files): array {
             }
         }
 
+        $watermark = apply_watermark_to_image($final_filename);
+
         $final_thumbnail_url = $final_url;
         if (can_generate_thumbnail($final_filename) && create_thumbnail((string)$final_filename)) {
             $final_thumbnail_url = get_thumbnail_url((string)$final_filename);
@@ -3048,6 +4431,7 @@ function handle_uploaded_files(array $files): array {
         $processing['original_deleted'] = $original_deleted;
         $processing['final_filename'] = $final_filename;
         $processing['remote_storage'] = $remote_sync;
+        $processing['watermark'] = $watermark;
 
         $results[] = [
             'status' => 'success',
@@ -3147,6 +4531,9 @@ function get_distro_info(): array {
     })();
 
     $raw = @file_get_contents('/etc/os-release');
+    if ((!is_string($raw) || $raw === '') && function_exists('shell_exec')) {
+        $raw = @shell_exec('cat /etc/os-release 2>/dev/null');
+    }
     if (!is_string($raw) || $raw === '') {
         return $fallback;
     }
@@ -3176,8 +4563,8 @@ function get_distro_info(): array {
         $brand = $name;
     }
 
-    // 品牌 + VERSION_ID（"Debian 13"），拿不到 VERSION_ID 时退回 PRETTY_NAME。
-    $pretty = $version !== '' ? trim($brand . ' ' . $version) : ($kv['PRETTY_NAME'] ?? $name);
+    // 只展示简短发行版 + VERSION_ID（如 "Debian 13" / "Ubuntu 26.04"）。
+    $pretty = $version !== '' ? trim($brand . ' ' . $version) : $brand;
 
     return [
         'id'      => $id,
@@ -3206,6 +4593,44 @@ function get_server_uptime_seconds(): ?int {
     }
 
     return null;
+}
+
+function detect_web_server_software(?string $software = null): array {
+    $raw = trim((string)($software ?? ($_SERVER['SERVER_SOFTWARE'] ?? '')));
+    $lower = strtolower($raw);
+    $type = 'unknown';
+    $label = '未知服务器';
+
+    if ($lower !== '') {
+        if (str_contains($lower, 'openresty')) {
+            $type = 'openresty';
+            $label = 'OpenResty';
+        } elseif (str_contains($lower, 'nginx')) {
+            $type = 'nginx';
+            $label = 'Nginx';
+        } elseif (str_contains($lower, 'caddy')) {
+            $type = 'caddy';
+            $label = 'Caddy';
+        } elseif (str_contains($lower, 'apache') || str_contains($lower, 'httpd')) {
+            $type = 'apache';
+            $label = 'Apache';
+        } elseif (str_contains($lower, 'litespeed')) {
+            $type = 'litespeed';
+            $label = 'LiteSpeed';
+        } elseif (str_contains($lower, 'php') && str_contains($lower, 'development')) {
+            $type = 'php-built-in';
+            $label = 'PHP 内置开发服务器';
+        }
+    }
+
+    return [
+        'type' => $type,
+        'label' => $label,
+        'raw' => $raw,
+        'uses_htaccess' => in_array($type, ['apache', 'litespeed'], true),
+        'uses_nginx_rules' => in_array($type, ['nginx', 'openresty'], true),
+        'uses_caddyfile' => $type === 'caddy',
+    ];
 }
 
 function get_server_runtime_metrics(): array {
@@ -3385,6 +4810,7 @@ function get_server_runtime_metrics(): array {
         })(),
         'os' => get_distro_info()['pretty'],
         'distro' => get_distro_info(),
+        'web_server' => detect_web_server_software(),
         'php_version' => PHP_VERSION,
         'php_sapi' => (string)php_sapi_name(),
         'php_upload_limit_bytes' => $php_upload_limit,
@@ -3423,8 +4849,7 @@ function get_server_runtime_metrics(): array {
         'capability' => [
             'gd' => extension_loaded('gd'),
             'imagick' => extension_loaded('imagick'),
-            'avif' => (function_exists('imagecreatefromavif') && function_exists('imageavif'))
-                || (extension_loaded('imagick') && in_array('AVIF', @(new Imagick())->queryFormats('AVIF') ?: [], true)),
+            'avif' => function_exists('imagecreatefromavif') && function_exists('imageavif'),
             'webp' => function_exists('imagewebp'),
         ],
     ];
@@ -3961,104 +5386,4 @@ function success_response(array $data): void {
     // 确保所有成功响应都包含 status 字段
     echo json_encode(array_merge(['status' => 'success'], $data));
     exit;
-}
-
-/**
- * 检测 PHP open_basedir 沙箱是否挡住了 settings 页系统状态所依赖的 /proc 文件。
- *
- * 返回被挡住的文件路径数组（空数组表示一切正常 / 没有沙箱限制）。
- * 这是个 cheap probe：file_get_contents 在 open_basedir 之外会被 @ 静默 fail，
- * 不需要复杂的 ini parse。
- */
-function detect_sandbox_blocked_paths(): array {
-    $required = ['/proc/cpuinfo', '/proc/meminfo', '/proc/uptime'];
-    $blocked = [];
-    foreach ($required as $path) {
-        if (@file_get_contents($path) === false) {
-            $blocked[] = $path;
-        }
-    }
-    return $blocked;
-}
-
-/**
- * 把 /proc/cpuinfo / /proc/meminfo / /proc/uptime 这 3 个公开系统信息文件
- * 追加到站点根目录 .user.ini 的 open_basedir 白名单。
- *
- * 设计原则：
- *  - 只追加缺失项，已在白名单的不重复添加
- *  - 改前自动备份到 .user.ini.bak.YmdHis
- *  - 不动 open_basedir 以外的任何配置
- *  - 没有 .user.ini 时按当前站点目录推断默认值并创建
- *
- * 返回 ['ok' => bool, 'note'|'reason' => string]。
- *
- * 注意：PHP-FPM 用 user_ini.cache_ttl（默认 300s）缓存 .user.ini，
- * 所以改完后页面不会立即看到效果——这条信息会写在 note 里告诉用户。
- */
-function fix_open_basedir_for_proc(): array {
-    $user_ini = __DIR__ . '/.user.ini';
-    $required = ['/proc/cpuinfo', '/proc/meminfo', '/proc/uptime'];
-
-    // case 1: .user.ini 不存在 — 创建一份只包含 open_basedir 的最小文件
-    if (!is_file($user_ini)) {
-        $line = "open_basedir=" . __DIR__ . "/:/tmp/:" . implode(':', $required) . "\n";
-        if (@file_put_contents($user_ini, $line) === false) {
-            return ['ok' => false, 'reason' => '.user.ini 不存在且无法创建（站点根目录可能不可写）'];
-        }
-        return [
-            'ok' => true,
-            'note' => '已新建 .user.ini 并写入 open_basedir。修改最长 5 分钟内生效（PHP-FPM user_ini 缓存），或联系管理员重启 PHP-FPM 立即生效。',
-        ];
-    }
-
-    // case 2: 不可读 / 不可写
-    if (!is_readable($user_ini) || !is_writable($user_ini)) {
-        return ['ok' => false, 'reason' => '.user.ini 不可写。请确保它的 owner 是 PHP-FPM 进程（通常 www）且权限 ≥ 0644。'];
-    }
-
-    $content = (string)@file_get_contents($user_ini);
-    if ($content === '') {
-        return ['ok' => false, 'reason' => '.user.ini 读取失败或为空'];
-    }
-
-    // case 3: 已包含全部 3 个路径 — 无需再写
-    $missing = array_values(array_filter($required, static fn($p) => strpos($content, $p) === false));
-    if (empty($missing)) {
-        return [
-            'ok' => true,
-            'note' => '.user.ini 已包含全部所需路径。如果设置页指标仍显示受限，请等 PHP-FPM user_ini 缓存（默认 5 分钟）失效后再刷新。',
-        ];
-    }
-
-    // 备份（best-effort，失败不阻断）
-    @copy($user_ini, $user_ini . '.bak.' . date('YmdHis'));
-
-    // 把缺失项追加到第一行 open_basedir= 后面
-    $append = ':' . implode(':', $missing);
-    $count = 0;
-    $new_content = preg_replace_callback(
-        '/^(open_basedir\s*=\s*[^\r\n]+?)(\s*)$/m',
-        static function ($m) use ($append) {
-            return rtrim($m[1]) . $append;
-        },
-        $content,
-        1,
-        $count
-    );
-
-    // case 4: .user.ini 里没有 open_basedir 行 — 在文件顶部插入一行（同时包含站点目录与 /tmp）
-    if ($count === 0) {
-        $new_line = "open_basedir=" . __DIR__ . "/:/tmp/:" . implode(':', $required) . "\n";
-        $new_content = $new_line . $content;
-    }
-
-    if (@file_put_contents($user_ini, $new_content) === false) {
-        return ['ok' => false, 'reason' => '.user.ini 写入失败'];
-    }
-
-    return [
-        'ok' => true,
-        'note' => '已更新 .user.ini，追加 ' . count($missing) . ' 个路径。修改最长 5 分钟内生效（PHP-FPM user_ini 缓存），或联系管理员重启 PHP-FPM 立即生效。',
-    ];
 }

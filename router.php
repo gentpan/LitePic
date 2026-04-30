@@ -3,6 +3,17 @@ declare(strict_types=1);
 
 $uriPath = parse_url((string)($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
 $path = is_string($uriPath) ? $uriPath : '/';
+$normalizedPath = rtrim($path, '/') === '' ? '/' : rtrim($path, '/');
+
+if ($normalizedPath === '/api/v1' || str_starts_with($normalizedPath, '/api/v1/')) {
+    require __DIR__ . '/api/v1.php';
+    return true;
+}
+
+if ($normalizedPath === '/i' || str_starts_with($normalizedPath, '/i/')) {
+    require __DIR__ . '/image.php';
+    return true;
+}
 
 // 无后缀页面路由，统一走单入口
 $pageRoutes = [
@@ -10,11 +21,12 @@ $pageRoutes = [
     '/upload',
     '/gallery',
     '/docs',
+    '/api',
     '/settings',
     '/stats',
 ];
 
-if (in_array(rtrim($path, '/') === '' ? '/' : rtrim($path, '/'), $pageRoutes, true)) {
+if (in_array($normalizedPath, $pageRoutes, true)) {
     $_SERVER['PHP_SELF'] = '/index.php';
     require __DIR__ . '/index.php';
     return true;
