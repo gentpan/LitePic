@@ -220,6 +220,7 @@ require_once APP_ROOT . '/header.php';
 ?>
 
 <main class="page-container page-main settings-page settings-layout" data-active-settings-tab="<?= htmlspecialchars($active_settings_tab, ENT_QUOTES, 'UTF-8') ?>">
+<div class="settings-shell">
     <nav class="settings-tab-nav" aria-label="设置分类">
         <?php foreach ($settings_tabs as $tab_key => $tab_meta): ?>
             <?php
@@ -413,7 +414,7 @@ require_once APP_ROOT . '/header.php';
                                                 data-home-background-input>
                                             <button
                                                 type="button"
-                                                class="settings-background-reset inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border border-border bg-light text-dark hover:bg-gray/10 transition-colors"
+                                                class="settings-background-reset btn btn--secondary"
                                                 data-home-background-reset>
                                                 <i class="fa-light fa-rotate-left"></i>
                                                 恢复默认
@@ -562,20 +563,20 @@ require_once APP_ROOT . '/header.php';
                         <div class="flex justify-start gap-2.5">
                             <button
                                 type="submit"
-                                class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-primary text-white hover:bg-primary/90 transition-colors"
+                                class="btn btn--primary"
                                 name="form_action"
                                 value="save_remote_storage"
                                 data-busy-text="正在保存 R2/S3 设置...">
                                 <i class="fa-light fa-floppy-disk"></i>
                                 保存 R2/S3 设置
                             </button>
-                            <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border border-border bg-light text-dark hover:bg-gray/10 transition-colors" name="form_action" value="test_remote_storage">
+                            <button type="submit" class="btn btn--secondary" name="form_action" value="test_remote_storage">
                                 <i class="fa-light fa-plug-circle-check"></i>
                                 测试 R2/S3 连接
                             </button>
                             <button
                                 type="submit"
-                                class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border border-border bg-light text-dark hover:bg-gray/10 transition-colors js-remote-sync-all-btn"
+                                class="btn btn--secondary js-remote-sync-all-btn"
                                 name="form_action"
                                 value="sync_remote_storage_all"
                                 data-confirm="确定要将所有本地图片同步到远程存储吗？此操作可能需要较长时间。"
@@ -586,7 +587,7 @@ require_once APP_ROOT . '/header.php';
                             </button>
                             <button
                                 type="submit"
-                                class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border border-border bg-light text-dark hover:bg-gray/10 transition-colors js-remote-restore-all-btn"
+                                class="btn btn--secondary js-remote-restore-all-btn"
                                 name="form_action"
                                 value="restore_remote_storage_all"
                                 data-confirm="确定要从远程存储恢复到本地吗？这会覆盖本地同名文件。"
@@ -598,7 +599,7 @@ require_once APP_ROOT . '/header.php';
                             <button
                                 type="submit"
                                 data-busy-text="正在清空远程对象，请勿关闭页面..."
-                                class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-danger text-white hover:bg-danger/90 transition-colors js-remote-purge-btn"
+                                class="btn btn--danger js-remote-purge-btn"
                                 name="form_action"
                                 value="purge_remote_storage"
                                 data-confirm="确认清空远程存储对象吗？将删除当前配置前缀下的所有对象，无法恢复。"
@@ -669,15 +670,15 @@ require_once APP_ROOT . '/header.php';
                             个；每次最多处理 8 个，避免一次请求占满服务器。
                         </div>
                         <div class="flex justify-start gap-2.5">
-                            <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border border-border bg-light text-dark hover:bg-gray/10 transition-colors" name="form_action" value="scan_import_uploads">
+                            <button type="submit" class="btn btn--secondary" name="form_action" value="scan_import_uploads">
                                 <i class="fa-light fa-folder-open"></i>
                                 扫描导入目录
                             </button>
-                            <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border border-border bg-light text-dark hover:bg-gray/10 transition-colors" name="form_action" value="process_import_tasks">
+                            <button type="submit" class="btn btn--secondary" name="form_action" value="process_import_tasks">
                                 <i class="fa-light fa-gears"></i>
                                 处理导入任务
                             </button>
-                            <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border border-border bg-light text-dark hover:bg-gray/10 transition-colors" name="form_action" value="generate_all_thumbnails">
+                            <button type="submit" class="btn btn--secondary" name="form_action" value="generate_all_thumbnails">
                                 <i class="fa-light fa-images"></i>
                                 一键生成全部缩略图
                             </button>
@@ -730,7 +731,7 @@ require_once APP_ROOT . '/header.php';
                         <input type="hidden" name="form_action" value="create_token">
                         <input type="hidden" name="active_tab" value="auth">
                         <input class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="token_name" placeholder="Token 名称（如：wordpress-prod）">
-                        <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-primary text-white hover:bg-primary/90 transition-colors">
+                        <button type="submit" class="btn btn--primary">
                             <i class="fa-light fa-key"></i>
                             创建 Token
                         </button>
@@ -741,7 +742,7 @@ require_once APP_ROOT . '/header.php';
                             <strong>新 Token（仅显示一次）</strong>
                             <div class="settings-inline-form settings-token-form">
                                 <input class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" readonly value="<?= htmlspecialchars($created_token) ?>">
-                                <button type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border border-border bg-light text-dark hover:bg-gray/10 transition-colors copy-token-btn" data-copy="<?= htmlspecialchars($created_token) ?>">复制</button>
+                                <button type="button" class="btn btn--secondary copy-token-btn" data-copy="<?= htmlspecialchars($created_token) ?>">复制</button>
                             </div>
                         </div>
                     <?php endif; ?>
@@ -777,7 +778,7 @@ require_once APP_ROOT . '/header.php';
                                                 <input type="hidden" name="form_action" value="revoke_token">
                                                 <input type="hidden" name="active_tab" value="auth">
                                                 <input type="hidden" name="token_id" value="<?= htmlspecialchars((string)$token['id']) ?>">
-                                                <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-danger text-white hover:bg-danger/90 transition-colors">撤销</button>
+                                                <button type="submit" class="btn btn--danger">撤销</button>
                                             </form>
                                         </td>
                                     </tr>
@@ -807,7 +808,7 @@ require_once APP_ROOT . '/header.php';
                         <p>无密码登录（生物识别 / 设备 PIN）</p>
                     </div>
 
-                    <button type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-primary text-white hover:bg-primary/90 transition-colors settings-full-action" id="passkeyRegisterBtn">
+                    <button type="button" class="btn btn--primary btn--block" id="passkeyRegisterBtn">
                         <i class="fa-light fa-fingerprint"></i>
                         注册新 Passkey
                     </button>
@@ -849,7 +850,7 @@ require_once APP_ROOT . '/header.php';
                         <input type="hidden" name="form_action" value="add_compression_api">
                         <input type="hidden" name="active_tab" value="compression">
                         <input class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="compression_api_key" placeholder="输入 TinyPNG API Key">
-                        <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-primary text-white hover:bg-primary/90 transition-colors">
+                        <button type="submit" class="btn btn--primary">
                             <i class="fa-light fa-plus"></i>
                             添加 Key
                         </button>
@@ -907,14 +908,14 @@ require_once APP_ROOT . '/header.php';
                                                     <input type="hidden" name="active_tab" value="compression">
                                                     <input type="hidden" name="compression_api_id" value="<?= htmlspecialchars($id) ?>">
                                                     <input type="hidden" name="enable" value="<?= $enabled ? '0' : '1' ?>">
-                                                    <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border border-border bg-light text-dark hover:bg-gray/10 transition-colors"><?= $enabled ? '禁用' : '启用' ?></button>
+                                                    <button type="submit" class="btn btn--secondary"><?= $enabled ? '禁用' : '启用' ?></button>
                                                 </form>
                                                 <form method="post" data-confirm="确定要删除此压缩 API Key 吗？" data-confirm-title="删除 TinyPNG Key 确认">
                                                     <?= \LitePic\Core\Csrf::inputField() ?>
                                                     <input type="hidden" name="form_action" value="delete_compression_api">
                                                     <input type="hidden" name="active_tab" value="compression">
                                                     <input type="hidden" name="compression_api_id" value="<?= htmlspecialchars($id) ?>">
-                                                    <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-danger text-white hover:bg-danger/90 transition-colors">删除</button>
+                                                    <button type="submit" class="btn btn--danger">删除</button>
                                                 </form>
                                             </div>
                                         </td>
@@ -1147,12 +1148,13 @@ require_once APP_ROOT . '/header.php';
 <?php $tab_uses_main_form = in_array($active_settings_tab, ['general', 'storage', 'import', 'auth', 'watermark'], true); ?>
 <?php if ($tab_uses_main_form): ?>
                 <div class="settings-save-actions">
-                    <button type="submit" form="settingsForm" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-primary text-white hover:bg-primary/90 transition-colors">
+                    <button type="submit" form="settingsForm" class="btn btn--primary btn--lg">
                         <i class="fa-light fa-floppy-disk"></i>
                         保存设置
                     </button>
                 </div>
 <?php endif; ?>
+</div><!-- /.settings-shell -->
 </main>
 
 <script>
@@ -1254,7 +1256,7 @@ require_once APP_ROOT . '/header.php';
                 <strong>新 Token（仅显示一次）</strong>
                 <div class="settings-inline-form settings-token-form">
                     <input class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" readonly value="${escapeAttr(token)}">
-                    <button type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border border-border bg-light text-dark hover:bg-gray/10 transition-colors copy-token-btn" data-copy="${escapeAttr(token)}">复制</button>
+                    <button type="button" class="btn btn--secondary copy-token-btn" data-copy="${escapeAttr(token)}">复制</button>
                 </div>
             `;
             const copyBtn = panel.querySelector('.copy-token-btn');
@@ -1976,7 +1978,7 @@ require_once APP_ROOT . '/header.php';
                             <td>${cred.createdAt}</td>
                             <td>${cred.lastUsedAt || '-'}</td>
                             <td>
-                                <button type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-danger text-white hover:bg-danger/90 transition-colors passkey-delete-btn" data-id="${escapeHtml(cred.credentialId)}">
+                                <button type="button" class="btn btn--danger passkey-delete-btn" data-id="${escapeHtml(cred.credentialId)}">
                                     删除
                                 </button>
                             </td>

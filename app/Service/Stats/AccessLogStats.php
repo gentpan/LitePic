@@ -235,18 +235,18 @@ final class AccessLogStats
             'matched_requests' => 0,
             'images' => [],
         ];
-        if (!is_file($path) || !is_readable($path)) return $result;
+        // Skip the is_file()/is_readable() probe entirely — both emit
+        // open_basedir warnings on hosts where the access log lives
+        // outside the allowlist (shared hosting, BT-panel, etc.) and
+        // the @ operator's suppression isn't always honoured for those.
+        // Just try to open the file: fopen with @ stays silent.
+        $handle = @fopen($path, 'rb');
+        if (!$handle) return $result;
 
         $size = (int)@filesize($path);
         $result['readable'] = true;
         $result['size'] = $size;
         $result['truncated'] = $size > $maxBytes;
-
-        $handle = @fopen($path, 'rb');
-        if (!$handle) {
-            $result['readable'] = false;
-            return $result;
-        }
         if ($size > $maxBytes) {
             @fseek($handle, -$maxBytes, SEEK_END);
             fgets($handle); // skip the (likely-partial) first line
