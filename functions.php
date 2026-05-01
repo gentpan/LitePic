@@ -4649,40 +4649,13 @@ function csrf_token_input(): string {
  * 返回 true 表示允许登录，false 表示已超限
  */
 function check_login_rate_limit(): bool {
-    session_init_safe();
-    $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-    $key = 'login_attempts_' . md5($ip);
-    $now = time();
-
-    if (!isset($_SESSION[$key]) || !is_array($_SESSION[$key])) {
-        return true;
-    }
-
-    $attempts = (array)$_SESSION[$key];
-    // 只保留最近 5 分钟内的失败记录
-    $recent = [];
-    foreach ($attempts as $t) {
-        if ($now - (int)$t < 300) {
-            $recent[] = $t;
-        }
-    }
-    $_SESSION[$key] = $recent;
-
-    // 5 分钟内超过 5 次则封禁
-    return count($recent) < 5;
+    return (new \LitePic\Repository\LoginAttemptRepository())
+        ->isAllowed((string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
 }
 
-/**
- * 记录一次登录失败
- */
 function record_login_failure(): void {
-    session_init_safe();
-    $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-    $key = 'login_attempts_' . md5($ip);
-    if (!isset($_SESSION[$key]) || !is_array($_SESSION[$key])) {
-        $_SESSION[$key] = [];
-    }
-    $_SESSION[$key][] = time();
+    (new \LitePic\Repository\LoginAttemptRepository())
+        ->recordFailure((string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
 }
 
 /**
