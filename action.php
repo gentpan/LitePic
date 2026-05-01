@@ -412,6 +412,30 @@ switch ($action) {
         }
         break;
 
+    case 'regenerate_thumbnail':
+        // 从图库卡片右键菜单触发：强制重新生成缩略图（覆盖旧的）。
+        // 同步执行，立即返回新缩略图 URL 供前端 cache-bust 刷新。
+        try {
+            $thumbService = new \LitePic\Service\Image\ThumbnailService();
+            if (!\LitePic\Service\Image\ThumbnailService::canGenerate($file)) {
+                \LitePic\Core\Response::error('该图片格式不支持生成缩略图', 400);
+            }
+            $ok = $thumbService->create($file, true); // force=true 覆盖旧缩略图
+            if (!$ok) {
+                throw new Exception('缩略图生成失败（可能 GD 扩展或源文件有问题）');
+            }
+            // 顺便同步缩略图到远程（如启用）
+            (new \LitePic\Service\Storage\RemoteStorage())->syncFileAndThumbnail($file);
+            \LitePic\Core\Response::success([
+                'message' => '缩略图已重新生成',
+                'thumb_url' => \LitePic\Service\Image\ImageUrl::thumbnailUrl($file),
+            ]);
+        } catch (Exception $e) {
+            error_log("Thumbnail regeneration failed for {$file}: " . $e->getMessage());
+            \LitePic\Core\Response::error(\LitePic\Core\Response::safeMessage($e), 500);
+        }
+        break;
+
     case 'delete':
         $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
         if (!in_array($ext, ALLOWED_TYPES, true)) {

@@ -66,8 +66,12 @@ final class PathService
     public static function generateFilename(string $ext): string
     {
         $ext = strtolower($ext);
+        // 32 位十六进制（128 bits 加密强度），观感跟 md5 一致但不是任何
+        // 内容的 hash —— 纯随机，无泄漏风险。比之前 uniqid + random_int 的
+        // 「微秒时间戳 + 3 位数字」长度更长、碰撞概率几乎为零，且看不出
+        // 上传时间。collision check 循环保留作为偏执兜底。
         do {
-            $candidate = uniqid() . '_' . random_int(100, 999) . '.' . $ext;
+            $candidate = bin2hex(random_bytes(16)) . '.' . $ext;
         } while (file_exists(self::resolveFilePath($candidate)));
         return $candidate;
     }

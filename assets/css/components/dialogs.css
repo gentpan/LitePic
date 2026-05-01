@@ -190,6 +190,10 @@
     border-top: 1px solid var(--border-color);
   }
 
+  /* =========================================================
+     版权说明对话框 — Hero 标题 + 信息卡片网格 + 法律声明 + 官网入口
+     重构自老的 label/value 表格列表，视觉更接近 Plan A 的卡片风格。
+     ========================================================= */
   .litepic-license-dialog {
     display: grid;
     gap: 16px;
@@ -200,71 +204,163 @@
     margin: 0;
   }
 
-  .license-lead {
-    color: color-mix(in srgb, var(--dark) 82%, var(--gray) 18%);
-    font-size: 0.92rem;
-    line-height: 1.7;
-  }
-
-  .license-meta {
-    display: grid;
-    overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent);
-    border-radius: var(--radius-md);
-    background: color-mix(in srgb, var(--surface) 88%, var(--light) 12%);
-  }
-
-  .license-meta-row {
-    display: grid;
-    grid-template-columns: 112px minmax(0, 1fr);
-    gap: 14px;
+  /* Hero — 品牌区块，logo + 名称 + 版本 + tagline */
+  .license-hero {
+    display: flex;
     align-items: center;
-    min-height: 44px;
-    padding: 10px 12px;
-    border-top: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
-    font-size: 0.88rem;
+    gap: 14px;
+    padding: 14px 16px;
+    border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border-color) 82%);
+    background: color-mix(in srgb, var(--primary) 5%, var(--surface) 95%);
   }
 
-  .license-meta-row:first-child {
-    border-top: 0;
-  }
-
-  .license-meta-label {
+  .license-hero-logo {
+    flex-shrink: 0;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    color: color-mix(in srgb, var(--dark) 76%, var(--gray) 24%);
-    font-weight: 650;
-    white-space: nowrap;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
   }
 
-  .license-meta-label i {
-    width: 18px;
-    color: var(--primary);
-    text-align: center;
-  }
-
-  .license-meta-row a {
+  .license-hero-text {
     min-width: 0;
+    flex: 1;
+    display: grid;
+    gap: 4px;
+  }
+
+  .license-hero-title {
+    margin: 0;
+    color: var(--dark);
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .license-hero-version {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    background: color-mix(in srgb, var(--primary) 12%, var(--surface) 88%);
     color: var(--primary);
     font-family: var(--font-mono);
-    font-size: 0.84rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+
+  .license-hero-tagline {
+    color: color-mix(in srgb, var(--dark) 70%, var(--gray) 30%);
+    font-size: 0.82rem;
+    line-height: 1.5;
+  }
+
+  /* 信息卡片 2x2 网格 */
+  .license-cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .license-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent);
+    background: color-mix(in srgb, var(--surface) 94%, var(--light) 6%);
+    color: var(--dark);
+    text-decoration: none;
+    transition: border-color 160ms ease, background 160ms ease;
+  }
+
+  a.license-card:hover {
+    border-color: color-mix(in srgb, var(--primary) 36%, var(--border-color) 64%);
+    background: color-mix(in srgb, var(--primary) 5%, var(--surface) 95%);
+  }
+
+  .license-card > i {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: color-mix(in srgb, var(--primary) 10%, var(--surface) 90%);
+    color: var(--primary);
+    font-size: 14px;
+  }
+
+  .license-card-body {
+    min-width: 0;
+    display: grid;
+    gap: 1px;
+  }
+
+  .license-card-label {
+    color: color-mix(in srgb, var(--gray) 70%, var(--dark) 30%);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  .license-card-value {
+    min-width: 0;
+    color: var(--dark);
+    font-family: var(--font-mono);
+    font-size: 0.86rem;
     font-weight: 700;
     overflow-wrap: anywhere;
   }
 
-  .license-meta-row a:hover {
-    text-decoration: underline;
-  }
-
+  /* 法律提示框 — 主色 tint + 信息图标 */
   .license-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
     border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border-color) 78%);
-    border-radius: var(--radius-md);
     background: color-mix(in srgb, var(--primary) 7%, var(--surface) 93%);
     color: color-mix(in srgb, var(--dark) 76%, var(--gray) 24%);
-    padding: 10px 12px;
     font-size: 0.82rem;
     line-height: 1.65;
+  }
+
+  .license-note > i {
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: var(--primary);
+    font-size: 14px;
+  }
+
+  /* 官网入口 — 横铺一条按钮，hover 反白 */
+  .license-footer {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 11px 14px;
+    border: 1px solid var(--primary);
+    background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
+    color: var(--primary);
+    font-size: 0.88rem;
+    font-weight: 650;
+    text-decoration: none;
+    transition: background 160ms ease, color 160ms ease;
+  }
+
+  .license-footer:hover {
+    background: var(--primary);
+    color: #fff;
+  }
+
+  .license-footer > i {
+    font-size: 12px;
   }
 
   /* ==========================================================================
@@ -665,4 +761,170 @@
     }
   }
 
+}
+
+/* =============================================================
+ * Change-password modal —强制 / 主动 修改管理员密码
+ *
+ * 在用户首次以默认密码 12345678 登录后弹出，is-forced 模式不允许
+ * 关闭，必须改密成功才放行；主动模式下右上角有取消按钮、ESC / 外部
+ * 点击都可关闭。
+ * ============================================================= */
+.change-password-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(6px);
+  animation: changePasswordFadeIn 0.18s ease-out;
+}
+
+@keyframes changePasswordFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.change-password-dialog {
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface);
+  color: var(--dark);
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  border-radius: var(--radius-md, 12px);
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.28);
+  padding: 22px 24px 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.change-password-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--dark);
+}
+
+.change-password-header > i {
+  color: var(--primary);
+  font-size: 1.2em;
+}
+
+.change-password-notice {
+  margin: 0;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border-color) 75%);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--dark);
+}
+
+.change-password-notice code {
+  padding: 1px 6px;
+  background: color-mix(in srgb, var(--dark) 8%, transparent);
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+}
+
+.change-password-form {
+  display: grid;
+  gap: 12px;
+}
+
+.change-password-field {
+  display: grid;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--gray);
+}
+
+.change-password-field > input {
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--dark);
+  font-size: 0.95rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.change-password-field > input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+.change-password-field > input[readonly] {
+  background: color-mix(in srgb, var(--light) 60%, var(--surface) 40%);
+  color: var(--gray);
+  cursor: not-allowed;
+}
+
+.change-password-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.change-password-cancel,
+.change-password-submit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.change-password-cancel {
+  background: transparent;
+  color: var(--gray);
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+}
+
+.change-password-cancel:hover {
+  background: color-mix(in srgb, var(--gray) 8%, transparent);
+  color: var(--dark);
+}
+
+.change-password-submit {
+  background: var(--primary);
+  color: #fff;
+  border: 1px solid var(--primary);
+}
+
+.change-password-submit:hover {
+  background: color-mix(in srgb, var(--primary) 88%, #000 12%);
+}
+
+.change-password-submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.change-password-msg {
+  margin: 0;
+  min-height: 1.2em;
+  font-size: 0.85rem;
+}
+
+.change-password-msg.is-error   { color: #d73a49; }
+.change-password-msg.is-success { color: #1f8f4f; }
+
+html[data-theme="dark"] .change-password-overlay {
+  background: rgba(0, 0, 0, 0.65);
 }

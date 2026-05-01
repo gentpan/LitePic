@@ -161,9 +161,8 @@ final class ThumbnailService
 
     private function createWithGd(string $source, string $target, int $w, int $h, string $mime, int $quality): bool
     {
-        // Falls back through the legacy \LitePic\Service\Image\ConversionService::createImageResource() helper for now,
-        // which knows how to read jpeg/png/gif/webp into a GD resource.
-        if (!function_exists('create_image_resource')) return false;
+        // Use ConversionService's GD resource factory — knows how to read
+        // jpeg/png/gif/webp into a GD resource and respects memory_limit.
         $src = @\LitePic\Service\Image\ConversionService::createImageResource($source, $mime);
         if (!$src) return false;
 

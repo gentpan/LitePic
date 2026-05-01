@@ -3,13 +3,11 @@ declare(strict_types=1);
 
 namespace LitePic\Service\Hotlink;
 
-use LitePic\Service\Image\PathService;
-
 /**
  * Referer-based hotlink protection. When enabled, image requests are
- * routed through `/i/<identifier>` (image.php) which calls
- * `serveProtected()` to enforce the referer allowlist before streaming
- * the file.
+ * routed through `/i/<identifier>` (image.php → ImageServeService),
+ * which calls `isRequestAllowed()` to enforce the referer allowlist
+ * before streaming the file.
  *
  * The allowlist is the union of:
  *   - The host parsed out of SITE_URL
@@ -74,45 +72,6 @@ final class HotlinkProtection
             }
         }
         return array_keys($normalized);
-    }
-
-    public function serveProtected(string $identifier): void
-    {
-        $identifier = PathService::normalizeIdentifier(rawurldecode($identifier));
-        if ($identifier === '') {
-            http_response_code(404);
-            echo 'Image not found';
-            return;
-        }
-
-        $path = PathService::resolveFilePath($identifier);
-        if (!is_file($path)) {
-            http_response_code(404);
-            echo 'Image not found';
-            return;
-        }
-
-        if (!$this->isRequestAllowed()) {
-            http_response_code(403);
-            header('Content-Type: text/plain; charset=utf-8');
-            echo 'Hotlink denied';
-            return;
-        }
-
-        $info = @getimagesize($path);
-        $mime = is_array($info) ? (string)($info['mime'] ?? '') : '';
-        if ($mime === '' && function_exists('mime_content_type')) {
-            $mime = (string)@mime_content_type($path);
-        }
-        if ($mime === '') {
-            $mime = 'application/octet-stream';
-        }
-
-        header('Content-Type: ' . $mime);
-        header('Content-Length: ' . (string)filesize($path));
-        header('Cache-Control: public, max-age=31536000, immutable');
-        header('X-Content-Type-Options: nosniff');
-        readfile($path);
     }
 
     /**

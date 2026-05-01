@@ -7,12 +7,22 @@ if (!defined('APP_ROOT')) {
 
 
 // 获取所有图片
-$images = (new \LitePic\Repository\ImageRepository())->listIdentifiersSafe();
-$access_stats = (new \LitePic\Service\Stats\AccessLogStats())->get();
-$access_total_requests = (int)($access_stats['total_requests'] ?? 0);
-$access_top_images = is_array($access_stats['top'] ?? null) ? $access_stats['top'] : [];
-$access_readable_paths = is_array($access_stats['readable_paths'] ?? null) ? $access_stats['readable_paths'] : [];
-$access_unreadable_count = count(is_array($access_stats['unreadable_paths'] ?? null) ? $access_stats['unreadable_paths'] : []);
+$image_repo = new \LitePic\Repository\ImageRepository();
+$images = $image_repo->listIdentifiersSafe();
+
+// 图片请求统计（PHP 直读 — 来自 images.view_count）
+$view_counter_enabled = \LitePic\Service\Image\ImageServeService::isViewCounterEnabled();
+$total_image_requests = $image_repo->totalViews();
+$top_image_rows = $image_repo->topByViews(20);
+$top_images = [];
+foreach ($top_image_rows as $row) {
+    $top_images[] = [
+        'filename' => $row['filename'],
+        'original_name' => $row['original_name'] !== '' ? $row['original_name'] : $row['filename'],
+        'view_count' => $row['view_count'],
+        'url' => \LitePic\Service\Image\ImageUrl::forIdentifier($row['filename']),
+    ];
+}
 
 // 统计数据初始化
 $stats = [
@@ -158,7 +168,7 @@ require_once APP_ROOT . '/header.php';
             <div class="stat-circle">
                 <div class="stat-circle-inner">
                     <div class="stat-circle-icon"><i class="fa-light fa-eye"></i></div>
-                    <div class="stat-circle-value"><?= number_format($access_total_requests) ?></div>
+                    <div class="stat-circle-value"><?= number_format($total_image_requests) ?></div>
                     <div class="stat-circle-label">图片请求</div>
                 </div>
             </div>
@@ -166,15 +176,19 @@ require_once APP_ROOT . '/header.php';
 
         <div class="access-log-summary">
             <div>
-                <strong>访问日志统计</strong>
+                <strong>图片请求统计</strong>
                 <span>
-                    <?= !empty($access_stats['enabled']) ? '已启用' : '未启用' ?>，
-                    已扫描 <?= number_format((int)($access_stats['scanned_lines'] ?? 0)) ?> 行，
-                    匹配 <?= number_format((int)($access_stats['matched_requests'] ?? 0)) ?> 次图片请求。
+                    <?= $view_counter_enabled ? '已启用（PHP 直读）' : '未启用' ?>，
+                    累计 <?= number_format($total_image_requests) ?> 次图片请求，
+                    Top <?= count($top_images) ?> 张如下表。
                 </span>
             </div>
             <div>
-                可读日志 <?= count($access_readable_paths) ?> 个<?= $access_unreadable_count > 0 ? '，不可读 ' . $access_unreadable_count . ' 个' : '' ?><?= !empty($access_stats['truncated']) ? '，已按最大扫描大小截取最近日志' : '' ?>。
+                <?php if (!$view_counter_enabled): ?>
+                    在 设置 → 系统信息 → 图片请求统计 中开启，开启后每次访问 <code>/i/&lt;文件名&gt;</code> 即累加。
+                <?php else: ?>
+                    数字仅统计经过 PHP 路由的请求（不含浏览器缓存命中和 CDN 命中）。
+                <?php endif; ?>
             </div>
         </div>
 
@@ -251,20 +265,20 @@ require_once APP_ROOT . '/header.php';
                             <tr><th>图片</th><th>请求次数</th><th>访问地址</th></tr>
                         </thead>
                         <tbody>
-                        <?php if (empty($access_top_images)): ?>
+                        <?php if (empty($top_images)): ?>
                             <tr>
-                                <td colspan="3">暂无 access.log 图片请求记录</td>
+                                <td colspan="3">暂无图片请求记录</td>
                             </tr>
                         <?php else: ?>
-                            <?php foreach ($access_top_images as $item): ?>
+                            <?php foreach ($top_images as $item): ?>
                                 <tr>
-                                    <td title="<?= htmlspecialchars((string)($item['filename'] ?? '')) ?>">
-                                        <?= htmlspecialchars((string)($item['original_name'] ?? $item['filename'] ?? '')) ?>
+                                    <td title="<?= htmlspecialchars((string)$item['filename']) ?>">
+                                        <?= htmlspecialchars((string)$item['original_name']) ?>
                                     </td>
-                                    <td><?= number_format((int)($item['request_count'] ?? 0)) ?></td>
+                                    <td><?= number_format((int)$item['view_count']) ?></td>
                                     <td>
-                                        <a href="<?= htmlspecialchars((string)($item['url'] ?? '#')) ?>" target="_blank" rel="noopener">
-                                            <?= htmlspecialchars((string)($item['url'] ?? '')) ?>
+                                        <a href="<?= htmlspecialchars((string)$item['url']) ?>" target="_blank" rel="noopener">
+                                            <?= htmlspecialchars((string)$item['url']) ?>
                                         </a>
                                     </td>
                                 </tr>

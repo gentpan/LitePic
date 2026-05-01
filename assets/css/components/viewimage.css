@@ -498,7 +498,8 @@
   }
 
   .settings-block-runtime .runtime-meta-grid {
-    @apply grid grid-cols-3 gap-3.5;
+    /* 4 列：PHP 版本 / 系统版本 / 服务器 IP / Web 服务器 */
+    @apply grid grid-cols-4 gap-3.5;
   }
 
   .settings-block-runtime .server-info-item,

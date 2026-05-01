@@ -2,6 +2,45 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.0] - 2026-05-01
+
+### Added
+- **异步处理队列 + worker sidecar** — 上传请求把图片入库后立即返回，缩略图 / 压缩 / WebP / AVIF / 水印 / R2 同步全部进 SQLite `import_queue` 表后台 drain。`worker.php` 可作为 docker compose sidecar 长驻或 cron 拉起，跟 in-request drain 共享同一数据库，flock 互斥。`ResponseDetacher` 让 PHP-FPM / LiteSpeed 在响应发出后继续跑后处理。
+- **Passkey / WebAuthn 登录** — 指纹 / Face ID / 硬件 key 无密码登录，支持注册多个凭证并随时撤销。自实现 165 行 CBOR 解码器和 ES256 签名验证，零 composer 依赖。
+- **数据库备份系统** — SQLite VACUUM INTO 在线热备，支持手动备份 / 定时调度 / 保留份数 / 自动同步到 R2/S3 / UI 一键恢复。
+- **残留数据清理** — 设置 → 数据库 tab 新增「扫描 + 清理」流程，5 类残留：磁盘已删的 images 行、已完成超 7 天的队列、3 次失败超 30 天的队列、过期 24 小时的登录尝试、过期 Passkey 挑战。保守策略 — 不动磁盘文件 / 活动队列 / 设置 / Token / Passkey 凭据。
+- **图库卡片右键菜单** — 重新生成缩略图 / 复制原图链接 / 下载原图 / 下载 WebP / 下载 AVIF / 下载缩略图 / 转换反向偏好格式（默认 WebP 时显示「转换 AVIF」反之亦然）。其他位置右键仍是浏览器原生菜单。
+- **自定义 URL 前缀** — 后台可把 `/uploads/` 改成 `/img/` `/photo/` `/p/foo-bar/` 任意单词前缀，全部经 `image.php` 走访问统计。Apache `.htaccess` catch-all + Nginx / Caddy / `php -S` 等价配置全部跟进。
+- **多 Web 服务器适配** — `nginx.litepic.conf`、`Caddyfile.example`、`router.php`（PHP `-S` 内置）三套等价配置随仓库分发，复制改 root 即可用。
+- **服务器信息卡** — Web 服务器自动检测显示 Nginx / OpenResty / Caddy / Apache / LiteSpeed + 版本号。能力卡（GD / ImageMagick / AVIF / WebP / 上传上限）未启用时带 `?` 图标链到 [litepic.io/docs](https://litepic.io/docs) 对应章节。
+- **Powered by LitePic 徽章** — 页脚用 shields.io 风格徽章（Ubuntu 字体 + mono 版本号 + 黑底品牌蓝双色）显示版本，跟着 `SITE_VERSION` 自动更新。
+- **图片处理日志面板** — 设置 → 任务 tab 显示队列深度 / 失败任务数 / 上次运行时间，KPI 卡片样式，支持「立即处理队列 / 刷新状态」AJAX 调用。
+
+### Changed
+- **文件名生成** — 从 `uniqid() + '_' + random_int(100, 999)` 改成 `bin2hex(random_bytes(16))`，32 位十六进制（md5 观感）。不暴露上传时间，128 bits 加密熵碰撞概率约为零。
+- **设置页 7 个 tabs UI 重构** — 路径化 URL `/settings/<tab>`、PJAX 切换不刷整页、Plan A 直角设计、tab 标题图标改成品牌蓝、能力 / 队列状态用 KPI 卡片替代输入框样式。
+- **配置中心从 .env 转 SQLite settings 表** — 后台改开关无需重启 PHP-FPM / 容器，刷新即生效。`.env` 仍作为首次安装初始默认值来源。
+- **转换按钮自动跟偏好格式** — 后台「转换优先格式」选 WebP → 卡片显示「转换 WebP」按钮 + 右键菜单显示「转换 AVIF」；选 AVIF 反之。
+- **压缩 toast 显示实际引擎** — `压缩完成 · GD` / `压缩完成 · TinyPNG` / `压缩完成 · ImageMagick`，方便验证后台「压缩方式」设置是否生效。
+- **上传上限固定 50MB** — 后台不再让用户改，避免跟 PHP-FPM `upload_max_filesize` / Nginx `client_max_body_size` / 面板上层限制多层纠缠。卡片显示服务器实际允许的值。
+- **官方文档完整迁移** — 使用说明在 [litepic.io/docs](https://litepic.io/docs)，API 文档在 [litepic.io/api](https://litepic.io/api)，本地不再保留这两个页面。版权对话框带 hero + 信息卡片网格 + 官网入口的全新结构。
+- **Favicon 切到 squircle 风格** — 跟小米 2021 logo 同款 G2 连续超椭圆（n≈4 superellipse），16 / 32 / 180 / 192 / 512 全套 PNG + ICO + webmanifest 同步更新。
+- **图库分页箭头** — `« ‹ › »` HTML 实体改成 FontAwesome `fa-angle(s)-left/right` 16px 矢量图标，跨平台一致。
+
+### Removed
+- **「重新处理」按钮** — 移到右键菜单作为「重新生成缩略图」（更针对性，不会顺带重跑压缩 / 转换）。
+- **本地 `/docs` 和 `/api` 页面** — 删除 `app/pages/usage.php` 和 `app/pages/api.php`，路由表移除对应入口，footer 链接和 `/docs#xxx` 锚点全部指向 litepic.io。
+- **首页背景替换功能** — 首页背景固定从 `static/images/background.jpg` 读取，移除原后台动态切换 UI。
+- **「最大上传大小」输入框** — 改成纯展示服务器实际值（见上）。
+
+### Fixed
+- 多处图标 + 中文文字对齐错位 — 改成 equal-height inline-flex 容器模式 + `transform: translateY(1px)` 校准 FA glyph 视觉中心。
+- WebP / AVIF 处理大图（10080×3716、19MB）OOM — 走 ImageMagick 链路兜底。
+- 队列重复入队 — `import_queue` 加 UNIQUE 约束 + `INSERT OR IGNORE`。
+- WAL 模式默认开启，并发读写不互相阻塞。
+- WebP / AVIF / SVG 直接访问时 Content-Type 错误。
+- 删除大量图片时图库列表整页 `innerHTML` 重写卡顿 — 改成单行原地 update + class toggle，丝滑过渡。
+
 ## [3.0.0] - 2026-04-29
 
 ### Breaking Changes

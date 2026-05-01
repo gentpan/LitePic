@@ -89,4 +89,19 @@ final class Database
     {
         self::$pdo = null;
     }
+
+    /**
+     * Drop the singleton + force PDO destruction so SQLite releases its
+     * file lock. Used by DatabaseBackup::restoreFromBackup() before
+     * overwriting the live DB file. Safe to call from anywhere — the
+     * next connection() rebuilds.
+     */
+    public static function closeConnection(): void
+    {
+        self::$pdo = null;
+        // PHP refcount handles destruction; this gc cycle nudges it.
+        if (function_exists('gc_collect_cycles')) {
+            gc_collect_cycles();
+        }
+    }
 }

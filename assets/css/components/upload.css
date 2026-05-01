@@ -183,6 +183,9 @@
     pointer-events: none;
   }
 
+  /* Same bulletproof pattern as .upload-queue-title (see comment
+     above). font-size:0 + per-child explicit font-size + fixed-
+     height inline-flex containers + !important on i overrides. */
   .upload-setting-main {
     min-width: 0;
     display: inline-flex;
@@ -190,29 +193,49 @@
     gap: 7px;
     overflow: hidden;
     color: color-mix(in srgb, var(--dark) 76%, var(--gray) 24%);
-    font-size: 0.82rem;
     font-weight: 650;
     line-height: 1;
     white-space: nowrap;
     text-overflow: ellipsis;
+    font-size: 0;
   }
 
-  .upload-setting-main > i {
-    width: 22px;
-    height: 22px;
+  .upload-setting-main > i,
+  .upload-setting-main > i.fa-light,
+  .upload-setting-main > i.fa-solid,
+  .upload-setting-main > i.fa-regular {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0;
+    width: 20px !important;
+    height: 20px !important;
+    color: var(--upload-setting-color);
+    font-size: 15px !important;
+    line-height: 1 !important;
+    text-align: center;
+    /* See .upload-queue-title > i — same FA glyph offset calibration. */
+    transform: translateY(1px);
+  }
+
+  .upload-setting-main > span {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    color: var(--upload-setting-color);
-    font-size: 0.94rem;
+    height: 20px;
+    font-size: 13px;
+    line-height: 1;
   }
 
   .upload-setting-toggle > strong {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
     max-width: 58px;
+    height: 20px;
     overflow: hidden;
     color: var(--upload-setting-color);
     font-family: var(--font-mono);
-    font-size: 0.78rem;
+    font-size: 12px;
     font-weight: 700;
     line-height: 1;
     text-overflow: ellipsis;
@@ -457,38 +480,77 @@
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
   }
 
+  /* Title row — bulletproof equal-height pattern.
+     Combines two techniques to guarantee icon + Chinese text + counter
+     badge share one visual midline regardless of FA Pro's internal
+     glyph metrics or Noto Sans SC font ascent/descent quirks:
+       1. font-size: 0 on the parent kills the natural inline-element
+          baseline gap between flex items. Each child has to set its own
+          font-size back, restoring its visible content.
+       2. Every child becomes a fixed-height (20px) inline-flex container
+          centering its own content, so flex's align-items:center on the
+          parent aligns identical-height boxes — visual content is then
+          bound to the box centers.
+     i.fa-* selector specificity (0,2,1) wins against FA's (0,1,0)
+     base rule, with !important as belt-and-braces — FA 7 Pro sets
+     `display:var(--fa-display,inline-block)` and `width:var(--fa-width,
+     1.25em)` on every .fa-* element, and we don't want to depend on
+     CSS variable cascade order. */
   .upload-queue-title {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     min-width: 0;
     color: var(--dark);
-    font-size: 0.9rem;
     font-weight: 650;
+    line-height: 1;
+    font-size: 0;
+  }
+
+  .upload-queue-title > i,
+  .upload-queue-title > i.fa-light,
+  .upload-queue-title > i.fa-solid,
+  .upload-queue-title > i.fa-regular {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0;
+    width: 20px !important;
+    height: 20px !important;
+    color: var(--primary);
+    font-size: 16px !important;
+    line-height: 1 !important;
+    text-align: center;
+    /* FA glyphs render with their visual content offset ~1px above
+       the em-box geometric center (font's ascender region is taller
+       than descender). Calibrated nudge to bring the glyph visually
+       in line with adjacent Chinese text — verified against the
+       title / button / toggle rows in the upload page UI. */
+    transform: translateY(1px);
+  }
+
+  .upload-queue-title > span {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    font-size: 14px;
     line-height: 1;
   }
 
-  .upload-queue-title > i {
-    width: 22px;
-    height: 22px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--primary);
-  }
-
   .upload-queue-title > strong {
-    min-width: 24px;
-    height: 22px;
+    flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    min-width: 24px;
+    height: 20px;
     padding: 0 7px;
     border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border-color) 76%);
     color: var(--primary);
     font-family: var(--font-mono);
-    font-size: 0.78rem;
+    font-size: 12px;
     font-weight: 700;
+    line-height: 1;
   }
 
   .upload-queue-actions {
@@ -517,12 +579,33 @@
     transition: border-color 160ms ease, background 160ms ease, color 160ms ease, opacity 160ms ease;
   }
 
-  .upload-queue-btn > i {
-    width: 18px;
-    height: 18px;
+  /* Same bulletproof pattern as .upload-queue-title (see comment
+     above). font-size:0 on the button kills inline baseline gap. */
+  .upload-queue-btn { font-size: 0; }
+
+  .upload-queue-btn > i,
+  .upload-queue-btn > i.fa-light,
+  .upload-queue-btn > i.fa-solid,
+  .upload-queue-btn > i.fa-regular {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0;
+    width: 18px !important;
+    height: 18px !important;
+    font-size: 14px !important;
+    line-height: 1 !important;
+    text-align: center;
+    /* See .upload-queue-title > i — same FA glyph offset calibration. */
+    transform: translateY(1px);
+  }
+
+  .upload-queue-btn > span {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
+    height: 18px;
+    font-size: 13px;
+    line-height: 1;
   }
 
   .upload-queue-btn-primary {
@@ -634,25 +717,32 @@
     white-space: nowrap;
   }
 
+  /* Per-row state (等待上传 / 上传中 / 已完成 …) — equal-height
+     pattern. The FA spinner icon for "uploading" rotates inside its
+     box, so the box dimensions need to be square and stable to avoid
+     wobble. Both icon box and text-content alignment baseline at 16px. */
   .upload-queue-state > span {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     min-width: 0;
+    height: 16px;
     overflow: hidden;
     line-height: 1;
     text-overflow: ellipsis;
   }
 
   .upload-queue-state > span i {
-    width: 17px;
-    height: 17px;
-    flex: 0 0 17px;
+    flex: 0 0 16px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 16px;
+    height: 16px;
     font-size: 0.88rem;
     line-height: 1;
+    /* See .upload-queue-title > i — same FA glyph offset calibration. */
+    transform: translateY(1px);
   }
 
   .upload-queue-state > em {

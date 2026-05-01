@@ -230,7 +230,7 @@ html[data-theme="dark"] * {
 @import "./components/gallery.css";
 @import "./components/settings.css";
 @import "./components/stats.css";
-@import "./components/docs.css";
+/* docs.css removed — usage docs migrated to litepic.io/docs */
 @import "./components/viewimage.css";
 
 /* ==========================================================================

@@ -776,6 +776,81 @@
     border-top-color: rgba(255, 255, 255, 0.04);
   }
 
+  /* Footer LP badge — shallow debossed effect.
+     Sized at 85% of footer height so it scales with the bar instead of
+     looking like a small chip. aspect-ratio:1 keeps it square. Inset
+     shadows are intentionally subtle (low opacity / 1px blur) — the
+     visual cue is "pressed in", not "carved out hole". */
+  .footer-logo-deboss {
+    height: 85%;
+    aspect-ratio: 1;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--bg, #f8f9fa) 95%, var(--dark, #0f172a) 5%);
+    color: color-mix(in srgb, var(--gray, #94a3b8) 50%, var(--dark, #0f172a) 50%);
+    box-shadow:
+      inset 1px 1px 1px rgba(0, 0, 0, 0.10),
+      inset -1px -1px 1px rgba(255, 255, 255, 0.6);
+    transition: color 200ms ease;
+  }
+
+  .footer-logo-deboss:hover {
+    color: var(--primary);
+  }
+
+  html[data-theme="dark"] .footer-logo-deboss {
+    background: color-mix(in srgb, var(--bg, #0c0c0c) 88%, #fff 4%);
+    color: color-mix(in srgb, var(--gray, #94a3b8) 70%, #fff 30%);
+    box-shadow:
+      inset 1px 1px 1px rgba(0, 0, 0, 0.4),
+      inset -1px -1px 1px rgba(255, 255, 255, 0.04);
+  }
+
+  /* =====================================================================
+     Powered by LitePic 徽章 — Plan A 直角风格
+     左半 "LitePic"（Ubuntu）黑底白字 + 右半版本号（mono）品牌蓝白字。
+     0 圆角 跟 LitePic 全站设计系统统一。
+     ===================================================================== */
+
+  .powered-shield {
+    display: inline-flex;
+    align-items: stretch;
+    overflow: hidden;
+    height: 18px;
+    font-size: 10.5px;
+    line-height: 1;
+    text-decoration: none;
+    border-radius: 0;
+    transition: filter 160ms ease;
+  }
+  .powered-shield:hover { filter: brightness(1.1); }
+
+  .powered-shield__label,
+  .powered-shield__value {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 7px;
+    white-space: nowrap;
+  }
+
+  .powered-shield__label {
+    background: #0f172a;
+    color: #fff;
+    font-family: "Ubuntu", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+
+  .powered-shield__value {
+    background: var(--primary, #0052D9);
+    color: #fff;
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+    font-weight: 600;
+  }
+
   html[data-theme="dark"] .wechat-popup {
     background: var(--surface);
     border-color: rgba(255, 255, 255, 0.04);

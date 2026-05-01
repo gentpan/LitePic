@@ -1,0 +1,65 @@
+# LitePic V3.0 — Caddyfile 示例
+#
+# 把以下 site block 按你的环境调整后启用（域名 / root 路径 / php-fpm 地址）。
+# Caddy 自动把 :443 + ACME 证书申请也搞定。
+#
+# 关键点：
+#   • 自定义 URL 前缀 (/img/、/photo/、/anyword/) 由 rewrite 直接送到 image.php
+#     — 跟 .htaccess 里的 catch-all 等价
+#   • /uploads/ 直连物理文件，最快，无 PHP
+#   • /i/ 已经是 PHP 路由（image.php 直接处理）
+#   • 任何没匹配的请求落到 index.php 走应用路由
+
+your-domain.com {
+    root * /var/www/litepic              # ← 改成你的实际路径
+    encode gzip zstd
+
+    # 上传体积上限（按需调整，跟 settings → 上传限制 一致）
+    request_body {
+        max_size 50MB
+    }
+
+    # ============================================================
+    # 安全：禁止访问敏感文件 / 目录
+    # ============================================================
+    @blocked {
+        path /.env* /.git/* /data/* /logs/*
+    }
+    respond @blocked 403
+
+    @uploads_php {
+        path_regexp ^/uploads/.*\.php$
+    }
+    respond @uploads_php 403
+
+    # ============================================================
+    # 图片路由
+    # ============================================================
+
+    # /i/yyyy/mm/file.ext → image.php?file=...
+    @ipath path_regexp i ^/i/(.+)$
+    rewrite @ipath /image.php?file={re.i.1}
+
+    # /<custom-prefix>/yyyy/mm/file.ext → image.php?file=...
+    # 排除 uploads/i/api/static/assets/data/logs/settings/gallery/upload/docs/stats
+    @custom_prefix path_regexp cust ^/(?!uploads/|i/|api/|static/|assets/|data/|logs/|settings/|gallery/|upload/|docs/|stats/)([a-z0-9][a-z0-9_-]*/)?([0-9]{4}/[0-9]{2}/[^/]+\.(?:jpg|jpeg|png|gif|webp|avif|svg|ico|bmp|tiff|tif|heic|jxl|raw|dng))$
+    rewrite @custom_prefix /image.php?file={re.cust.2}
+
+    # /uploads/yyyy/mm/file.ext — 直连物理文件，由下面的 file_server 处理
+
+    # ============================================================
+    # 应用路由 + PHP-FPM
+    # ============================================================
+    php_fastcgi 127.0.0.1:9000           # ← 改成你的 php-fpm socket / 地址
+    file_server
+
+    # ============================================================
+    # 可选：Caddy 防盗链（settings 里防盗链开关 .htaccess 无效时用这个）
+    # ============================================================
+    # @hotlink {
+    #     path /uploads/*
+    #     not header Referer "*your-domain.com*"
+    #     not header Referer ""
+    # }
+    # respond @hotlink 403
+}

@@ -319,6 +319,30 @@ ACCESS_LOG_MAX_BYTES=20971520
 
 导入后处理采用任务队列执行：扫描只负责导入，缩略图、压缩、转换、水印和远程同步会排队分批处理。每次处理数量可控，避免一次请求占满服务器。
 
+### 异步上传 / 后台 worker
+
+上传请求只负责把图片落盘 + 入库 + 入队（约 100 ms 返回），缩略图 / 压缩 / WebP / AVIF / 水印 / 远程同步全部交给后台 worker 异步处理。worker 触发方式有三种，**任选其一即可**（也可以全部叠加，互不冲突）：
+
+1. **响应送达后自动 drain（默认开启，零配置）**
+   每次上传成功后，PHP 会在响应送达浏览器后继续在同一进程跑 `ImageProcessor::drain(20, 25)`，最多 20 个任务 / 25 秒。靠 `fastcgi_finish_request()`（PHP-FPM）或 `Connection: close` + 输出缓冲 flush（mod_php）实现。一般情况下这一种就够用。
+
+2. **Cron 兜底（推荐）**
+   服务器加一行 cron，每分钟兜一次，捕获在线 drain 漏掉 / 服务重启遗留的任务：
+   ```cron
+   * * * * * cd /path/to/litepic && /usr/bin/php worker.php >> logs/worker.log 2>&1
+   ```
+   `worker.php` 自带 flock 进程锁，多个 cron 实例同时启动只会有一个真正干活，其它静默退出。
+
+3. **手动触发（设置 → 系统 → 图片处理队列 → 立即处理队列 按钮）**
+   或直接调 API：
+   ```bash
+   curl -X POST -H "X-API-Key: $ADMIN_API_KEY" \
+        https://your-host/api/v1/queue/drain
+   ```
+   返回处理统计（`processed` / `failed` / `skipped` / `elapsed_ms` / `pending_before` / `pending_after`）。
+
+设置 → 系统 tab 下的「图片处理队列」section 实时显示队列深度、失败数和上次 worker 运行摘要；上传页的队列条目在异步处理完成后会自动从「已上传」升级为「已处理（WebP · 缩略图）」（前端每 2.5 秒轮询 `/api/v1/image-status`）。
+
 ## 登录和安全
 
 LitePic 支持：

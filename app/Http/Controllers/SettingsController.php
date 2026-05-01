@@ -37,6 +37,7 @@ final class SettingsController
     private const SUPPORTED_WATERMARK_TYPES = ['text', 'image'];
     private const SUPPORTED_WATERMARK_POSITIONS = ['bottom-right', 'bottom-left', 'top-right', 'top-left', 'center'];
     private const SUPPORTED_COMPRESSION_MODES = ['tinypng', 'gd', 'imagemagick'];
+    private const SUPPORTED_CONVERSION_ENGINES = ['auto', 'imagick', 'gd'];
     private const SUPPORTED_CONVERT_FORMATS = ['webp', 'avif'];
 
     /**
@@ -304,11 +305,11 @@ final class SettingsController
             (!empty($_SERVER['HTTPS']) && (string)$_SERVER['HTTPS'] !== 'off') ||
             (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443)
         );
-        $adminApiKey = trim((string)($_POST['admin_api_key'] ?? ADMIN_API_KEY));
+        // ADMIN_API_KEY 已不再随主设置表单提交（改由 /api/auth.php 的
+        // change_password 路径单独保存），这里只读取当前值好把它再写一次回 DB
+        // 即可，避免别的字段保存时把已有密码覆盖成空。
+        $adminApiKey = (string)ADMIN_API_KEY;
         $autoCompressOnUpload = self::boolFromPost('auto_compress_on_upload');
-
-        // Home background image (optional upload)
-        $homeBackgroundImage = $this->settleHomeBackground($warnings, $notes, $extras);
 
         // Format conversion: combined or split radio + checkbox
         [$autoConvertWebp, $autoConvertAvif, $convertPreferredFormat] = $this->resolveConvertSettings($warnings);
@@ -327,12 +328,8 @@ final class SettingsController
         $hotlinkAllowedDomains = trim((string)($_POST['hotlink_allowed_domains'] ?? implode(',', HOTLINK_ALLOWED_DOMAINS)));
         $hotlinkAllowEmptyReferer = self::boolFromPost('hotlink_allow_empty_referer');
 
-        // Access log stats
-        $accessLogStatsEnabled = self::boolFromPost('access_log_stats_enabled');
-        $accessLogPaths = trim((string)($_POST['access_log_paths'] ?? implode(',', ACCESS_LOG_PATHS)));
-        $accessLogCacheTtl = max(30, min(86400, (int)($_POST['access_log_cache_ttl'] ?? ACCESS_LOG_CACHE_TTL)));
-        $accessLogMaxMb = max(1, min(500, (int)($_POST['access_log_max_mb'] ?? (int)ceil(ACCESS_LOG_MAX_BYTES / 1024 / 1024))));
-        $accessLogMaxBytes = $accessLogMaxMb * 1024 * 1024;
+        // Image view counter (PHP-based — no Web 服务器 access.log dependency)
+        $imageViewCounterEnabled = self::boolFromPost('image_view_counter_enabled');
 
         // Remote storage usage warning (fields are saved by the dedicated handler)
         $remoteStorageUsage = $this->resolveRemoteStorageUsage();
@@ -351,6 +348,18 @@ final class SettingsController
         if (!in_array($compressionMode, self::SUPPORTED_COMPRESSION_MODES, true)) {
             $compressionMode = 'imagemagick';
         }
+        $conversionEngine = strtolower(trim((string)($_POST['conversion_engine'] ?? (defined('CONVERSION_ENGINE') ? CONVERSION_ENGINE : 'auto'))));
+        if (!in_array($conversionEngine, self::SUPPORTED_CONVERSION_ENGINES, true)) {
+            $conversionEngine = 'auto';
+        }
+        // URL_PREFIX — 自由文本前缀（自动规范化为小写、补 /、剔除非法字符）。
+        // 用户可填 /uploads/、/、/i/、/img/、/photo/、/p/、/foo-bar/ 等任意 ASCII 单词。
+        $urlPrefixRaw = trim((string)($_POST['url_prefix'] ?? (defined('URL_PREFIX') ? URL_PREFIX : '/uploads/')));
+        $urlPrefix = self::normalizeUrlPrefix($urlPrefixRaw);
+        if ($urlPrefix === '') {
+            $warnings[] = '图片链接前缀格式无效，已保留原配置（必须以 / 开头和结尾，仅允许小写字母数字 _ -，不能跟系统路径冲突）';
+            $urlPrefix = defined('URL_PREFIX') ? URL_PREFIX : '/uploads/';
+        }
 
         // Persist everything that goes into .env in one shot
         $envWritten = Config::write(array_merge([
@@ -360,13 +369,14 @@ final class SettingsController
             'UPLOAD_ALLOWED_TYPES' => implode(',', $allowedTypes),
             'COOKIE_SECURE' => $isHttps ? 'true' : 'false',
             'ADMIN_API_KEY' => Format::envQuote($adminApiKey),
-            'HOME_BACKGROUND_IMAGE' => Format::envQuote($homeBackgroundImage),
             'AUTO_COMPRESS_ON_UPLOAD' => $autoCompressOnUpload ? 'true' : 'false',
             'AUTO_CONVERT_WEBP_ON_UPLOAD' => $autoConvertWebp ? 'true' : 'false',
             'AUTO_CONVERT_AVIF_ON_UPLOAD' => $autoConvertAvif ? 'true' : 'false',
             'CONVERT_PREFERRED_FORMAT' => $convertPreferredFormat,
             'KEEP_ORIGINAL_AFTER_PROCESS' => $keepOriginalAfterProcess ? 'true' : 'false',
             'COMPRESSION_MODE' => $compressionMode,
+            'CONVERSION_ENGINE' => $conversionEngine,
+            'URL_PREFIX' => $urlPrefix,
             'WATERMARK_ENABLED' => $watermarkEnabled ? 'true' : 'false',
             'WATERMARK_TYPE' => $watermarkType,
             'WATERMARK_TEXT' => Format::envQuote($watermarkText),
@@ -386,10 +396,7 @@ final class SettingsController
             'HOTLINK_PROTECTION_ENABLED' => 'false',
             'HOTLINK_ALLOWED_DOMAINS' => Format::envQuote($hotlinkAllowedDomains),
             'HOTLINK_ALLOW_EMPTY_REFERER' => $hotlinkAllowEmptyReferer ? 'true' : 'false',
-            'ACCESS_LOG_STATS_ENABLED' => $accessLogStatsEnabled ? 'true' : 'false',
-            'ACCESS_LOG_PATHS' => Format::envQuote($accessLogPaths),
-            'ACCESS_LOG_CACHE_TTL' => (string)$accessLogCacheTtl,
-            'ACCESS_LOG_MAX_BYTES' => (string)$accessLogMaxBytes,
+            'IMAGE_VIEW_COUNTER_ENABLED' => $imageViewCounterEnabled ? 'true' : 'false',
         ], RemoteStorage::envFromPostedForm()));
 
         $iniPath = APP_ROOT . '/.user.ini';
@@ -412,9 +419,19 @@ final class SettingsController
             $hotlinkAllowEmptyReferer
         );
         if (!$htaccessWritten) {
-            $warnings[] = $apacheHotlinkEnabled
-                ? '防盗链规则写入 .htaccess 失败，请检查站点根目录写入权限'
-                : '防盗链规则从 .htaccess 移除失败，请检查站点根目录写入权限';
+            // 详细诊断：判断到底是哪一种权限问题，给用户明确的修复方法
+            $diag = '';
+            if (!is_file($htaccessPath)) {
+                $diag = '（.htaccess 文件不存在）';
+            } elseif (!is_writable($htaccessPath)) {
+                $owner = function_exists('posix_getpwuid') ? (posix_getpwuid(fileowner($htaccessPath))['name'] ?? '?') : (string)fileowner($htaccessPath);
+                $current = function_exists('posix_geteuid') ? (posix_getpwuid(posix_geteuid())['name'] ?? '?') : 'php';
+                $perms = substr(sprintf('%o', fileperms($htaccessPath)), -3);
+                $diag = sprintf('（文件 owner=%s，当前 PHP user=%s，perms=%s — 修复：`chmod 666 .htaccess` 或 `chown %s .htaccess`）', $owner, $current, $perms, $current);
+            }
+            $warnings[] = ($apacheHotlinkEnabled
+                ? '防盗链规则写入 .htaccess 失败'
+                : '防盗链规则从 .htaccess 移除失败') . $diag;
         } elseif ($apacheHotlinkEnabled) {
             $webServer = (new ServerInfo())->webServer();
             if (empty($webServer['uses_htaccess'])) {
@@ -449,7 +466,7 @@ final class SettingsController
             'apache_hotlink_protection_enabled' => HotlinkProtection::apacheRulesEnabled($htaccessPath),
             'hotlink_allow_empty_referer' => $hotlinkAllowEmptyReferer,
             'watermark_panel_enabled' => $watermarkPanelEnabled,
-            'access_log_stats_enabled' => $accessLogStatsEnabled,
+            'image_view_counter_enabled' => $imageViewCounterEnabled,
         ];
 
         return ['message' => $message, 'type' => $type] + $extras;
@@ -464,12 +481,44 @@ final class SettingsController
         if (!is_array($raw)) {
             $raw = explode(',', (string)$raw);
         }
+
+        // 任何会被服务端 / Apache / Nginx 当成可执行 / 模板 / 配置 / 脚本
+        // 处理的扩展名都拉黑（防止用户脚滑写错把 .php 当图片格式加进白名单）。
+        // 即使 MIME 校验也会再拦一道，这里属于"双保险"。
+        $blacklist = [
+            'php', 'phtml', 'php3', 'php4', 'php5', 'php7', 'phps', 'pht',
+            'asp', 'aspx', 'jsp', 'jspx',
+            'sh', 'bash', 'zsh', 'cgi', 'pl', 'py', 'rb',
+            'exe', 'bat', 'cmd', 'com', 'msi', 'dll',
+            'js', 'mjs', 'html', 'htm', 'xhtml',
+            'htaccess', 'ini', 'env', 'conf',
+        ];
+
         $cleaned = [];
+        $rejected = [];
         foreach ($raw as $type) {
+            // 用户可以自填扩展名（heic / jxl / raw / dng 等不在 SUPPORTED 列表里
+            // 的也允许），后端只做格式合法性 sanitize：
+            //   • 去掉前导 . / 空白
+            //   • 只接受字母 + 数字（任意 unicode 字母会被去掉，避免奇怪后缀）
+            //   • 长度 1–10 个字符
+            //   • 转小写
+            //   • 黑名单拒绝（见 $blacklist）
+            // 内容是不是真的图片由 UploadService::validateMime 在上传时把关。
             $type = strtolower(ltrim(trim((string)$type), '.'));
-            if ($type !== '' && in_array($type, SUPPORTED_IMAGE_TYPES, true) && !in_array($type, $cleaned, true)) {
+            $type = preg_replace('/[^a-z0-9]/', '', $type) ?? '';
+            if ($type === '' || strlen($type) > 10) continue;
+            if (in_array($type, $blacklist, true)) {
+                $rejected[] = $type;
+                continue;
+            }
+            if (!in_array($type, $cleaned, true)) {
                 $cleaned[] = $type;
             }
+        }
+
+        if (!empty($rejected)) {
+            $warnings[] = '已拒绝可执行 / 脚本类扩展名：.' . implode(', .', array_unique($rejected));
         }
         if (empty($cleaned)) {
             $cleaned = ALLOWED_UPLOAD_TYPES;
@@ -479,34 +528,6 @@ final class SettingsController
             $warnings[] = '至少需要保留一种允许上传格式，已保留原配置';
         }
         return $cleaned;
-    }
-
-    private function settleHomeBackground(array &$warnings, array &$notes, array &$extras): string
-    {
-        $defaultPath = defined('SETTINGS_DEFAULT_HOME_BACKGROUND')
-            ? SETTINGS_DEFAULT_HOME_BACKGROUND
-            : '/static/images/background.jpg';
-        $current = HOME_BACKGROUND_IMAGE;
-
-        if (self::boolFromPost('home_background_reset')) {
-            $extras['home_bg_url'] = self::homeBackgroundUrl($defaultPath);
-            $extras['home_bg_path'] = ltrim($defaultPath, '/');
-            $notes[] = '首页背景图已恢复默认';
-            return $defaultPath;
-        }
-
-        $error = null;
-        $uploaded = self::storeHomeBackgroundUpload('home_background_upload', $error);
-        if ($uploaded !== null) {
-            $extras['home_bg_url'] = self::homeBackgroundUrl($uploaded);
-            $extras['home_bg_path'] = ltrim($uploaded, '/');
-            $notes[] = '首页背景图已更新';
-            return $uploaded;
-        }
-        if ($error !== null) {
-            $warnings[] = '首页背景图上传失败：' . $error;
-        }
-        return $current;
     }
 
     /**
@@ -656,110 +677,34 @@ final class SettingsController
     }
 
     /**
-     * Append a cache-busting `?v=` query so a new background image
-     * doesn't get served from the browser cache.
+     * Sanitise + normalise a user-entered URL prefix.
+     *
+     * Rules:
+     *   • Must start AND end with '/'
+     *   • At most one segment between, only [a-z0-9_-]
+     *   • Reserved words (api / static / assets / data / logs / settings /
+     *     gallery / upload / docs / stats) rejected — would collide with
+     *     framework routes
+     *   • Empty input or '/' → returns '/' (root, valid)
+     *   • Returns '' (empty string) on completely invalid input so caller
+     *     can warn user and revert to previous setting.
      */
-    public static function homeBackgroundUrl(string $webPath): string
+    public static function normalizeUrlPrefix(string $raw): string
     {
-        $appRoot = defined('APP_ROOT') ? APP_ROOT : dirname(__DIR__, 4);
-        $path = parse_url($webPath, PHP_URL_PATH);
-        $file = is_string($path) && str_starts_with($path, '/') ? $appRoot . $path : '';
-        $version = $file !== '' && is_file($file) ? (string)filemtime($file) : (string)time();
-        return $webPath . (str_contains($webPath, '?') ? '&' : '?') . 'v=' . rawurlencode($version);
-    }
-
-    /**
-     * Receive an uploaded JPG/PNG/WebP background image, normalise it
-     * to JPEG, and put it under static/images/. Returns the new web
-     * path, or null if no usable upload arrived (with `$error` set if
-     * the upload was attempted but rejected).
-     */
-    public static function storeHomeBackgroundUpload(string $field, ?string &$error = null): ?string
-    {
-        if (empty($_FILES[$field]) || !is_array($_FILES[$field])) return null;
-        $file = $_FILES[$field];
-        $errorCode = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
-        if ($errorCode === UPLOAD_ERR_NO_FILE) return null;
-        if ($errorCode !== UPLOAD_ERR_OK) {
-            $error = '上传文件失败，请检查 PHP 上传限制';
-            return null;
-        }
-
-        $tmp = (string)($file['tmp_name'] ?? '');
-        if ($tmp === '' || !is_uploaded_file($tmp)) {
-            $error = '上传临时文件无效';
-            return null;
-        }
-        $info = @getimagesize($tmp);
-        $mime = is_array($info) ? (string)($info['mime'] ?? '') : '';
-        if (!in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true)) {
-            $error = '首页背景图仅支持 JPG/JPEG/PNG/WebP';
-            return null;
-        }
-
-        $appRoot = defined('APP_ROOT') ? APP_ROOT : dirname(__DIR__, 4);
-        $dir = $appRoot . '/static/images';
-        if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
-            $error = '背景图目录不可写';
-            return null;
-        }
-        if (!is_writable($dir)) {
-            $error = '背景图目录不可写';
-            return null;
-        }
-
-        $filename = 'background-' . date('YmdHis') . '-' . bin2hex(random_bytes(4)) . '.jpg';
-        $target = $dir . '/' . $filename;
-        $temp = $dir . '/.' . $filename . '.tmp';
-
-        if ($mime === 'image/jpeg') {
-            if (!move_uploaded_file($tmp, $temp)) {
-                $error = '写入首页背景失败';
-                return null;
-            }
-        } else {
-            if (!extension_loaded('gd')) {
-                $error = 'PNG/WebP 转 JPG 需要启用 GD；请改传 JPG/JPEG';
-                return null;
-            }
-            $createFn = $mime === 'image/png' ? 'imagecreatefrompng' : 'imagecreatefromwebp';
-            if (!function_exists($createFn)) {
-                $error = '当前 PHP GD 不支持该图片格式；请改传 JPG/JPEG';
-                return null;
-            }
-            $source = @$createFn($tmp);
-            if (!$source) {
-                $error = '读取背景图失败';
-                return null;
-            }
-            $w = imagesx($source);
-            $h = imagesy($source);
-            $canvas = imagecreatetruecolor($w, $h);
-            if (!$canvas) {
-                imagedestroy($source);
-                $error = '处理背景图失败';
-                return null;
-            }
-            $fill = imagecolorallocate($canvas, 12, 12, 12);
-            imagefill($canvas, 0, 0, $fill);
-            imagecopy($canvas, $source, 0, 0, 0, 0, $w, $h);
-            $saved = imagejpeg($canvas, $temp, 90);
-            imagedestroy($canvas);
-            imagedestroy($source);
-            if (!$saved) {
-                $error = '转换背景图失败';
-                return null;
-            }
-        }
-
-        if (!rename($temp, $target)) {
-            @unlink($temp);
-            $error = '写入首页背景失败';
-            return null;
-        }
-        @chmod($target, 0644);
-        clearstatcache(true, $target);
-        return '/static/images/' . $filename;
+        $raw = trim($raw);
+        if ($raw === '' || $raw === '/') return '/';
+        // Lowercase + drop non-allowed chars (keep only / a-z 0-9 _ -)
+        $cleaned = preg_replace('#[^a-z0-9_/\-]#', '', strtolower($raw));
+        if ($cleaned === null || $cleaned === '') return '';
+        // Ensure leading / + trailing /
+        if ($cleaned[0] !== '/') $cleaned = '/' . $cleaned;
+        if (substr($cleaned, -1) !== '/') $cleaned .= '/';
+        // Final shape: /<word>/   (word optional → root '/' allowed)
+        if (!preg_match('#^/([a-z0-9][a-z0-9_-]*/)?$#', $cleaned)) return '';
+        // Reserved words must not be reused as image prefix
+        $reserved = ['api/', 'static/', 'assets/', 'data/', 'logs/', 'settings/', 'gallery/', 'upload/', 'docs/', 'stats/'];
+        if (in_array(substr($cleaned, 1), $reserved, true)) return '';
+        return $cleaned;
     }
 
     public static function isAjaxRequest(): bool

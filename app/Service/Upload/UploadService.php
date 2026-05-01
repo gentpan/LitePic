@@ -96,8 +96,16 @@ final class UploadService
         $mime = self::detectMime($tmpPath);
         if ($mime === null) return false;
 
-        return isset(self::ALLOWED_MIMES[$mime])
-            && in_array($ext, self::ALLOWED_MIMES[$mime], true);
+        // 严格匹配：经典图像扩展名（jpg/png/gif/webp/avif/ico/bmp/tiff）的 MIME
+        // 必须 1:1 对得上预设映射 — 防止「.jpg 文件实际是 .gif」这种 spoof。
+        if (isset(self::ALLOWED_MIMES[$mime])) {
+            return in_array($ext, self::ALLOWED_MIMES[$mime], true);
+        }
+
+        // 用户自添的扩展名（如 heic / jxl / raw / dng），不在预设 MIME 表里。
+        // 仍要确保文件**内容**是图片：MIME 必须以 image/ 开头。这样 .php / .html /
+        // 任何可执行文件都会被拒，但合法的扩展（哪怕罕见）能放行。
+        return str_starts_with($mime, 'image/');
     }
 
     /**
@@ -207,92 +215,62 @@ final class UploadService
 
         $identifier = PathService::identifierFromPath($target) ?? $filename;
 
-        if (function_exists('save_original_filename')) {
-            (new \LitePic\Repository\ImageRepository())->recordOriginalName($identifier, $originalName);
+        // 立刻把元数据写入 images 表（图片本身已经在磁盘上能直接被 /uploads/...
+        // 或 /i/<id> 路由 serve），并把"重活"任务（缩略图、压缩、格式转换、
+        // 水印、远程同步）入队 import_queue 等异步 worker 处理。
+        // 上传请求只做这两件事 + 返回，~100ms 就能完成。
+        $imageRepo = new \LitePic\Repository\ImageRepository();
+        $imageRepo->recordOriginalName($identifier, $originalName);
+
+        // 根据全局设置决定要做哪些重活（沿用之前同步流程的开关含义）
+        $queueOptions = [
+            'create_thumbnail' => true,                         // 总是生成
+            'auto_compress'    => defined('AUTO_COMPRESS_ON_UPLOAD') && AUTO_COMPRESS_ON_UPLOAD,
+            'auto_webp'        => defined('AUTO_CONVERT_WEBP_ON_UPLOAD') && AUTO_CONVERT_WEBP_ON_UPLOAD,
+            'auto_avif'        => defined('AUTO_CONVERT_AVIF_ON_UPLOAD') && AUTO_CONVERT_AVIF_ON_UPLOAD,
+            'watermark'        => defined('WATERMARK_ENABLED') && WATERMARK_ENABLED,
+            'remote_sync'      => (new RemoteStorage())->isEnabled(),
+        ];
+
+        $queue = new \LitePic\Repository\ImportQueueRepository();
+        $hasWork = \LitePic\Repository\ImportQueueRepository::hasWork($queueOptions);
+        if ($hasWork) {
+            $queue->enqueue($identifier, $queueOptions);
         }
-        $thumbnails = new ThumbnailService();
-        $thumbnails->create($identifier);
 
-        $conversion = new ConversionService();
-        $processing = $conversion->runUploadPostProcess($identifier);
-
-        [$finalFilename, $finalUrl, $originalDeleted] = $this->settleVariants($identifier, $processing, $thumbnails);
-
-        $watermark = (new WatermarkService())->apply($finalFilename);
-
-        $finalThumbnailUrl = $finalUrl;
-        if (ThumbnailService::canGenerate($finalFilename) && $thumbnails->create($finalFilename)) {
-            $finalThumbnailUrl = ImageUrl::thumbnailUrl($finalFilename);
-        }
-
-        $remoteSync = (new RemoteStorage())->syncFileAndThumbnail($finalFilename);
-
-        $processing['original_deleted'] = $originalDeleted;
-        $processing['final_filename'] = $finalFilename;
-        $processing['remote_storage'] = $remoteSync;
-        $processing['watermark'] = $watermark;
-
+        // 上传成功立即返回；URL 已可访问（原图直接 serve）。
+        // 客户端可以拿 filename 去轮询 /api/image-status 看处理进度，等服务端
+        // 跑完 webp/avif 再切到优化版本（或保持原样不切，看你 UI 设计）。
         return [
             'status' => 'success',
-            'filename' => $finalFilename,
+            'filename' => $identifier,
             'original_name' => $originalName,
-            'url' => $finalUrl,
-            'thumbnail_url' => $finalThumbnailUrl,
-            'processing' => $processing,
+            'url' => ImageUrl::forIdentifier($identifier),
+            'thumbnail_url' => ImageUrl::forIdentifier($identifier),  // 缩略图未生成前回退到原图
+            'processing' => [
+                'queued'           => $hasWork,
+                'queue_options'    => $queueOptions,
+                'final_filename'   => $identifier,                    // 处理前等于原图；webp/avif 转换完成后会变
+                'auto_compress'    => [],
+                'auto_webp'        => [],
+                'auto_avif'        => [],
+                'watermark'        => [],
+                'remote_storage'   => [],
+                'original_deleted' => false,
+            ],
         ];
     }
 
     /**
-     * After post-process, decide which file becomes the "final" one and
-     * whether to drop the previous variant. AVIF wins over WebP wins
-     * over the original (when KEEP_ORIGINAL_AFTER_PROCESS is off).
+     * Settlement logic moved to \LitePic\Service\Image\ImageProcessor::settleVariants().
+     * Kept here as a back-compat shim in case anything still calls it
+     * (no public callers in the current codebase).
      *
      * @return array{0:string,1:string,2:bool} [filename, url, originalDeleted]
      */
     private function settleVariants(string $identifier, array $processing, ThumbnailService $thumbnails): array
     {
-        $finalFilename = $identifier;
-        $finalUrl = ImageUrl::forIdentifier($identifier);
-        $originalDeleted = false;
-        $keepOriginal = defined('KEEP_ORIGINAL_AFTER_PROCESS') && KEEP_ORIGINAL_AFTER_PROCESS;
-
-        if (!empty($processing['auto_webp']['created']) && !empty($processing['auto_webp']['filename'])) {
-            $webpFilename = PathService::normalizeIdentifier((string)$processing['auto_webp']['filename']);
-            $webpPath = PathService::resolveFilePath($webpFilename);
-            if (file_exists($webpPath)) {
-                $originPath = PathService::resolveFilePath($identifier);
-                if (file_exists($originPath) && basename($originPath) !== PathService::displayName($webpFilename)) {
-                    if (!$keepOriginal) {
-                        @unlink($originPath);
-                        $thumbnails->delete($identifier);
-                        (new ImageRepository())->delete($identifier);
-                        $originalDeleted = true;
-                    }
-                }
-                $finalFilename = $webpFilename;
-                $finalUrl = ImageUrl::forIdentifier($webpFilename);
-            }
-        }
-
-        if (!empty($processing['auto_avif']['created']) && !empty($processing['auto_avif']['filename'])) {
-            $avifFilename = PathService::normalizeIdentifier((string)$processing['auto_avif']['filename']);
-            $avifPath = PathService::resolveFilePath($avifFilename);
-            if (file_exists($avifPath)) {
-                $prevPath = PathService::resolveFilePath($finalFilename);
-                if (file_exists($prevPath) && basename($prevPath) !== PathService::displayName($avifFilename)) {
-                    if (!$keepOriginal) {
-                        @unlink($prevPath);
-                        $thumbnails->delete($finalFilename);
-                        (new ImageRepository())->delete($finalFilename);
-                        $originalDeleted = true;
-                    }
-                }
-                $finalFilename = $avifFilename;
-                $finalUrl = ImageUrl::forIdentifier($avifFilename);
-            }
-        }
-
-        return [$finalFilename, $finalUrl, $originalDeleted];
+        return \LitePic\Service\Image\ImageProcessor::settleVariants($identifier, $processing, $thumbnails);
     }
 
     private static function detectMime(string $tmpPath): ?string

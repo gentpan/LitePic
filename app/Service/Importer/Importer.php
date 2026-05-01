@@ -395,9 +395,7 @@ final class Importer
                 $report['errors'][] = '路径解析失败: ' . $sourcePath;
                 return '';
             }
-            if (function_exists('save_original_filename')) {
-                (new \LitePic\Repository\ImageRepository())->recordOriginalName($identifier, basename($sourcePath));
-            }
+            (new \LitePic\Repository\ImageRepository())->recordOriginalName($identifier, basename($sourcePath));
             return $identifier;
         }
 
@@ -423,9 +421,7 @@ final class Importer
         if ($mtime !== false) @touch($targetPath, (int)$mtime);
 
         $finalFilename = PathService::identifierFromPath($targetPath) ?? $targetIdentifier;
-        if (function_exists('save_original_filename')) {
-            (new \LitePic\Repository\ImageRepository())->recordOriginalName($finalFilename, $relativeIdentifier);
-        }
+        (new \LitePic\Repository\ImageRepository())->recordOriginalName($finalFilename, $relativeIdentifier);
         return $finalFilename;
     }
 

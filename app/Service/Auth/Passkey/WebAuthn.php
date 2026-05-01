@@ -4,27 +4,32 @@ declare(strict_types=1);
 namespace LitePic\Service\Auth\Passkey;
 
 use Exception;
+use LitePic\Repository\WebAuthnRepository;
 
 /**
  * Lightweight WebAuthn (Passkey / passwordless) implementation.
  * Only supports ES256 (ECDSA P-256 + SHA-256).
+ *
+ * State (challenges + registered credentials) lives in SQLite via
+ * WebAuthnRepository — no more `data/passkeys.json` or
+ * `data/challenges/*.json` sidecars.
  */
 class WebAuthn {
     private string $rpName;
     private string $rpId;
     private string $origin;
-    private string $storagePath;
+    private WebAuthnRepository $repo;
 
     /**
      * @param string $rpName  依赖方名称（如：LitePic）
      * @param string $rpId    依赖方 ID（如：img.xifeng.net）
      * @param string $origin  完整来源（如：https://img.xifeng.net）
      */
-    public function __construct(string $rpName, string $rpId, string $origin) {
+    public function __construct(string $rpName, string $rpId, string $origin, ?WebAuthnRepository $repo = null) {
         $this->rpName = $rpName;
         $this->rpId = $rpId;
         $this->origin = $origin;
-        $this->storagePath = (defined('APP_ROOT') ? APP_ROOT : dirname(__DIR__, 4)) . '/data/passkeys.json';
+        $this->repo = $repo ?? new WebAuthnRepository();
     }
 
     // ==================== 工具方法 ====================
@@ -55,71 +60,47 @@ class WebAuthn {
 
     /** 存储挑战（带 5 分钟过期） */
     public function storeChallenge(string $type, string $challenge): void {
-        $path = $this->getChallengePath($type);
-        $data = [
-            'challenge' => $challenge,
-            'expires' => time() + 300,
-        ];
-        file_put_contents($path, json_encode($data), LOCK_EX);
+        $type = self::normalizeType($type);
+        $this->repo->putChallenge($type, $challenge, 300);
     }
 
-    /** 验证并消耗挑战 */
+    /** 验证并消耗挑战（无论命中与否都会消耗，避免被试探） */
     public function consumeChallenge(string $type, string $challenge): bool {
-        $path = $this->getChallengePath($type);
-        if (!is_file($path)) {
-            return false;
-        }
-        $data = json_decode(file_get_contents($path), true);
-        @unlink($path);
-        if (!is_array($data) || ($data['expires'] ?? 0) < time()) {
-            return false;
-        }
-        return hash_equals($data['challenge'], $challenge);
+        $type = self::normalizeType($type);
+        $stored = $this->repo->takeChallenge($type);
+        if ($stored === null) return false;
+        return hash_equals($stored, $challenge);
     }
 
-    private function getChallengePath(string $type): string {
-        $dir = (defined('APP_ROOT') ? APP_ROOT : dirname(__DIR__, 4)) . '/data/challenges';
-        if (!is_dir($dir) && !mkdir($dir, 0777, true) && !is_dir($dir)) {
-            throw new Exception('无法创建 challenges 目录');
-        }
-        return $dir . '/' . preg_replace('/[^a-z]/', '', $type) . '.json';
+    private static function normalizeType(string $type): string {
+        // Match the old filename sanitiser so legacy callers keep working.
+        return (string)preg_replace('/[^a-z]/', '', strtolower($type));
     }
 
     // ==================== 凭证存储 ====================
 
-    /** 读取所有已注册凭证 */
+    /**
+     * Returns credentials in the same nested shape the legacy JSON
+     * file used (keyed by credentialId), so the rest of the class can
+     * keep the existing array-access pattern without further changes.
+     */
     public function getCredentials(): array {
-        if (!is_file($this->storagePath)) {
-            return [];
+        $rows = $this->repo->listCredentials();
+        $out = [];
+        foreach ($rows as $cred) {
+            $out[$cred['credentialId']] = $cred;
         }
-        $data = json_decode(file_get_contents($this->storagePath), true);
-        return is_array($data) ? $data : [];
-    }
-
-    /** 保存凭证 */
-    private function saveCredentials(array $credentials): void {
-        $dir = dirname($this->storagePath);
-        if (!is_dir($dir) && !mkdir($dir, 0777, true) && !is_dir($dir)) {
-            throw new Exception('无法创建 data 目录');
-        }
-        file_put_contents($this->storagePath, json_encode($credentials, JSON_PRETTY_PRINT), LOCK_EX);
+        return $out;
     }
 
     /** 根据 credentialId 查找凭证 */
     public function findCredential(string $credentialId): ?array {
-        $creds = $this->getCredentials();
-        return $creds[$credentialId] ?? null;
+        return $this->repo->findCredential($credentialId);
     }
 
     /** 删除凭证 */
     public function deleteCredential(string $credentialId): bool {
-        $creds = $this->getCredentials();
-        if (!isset($creds[$credentialId])) {
-            return false;
-        }
-        unset($creds[$credentialId]);
-        $this->saveCredentials($creds);
-        return true;
+        return $this->repo->deleteCredential($credentialId);
     }
 
     // ==================== 注册 (Registration) ====================
@@ -233,15 +214,14 @@ class WebAuthn {
         // 8. 解析 COSE 公钥
         $publicKey = $this->parseCosePublicKey($publicKeyCose);
 
-        // 9. 保存凭证
-        $credentials = $this->getCredentials();
-        $credentials[self::base64UrlEncode($credentialId)] = [
-            'credentialId' => self::base64UrlEncode($credentialId),
-            'publicKey' => $publicKey,
-            'signCount' => $signCount,
-            'createdAt' => date('c'),
-        ];
-        $this->saveCredentials($credentials);
+        // 9. 保存凭证 — DB-backed via WebAuthnRepository
+        $credentialIdB64 = self::base64UrlEncode($credentialId);
+        $this->repo->saveCredential(
+            $credentialIdB64,
+            $publicKey['x'],
+            $publicKey['y'],
+            (int)$signCount
+        );
 
         return [
             'success' => true,
@@ -376,10 +356,8 @@ class WebAuthn {
             throw new Exception('签名计数器回退，可能存在重放攻击');
         }
 
-        $credentials = $this->getCredentials();
-        $credentials[$credentialIdB64]['signCount'] = $signCount;
-        $credentials[$credentialIdB64]['lastUsedAt'] = date('c');
-        $this->saveCredentials($credentials);
+        // Update sign counter + last-used timestamp via the repo.
+        $this->repo->recordUsage($credentialIdB64, (int)$signCount);
 
         return true;
     }

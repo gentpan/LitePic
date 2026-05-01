@@ -112,9 +112,10 @@ $document_title = isset($html_title) && trim((string)$html_title) !== ''
                     $current_path = '/';
                 }
 
+                // /api 已迁移到 litepic.io/api（litepic-landing 静态站），
+                // 本地不再保留 API 文档页 — 后台 nav 也移除对应入口。
                 $nav_items = [
                     '/' => ['首页', 'fa-home'],
-                    '/api' => ['API', 'fa-code'],
                     '/gallery' => ['图库', 'fa-images'],
                     '/stats' => ['统计', 'fa-chart-line'],
                     '/settings' => ['设置', 'fa-gear'],

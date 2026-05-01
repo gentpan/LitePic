@@ -100,11 +100,9 @@ final class ImageInfo
         }
 
         $thumbUrl = ImageUrl::forIdentifier($identifier);
-        // Thumbnail generation is still in legacy land for now.
-        if (function_exists('can_generate_thumbnail') && \LitePic\Service\Image\ThumbnailService::canGenerate($identifier)) {
-            if (function_exists('create_thumbnail') && (new \LitePic\Service\Image\ThumbnailService())->create((string)$identifier)) {
-                $thumbUrl = ImageUrl::thumbnailUrl((string)$identifier);
-            }
+        if (\LitePic\Service\Image\ThumbnailService::canGenerate($identifier)
+            && (new \LitePic\Service\Image\ThumbnailService())->create((string)$identifier)) {
+            $thumbUrl = ImageUrl::thumbnailUrl((string)$identifier);
         }
 
         return [
@@ -119,9 +117,7 @@ final class ImageInfo
             'time' => $time,
             'url' => ImageUrl::forIdentifier($identifier),
             'thumb_url' => $thumbUrl,
-            'request_count' => function_exists('get_image_request_count')
-                ? (int)(new \LitePic\Service\Stats\AccessLogStats())->imageRequestCount($identifier)
-                : 0,
+            'request_count' => (int)($row['view_count'] ?? 0),
         ];
     }
 

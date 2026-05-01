@@ -75,11 +75,14 @@ final class ImportQueueRepository
     public function nextBatch(int $limit): array
     {
         $limit = max(1, min(50, $limit));
+        // Priority DESC first (高优先级 任务先跑：reprocess from gallery
+        // 默认 priority=10 跳过普通 upload 任务的 priority=0)，同优先级
+        // 内部按 id ASC 保 FIFO，跟之前行为一致。
         $stmt = Database::connection()->prepare(
             'SELECT id, filename, options, status, attempts, last_error, created_at, updated_at
              FROM import_queue
              WHERE status = :s
-             ORDER BY id ASC
+             ORDER BY priority DESC, id ASC
              LIMIT :l'
         );
         $stmt->bindValue(':s', self::STATUS_PENDING);
@@ -134,6 +137,136 @@ final class ImportQueueRepository
         return (int)Database::connection()
             ->query('SELECT COUNT(*) FROM import_queue WHERE attempts > 0')
             ->fetchColumn();
+    }
+
+    /**
+     * Items that have been attempted at least once and are now sitting
+     * back in pending state with a `last_error`. Surfaced in the
+     * settings → system → queue monitor for manual retry / discard.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function failedItems(int $limit = 50): array
+    {
+        $limit = max(1, min(200, $limit));
+        $stmt = Database::connection()->prepare(
+            'SELECT id, filename, options, status, attempts, last_error, created_at, updated_at
+             FROM import_queue
+             WHERE attempts > 0
+             ORDER BY updated_at DESC
+             LIMIT :l'
+        );
+        $stmt->bindValue(':l', $limit, \PDO::PARAM_INT);
+        $stmt->execute();
+        return array_map([self::class, 'cast'], $stmt->fetchAll() ?: []);
+    }
+
+    /**
+     * Reset a failed task back to a fresh pending state (attempts=0,
+     * last_error cleared) so the next worker pass picks it up like new.
+     * Returns true if a row was actually touched.
+     */
+    public function retryItem(int $id): bool
+    {
+        $stmt = Database::connection()->prepare(
+            'UPDATE import_queue
+             SET attempts = 0, last_error = NULL, status = :s, updated_at = :t, worker_id = NULL
+             WHERE id = :id'
+        );
+        $stmt->execute([':id' => $id, ':s' => self::STATUS_PENDING, ':t' => time()]);
+        return $stmt->rowCount() > 0;
+    }
+
+    public function retryAllFailed(): int
+    {
+        $stmt = Database::connection()->prepare(
+            'UPDATE import_queue
+             SET attempts = 0, last_error = NULL, status = :s, updated_at = :t, worker_id = NULL
+             WHERE attempts > 0'
+        );
+        $stmt->execute([':s' => self::STATUS_PENDING, ':t' => time()]);
+        return $stmt->rowCount();
+    }
+
+    /**
+     * Hard-drop a queued task (success path also uses markDone() which
+     * is the same DELETE; this is just the explicit "give up on this"
+     * flavour for the failed-tasks UI).
+     */
+    public function discardItem(int $id): bool
+    {
+        $stmt = Database::connection()->prepare('DELETE FROM import_queue WHERE id = :id');
+        $stmt->execute([':id' => $id]);
+        return $stmt->rowCount() > 0;
+    }
+
+    public function discardAllFailed(): int
+    {
+        $stmt = Database::connection()->prepare('DELETE FROM import_queue WHERE attempts > 0');
+        $stmt->execute();
+        return $stmt->rowCount();
+    }
+
+    /**
+     * Push an existing image back through the processing pipeline
+     * with a high priority bump. Used by the gallery "重新处理" button
+     * after the user changes compression settings or wants a fresh
+     * WebP / AVIF / thumbnail for an old image.
+     *
+     * `priority` defaults to 10 so the request jumps ahead of the
+     * normal upload-time queue (priority 0). Lower numbers won't
+     * starve the queue — pending items still ordered by id within
+     * the same priority bucket.
+     */
+    public function reprocess(string $filename, array $options = [], int $priority = 10): bool
+    {
+        $filename = trim($filename);
+        if ($filename === '') return false;
+
+        $payload = self::normalizeOptions($options);
+        // Default to "do everything" so a manual reprocess refreshes
+        // every variant — caller can override by passing flags.
+        if (empty($options)) {
+            $payload = [
+                'create_thumbnail' => true,
+                'auto_compress'    => defined('AUTO_COMPRESS_ON_UPLOAD') && AUTO_COMPRESS_ON_UPLOAD,
+                'auto_webp'        => defined('AUTO_CONVERT_WEBP_ON_UPLOAD') && AUTO_CONVERT_WEBP_ON_UPLOAD,
+                'auto_avif'        => defined('AUTO_CONVERT_AVIF_ON_UPLOAD') && AUTO_CONVERT_AVIF_ON_UPLOAD,
+                'watermark'        => defined('WATERMARK_ENABLED') && WATERMARK_ENABLED,
+                'remote_sync'      => true,
+            ];
+        }
+
+        $pdo = Database::connection();
+        $existing = $this->findByFilename($filename);
+        $now = time();
+
+        if ($existing !== null) {
+            $pdo->prepare(
+                'UPDATE import_queue
+                 SET options = :o, status = :s, priority = :p, attempts = 0,
+                     last_error = NULL, worker_id = NULL, updated_at = :t
+                 WHERE id = :id'
+            )->execute([
+                ':o' => json_encode($payload, JSON_UNESCAPED_UNICODE),
+                ':s' => self::STATUS_PENDING,
+                ':p' => $priority,
+                ':t' => $now,
+                ':id' => $existing['id'],
+            ]);
+        } else {
+            $pdo->prepare(
+                'INSERT INTO import_queue (filename, options, status, priority, created_at, updated_at)
+                 VALUES (:f, :o, :s, :p, :t, :t)'
+            )->execute([
+                ':f' => $filename,
+                ':o' => json_encode($payload, JSON_UNESCAPED_UNICODE),
+                ':s' => self::STATUS_PENDING,
+                ':p' => $priority,
+                ':t' => $now,
+            ]);
+        }
+        return true;
     }
 
     /**

@@ -129,6 +129,43 @@ final class ImageRepository
         $stmt->execute([':n' => $by, ':f' => $filename]);
     }
 
+    /**
+     * Sum of view_count across the whole library — used by the stats page
+     * "图片请求" total. Cheap (full scan of one column).
+     */
+    public function totalViews(): int
+    {
+        return (int)Database::connection()
+            ->query('SELECT COALESCE(SUM(view_count), 0) FROM images')
+            ->fetchColumn();
+    }
+
+    /**
+     * Most-requested images, ordered by view_count desc. Returns rows
+     * with `filename`, `original_name`, and `view_count` only — callers
+     * that need URLs/sizes should hydrate via ImageInfo.
+     *
+     * @return array<int, array{filename:string, original_name:string, view_count:int}>
+     */
+    public function topByViews(int $limit = 20): array
+    {
+        $limit = max(1, min(200, $limit));
+        $sql = 'SELECT filename, original_name, view_count FROM images
+                WHERE view_count > 0
+                ORDER BY view_count DESC, created_at DESC
+                LIMIT ' . $limit;
+        $rows = Database::connection()->query($sql)->fetchAll() ?: [];
+        $out = [];
+        foreach ($rows as $r) {
+            $out[] = [
+                'filename' => (string)$r['filename'],
+                'original_name' => (string)($r['original_name'] ?? $r['filename']),
+                'view_count' => (int)$r['view_count'],
+            ];
+        }
+        return $out;
+    }
+
     public function delete(string $filename): void
     {
         $stmt = Database::connection()->prepare('DELETE FROM images WHERE filename = :f');

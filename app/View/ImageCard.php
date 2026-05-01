@@ -35,11 +35,35 @@ class ImageCard {
         $card_class = $this->show_select ? 'img-card' : 'img-box';
         ob_start();
         ?>
-        <div class="<?= $card_class ?>" 
-             data-filename="<?= htmlspecialchars($this->info['filename']) ?>"
+        <?php
+        // 给右键菜单准备的数据 — 各种衍生 URL 在 PHP 端算好，
+        // JS 不用拼路径就能直接做下载链接。
+        $rc_filename     = (string)$this->info['filename'];
+        $rc_url          = (string)$this->info['url'];
+        $rc_thumb_url    = (string)($this->info['thumb_url'] ?? '');
+        $rc_has_thumb    = !empty($this->info['has_thumbnail']) || $rc_thumb_url !== '';
+        $rc_has_webp     = !empty($this->info['has_webp']);
+        $rc_has_avif     = !empty($this->info['has_avif']);
+        // WebP / AVIF 衍生 URL：把扩展名替换掉。
+        $rc_webp_url = $rc_has_webp ? preg_replace('/\.[a-z0-9]+$/i', '.webp', $rc_url) : '';
+        $rc_avif_url = $rc_has_avif ? preg_replace('/\.[a-z0-9]+$/i', '.avif', $rc_url) : '';
+        $rc_ext = strtolower(pathinfo($rc_filename, PATHINFO_EXTENSION));
+        $rc_can_convert = in_array($rc_ext, ['jpg', 'jpeg', 'png', 'gif'], true);
+        $rc_preferred = defined('CONVERT_PREFERRED_FORMAT') ? (string)CONVERT_PREFERRED_FORMAT : 'webp';
+        ?>
+        <div class="<?= $card_class ?>"
+             data-filename="<?= htmlspecialchars($rc_filename) ?>"
              data-size="<?= $this->info['size'] ?>"
              data-date="<?= $this->info['time'] ?>"
-             data-url="<?= htmlspecialchars($this->info['url']) ?>">
+             data-url="<?= htmlspecialchars($rc_url) ?>"
+             data-thumb-url="<?= htmlspecialchars($rc_thumb_url) ?>"
+             data-webp-url="<?= htmlspecialchars((string)$rc_webp_url) ?>"
+             data-avif-url="<?= htmlspecialchars((string)$rc_avif_url) ?>"
+             data-has-thumb="<?= $rc_has_thumb ? '1' : '0' ?>"
+             data-has-webp="<?= $rc_has_webp ? '1' : '0' ?>"
+             data-has-avif="<?= $rc_has_avif ? '1' : '0' ?>"
+             data-can-convert="<?= $rc_can_convert ? '1' : '0' ?>"
+             data-preferred-format="<?= htmlspecialchars($rc_preferred) ?>">
             
             <!-- 图片预览 -->
             <?= $this->renderPreview() ?>

@@ -13,7 +13,6 @@ if (!(new \LitePic\Service\Auth\AuthService())->isAdmin()) {
 
 const SETTINGS_FLASH_COOKIE = 'settings_flash_once';
 const SETTINGS_FLASH_TTL = 120;
-const SETTINGS_DEFAULT_HOME_BACKGROUND = '/static/images/background.jpg';
 
 $page_title = '系统设置';
 
@@ -22,25 +21,62 @@ $page_title = '系统设置';
 // content. The save_settings handler uses `?? CURRENT_VALUE` defaults so
 // fields that aren't part of the active tab keep their existing values.
 $settings_tabs = [
-    'general' => ['icon' => 'fa-sliders', 'label' => '基础'],
-    'storage' => ['icon' => 'fa-cloud-arrow-up', 'label' => '远程存储'],
-    'import' => ['icon' => 'fa-folder-open', 'label' => '扫描导入'],
-    'auth' => ['icon' => 'fa-shield-halved', 'label' => '账号与凭据'],
-    'compression' => ['icon' => 'fa-image', 'label' => '压缩 API'],
-    'watermark' => ['icon' => 'fa-stamp', 'label' => '水印与防盗链'],
-    'system' => ['icon' => 'fa-server', 'label' => '系统信息'],
+    'basic' => [
+        'icon' => 'fa-sliders',
+        'label' => '基础',
+        'description' => '站点名称、描述，以及服务器运行环境概览',
+    ],
+    'image' => [
+        'icon' => 'fa-wand-magic-sparkles',
+        'label' => '图片处理',
+        'description' => '压缩、格式转换、水印、防盗链、请求统计 — 所有图片相关处理',
+    ],
+    'storage' => [
+        'icon' => 'fa-cloud-arrow-up',
+        'label' => '存储与导入',
+        'description' => '远程对象存储（S3 / R2）配置，以及扫描已有目录入库',
+    ],
+    'account' => [
+        'icon' => 'fa-user-shield',
+        'label' => '账号',
+        'description' => '管理员密码、上传 API Token、Passkey 无密码登录',
+    ],
+    'tasks' => [
+        'icon' => 'fa-list-check',
+        'label' => '任务',
+        'description' => '后台图片处理队列（缩略图 / 压缩 / WebP / AVIF / 水印 / 远程同步）的状态、失败重试、手动触发',
+    ],
+    'system' => [
+        'icon' => 'fa-database',
+        'label' => '数据库',
+        'description' => 'SQLite 文件状态、备份管理（手动 / 定时 / R2 同步）',
+    ],
 ];
+
+// 旧 tab key 向后兼容 — 老链接 / 收藏 / 后台 redirect 不会 404，自动落到新分组
+$_settings_tab_alias = [
+    'general'     => 'basic',
+    'compression' => 'image',
+    'watermark'   => 'image',
+    'import'      => 'storage',
+    'auth'        => 'account',
+];
+if (isset($_GET['tab']) && isset($_settings_tab_alias[(string)$_GET['tab']])) {
+    $_GET['tab'] = $_settings_tab_alias[(string)$_GET['tab']];
+}
+if (isset($_POST['active_tab']) && isset($_settings_tab_alias[(string)$_POST['active_tab']])) {
+    $_POST['active_tab'] = $_settings_tab_alias[(string)$_POST['active_tab']];
+}
+
 $active_settings_tab = isset($_GET['tab']) && isset($settings_tabs[$_GET['tab']])
     ? (string)$_GET['tab']
-    : 'general';
+    : 'basic';
 $posted_settings_tab = isset($_POST['active_tab']) && isset($settings_tabs[$_POST['active_tab']])
     ? (string)$_POST['active_tab']
     : $active_settings_tab;
 $message = '';
 $message_type = 'success';
 $created_token = '';
-$updated_home_background_url = '';
-$updated_home_background_path = '';
 $saved_settings = [];
 if (!empty($_COOKIE[SETTINGS_FLASH_COOKIE])) {
     $raw = base64_decode((string)$_COOKIE[SETTINGS_FLASH_COOKIE], true);
@@ -78,12 +114,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         if (!empty($result['created_token'])) {
             $created_token = (string)$result['created_token'];
         }
-        if (isset($result['home_bg_url'])) {
-            $updated_home_background_url = (string)$result['home_bg_url'];
-        }
-        if (isset($result['home_bg_path'])) {
-            $updated_home_background_path = (string)$result['home_bg_path'];
-        }
         if (isset($result['saved_settings']) && is_array($result['saved_settings'])) {
             $saved_settings = $result['saved_settings'];
         }
@@ -96,8 +126,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 'message' => $message,
                 'action' => $form_action,
                 'created_token' => $created_token,
-                'home_background_url' => $updated_home_background_url,
-                'home_background_path' => $updated_home_background_path,
                 'saved_settings' => $saved_settings,
                 'import_task_status' => (new \LitePic\Service\Importer\Importer())->queueStatus(),
             ]);
@@ -116,9 +144,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             'httponly' => true,
             'samesite' => 'Lax',
         ]);
+        // 保存后回到当前 tab 的路径化 URL（/settings/<tab>），保持上下文
         $redirect = '/settings';
-        if ($posted_settings_tab !== '' && $posted_settings_tab !== 'general') {
-            $redirect .= '?tab=' . rawurlencode($posted_settings_tab);
+        if ($posted_settings_tab !== '' && $posted_settings_tab !== 'basic') {
+            $redirect .= '/' . rawurlencode($posted_settings_tab);
         }
         header('Location: ' . $redirect);
         exit;
@@ -202,44 +231,59 @@ $server_label = (string)$web_server['label'];
 $server_uses_htaccess = !empty($web_server['uses_htaccess']);
 $server_uses_nginx_rules = !empty($web_server['uses_nginx_rules']);
 $server_uses_caddyfile = !empty($web_server['uses_caddyfile']);
-$home_background_path = parse_url(HOME_BACKGROUND_IMAGE, PHP_URL_PATH);
-if (!is_string($home_background_path) || !str_starts_with($home_background_path, '/')) {
-    $home_background_path = SETTINGS_DEFAULT_HOME_BACKGROUND;
-}
-$home_background_file = APP_ROOT . $home_background_path;
-if (!is_file($home_background_file)) {
-    $home_background_path = SETTINGS_DEFAULT_HOME_BACKGROUND;
-    $home_background_file = APP_ROOT . $home_background_path;
-}
-$home_background_url = \LitePic\Http\Controllers\SettingsController::homeBackgroundUrl($home_background_path);
-$home_background_label = ltrim($home_background_path, '/');
-$default_home_background_url = \LitePic\Http\Controllers\SettingsController::homeBackgroundUrl(SETTINGS_DEFAULT_HOME_BACKGROUND);
-$default_home_background_label = ltrim(SETTINGS_DEFAULT_HOME_BACKGROUND, '/');
 
 require_once APP_ROOT . '/header.php';
 ?>
 
-<main class="page-container page-main settings-page settings-layout" data-active-settings-tab="<?= htmlspecialchars($active_settings_tab, ENT_QUOTES, 'UTF-8') ?>">
+<main class="page-container page-main settings-page settings-layout"
+      data-pjax-container
+      data-active-settings-tab="<?= htmlspecialchars($active_settings_tab, ENT_QUOTES, 'UTF-8') ?>">
 <div class="settings-shell">
     <nav class="settings-tab-nav" aria-label="设置分类">
         <?php foreach ($settings_tabs as $tab_key => $tab_meta): ?>
             <?php
             $is_active = $tab_key === $active_settings_tab;
-            $href = '/settings' . ($tab_key === 'general' ? '' : '?tab=' . rawurlencode($tab_key));
+            // 路径化 URL — /settings = basic（默认），/settings/<tab> = 其它 tab
+            // 由 .htaccess 和 router.php 把 /settings/<tab> 重写到 index.php?tab=<tab>
+            $href = '/settings' . ($tab_key === 'basic' ? '' : '/' . rawurlencode($tab_key));
             ?>
             <a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>"
+               data-pjax
                <?= $is_active ? 'aria-current="page"' : '' ?>>
                 <i class="fa-light <?= htmlspecialchars((string)$tab_meta['icon'], ENT_QUOTES, 'UTF-8') ?>" aria-hidden="true"></i>
                 <span><?= htmlspecialchars((string)$tab_meta['label']) ?></span>
             </a>
         <?php endforeach; ?>
     </nav>
+
+    <?php
+    // tab 状态由 URL 自己承载（/settings/<tab>），不需要 sessionStorage 恢复
+    $current_tab_meta = $settings_tabs[$active_settings_tab] ?? null;
+    if ($current_tab_meta !== null):
+    ?>
+    <header class="settings-tab-title" aria-labelledby="settingsTabTitleHeading">
+        <span class="settings-tab-title__icon" aria-hidden="true">
+            <i class="fa-light <?= htmlspecialchars((string)$current_tab_meta['icon'], ENT_QUOTES, 'UTF-8') ?>"></i>
+        </span>
+        <div class="settings-tab-title__copy">
+            <h2 id="settingsTabTitleHeading" class="settings-tab-title__heading">
+                <?= htmlspecialchars((string)$current_tab_meta['label']) ?>
+            </h2>
+            <?php if (!empty($current_tab_meta['description'])): ?>
+                <p class="settings-tab-title__description">
+                    <?= htmlspecialchars((string)$current_tab_meta['description']) ?>
+                </p>
+            <?php endif; ?>
+        </div>
+    </header>
+    <?php endif; ?>
+
                 <form method="post" enctype="multipart/form-data" class="settings-panel" id="settingsForm">
                     <?= \LitePic\Core\Csrf::inputField() ?>
                     <input type="hidden" name="form_action" value="save_settings">
                     <input type="hidden" name="active_tab" value="<?= htmlspecialchars($active_settings_tab, ENT_QUOTES, 'UTF-8') ?>">
 
-<?php if (in_array($active_settings_tab, ['system'], true)): ?>
+<?php if (in_array($active_settings_tab, ['basic'], true)): // 服务器信息: 移到基础 tab 作为概览 ?>
                     <section class="settings-block-runtime">
                         <div class="settings-section-header">
                             <h3 class="settings-card-title">
@@ -304,18 +348,48 @@ require_once APP_ROOT . '/header.php';
                             <div class="runtime-meta-grid">
                                 <article class="border border-border p-4 grid gap-2">
                                     <span class="text-sm text-gray runtime-meta-label">
-                                        <i class="fa-brands fa-php" aria-hidden="true"></i>
-                                        <span>PHP 版本</span>
-                                    </span>
-                                    <span class="text-base text-dark break-all runtime-meta-value" id="metricPhpVersion"><?= htmlspecialchars((string)($metrics['php_version'] ?? PHP_VERSION)) ?></span>
-                                </article>
-                                <article class="border border-border p-4 grid gap-2">
-                                    <span class="text-sm text-gray runtime-meta-label">
                                         <i class="fa-light fa-desktop" aria-hidden="true"></i>
                                         <span>系统版本</span>
                                     </span>
                                     <span class="text-base text-dark break-all runtime-meta-value" id="metricOs" data-distro-id="<?= htmlspecialchars($server_distro_id) ?>">
                                         <?= htmlspecialchars($server_os) ?>
+                                    </span>
+                                </article>
+                                <article class="border border-border p-4 grid gap-2">
+                                    <span class="text-sm text-gray runtime-meta-label">
+                                        <i class="fa-brands fa-php" aria-hidden="true"></i>
+                                        <span>PHP 版本</span>
+                                    </span>
+                                    <span class="text-base text-dark break-all runtime-meta-value" id="metricPhpVersion"><?= htmlspecialchars((string)($metrics['php_version'] ?? PHP_VERSION)) ?></span>
+                                </article>
+                                <?php
+                                // 从 SERVER_SOFTWARE 抽出第一段版本号（"Apache/2.4.58 (Debian)" -> "2.4.58"）。
+                                // PHP 内置开发服务器的 SERVER_SOFTWARE 是 "PHP/x.y.z Development Server"，
+                                // 抽出来就是 PHP 版本本身 — 也是合理可读的信息。
+                                $server_version = '';
+                                if ($server_software !== '' && preg_match('#/([0-9]+(?:\.[0-9]+)*)#', $server_software, $vm)) {
+                                    $server_version = $vm[1];
+                                }
+                                $server_display = $server_version !== ''
+                                    ? $server_label . ' ' . $server_version
+                                    : $server_label;
+                                ?>
+                                <article class="border border-border p-4 grid gap-2 relative">
+                                    <!-- 「如何配置」定位到卡片右上角红框位置：
+                                         父级 .runtime-meta-grid > article 是 flex
+                                         items-center justify-center 横向居中布局，
+                                         链接如果作为普通 flex item 会挤在中间垂直折行。
+                                         absolute + top-2 right-2 让它脱流，不影响主 row。 -->
+                                    <a href="https://litepic.io/docs" target="_blank" rel="noopener noreferrer" class="absolute top-2 right-2 z-10 text-xs text-primary no-underline hover:underline inline-flex items-center gap-1 leading-none" title="查看 LitePic 推荐的 Web 服务器配置">
+                                        <span>如何配置</span>
+                                        <i class="fa-light fa-arrow-up-right-from-square text-[10px]" aria-hidden="true"></i>
+                                    </a>
+                                    <span class="text-sm text-gray runtime-meta-label">
+                                        <i class="fa-light fa-server" aria-hidden="true"></i>
+                                        <span>Web 服务器</span>
+                                    </span>
+                                    <span class="text-base text-dark break-all runtime-meta-value" id="metricWebServer" title="<?= htmlspecialchars($server_software ?: 'SERVER_SOFTWARE 未提供') ?>">
+                                        <?= htmlspecialchars($server_display) ?>
                                     </span>
                                 </article>
                                 <article class="border border-border p-4 grid gap-2">
@@ -330,56 +404,1128 @@ require_once APP_ROOT . '/header.php';
 
                         <div class="runtime-section">
                             <h4 class="runtime-section-label">上传与能力</h4>
-                            <?php $upload_ok = $runtime_upload_limit_bytes >= $configured_upload_limit_bytes; ?>
+                            <?php
+                            // 上传上限固定 50MB —— 后台不再让用户改，省掉跟 PHP-FPM /
+                            // Nginx client_max_body_size 等多层限制纠缠的问题。
+                            // 50MB 对图床场景足够，需要更大请直接改后端常量。
+                            $upload_ok = $runtime_upload_limit_bytes >= 50 * 1024 * 1024;
+                            ?>
+                            <?php
+                            // 「未启用 / 未生效」状态下在 status 徽章右边追加一个 ? 图标。
+                            // 点击跳到 litepic.io/docs 对应章节，title 属性提供 hover tooltip。
+                            // 用 ? 而非「查看启用方法」一行字 — 视觉占地最小，跟徽章并排
+                            // 保持卡片紧凑，启用后图标自动消失。
+                            $cap_help_icon = static function (string $anchor, string $label = '查看启用方法'): string {
+                                $href = 'https://litepic.io/docs#' . $anchor;
+                                return '<a href="' . htmlspecialchars($href, ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener noreferrer" class="capability-help-icon inline-flex items-center justify-center text-primary no-underline hover:opacity-70 transition-opacity" title="' . htmlspecialchars($label) . '" aria-label="' . htmlspecialchars($label) . '">'
+                                    . '<i class="fa-light fa-circle-question text-base" aria-hidden="true"></i>'
+                                    . '</a>';
+                            };
+                            ?>
+                            <?php
+                            // 5 个能力卡底部徽章统一格式 — 都是 60% 宽 + 28px 高 + mx-auto
+                            // 在卡片里绝对居中。? 帮助图标用 absolute 定位贴在徽章右侧，
+                            // 不挤占徽章本身的居中位置 — 启用 vs 未启用切换时徽章不会左右
+                            // 跳动，只是 ? 出现/消失。
+                            $cap_badge_cls = 'flex items-center justify-center w-[60%] mx-auto min-h-[28px] px-2.5 text-sm leading-none border border-transparent whitespace-nowrap';
+                            // ? 图标的绝对定位：徽章右边缘在容器 80% 处（50% 中心 + 30% 半宽），
+                            // ml-2 留 8px 间距，再加自身约 16px 宽就紧贴右侧。
+                            $cap_badge_help = 'absolute top-1/2 -translate-y-1/2 left-[80%] ml-2 capability-help-icon inline-flex items-center justify-center text-primary no-underline hover:opacity-70 transition-opacity';
+                            ?>
                             <div class="grid grid-cols-5 gap-3.5 runtime-capability-grid">
                                 <article class="border border-border p-4 grid gap-2">
-                                    <div class="flex items-center justify-between gap-2">
-                                        <span class="text-sm text-gray">上传上限</span>
-                                        <span class="text-sm text-dark whitespace-nowrap overflow-hidden text-ellipsis" id="metricUploadLimit">
-                                            <?= htmlspecialchars(\LitePic\Core\Format::filesize($runtime_upload_limit_bytes) . ' / ' . \LitePic\Core\Format::filesize($configured_upload_limit_bytes)) ?>
+                                    <span class="text-sm text-gray">上传上限</span>
+                                    <div class="relative w-full">
+                                        <span class="<?= $cap_badge_cls ?> is-on" id="metricUploadStatus" title="PHP 与 Web 服务器配置允许的最大单文件上传大小">
+                                            <?= htmlspecialchars(\LitePic\Core\Format::filesize($runtime_upload_limit_bytes)) ?>
                                         </span>
+                                        <a href="https://litepic.io/docs#php-upload-limits" target="_blank" rel="noopener noreferrer" class="<?= $cap_badge_help ?>" title="如何在 PHP / Web 服务器配置中调大上传上限" aria-label="如何调大上传上限">
+                                            <i class="fa-light fa-circle-question text-base" aria-hidden="true"></i>
+                                        </a>
                                     </div>
-                                    <span class="inline-flex items-center justify-center min-h-[28px] px-2.5 text-sm leading-none border border-transparent whitespace-nowrap <?= $upload_ok ? 'is-on' : 'is-warn' ?>" id="metricUploadStatus">
-                                        <?= $upload_ok ? '一致' : '未生效' ?>
-                                    </span>
                                 </article>
                                 <article class="border border-border p-4 grid gap-2">
                                     <span class="text-sm text-gray">GD 扩展</span>
-                                    <span class="inline-flex items-center justify-center min-h-[28px] px-2.5 text-sm leading-none border border-transparent whitespace-nowrap <?= $compression_capability['gd'] ? 'is-on' : 'is-off' ?>" id="metricCapGd">
-                                        <?= $compression_capability['gd'] ? '已启用' : '未启用' ?>
-                                    </span>
+                                    <div class="relative w-full">
+                                        <span class="<?= $cap_badge_cls ?> <?= $compression_capability['gd'] ? 'is-on' : 'is-off' ?>" id="metricCapGd">
+                                            <?= $compression_capability['gd'] ? '已启用' : '未启用' ?>
+                                        </span>
+                                        <?php if (!$compression_capability['gd']): ?>
+                                            <a href="https://litepic.io/docs#webp" target="_blank" rel="noopener noreferrer" class="<?= $cap_badge_help ?>" title="查看启用方法" aria-label="查看启用方法">
+                                                <i class="fa-light fa-circle-question text-base" aria-hidden="true"></i>
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
                                 </article>
                                 <article class="border border-border p-4 grid gap-2">
                                     <span class="text-sm text-gray">ImageMagick 扩展</span>
-                                    <span class="inline-flex items-center justify-center min-h-[28px] px-2.5 text-sm leading-none border border-transparent whitespace-nowrap <?= $compression_capability['imagick'] ? 'is-on' : 'is-off' ?>" id="metricCapImagick">
-                                        <?= $compression_capability['imagick'] ? '已启用' : '未启用' ?>
-                                    </span>
+                                    <div class="relative w-full">
+                                        <span class="<?= $cap_badge_cls ?> <?= $compression_capability['imagick'] ? 'is-on' : 'is-off' ?>" id="metricCapImagick">
+                                            <?= $compression_capability['imagick'] ? '已启用' : '未启用' ?>
+                                        </span>
+                                        <?php if (!$compression_capability['imagick']): ?>
+                                            <a href="https://litepic.io/docs#compression-modes" target="_blank" rel="noopener noreferrer" class="<?= $cap_badge_help ?>" title="查看启用方法" aria-label="查看启用方法">
+                                                <i class="fa-light fa-circle-question text-base" aria-hidden="true"></i>
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
                                 </article>
                                 <article class="border border-border p-4 grid gap-2">
                                     <span class="text-sm text-gray">AVIF 支持</span>
-                                    <span class="inline-flex items-center justify-center min-h-[28px] px-2.5 text-sm leading-none border border-transparent whitespace-nowrap <?= $compression_capability['avif'] ? 'is-on' : 'is-off' ?>" id="metricCapAvif">
-                                        <?= $compression_capability['avif'] ? '已启用' : '未启用' ?>
-                                    </span>
+                                    <div class="relative w-full">
+                                        <span class="<?= $cap_badge_cls ?> <?= $compression_capability['avif'] ? 'is-on' : 'is-off' ?>" id="metricCapAvif">
+                                            <?= $compression_capability['avif'] ? '已启用' : '未启用' ?>
+                                        </span>
+                                        <?php if (!$compression_capability['avif']): ?>
+                                            <a href="https://litepic.io/docs#avif" target="_blank" rel="noopener noreferrer" class="<?= $cap_badge_help ?>" title="查看启用方法" aria-label="查看启用方法">
+                                                <i class="fa-light fa-circle-question text-base" aria-hidden="true"></i>
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
                                 </article>
                                 <article class="border border-border p-4 grid gap-2">
                                     <span class="text-sm text-gray">WebP 支持</span>
-                                    <span class="inline-flex items-center justify-center min-h-[28px] px-2.5 text-sm leading-none border border-transparent whitespace-nowrap <?= $compression_capability['webp'] ? 'is-on' : 'is-off' ?>" id="metricCapWebp">
-                                        <?= $compression_capability['webp'] ? '已启用' : '未启用' ?>
-                                    </span>
+                                    <div class="relative w-full">
+                                        <span class="<?= $cap_badge_cls ?> <?= $compression_capability['webp'] ? 'is-on' : 'is-off' ?>" id="metricCapWebp">
+                                            <?= $compression_capability['webp'] ? '已启用' : '未启用' ?>
+                                        </span>
+                                        <?php if (!$compression_capability['webp']): ?>
+                                            <a href="https://litepic.io/docs#webp" target="_blank" rel="noopener noreferrer" class="<?= $cap_badge_help ?>" title="查看启用方法" aria-label="查看启用方法">
+                                                <i class="fa-light fa-circle-question text-base" aria-hidden="true"></i>
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
                                 </article>
                             </div>
                         </div>
                     </section>
+<?php endif; // tab: basic (服务器信息) ?>
+
+<?php if (in_array($active_settings_tab, ['basic'], true)): // 上传限制: 移到基础 tab ?>
+                    <section>
+                        <div class="settings-section-header">
+                            <h3 class="settings-card-title">
+                                <i class="fa-light fa-cloud-arrow-up" aria-hidden="true"></i>
+                                <span>上传限制</span>
+                            </h3>
+                            <p>允许上传的格式白名单</p>
+                        </div>
+
+                        <div class="settings-grid">
+                            <div class="grid gap-2 col-span-2">
+                                <div class="flex items-center justify-between gap-2">
+                                    <label for="uploadAllowedTypeNew">允许上传格式</label>
+                                    <span class="settings-field-hint">输入扩展名后回车 / 逗号添加；点击 × 移除。可填任意图片格式（heic / jxl / raw / dng 等）；后端会校验文件内容必须是图片，自动拦截 .php / .html 等可执行文件</span>
+                                </div>
+                                <?php
+                                // 标签编辑器 — 现有允许扩展名作为 chip，每个 chip 配
+                                // 一个隐藏 input[name=upload_allowed_types[]] 让表单提交带上
+                                $allowed_for_tags = array_values(array_unique(array_map(
+                                    static fn($x) => strtolower(ltrim((string)$x, '.')),
+                                    is_array(ALLOWED_UPLOAD_TYPES) ? ALLOWED_UPLOAD_TYPES : []
+                                )));
+                                $preset_for_tags = array_values(array_diff(SUPPORTED_IMAGE_TYPES, $allowed_for_tags));
+                                ?>
+                                <div class="settings-format-tags" data-format-tags>
+                                    <div class="settings-format-tags__chips" data-format-tags-chips>
+                                        <?php foreach ($allowed_for_tags as $type): ?>
+                                            <span class="settings-format-tags__chip" data-format-tag-chip>
+                                                <span>.<?= htmlspecialchars($type) ?></span>
+                                                <input type="hidden" name="upload_allowed_types[]" value="<?= htmlspecialchars($type) ?>">
+                                                <button type="button" class="settings-format-tags__remove" data-format-tag-remove aria-label="移除 <?= htmlspecialchars($type) ?>">
+                                                    <i class="fa-light fa-xmark" aria-hidden="true"></i>
+                                                </button>
+                                            </span>
+                                        <?php endforeach; ?>
+                                        <input
+                                            id="uploadAllowedTypeNew"
+                                            type="text"
+                                            class="settings-format-tags__input"
+                                            data-format-tags-input
+                                            placeholder="输入扩展名 + 回车，例如 webp"
+                                            autocomplete="off"
+                                            spellcheck="false"
+                                            maxlength="10">
+                                    </div>
+                                    <?php if (!empty($preset_for_tags)): ?>
+                                        <div class="settings-format-tags__presets" data-format-tags-presets>
+                                            <span class="settings-format-tags__presets-label">快速添加：</span>
+                                            <?php foreach ($preset_for_tags as $type): ?>
+                                                <button type="button" class="settings-format-tags__preset" data-format-tag-preset value="<?= htmlspecialchars($type) ?>">
+                                                    + .<?= htmlspecialchars($type) ?>
+                                                </button>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+<?php endif; // tab: basic (上传限制) ?>
+
+<?php if (in_array($active_settings_tab, ['system'], true)): ?>
+                    <?php
+                    // Database summary — list every SQLite table + row count, file size, schema version
+                    $db_summary = (new \LitePic\Service\Stats\ServerInfo())->databaseSummary();
+                    ?>
+                    <section>
+                        <div class="settings-section-header">
+                            <h3 class="settings-card-title">
+                                <i class="fa-light fa-database" aria-hidden="true"></i>
+                                <span>SQLite 数据库</span>
+                            </h3>
+                            <p>所有应用状态（设置、图片元数据、Token、Passkey、压缩 Key 等）都存在这一个文件里</p>
+                        </div>
+
+                        <div class="db-meta-badges">
+                            <span class="db-badge" title="<?= htmlspecialchars($db_summary['path']) ?>">
+                                <i class="fa-light fa-folder-open" aria-hidden="true"></i>
+                                <span class="db-badge__label">文件路径</span>
+                                <code class="db-badge__value"><?= htmlspecialchars(basename($db_summary['path'])) ?></code>
+                            </span>
+                            <span class="db-badge">
+                                <i class="fa-light fa-hard-drive" aria-hidden="true"></i>
+                                <span class="db-badge__label">文件大小</span>
+                                <code class="db-badge__value"><?= htmlspecialchars($db_summary['size_text']) ?></code>
+                            </span>
+                            <span class="db-badge">
+                                <i class="fa-light fa-tag" aria-hidden="true"></i>
+                                <span class="db-badge__label">Schema 版本</span>
+                                <code class="db-badge__value">v<?= $db_summary['schema_version'] !== null ? (int)$db_summary['schema_version'] : '?' ?></code>
+                            </span>
+                            <span class="db-badge">
+                                <i class="fa-light fa-bolt" aria-hidden="true"></i>
+                                <span class="db-badge__label">Journal Mode</span>
+                                <code class="db-badge__value"><?= htmlspecialchars((string)($db_summary['journal_mode'] ?? '-')) ?></code>
+                            </span>
+                        </div>
+
+                        <div class="overflow-auto border">
+                            <table class="w-full">
+                                <thead>
+                                    <tr>
+                                        <th class="text-left text-sm">表</th>
+                                        <th class="text-right text-sm">行数</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php if (empty($db_summary['tables'])): ?>
+                                        <tr>
+                                            <td colspan="2" class="text-sm text-gray">数据库尚未初始化</td>
+                                        </tr>
+                                    <?php else: ?>
+                                        <?php foreach ($db_summary['tables'] as $tbl): ?>
+                                            <tr>
+                                                <td><code><?= htmlspecialchars($tbl['name']) ?></code></td>
+                                                <td class="text-right"><?= number_format($tbl['rows']) ?></td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <p class="m-0 text-xs text-gray">
+                            备份方法：直接复制 <code><?= htmlspecialchars(basename($db_summary['path'])) ?></code> + <code>uploads/</code> 目录即可。
+                            下方「数据库备份」section 提供 UI 备份 / 恢复 / 自动定时 / R2 同步。
+                        </p>
+                    </section>
+
+                    <?php
+                    // Database backup management — manual backup + schedule + R2 sync
+                    $_backup_svc = new \LitePic\Service\Backup\DatabaseBackup();
+                    $_backups = $_backup_svc->listLocalBackups();
+                    $_backup_enabled = $_backup_svc->isScheduleEnabled();
+                    $_backup_interval_h = (new \LitePic\Repository\SettingsRepository())
+                        ->getInt(\LitePic\Service\Backup\DatabaseBackup::SETTING_INTERVAL_HOURS,
+                                 \LitePic\Service\Backup\DatabaseBackup::DEFAULT_INTERVAL_HOURS);
+                    $_backup_keep = $_backup_svc->keepCount();
+                    $_backup_to_remote = $_backup_svc->syncToRemote();
+                    $_backup_remote_enabled = (new \LitePic\Service\Storage\RemoteStorage())->isEnabled();
+                    $_last_backup_at = $_backup_svc->lastRunAt();
+                    $_last_backup_text = $_last_backup_at > 0
+                        ? date('Y-m-d H:i:s', $_last_backup_at) . '（' . max(0, time() - $_last_backup_at) . ' 秒前）'
+                        : '从未运行';
+                    ?>
+                    <section>
+                        <div class="settings-section-header">
+                            <h3 class="settings-card-title">
+                                <i class="fa-light fa-shield-check" aria-hidden="true"></i>
+                                <span>数据库备份</span>
+                            </h3>
+                            <p>用 SQLite VACUUM INTO 生成一致性快照（无需停机），可定时执行 + 自动同步到 R2/S3 做异地容灾</p>
+                        </div>
+
+                        <div class="settings-toggle-list">
+                            <label class="settings-toggle-row" for="dbBackupEnabled">
+                                <span class="settings-toggle-copy">启用自动定时备份</span>
+                                <input id="dbBackupEnabled" data-backup-input type="checkbox" class="settings-switch-input"
+                                       <?= $_backup_enabled ? 'checked' : '' ?>>
+                                <span class="settings-switch" aria-hidden="true"><span></span></span>
+                            </label>
+                            <label class="settings-toggle-row" for="dbBackupToRemote">
+                                <span class="settings-toggle-copy">
+                                    备份完成后同步到云端（R2 / S3）
+                                    <?php if (!$_backup_remote_enabled): ?>
+                                        <small class="text-gray">— 当前未配置远程存储，开启此项也不会生效</small>
+                                    <?php endif; ?>
+                                </span>
+                                <input id="dbBackupToRemote" data-backup-input type="checkbox" class="settings-switch-input"
+                                       <?= $_backup_to_remote ? 'checked' : '' ?>>
+                                <span class="settings-switch" aria-hidden="true"><span></span></span>
+                            </label>
+                        </div>
+
+                        <div class="settings-grid">
+                            <div class="grid gap-2">
+                                <label for="dbBackupIntervalHours">备份间隔（小时）</label>
+                                <select id="dbBackupIntervalHours" data-backup-input>
+                                    <option value="1"   <?= $_backup_interval_h === 1   ? 'selected' : '' ?>>每小时</option>
+                                    <option value="6"   <?= $_backup_interval_h === 6   ? 'selected' : '' ?>>每 6 小时</option>
+                                    <option value="12"  <?= $_backup_interval_h === 12  ? 'selected' : '' ?>>每 12 小时</option>
+                                    <option value="24"  <?= $_backup_interval_h === 24  ? 'selected' : '' ?>>每天（推荐）</option>
+                                    <option value="72"  <?= $_backup_interval_h === 72  ? 'selected' : '' ?>>每 3 天</option>
+                                    <option value="168" <?= $_backup_interval_h === 168 ? 'selected' : '' ?>>每周</option>
+                                </select>
+                            </div>
+                            <div class="grid gap-2">
+                                <label for="dbBackupKeepCount">本地保留份数</label>
+                                <select id="dbBackupKeepCount" data-backup-input>
+                                    <?php foreach ([3, 7, 14, 30, 60] as $_n): ?>
+                                        <option value="<?= $_n ?>" <?= $_backup_keep === $_n ? 'selected' : '' ?>>
+                                            最近 <?= $_n ?> 份（超出自动删旧的）
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-2 items-center flex-wrap">
+                            <button type="button" class="btn btn--primary" data-backup-create>
+                                <i class="fa-light fa-shield-plus"></i>
+                                <span>立即备份</span>
+                            </button>
+                            <span class="text-sm text-gray" data-backup-status>
+                                上次运行：<?= htmlspecialchars($_last_backup_text) ?>
+                            </span>
+                        </div>
+
+                        <details class="settings-queue-failed" <?= empty($_backups) ? '' : 'open' ?>>
+                            <summary>
+                                <span>本地备份文件</span>
+                                <span class="text-sm text-gray">
+                                    （<?= count($_backups) ?> 份）
+                                </span>
+                            </summary>
+                            <?php if (empty($_backups)): ?>
+                                <p class="text-sm text-gray m-0 py-3">还没有备份。点上面的「立即备份」按钮试一下。</p>
+                            <?php else: ?>
+                                <div class="overflow-auto border" data-backup-table>
+                                    <table class="w-full">
+                                        <thead>
+                                            <tr>
+                                                <th class="text-left text-sm">文件名</th>
+                                                <th class="text-left text-sm">大小</th>
+                                                <th class="text-left text-sm">创建时间</th>
+                                                <th class="text-right text-sm">操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($_backups as $_b): ?>
+                                                <tr data-backup-row="<?= htmlspecialchars($_b['name']) ?>">
+                                                    <td><code><?= htmlspecialchars($_b['name']) ?></code></td>
+                                                    <td class="text-sm"><?= htmlspecialchars($_b['size_text']) ?></td>
+                                                    <td class="text-sm text-gray"><?= htmlspecialchars($_b['mtime_text']) ?></td>
+                                                    <td class="text-right">
+                                                        <div class="backup-actions">
+                                                            <button type="button" class="btn btn--secondary backup-action-btn"
+                                                                    data-backup-restore="<?= htmlspecialchars($_b['name']) ?>"
+                                                                    title="恢复（覆盖当前数据库）"
+                                                                    aria-label="恢复">
+                                                                <i class="fa-light fa-rotate-left" aria-hidden="true"></i>
+                                                            </button>
+                                                            <button type="button" class="btn btn--danger backup-action-btn"
+                                                                    data-backup-delete="<?= htmlspecialchars($_b['name']) ?>"
+                                                                    title="删除此备份"
+                                                                    aria-label="删除">
+                                                                <i class="fa-light fa-xmark" aria-hidden="true"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            <?php endif; ?>
+                        </details>
+
+                        <p class="m-0 text-xs text-gray">
+                            备份文件存放在 <code>data/backups/</code>，每份是完整的 SQLite 数据库（数十 KB - 数 MB），可直接用 sqlite3 / DB Browser 打开查看。
+                            R2 同步时上传到 <code>backups/</code> 前缀，跟图片对象隔离。
+                            <strong>恢复操作会覆盖当前数据库</strong>，恢复前请先做一份当前状态的备份。
+                        </p>
+
+                        <script>
+                            (function () {
+                                const status = document.querySelector('[data-backup-status]');
+                                const setStatus = (text, isError = false) => {
+                                    if (!status) return;
+                                    status.textContent = text;
+                                    status.style.color = isError ? '#d73a49' : '';
+                                };
+
+                                const reloadTab = () => {
+                                    if (window.Pjax && typeof Pjax.go === 'function') {
+                                        Pjax.go(window.location.href);
+                                    } else {
+                                        window.location.reload();
+                                    }
+                                };
+
+                                // 配置变更 — 任何 data-backup-input 改动 → 立即 POST /backup/config
+                                document.querySelectorAll('[data-backup-input]').forEach((el) => {
+                                    el.addEventListener('change', async () => {
+                                        const payload = {
+                                            enabled:        document.getElementById('dbBackupEnabled').checked,
+                                            to_remote:      document.getElementById('dbBackupToRemote').checked,
+                                            interval_hours: parseInt(document.getElementById('dbBackupIntervalHours').value, 10),
+                                            keep_count:     parseInt(document.getElementById('dbBackupKeepCount').value, 10),
+                                        };
+                                        try {
+                                            const resp = await fetch('/api/v1/backup/config', {
+                                                method: 'POST',
+                                                credentials: 'same-origin',
+                                                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                                                body: JSON.stringify(payload),
+                                            });
+                                            const data = await resp.json();
+                                            if (data.status !== 'success') throw new Error(data.message || '失败');
+                                            setStatus('备份设置已保存');
+                                        } catch (e) {
+                                            setStatus('保存失败：' + e.message, true);
+                                        }
+                                    });
+                                });
+
+                                // 立即备份
+                                const createBtn = document.querySelector('[data-backup-create]');
+                                createBtn?.addEventListener('click', async () => {
+                                    createBtn.disabled = true;
+                                    createBtn.innerHTML = '<i class="fa-light fa-spinner fa-spin"></i><span>备份中...</span>';
+                                    setStatus('正在执行 VACUUM INTO...');
+                                    try {
+                                        const resp = await fetch('/api/v1/backup/create', {
+                                            method: 'POST',
+                                            credentials: 'same-origin',
+                                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                                        });
+                                        const data = await resp.json();
+                                        if (data.status !== 'success') throw new Error(data.message || '失败');
+                                        const remote = data.remote_key ? `（已同步到云端：${data.remote_key}）` : '';
+                                        setStatus(`备份完成：${data.name}${remote}`);
+                                        setTimeout(reloadTab, 800);   // 刷新看到新行
+                                    } catch (e) {
+                                        setStatus('备份失败：' + e.message, true);
+                                    } finally {
+                                        createBtn.disabled = false;
+                                        createBtn.innerHTML = '<i class="fa-light fa-shield-plus"></i><span>立即备份</span>';
+                                    }
+                                });
+
+                                // 单条恢复
+                                document.querySelectorAll('[data-backup-restore]').forEach((btn) => {
+                                    btn.addEventListener('click', async () => {
+                                        const name = btn.getAttribute('data-backup-restore');
+                                        if (!confirm(`确定从 ${name} 恢复数据库？\n\n这会**覆盖**当前的所有设置 / 图片元数据 / Token / Passkey 等。\n\n恢复前建议先点「立即备份」保留当前状态。`)) return;
+                                        btn.disabled = true;
+                                        try {
+                                            const resp = await fetch('/api/v1/backup/restore?file=' + encodeURIComponent(name), {
+                                                method: 'POST',
+                                                credentials: 'same-origin',
+                                                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                                            });
+                                            const data = await resp.json();
+                                            if (data.status !== 'success') throw new Error(data.message || '失败');
+                                            alert('恢复成功 — 页面将刷新以使用新数据');
+                                            window.location.reload();
+                                        } catch (e) {
+                                            setStatus('恢复失败：' + e.message, true);
+                                            btn.disabled = false;
+                                        }
+                                    });
+                                });
+
+                                // 单条删除
+                                document.querySelectorAll('[data-backup-delete]').forEach((btn) => {
+                                    btn.addEventListener('click', async () => {
+                                        const name = btn.getAttribute('data-backup-delete');
+                                        if (!confirm(`删除备份 ${name}？此操作不可撤销。`)) return;
+                                        btn.disabled = true;
+                                        try {
+                                            const resp = await fetch('/api/v1/backup/delete?file=' + encodeURIComponent(name), {
+                                                method: 'POST',
+                                                credentials: 'same-origin',
+                                                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                                            });
+                                            const data = await resp.json();
+                                            if (data.status !== 'success') throw new Error(data.message || '失败');
+                                            btn.closest('tr')?.remove();
+                                            setStatus(`已删除 ${name}`);
+                                        } catch (e) {
+                                            setStatus('删除失败：' + e.message, true);
+                                            btn.disabled = false;
+                                        }
+                                    });
+                                });
+                            })();
+                        </script>
+                    </section>
+
+                    <?php
+                    /* ──────────────────────────────────────────────────────────
+                     *  残留数据清理
+                     *  保守策略 — 只删确定无引用的记录，绝不动磁盘文件 / 活动队列 /
+                     *  设置 / Token / Passkey。详见 OrphanCleaner.php 类文档。
+                     *  ───────────────────────────────────────────────────────── */
+                    ?>
+                    <section>
+                        <div class="settings-section-header">
+                            <h3 class="settings-card-title">
+                                <i class="fa-light fa-broom" aria-hidden="true"></i>
+                                <span>残留数据清理</span>
+                            </h3>
+                            <p>扫描 SQLite 里确定无引用的记录（孤儿图片行 / 已完成任务 / 过期挑战等），可选择性清除</p>
+                        </div>
+
+                        <div class="cleanup-block" data-cleanup-block>
+                            <!-- 工具条：扫描 + 清理按钮 -->
+                            <div class="cleanup-toolbar">
+                                <button type="button" class="btn btn--secondary" data-cleanup-scan>
+                                    <i class="fa-light fa-magnifying-glass" aria-hidden="true"></i>
+                                    <span>扫描残留数据</span>
+                                </button>
+                                <button type="button" class="btn btn--primary" data-cleanup-run disabled>
+                                    <i class="fa-light fa-broom" aria-hidden="true"></i>
+                                    <span>清理选中类别</span>
+                                </button>
+                                <span class="cleanup-status" data-cleanup-status>未扫描</span>
+                            </div>
+
+                            <!-- 类别表格：扫描后填充 -->
+                            <div class="cleanup-categories">
+                                <table class="cleanup-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="cleanup-th-check"></th>
+                                            <th>类别</th>
+                                            <th>判定条件</th>
+                                            <th class="cleanup-th-num">条数</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php
+                                        $cleanup_rows = [
+                                            ['missing_files',      '孤儿图片记录',     '<code>images</code> 行的文件在磁盘已不存在'],
+                                            ['done_queue',         '已完成的队列任务', '<code>import_queue</code> 状态 done 且超 7 天'],
+                                            ['failed_queue',       '失败的队列任务',   '状态 failed 且 attempts ≥ 3 且超 30 天'],
+                                            ['expired_attempts',   '过期登录尝试',     '<code>login_attempts</code> 超 24 小时且未在封禁'],
+                                            ['expired_challenges', '过期 Passkey 挑战', '<code>webauthn_challenges</code> 已过期'],
+                                        ];
+                                        foreach ($cleanup_rows as [$key, $label, $cond]):
+                                        ?>
+                                        <tr data-cleanup-row data-cleanup-key="<?= htmlspecialchars($key) ?>">
+                                            <td class="cleanup-td-check">
+                                                <input type="checkbox" class="cleanup-checkbox" data-cleanup-checkbox value="<?= htmlspecialchars($key) ?>" checked>
+                                            </td>
+                                            <td><strong><?= htmlspecialchars($label) ?></strong></td>
+                                            <td class="text-sm text-gray"><?= $cond ?></td>
+                                            <td class="cleanup-td-num">
+                                                <span class="cleanup-count" data-cleanup-count>—</span>
+                                            </td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <p class="cleanup-note">
+                                <i class="fa-light fa-shield-check" aria-hidden="true"></i>
+                                <span>不会删除磁盘上的图片文件、活动中的队列任务、用户设置、API Token、Passkey 凭据。<strong>清理动作不可撤销</strong>，建议先备份数据库。</span>
+                            </p>
+                        </div>
+
+                        <script>
+                        (function() {
+                            const block = document.currentScript.previousElementSibling;
+                            const scanBtn  = block.querySelector('[data-cleanup-scan]');
+                            const runBtn   = block.querySelector('[data-cleanup-run]');
+                            const statusEl = block.querySelector('[data-cleanup-status]');
+                            const rows     = block.querySelectorAll('[data-cleanup-row]');
+                            const counts   = {};
+                            rows.forEach(r => counts[r.dataset.cleanupKey] = r.querySelector('[data-cleanup-count]'));
+
+                            const csrf = window.CSRF_TOKEN || '';
+
+                            function setStatus(text, kind) {
+                                statusEl.textContent = text;
+                                statusEl.classList.remove('is-on', 'is-off', 'is-warn');
+                                if (kind) statusEl.classList.add(kind);
+                            }
+
+                            scanBtn.addEventListener('click', async () => {
+                                scanBtn.disabled = true;
+                                setStatus('扫描中…');
+                                try {
+                                    const res = await fetch('/api/v1/cleanup/scan', {
+                                        method: 'POST',
+                                        headers: { 'X-CSRF-Token': csrf },
+                                    });
+                                    const json = await res.json();
+                                    if (json.status !== 'success') throw new Error(json.message || '扫描失败');
+                                    // Response::success() flat-merges payload at top level, no `.data` wrapper
+                                    const c = json.counts || {};
+                                    Object.keys(counts).forEach(k => {
+                                        counts[k].textContent = (c[k] ?? 0).toLocaleString();
+                                        counts[k].classList.toggle('cleanup-count--has', (c[k] ?? 0) > 0);
+                                    });
+                                    const total = json.total || 0;
+                                    if (total > 0) {
+                                        setStatus(`共发现 ${total.toLocaleString()} 条残留`, 'is-warn');
+                                        runBtn.disabled = false;
+                                    } else {
+                                        setStatus('数据库整洁，无需清理', 'is-on');
+                                        runBtn.disabled = true;
+                                    }
+                                } catch (e) {
+                                    setStatus('扫描失败：' + (e.message || '未知错误'), 'is-off');
+                                } finally {
+                                    scanBtn.disabled = false;
+                                }
+                            });
+
+                            // 抽出实际清理逻辑 — 自定义对话框确认后调用
+                            async function performCleanup(selected) {
+                                runBtn.disabled = true;
+                                setStatus('清理中…');
+                                try {
+                                    const res = await fetch('/api/v1/cleanup/run', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'X-CSRF-Token': csrf,
+                                        },
+                                        body: JSON.stringify({ categories: selected }),
+                                    });
+                                    const json = await res.json();
+                                    if (json.status !== 'success') throw new Error(json.message || '清理失败');
+                                    Object.keys(counts).forEach(k => {
+                                        counts[k].textContent = '0';
+                                        counts[k].classList.remove('cleanup-count--has');
+                                    });
+                                    const errs = Object.keys(json.errors || {});
+                                    if (errs.length > 0) {
+                                        setStatus('部分类别失败：' + errs.join('、'), 'is-off');
+                                    } else {
+                                        setStatus(`已清理 ${(json.total || 0).toLocaleString()} 条`, 'is-on');
+                                    }
+                                } catch (e) {
+                                    setStatus('清理失败：' + (e.message || '未知错误'), 'is-off');
+                                } finally {
+                                    runBtn.disabled = true; // 必须重新扫描才能再清
+                                }
+                            }
+
+                            // 自定义清理确认对话框 — 用 LitePic 的 DialogManager.showCustomDialog
+                            // 渲染一个带条目列表 + 安全提示 + 双按钮的卡片，替代原生 confirm()。
+                            function openCleanupConfirm(selected) {
+                                const escape = s => String(s).replace(/[&<>"']/g, c => ({
+                                    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+                                })[c]);
+
+                                const items = selected.map(k => {
+                                    const row = block.querySelector(`[data-cleanup-key="${k}"]`);
+                                    const label = row.querySelector('strong').textContent;
+                                    const num = row.querySelector('[data-cleanup-count]').textContent;
+                                    return `<li class="cleanup-confirm-item">
+                                        <span class="cleanup-confirm-label">${escape(label)}</span>
+                                        <strong class="cleanup-confirm-num">${escape(num)} 条</strong>
+                                    </li>`;
+                                }).join('');
+
+                                const content = `
+                                    <div class="cleanup-confirm">
+                                        <p class="cleanup-confirm-lead">
+                                            即将从数据库中永久删除以下记录，此操作 <strong>不可撤销</strong>：
+                                        </p>
+                                        <ul class="cleanup-confirm-list">
+                                            ${items}
+                                        </ul>
+                                        <p class="cleanup-confirm-safe">
+                                            <i class="fa-light fa-shield-check" aria-hidden="true"></i>
+                                            <span>不会删除磁盘上的图片文件、活动队列、用户设置、API Token 或 Passkey 凭据。</span>
+                                        </p>
+                                        <div class="cleanup-confirm-actions">
+                                            <button type="button" class="btn btn--secondary" data-cleanup-confirm-cancel>
+                                                <span>取消</span>
+                                            </button>
+                                            <button type="button" class="btn btn--primary cleanup-confirm-submit" data-cleanup-confirm-ok>
+                                                <i class="fa-light fa-broom" aria-hidden="true"></i>
+                                                <span>确认清理</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                `;
+
+                                window.ImgEt.DialogManager.showCustomDialog('确认清理残留数据', content);
+
+                                // 绑定按钮事件 — 拿最新创建的 .custom-dialog
+                                const dialog = document.querySelector('.custom-dialog:last-of-type') || document.querySelector('.custom-dialog');
+                                if (!dialog) return;
+                                const close = () => {
+                                    if (typeof dialog.closeHandler === 'function') {
+                                        dialog.closeHandler();
+                                    } else {
+                                        dialog.classList.remove('active');
+                                        setTimeout(() => dialog.remove(), 300);
+                                    }
+                                };
+                                dialog.querySelector('[data-cleanup-confirm-cancel]')
+                                    ?.addEventListener('click', close);
+                                dialog.querySelector('[data-cleanup-confirm-ok]')
+                                    ?.addEventListener('click', () => {
+                                        close();
+                                        performCleanup(selected);
+                                    });
+                            }
+
+                            runBtn.addEventListener('click', () => {
+                                const selected = Array.from(block.querySelectorAll('[data-cleanup-checkbox]:checked'))
+                                    .map(cb => cb.value);
+                                if (selected.length === 0) {
+                                    setStatus('请至少勾选一个类别', 'is-warn');
+                                    return;
+                                }
+                                openCleanupConfirm(selected);
+                            });
+                        })();
+                        </script>
+                    </section>
 <?php endif; // tab: system ?>
 
-<?php if (in_array($active_settings_tab, ['general'], true)): ?>
+<?php if (in_array($active_settings_tab, ['tasks'], true)): ?>
+                    <?php
+                    // Image-processing queue monitor — depth, failures, last drain summary
+                    $_queue = new \LitePic\Repository\ImportQueueRepository();
+                    $_settings_repo = new \LitePic\Repository\SettingsRepository();
+                    $_queue_pending = $_queue->pendingCount();
+                    $_queue_failed = $_queue->failedCount();
+                    $_last_run = $_settings_repo->getJson('worker_last_run', null);
+                    $_last_run_text = '从未运行';
+                    if (is_array($_last_run) && !empty($_last_run['finished_at'])) {
+                        $_age = max(0, time() - (int)$_last_run['finished_at']);
+                        $_age_text = $_age < 60
+                            ? $_age . ' 秒前'
+                            : ($_age < 3600 ? round($_age / 60) . ' 分钟前' : round($_age / 3600, 1) . ' 小时前');
+                        $_src_label = ($_last_run['source'] ?? '') === 'cron' ? 'cron' : '手动 / 上传后';
+                        $_last_run_text = sprintf(
+                            '%s（处理 %d，失败 %d，跳过 %d，耗时 %d ms，来源 %s）',
+                            $_age_text,
+                            (int)($_last_run['processed'] ?? 0),
+                            (int)($_last_run['failed'] ?? 0),
+                            (int)($_last_run['skipped'] ?? 0),
+                            (int)($_last_run['elapsed_ms'] ?? 0),
+                            $_src_label
+                        );
+                    }
+                    ?>
+                    <section>
+                        <div class="settings-section-header">
+                            <h3 class="settings-card-title">
+                                <i class="fa-light fa-list-check" aria-hidden="true"></i>
+                                <span>图片处理队列</span>
+                            </h3>
+                            <p>上传后的缩略图 / 压缩 / WebP / AVIF / 水印 / 远程同步任务在这里排队，由后台 worker 异步处理</p>
+                        </div>
+
+                        <div class="queue-stats">
+                            <article class="queue-stat<?= $_queue_pending > 0 ? ' queue-stat--active' : '' ?>">
+                                <i class="fa-light fa-list-check queue-stat__icon" aria-hidden="true"></i>
+                                <div class="queue-stat__copy">
+                                    <span class="queue-stat__value" data-queue-pending><?= number_format($_queue_pending) ?></span>
+                                    <span class="queue-stat__label">队列深度（待处理）</span>
+                                </div>
+                            </article>
+                            <article class="queue-stat<?= $_queue_failed > 0 ? ' queue-stat--alert' : '' ?>">
+                                <i class="fa-light fa-triangle-exclamation queue-stat__icon" aria-hidden="true"></i>
+                                <div class="queue-stat__copy">
+                                    <span class="queue-stat__value" data-queue-failed><?= number_format($_queue_failed) ?></span>
+                                    <span class="queue-stat__label">失败任务（已重试 ≥ 1 次）</span>
+                                </div>
+                            </article>
+                            <article class="queue-stat queue-stat--wide">
+                                <i class="fa-light fa-clock-rotate-left queue-stat__icon" aria-hidden="true"></i>
+                                <div class="queue-stat__copy">
+                                    <span class="queue-stat__value queue-stat__value--text" data-queue-lastrun><?= htmlspecialchars($_last_run_text) ?></span>
+                                    <span class="queue-stat__label">上次 worker 运行</span>
+                                </div>
+                            </article>
+                        </div>
+
+                        <div class="flex gap-2 items-center">
+                            <button type="button" class="btn btn--primary" data-queue-drain-now>
+                                <i class="fa-light fa-play"></i>
+                                <span>立即处理队列</span>
+                            </button>
+                            <button type="button" class="btn btn--secondary" data-queue-refresh>
+                                <i class="fa-light fa-rotate"></i>
+                                <span>刷新状态</span>
+                            </button>
+                            <span class="text-sm text-gray" data-queue-drain-status></span>
+                        </div>
+
+                        <p class="m-0 text-xs text-gray">
+                            正常情况下不需要点这个按钮 — 每次上传成功后 PHP 会在响应送达后自动 drain 一次。
+                            想保险的话给服务器加一行 cron：
+                            <code>* * * * * cd <?= htmlspecialchars(dirname(__DIR__, 2)) ?> &amp;&amp; php worker.php &gt;&gt; logs/worker.log 2&gt;&amp;1</code>
+                        </p>
+
+                        <?php
+                        // 失败任务面板 — 仅在有失败任务时展开，没有就显示一行 "暂无失败任务"
+                        $_failed_items = $_queue_failed > 0 ? $_queue->failedItems(50) : [];
+                        ?>
+                        <details class="settings-queue-failed" <?= $_queue_failed > 0 ? 'open' : '' ?>>
+                            <summary>
+                                <span>失败任务列表</span>
+                                <span class="text-sm text-gray">
+                                    （<?= number_format($_queue_failed) ?> 条）
+                                </span>
+                            </summary>
+                            <?php if (empty($_failed_items)): ?>
+                                <p class="text-sm text-gray m-0 py-3">暂无失败任务，所有上传都顺利处理完成。</p>
+                            <?php else: ?>
+                                <div class="flex gap-2 items-center py-2">
+                                    <button type="button" class="btn btn--secondary" data-queue-retry-all>
+                                        <i class="fa-light fa-rotate-right"></i>
+                                        <span>全部重试</span>
+                                    </button>
+                                    <button type="button" class="btn btn--danger" data-queue-discard-all
+                                            data-confirm="确认丢弃全部 <?= number_format(count($_failed_items)) ?> 条失败任务？此操作不可撤销。">
+                                        <i class="fa-light fa-trash-can-list"></i>
+                                        <span>全部丢弃</span>
+                                    </button>
+                                </div>
+
+                                <div class="overflow-auto border" data-queue-failed-table>
+                                    <table class="w-full">
+                                        <thead>
+                                            <tr>
+                                                <th class="text-left text-sm">图片</th>
+                                                <th class="text-left text-sm">尝试次数</th>
+                                                <th class="text-left text-sm">最近错误</th>
+                                                <th class="text-left text-sm">更新时间</th>
+                                                <th class="text-right text-sm">操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($_failed_items as $item): ?>
+                                                <?php $_short_err = mb_strimwidth((string)($item['last_error'] ?? ''), 0, 60, '…'); ?>
+                                                <tr data-failed-row="<?= (int)$item['id'] ?>">
+                                                    <td title="<?= htmlspecialchars((string)$item['filename']) ?>">
+                                                        <code><?= htmlspecialchars(basename((string)$item['filename'])) ?></code>
+                                                    </td>
+                                                    <td><?= (int)$item['attempts'] ?></td>
+                                                    <td title="<?= htmlspecialchars((string)($item['last_error'] ?? '')) ?>" class="text-sm">
+                                                        <?= htmlspecialchars($_short_err ?: '—') ?>
+                                                    </td>
+                                                    <td class="text-sm text-gray">
+                                                        <?= htmlspecialchars(date('m-d H:i', (int)$item['updated_at'])) ?>
+                                                    </td>
+                                                    <td class="text-right">
+                                                        <button type="button" class="btn btn--secondary" data-queue-retry-one="<?= (int)$item['id'] ?>" title="重试">
+                                                            <i class="fa-light fa-rotate-right"></i>
+                                                        </button>
+                                                        <button type="button" class="btn btn--danger" data-queue-discard-one="<?= (int)$item['id'] ?>" title="丢弃">
+                                                            <i class="fa-light fa-xmark"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            <?php endif; ?>
+                        </details>
+
+                        <script>
+                            /*
+                             * 任务 tab 队列监控 — 全 AJAX，不刷新页面。
+                             *
+                             * 三个 fetch 路径：
+                             *   POST /api/v1/queue/drain           立即处理
+                             *   GET  /api/v1/queue/failed          刷新所有指标 + 失败列表
+                             *   POST /api/v1/queue/{retry,discard,retry-all,discard-all-failed}
+                             *
+                             * 所有改变都通过 applyQueueState() 集中应用到 DOM：
+                             *   • 三张 KPI 卡片（数字 + active/alert 颜色）
+                             *   • 失败任务详情面板（数量 + 表格内容 + 全部按钮可见性）
+                             *   • lastrun 文本
+                             *
+                             * 不再调 Pjax.go() 重新拉整个 tab — 所有更新原地完成。
+                             */
+                            (function () {
+                                const root = document.querySelector('[data-pjax-container].settings-page');
+                                if (!root) return;
+
+                                const drainBtn = root.querySelector('[data-queue-drain-now]');
+                                const refreshBtn = root.querySelector('[data-queue-refresh]');
+                                if (!drainBtn || !refreshBtn) return;
+
+                                const status = root.querySelector('[data-queue-drain-status]');
+                                const pendingEl = root.querySelector('[data-queue-pending]');
+                                const failedEl = root.querySelector('[data-queue-failed]');
+                                const lastEl = root.querySelector('[data-queue-lastrun]');
+
+                                const setStatus = (text, isError = false) => {
+                                    if (!status) return;
+                                    status.textContent = text;
+                                    status.style.color = isError ? '#d73a49' : '';
+                                };
+
+                                const escapeHtml = (s) => String(s ?? '')
+                                    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                                    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+                                /**
+                                 * Pretty "N 秒前 / N 分钟前 / N 小时前" relative time.
+                                 */
+                                const ageText = (ts) => {
+                                    if (!ts) return '从未运行';
+                                    const age = Math.max(0, Math.floor(Date.now() / 1000) - ts);
+                                    if (age < 60) return age + ' 秒前';
+                                    if (age < 3600) return Math.round(age / 60) + ' 分钟前';
+                                    return (age / 3600).toFixed(1) + ' 小时前';
+                                };
+
+                                /**
+                                 * Apply a snapshot of queue state to the DOM in place.
+                                 * Called after every action that may have changed the queue.
+                                 */
+                                const applyQueueState = (snapshot) => {
+                                    const pending = Number(snapshot.pending || 0);
+                                    const failed  = Number(snapshot.failed  || 0);
+                                    const items   = Array.isArray(snapshot.items) ? snapshot.items : [];
+                                    const lastRun = snapshot.last_run || null;
+
+                                    // KPI cards: numbers + active/alert highlighting
+                                    if (pendingEl) {
+                                        pendingEl.textContent = pending.toLocaleString();
+                                        pendingEl.closest('.queue-stat')?.classList.toggle('queue-stat--active', pending > 0);
+                                    }
+                                    if (failedEl) {
+                                        failedEl.textContent = failed.toLocaleString();
+                                        failedEl.closest('.queue-stat')?.classList.toggle('queue-stat--alert', failed > 0);
+                                    }
+                                    if (lastEl && lastRun) {
+                                        const src = (lastRun.source === 'cron') ? 'cron' : '手动 / 上传后';
+                                        lastEl.textContent = `${ageText(lastRun.finished_at)}（处理 ${lastRun.processed || 0}，失败 ${lastRun.failed || 0}，跳过 ${lastRun.skipped || 0}，耗时 ${lastRun.elapsed_ms || 0} ms，来源 ${src}）`;
+                                    }
+
+                                    // Failed-tasks panel — re-render summary count + table
+                                    const summaryCount = root.querySelector('.settings-queue-failed > summary > .text-gray');
+                                    if (summaryCount) summaryCount.textContent = `（${failed.toLocaleString()} 条）`;
+
+                                    const details = root.querySelector('.settings-queue-failed');
+                                    if (!details) return;
+
+                                    // Drop and rebuild everything below <summary>
+                                    Array.from(details.children).forEach((c) => {
+                                        if (c.tagName !== 'SUMMARY') c.remove();
+                                    });
+
+                                    if (items.length === 0) {
+                                        const empty = document.createElement('p');
+                                        empty.className = 'text-sm text-gray m-0 py-3';
+                                        empty.textContent = '暂无失败任务，所有上传都顺利处理完成。';
+                                        details.appendChild(empty);
+                                        return;
+                                    }
+
+                                    // Bulk actions row + table
+                                    details.insertAdjacentHTML('beforeend', `
+                                        <div class="flex gap-2 items-center py-2">
+                                            <button type="button" class="btn btn--secondary" data-queue-retry-all>
+                                                <i class="fa-light fa-rotate-right"></i><span>全部重试</span>
+                                            </button>
+                                            <button type="button" class="btn btn--danger" data-queue-discard-all
+                                                    data-confirm="确认丢弃全部 ${items.length} 条失败任务？此操作不可撤销。">
+                                                <i class="fa-light fa-trash-can-list"></i><span>全部丢弃</span>
+                                            </button>
+                                        </div>
+                                        <div class="overflow-auto border" data-queue-failed-table>
+                                            <table class="w-full">
+                                                <thead><tr>
+                                                    <th class="text-left text-sm">图片</th>
+                                                    <th class="text-left text-sm">尝试次数</th>
+                                                    <th class="text-left text-sm">最近错误</th>
+                                                    <th class="text-left text-sm">更新时间</th>
+                                                    <th class="text-right text-sm">操作</th>
+                                                </tr></thead>
+                                                <tbody>${items.map((it) => {
+                                                    const shortErr = (it.last_error || '').slice(0, 60) + ((it.last_error || '').length > 60 ? '…' : '');
+                                                    const mtime = new Date((it.updated_at || 0) * 1000);
+                                                    const mtimeText = isNaN(mtime) ? '—' : mtime.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+                                                    return `<tr data-failed-row="${it.id}">
+                                                        <td title="${escapeHtml(it.filename)}"><code>${escapeHtml(it.filename.split('/').pop())}</code></td>
+                                                        <td>${it.attempts || 0}</td>
+                                                        <td title="${escapeHtml(it.last_error || '')}" class="text-sm">${escapeHtml(shortErr || '—')}</td>
+                                                        <td class="text-sm text-gray">${escapeHtml(mtimeText)}</td>
+                                                        <td class="text-right">
+                                                            <button type="button" class="btn btn--secondary" data-queue-retry-one="${it.id}" title="重试"><i class="fa-light fa-rotate-right"></i></button>
+                                                            <button type="button" class="btn btn--danger" data-queue-discard-one="${it.id}" title="丢弃"><i class="fa-light fa-xmark"></i></button>
+                                                        </td>
+                                                    </tr>`;
+                                                }).join('')}</tbody>
+                                            </table>
+                                        </div>
+                                    `);
+
+                                    // Open the details panel if it had been collapsed but now there's content
+                                    if (failed > 0) details.open = true;
+                                };
+
+                                /**
+                                 * Pull the latest queue snapshot and apply it to the UI.
+                                 * Used by 「刷新状态」 and after every retry/discard.
+                                 */
+                                const refreshQueueState = async () => {
+                                    const resp = await fetch('/api/v1/queue/failed', {
+                                        credentials: 'same-origin',
+                                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                                    });
+                                    const data = await resp.json();
+                                    if (data.status !== 'success') throw new Error(data.message || '刷新失败');
+                                    applyQueueState(data);
+                                };
+
+                                /** Generic POST helper for queue actions — returns parsed JSON. */
+                                const postQueue = async (path) => {
+                                    const resp = await fetch(path, {
+                                        method: 'POST',
+                                        credentials: 'same-origin',
+                                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                                    });
+                                    const data = await resp.json().catch(() => ({}));
+                                    if (data.status !== 'success') throw new Error(data.message || '请求失败');
+                                    return data;
+                                };
+
+                                // 立即处理队列
+                                drainBtn.addEventListener('click', async () => {
+                                    drainBtn.disabled = true;
+                                    drainBtn.innerHTML = '<i class="fa-light fa-spinner fa-spin"></i><span>处理中...</span>';
+                                    setStatus('正在调用 /api/v1/queue/drain...');
+                                    try {
+                                        const data = await postQueue('/api/v1/queue/drain');
+                                        const d = data.drain || {};
+                                        setStatus(`完成 — 处理 ${d.processed || 0}，失败 ${d.failed || 0}，跳过 ${d.skipped || 0}，耗时 ${d.elapsed_ms || 0} ms（队列 ${data.pending_before} → ${data.pending_after}）`);
+                                        // drain 完成后拉一次失败列表，把所有 KPI + 表格刷新
+                                        await refreshQueueState();
+                                    } catch (e) {
+                                        setStatus('出错：' + (e.message || e), true);
+                                    } finally {
+                                        drainBtn.disabled = false;
+                                        drainBtn.innerHTML = '<i class="fa-light fa-play"></i><span>立即处理队列</span>';
+                                    }
+                                });
+
+                                // 刷新状态 — 仅拉数据，不动整个 tab DOM
+                                refreshBtn.addEventListener('click', async () => {
+                                    refreshBtn.disabled = true;
+                                    refreshBtn.innerHTML = '<i class="fa-light fa-spinner fa-spin"></i><span>刷新中...</span>';
+                                    setStatus('正在刷新...');
+                                    try {
+                                        await refreshQueueState();
+                                        setStatus('已刷新');
+                                    } catch (e) {
+                                        setStatus('刷新失败：' + e.message, true);
+                                    } finally {
+                                        refreshBtn.disabled = false;
+                                        refreshBtn.innerHTML = '<i class="fa-light fa-rotate"></i><span>刷新状态</span>';
+                                    }
+                                });
+
+                                /*
+                                 * 失败任务表的按钮 — 用事件委托绑在容器上而不是逐个 listener，
+                                 * 这样 refreshQueueState() 重建表格后新行的按钮也会自动响应。
+                                 */
+                                const detailsRoot = root.querySelector('.settings-queue-failed');
+                                detailsRoot?.addEventListener('click', async (e) => {
+                                    const retryOne = e.target.closest('[data-queue-retry-one]');
+                                    const discardOne = e.target.closest('[data-queue-discard-one]');
+                                    const retryAll = e.target.closest('[data-queue-retry-all]');
+                                    const discardAll = e.target.closest('[data-queue-discard-all]');
+
+                                    if (retryOne) {
+                                        const id = retryOne.getAttribute('data-queue-retry-one');
+                                        retryOne.disabled = true;
+                                        try {
+                                            await postQueue('/api/v1/queue/retry?id=' + encodeURIComponent(id));
+                                            setStatus('已加入待处理队列，下次 drain 会重试');
+                                            await refreshQueueState();
+                                        } catch (err) {
+                                            setStatus('重试失败：' + err.message, true);
+                                            retryOne.disabled = false;
+                                        }
+                                    } else if (discardOne) {
+                                        if (!confirm('确认丢弃此失败任务？')) return;
+                                        const id = discardOne.getAttribute('data-queue-discard-one');
+                                        discardOne.disabled = true;
+                                        try {
+                                            await postQueue('/api/v1/queue/discard?id=' + encodeURIComponent(id));
+                                            setStatus('已丢弃');
+                                            await refreshQueueState();
+                                        } catch (err) {
+                                            setStatus('丢弃失败：' + err.message, true);
+                                            discardOne.disabled = false;
+                                        }
+                                    } else if (retryAll) {
+                                        retryAll.disabled = true;
+                                        try {
+                                            const data = await postQueue('/api/v1/queue/retry-all');
+                                            setStatus(`已重置 ${data.retried || 0} 个失败任务`);
+                                            await refreshQueueState();
+                                        } catch (err) {
+                                            setStatus('重试失败：' + err.message, true);
+                                            retryAll.disabled = false;
+                                        }
+                                    } else if (discardAll) {
+                                        const msg = discardAll.getAttribute('data-confirm') || '确认丢弃？';
+                                        if (!confirm(msg)) return;
+                                        discardAll.disabled = true;
+                                        try {
+                                            const data = await postQueue('/api/v1/queue/discard-all-failed');
+                                            setStatus(`已丢弃 ${data.discarded || 0} 个失败任务`);
+                                            await refreshQueueState();
+                                        } catch (err) {
+                                            setStatus('丢弃失败：' + err.message, true);
+                                            discardAll.disabled = false;
+                                        }
+                                    }
+                                });
+                            })();
+                        </script>
+                    </section>
+<?php endif; // tab: tasks (queue monitor + failed tasks) ?>
+
+<?php if (in_array($active_settings_tab, ['basic'], true)): ?>
                     <section>
                         <div class="settings-section-header">
                             <h3 class="settings-card-title">
                                 <i class="fa-light fa-sliders" aria-hidden="true"></i>
-                                <span>基础设置</span>
+                                <span>站点信息</span>
                             </h3>
-                            <p>站点信息、上传规则和压缩策略</p>
+                            <p>站点名称、描述</p>
                         </div>
 
                         <div class="settings-grid">
@@ -391,76 +1537,46 @@ require_once APP_ROOT . '/header.php';
                                 <label for="siteDescription">站点描述</label>
                                 <input id="siteDescription" type="text" name="site_description" value="<?= htmlspecialchars(SITE_DESCRIPTION) ?>">
                             </div>
-                            <div class="grid gap-2 col-span-2">
-                                <label for="homeBackgroundUpload">首页背景图替换</label>
-                                <div class="settings-background-control">
-                                    <div
-                                        class="settings-background-preview"
-                                        data-home-background-preview
-                                        data-default-background-url="<?= htmlspecialchars($default_home_background_url, ENT_QUOTES, 'UTF-8') ?>"
-                                        data-default-background-path="<?= htmlspecialchars($default_home_background_label, ENT_QUOTES, 'UTF-8') ?>"
-                                        style="background-image: url('<?= htmlspecialchars($home_background_url, ENT_QUOTES, 'UTF-8') ?>');">
-                                        <span data-home-background-label>当前背景：<?= htmlspecialchars($home_background_label) ?></span>
-                                    </div>
-                                    <div class="settings-background-upload grid gap-2">
-                                        <input type="hidden" name="home_background_reset" value="0" data-home-background-reset-value>
-                                        <div class="settings-background-file-row">
-                                            <input
-                                                id="homeBackgroundUpload"
-                                                class="settings-file-input"
-                                                type="file"
-                                                name="home_background_upload"
-                                                accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
-                                                data-home-background-input>
-                                            <button
-                                                type="button"
-                                                class="settings-background-reset btn btn--secondary"
-                                                data-home-background-reset>
-                                                <i class="fa-light fa-rotate-left"></i>
-                                                恢复默认
-                                            </button>
-                                        </div>
-                                        <p class="m-0 text-xs text-gray leading-relaxed" data-home-background-hint>选择文件后会先在左侧预览，点击页面底部“保存设置”后生效。上传后会保存为 <code>static/images/background-*.jpg</code>，不覆盖默认背景图。支持 JPG/JPEG；PNG/WebP 会尝试转换为 JPG 后保存到同一目录。</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="grid gap-2">
-                                <label for="maxFileSize">最大上传大小（MB）</label>
-                                <input id="maxFileSize" type="number" min="1" max="50" name="max_file_size_mb" value="<?= (int)round(MAX_FILE_SIZE / 1024 / 1024) ?>">
-                            </div>
+                        </div>
+                    </section>
+<?php endif; // tab: basic (站点信息) ?>
+
+<?php if (in_array($active_settings_tab, ['image'], true)): // 自动压缩 + 自动转换 + 保留原图 (从原 general tab 拆出来) ?>
+                    <section>
+                        <div class="settings-section-header">
+                            <h3 class="settings-card-title">
+                                <i class="fa-light fa-bolt" aria-hidden="true"></i>
+                                <span>自动压缩与格式转换</span>
+                            </h3>
+                            <p>上传后由 LitePic 在服务端自动处理图片，可选 ImageMagick / GD / TinyPNG 三种引擎</p>
+                        </div>
+
+                        <div class="settings-grid">
                             <div class="grid gap-2">
                                 <div class="flex items-center justify-between gap-2">
                                     <label for="compressionMode">压缩方式</label>
-                                    <a class="inline-flex items-center gap-1 text-sm text-primary no-underline hover:underline" href="/docs#compression-modes">
+                                    <a class="inline-flex items-center gap-1 text-sm text-primary no-underline hover:underline" href="https://litepic.io/docs#compression-modes" target="_blank" rel="noopener noreferrer">
                                         <span>了解更多</span>
                                         <i class="fa-light fa-arrow-up-right-from-square"></i>
                                     </a>
                                 </div>
                                 <select id="compressionMode" name="compression_mode">
-                                    <option value="tinypng" <?= $current_compression_mode === 'tinypng' ? 'selected' : '' ?>>TinyPNG</option>
-                                    <option value="gd" <?= $current_compression_mode === 'gd' ? 'selected' : '' ?>>GD</option>
-                                    <option value="imagemagick" <?= $current_compression_mode === 'imagemagick' ? 'selected' : '' ?>>ImageMagick</option>
+                                    <option value="tinypng" <?= $current_compression_mode === 'tinypng' ? 'selected' : '' ?>>TinyPNG（在线，需 API Key — 见下方）</option>
+                                    <option value="gd" <?= $current_compression_mode === 'gd' ? 'selected' : '' ?>>GD（PHP 内置）</option>
+                                    <option value="imagemagick" <?= $current_compression_mode === 'imagemagick' ? 'selected' : '' ?>>ImageMagick（推荐）</option>
                                 </select>
                             </div>
-                            <div class="grid gap-2 col-span-2">
+                            <?php $_engine = defined('CONVERSION_ENGINE') ? CONVERSION_ENGINE : 'auto'; ?>
+                            <div class="grid gap-2">
                                 <div class="flex items-center justify-between gap-2">
-                                    <label>允许上传格式</label>
-                                    <span class="settings-field-hint">未勾选的格式会在上传页隐藏，并被前端与后端同时拒绝</span>
+                                    <label for="conversionEngine">转换引擎</label>
+                                    <span class="text-xs text-gray">用于 WebP / AVIF 转换</span>
                                 </div>
-                                <div class="settings-format-options" role="group" aria-label="允许上传格式">
-                                    <?php foreach (SUPPORTED_IMAGE_TYPES as $type): ?>
-                                        <?php $input_id = 'uploadAllowedType' . ucfirst($type); ?>
-                                        <label class="settings-format-option" for="<?= htmlspecialchars($input_id) ?>">
-                                            <input
-                                                id="<?= htmlspecialchars($input_id) ?>"
-                                                type="checkbox"
-                                                name="upload_allowed_types[]"
-                                                value="<?= htmlspecialchars($type) ?>"
-                                                <?= in_array($type, ALLOWED_UPLOAD_TYPES, true) ? 'checked' : '' ?>>
-                                            <span>.<?= htmlspecialchars($upload_format_labels[$type] ?? strtoupper($type)) ?></span>
-                                        </label>
-                                    <?php endforeach; ?>
-                                </div>
+                                <select id="conversionEngine" name="conversion_engine">
+                                    <option value="auto"    <?= $_engine === 'auto'    ? 'selected' : '' ?>>自动（推荐 — Imagick 优先，回退 GD）</option>
+                                    <option value="imagick" <?= $_engine === 'imagick' ? 'selected' : '' ?>>Imagick（处理大图省内存，10000×3000 以上必选）</option>
+                                    <option value="gd"      <?= $_engine === 'gd'      ? 'selected' : '' ?>>GD（兼容性好，30MP 以上易爆内存）</option>
+                                </select>
                             </div>
                         </div>
 
@@ -496,7 +1612,7 @@ require_once APP_ROOT . '/header.php';
                             </label>
                         </div>
                     </section>
-<?php endif; // tab: general ?>
+<?php endif; // tab: image (自动压缩与格式转换 section) ?>
 
 <?php if (in_array($active_settings_tab, ['storage'], true)): ?>
                     <section>
@@ -566,13 +1682,13 @@ require_once APP_ROOT . '/header.php';
                                 class="btn btn--primary"
                                 name="form_action"
                                 value="save_remote_storage"
-                                data-busy-text="正在保存 R2/S3 设置...">
+                                data-busy-text="正在保存设置...">
                                 <i class="fa-light fa-floppy-disk"></i>
-                                保存 R2/S3 设置
+                                保存设置
                             </button>
                             <button type="submit" class="btn btn--secondary" name="form_action" value="test_remote_storage">
                                 <i class="fa-light fa-plug-circle-check"></i>
-                                测试 R2/S3 连接
+                                测试连接
                             </button>
                             <button
                                 type="submit"
@@ -583,7 +1699,7 @@ require_once APP_ROOT . '/header.php';
                                 data-confirm-title="全量同步确认"
                                 data-busy-text="正在同步全部图片到远程存储，请勿关闭页面...">
                                 <i class="fa-light fa-cloud-arrow-up"></i>
-                                一键同步全部到 R2/S3
+                                一键同步
                             </button>
                             <button
                                 type="submit"
@@ -594,24 +1710,24 @@ require_once APP_ROOT . '/header.php';
                                 data-confirm-title="全量恢复确认"
                                 data-busy-text="正在从远程恢复到本地，请勿关闭页面...">
                                 <i class="fa-light fa-cloud-arrow-down"></i>
-                                一键恢复到本地
+                                一键恢复
                             </button>
                             <button
                                 type="submit"
-                                data-busy-text="正在清空远程对象，请勿关闭页面..."
+                                data-busy-text="正在清空云端对象，请勿关闭页面..."
                                 class="btn btn--danger js-remote-purge-btn"
                                 name="form_action"
                                 value="purge_remote_storage"
-                                data-confirm="确认清空远程存储对象吗？将删除当前配置前缀下的所有对象，无法恢复。"
-                                data-confirm-title="清空远程对象确认">
+                                data-confirm="确认清空云端存储对象吗？将删除当前配置前缀下的所有对象，无法恢复。"
+                                data-confirm-title="清空云端确认">
                                 <i class="fa-light fa-trash-can-list"></i>
-                                清空 R2/S3 远程对象
+                                清空云端
                             </button>
                         </div>
                     </section>
 <?php endif; // tab: storage ?>
 
-<?php if (in_array($active_settings_tab, ['import'], true)): ?>
+<?php if (in_array($active_settings_tab, ['storage'], true)): ?>
                     <section>
                         <div class="settings-section-header">
                             <h3 class="settings-card-title">
@@ -684,39 +1800,53 @@ require_once APP_ROOT . '/header.php';
                             </button>
                         </div>
                     </section>
-<?php endif; // tab: import ?>
+<?php endif; // tab: storage (扫描导入 section) ?>
 
-<?php if (in_array($active_settings_tab, ['auth'], true)): ?>
+<?php if (in_array($active_settings_tab, ['account'], true)): ?>
                     <section>
                         <div class="settings-section-header">
                             <h3 class="settings-card-title">
                                 <i class="fa-light fa-shield-halved" aria-hidden="true"></i>
-                                <span>安全设置</span>
+                                <span>管理员密码</span>
                             </h3>
-                            <p>管理后台访问密钥（Cookie Secure 自动按 HTTPS 生效）</p>
+                            <p>当前密码用于后台登录与 API 调用（Cookie Secure 自动按 HTTPS 生效）</p>
                         </div>
 
-                        <div class="grid gap-2">
-                            <label for="adminApiKey">管理员 API Key</label>
-                            <div class="relative">
-                                <input id="adminApiKey" class="has-toggle" type="password" name="admin_api_key" value="<?= htmlspecialchars(ADMIN_API_KEY) ?>" autocomplete="off">
-                                <button
-                                    type="button"
-                                    class="secret-toggle-btn absolute right-px top-px bottom-px w-12 border-0 border-l border-border bg-transparent text-gray cursor-pointer"
-                                    data-target="adminApiKey"
-                                    aria-label="显示或隐藏 API Key"
-                                    title="显示/隐藏 API Key">
-                                    <i class="fa-light fa-eye"></i>
+                        <div class="settings-toggle-list">
+                            <div class="settings-toggle-row">
+                                <span class="settings-toggle-copy">
+                                    <?php if (defined('DEFAULT_ADMIN_API_KEY') && hash_equals(DEFAULT_ADMIN_API_KEY, (string)ADMIN_API_KEY)): ?>
+                                        <strong style="color:#d73a49;">当前仍在使用初始默认密码 12345678，请立即修改</strong>
+                                    <?php else: ?>
+                                        密码已设置（出于安全考虑不显示明文）
+                                    <?php endif; ?>
+                                </span>
+                                <button type="button" class="btn btn--primary" data-open-change-password>
+                                    <i class="fa-light fa-key"></i>
+                                    <span>修改密码</span>
                                 </button>
                             </div>
                         </div>
 
+                        <p class="m-0 text-xs text-gray">说明：管理员密码只能通过此弹窗修改，不再以明文形式出现在表单中。修改后会自动续签登录 Cookie，无需重新登录。</p>
+
+                        <script>
+                            (function () {
+                                var btn = document.querySelector('[data-open-change-password]');
+                                if (!btn) return;
+                                btn.addEventListener('click', function () {
+                                    if (window.ApiManager && typeof window.ApiManager.openChangePasswordModal === 'function') {
+                                        window.ApiManager.openChangePasswordModal({ forced: false });
+                                    }
+                                });
+                            })();
+                        </script>
                     </section>
-<?php endif; // tab: auth (in-form section) ?>
+<?php endif; // tab: account (in-form section) ?>
 
                 </form>
 
-<?php if (in_array($active_settings_tab, ['auth'], true)): ?>
+<?php if (in_array($active_settings_tab, ['account'], true)): ?>
                 <section>
                     <div class="settings-section-header">
                         <h3 class="settings-card-title">
@@ -729,7 +1859,7 @@ require_once APP_ROOT . '/header.php';
                     <form method="post" class="settings-inline-form settings-token-form">
                         <?= \LitePic\Core\Csrf::inputField() ?>
                         <input type="hidden" name="form_action" value="create_token">
-                        <input type="hidden" name="active_tab" value="auth">
+                        <input type="hidden" name="active_tab" value="account">
                         <input type="text" name="token_name" placeholder="Token 名称（如：wordpress-prod）">
                         <button type="submit" class="btn btn--primary">
                             <i class="fa-light fa-key"></i>
@@ -776,7 +1906,7 @@ require_once APP_ROOT . '/header.php';
                                             <form method="post" data-confirm="确定要撤销此 API Token 吗？使用此 Token 的应用将立即失效。" data-confirm-title="撤销 Token 确认">
                                                 <?= \LitePic\Core\Csrf::inputField() ?>
                                                 <input type="hidden" name="form_action" value="revoke_token">
-                                                <input type="hidden" name="active_tab" value="auth">
+                                                <input type="hidden" name="active_tab" value="account">
                                                 <input type="hidden" name="token_id" value="<?= htmlspecialchars((string)$token['id']) ?>">
                                                 <button type="submit" class="btn btn--danger">撤销</button>
                                             </form>
@@ -833,9 +1963,9 @@ require_once APP_ROOT . '/header.php';
                         </table>
                     </div>
                 </section>
-<?php endif; // tab: auth (out-of-form sections) ?>
+<?php endif; // tab: account (out-of-form sections) ?>
 
-<?php if (in_array($active_settings_tab, ['compression'], true)): ?>
+<?php if (in_array($active_settings_tab, ['image'], true)): // TinyPNG keys 现在归图片处理 ?>
                 <section>
                     <div class="settings-section-header">
                         <h3 class="settings-card-title">
@@ -848,7 +1978,7 @@ require_once APP_ROOT . '/header.php';
                     <form method="post" class="settings-inline-form settings-compression-form">
                         <?= \LitePic\Core\Csrf::inputField() ?>
                         <input type="hidden" name="form_action" value="add_compression_api">
-                        <input type="hidden" name="active_tab" value="compression">
+                        <input type="hidden" name="active_tab" value="image">
                         <input type="text" name="compression_api_key" placeholder="输入 TinyPNG API Key">
                         <button type="submit" class="btn btn--primary">
                             <i class="fa-light fa-plus"></i>
@@ -905,7 +2035,7 @@ require_once APP_ROOT . '/header.php';
                                                 <form method="post">
                                                     <?= \LitePic\Core\Csrf::inputField() ?>
                                                     <input type="hidden" name="form_action" value="toggle_compression_api">
-                                                    <input type="hidden" name="active_tab" value="compression">
+                                                    <input type="hidden" name="active_tab" value="image">
                                                     <input type="hidden" name="compression_api_id" value="<?= htmlspecialchars($id) ?>">
                                                     <input type="hidden" name="enable" value="<?= $enabled ? '0' : '1' ?>">
                                                     <button type="submit" class="btn btn--secondary"><?= $enabled ? '禁用' : '启用' ?></button>
@@ -913,7 +2043,7 @@ require_once APP_ROOT . '/header.php';
                                                 <form method="post" data-confirm="确定要删除此压缩 API Key 吗？" data-confirm-title="删除 TinyPNG Key 确认">
                                                     <?= \LitePic\Core\Csrf::inputField() ?>
                                                     <input type="hidden" name="form_action" value="delete_compression_api">
-                                                    <input type="hidden" name="active_tab" value="compression">
+                                                    <input type="hidden" name="active_tab" value="image">
                                                     <input type="hidden" name="compression_api_id" value="<?= htmlspecialchars($id) ?>">
                                                     <button type="submit" class="btn btn--danger">删除</button>
                                                 </form>
@@ -936,9 +2066,9 @@ require_once APP_ROOT . '/header.php';
                         </table>
                     </div>
                 </section>
-<?php endif; // tab: compression ?>
+<?php endif; // tab: image (TinyPNG / 压缩 API Keys section) ?>
 
-<?php if (in_array($active_settings_tab, ['watermark'], true)): ?>
+<?php if (in_array($active_settings_tab, ['image'], true)): // 水印 + 防盗链 现在归图片处理 ?>
                 <section>
                     <div class="settings-section-header">
                         <h3 class="settings-card-title">
@@ -959,10 +2089,10 @@ require_once APP_ROOT . '/header.php';
                             <input id="hotlinkProtectionEnabled" form="settingsForm" class="settings-switch-input" type="checkbox" name="apache_hotlink_protection_enabled" value="1" <?= $apache_hotlink_rules_enabled ? 'checked' : '' ?>>
                             <span class="settings-switch" aria-hidden="true"><span></span></span>
                         </label>
-                        <label class="settings-toggle-row" for="hotlinkAllowEmptyReferer">
+                        <label class="settings-toggle-row" for="hotlinkAllowEmptyReferer" data-hotlink-config <?= $apache_hotlink_rules_enabled ? '' : 'hidden' ?>>
                             <span class="settings-toggle-copy">
                                 允许无来源请求（直接打开图片 / 隐私浏览器不拦截）
-                                <a class="settings-help-link" href="/docs#hotlink-empty-referer">说明</a>
+                                <a class="settings-help-link" href="https://litepic.io/docs#hotlink-empty-referer" target="_blank" rel="noopener noreferrer">说明</a>
                             </span>
                             <input id="hotlinkAllowEmptyReferer" form="settingsForm" class="settings-switch-input" type="checkbox" name="hotlink_allow_empty_referer" value="1" <?= HOTLINK_ALLOW_EMPTY_REFERER ? 'checked' : '' ?>>
                             <span class="settings-switch" aria-hidden="true"><span></span></span>
@@ -1079,14 +2209,14 @@ require_once APP_ROOT . '/header.php';
                         </div>
                     </div>
 
-                    <div class="grid gap-3.5">
+                    <div class="grid gap-3.5" data-hotlink-config <?= $apache_hotlink_rules_enabled ? '' : 'hidden' ?>>
                         <div class="grid gap-2 col-span-2">
                             <label for="hotlinkAllowedDomains">防盗链允许域名</label>
                             <input id="hotlinkAllowedDomains" form="settingsForm" type="text" name="hotlink_allowed_domains" value="<?= htmlspecialchars(implode(',', HOTLINK_ALLOWED_DOMAINS)) ?>" placeholder="example.com,cdn.example.com">
                         </div>
                     </div>
 
-                    <div class="settings-callout settings-callout-compact">
+                    <div class="settings-callout settings-callout-compact" data-hotlink-config <?= $apache_hotlink_rules_enabled ? '' : 'hidden' ?>>
                         <strong>不改图片地址的服务器防盗链</strong>
                         <p class="m-0 text-xs text-gray">
                             当前检测：<?= htmlspecialchars($server_label) ?><?= $server_software !== '' ? '（' . htmlspecialchars($server_software) . '）' : '' ?>；
@@ -1095,9 +2225,9 @@ require_once APP_ROOT . '/header.php';
                             <?php if ($server_uses_htaccess): ?>
                                 Apache 或支持 .htaccess 的面板环境可直接生效。
                             <?php elseif ($server_uses_nginx_rules): ?>
-                                Nginx / OpenResty 需要在 Web 服务器配置中添加防盗链规则，详见 <a href="/docs#hotlink-protection">使用说明</a>。
+                                Nginx / OpenResty 需要在 Web 服务器配置中添加防盗链规则，详见 <a href="https://litepic.io/docs#hotlink-protection" target="_blank" rel="noopener noreferrer">使用说明</a>。
                             <?php elseif ($server_uses_caddyfile): ?>
-                                Caddy 需要在 Caddyfile 中添加防盗链规则，详见 <a href="/docs#hotlink-protection">使用说明</a>。
+                                Caddy 需要在 Caddyfile 中添加防盗链规则，详见 <a href="https://litepic.io/docs#hotlink-protection" target="_blank" rel="noopener noreferrer">使用说明</a>。
                             <?php else: ?>
                                 未识别服务器类型，.htaccess 仅在 Apache / 兼容环境有效。
                             <?php endif; ?>
@@ -1106,46 +2236,177 @@ require_once APP_ROOT . '/header.php';
 
                     <p class="m-0 text-xs text-gray">说明：开启后保存设置会自动写入 .htaccess；关闭后保存设置会自动移除规则。允许无来源请求表示直接打开图片、浏览器隐藏 Referer 或部分隐私浏览器访问时不拦截；关闭后这类请求也会被拒绝。</p>
                 </section>
-<?php endif; // tab: watermark ?>
+<?php endif; // tab: image (水印 + 防盗链 section) ?>
 
-<?php if (in_array($active_settings_tab, ['system'], true)): ?>
+<?php if (in_array($active_settings_tab, ['image'], true)): // 图片请求统计 现在归图片处理 ?>
                 <section>
                     <div class="settings-section-header">
                         <h3 class="settings-card-title">
                             <i class="fa-light fa-chart-line" aria-hidden="true"></i>
-                            <span>访问日志统计</span>
+                            <span>图片请求统计</span>
                         </h3>
-                        <p>读取 Web 服务器 access.log，统计图片请求次数</p>
+                        <p>由 PHP 直接累加每张图片的访问次数，不依赖 Web 服务器 access.log</p>
                     </div>
 
                     <div class="settings-toggle-list">
-                        <label class="settings-toggle-row" for="accessLogStatsEnabled">
-                            <span class="settings-toggle-copy">启用 access.log 图片请求统计</span>
-                            <input id="accessLogStatsEnabled" form="settingsForm" class="settings-switch-input" type="checkbox" name="access_log_stats_enabled" value="1" <?= ACCESS_LOG_STATS_ENABLED ? 'checked' : '' ?>>
+                        <label class="settings-toggle-row" for="imageViewCounterEnabled">
+                            <span class="settings-toggle-copy">启用图片请求计数</span>
+                            <input id="imageViewCounterEnabled" form="settingsForm" class="settings-switch-input" type="checkbox" name="image_view_counter_enabled" value="1" <?= IMAGE_VIEW_COUNTER_ENABLED ? 'checked' : '' ?>>
                             <span class="settings-switch" aria-hidden="true"><span></span></span>
                         </label>
                     </div>
 
+                    <p class="m-0 text-sm text-gray">说明：开启后图片公网链接将统一走 <code>/i/&lt;文件名&gt;</code> 路由，由 PHP 流式提供并把命中数累加到数据库（仅完整 200 响应计数，HEAD / 304 / Range 不计）。文件本身仍存放在 <code>uploads/</code> 目录。关闭后链接回退为下方「图片链接格式」配置的样式，统计也随之停止。</p>
+                </section>
+<?php endif; // tab: image (图片请求统计 section) ?>
+
+<?php if (in_array($active_settings_tab, ['image'], true)): // 图片公网链接前缀（自定义）?>
+                <?php
+                $_url_prefix = defined('URL_PREFIX') ? URL_PREFIX : '/uploads/';
+                $_force_proxy = (defined('IMAGE_VIEW_COUNTER_ENABLED') && IMAGE_VIEW_COUNTER_ENABLED)
+                    || (defined('HOTLINK_PROTECTION_ENABLED') && HOTLINK_PROTECTION_ENABLED);
+                $_preset_prefixes = ['/uploads/', '/', '/i/', '/img/', '/photo/', '/p/'];
+                ?>
+                <section>
+                    <div class="settings-section-header">
+                        <h3 class="settings-card-title">
+                            <i class="fa-light fa-link" aria-hidden="true"></i>
+                            <span>图片链接前缀</span>
+                        </h3>
+                        <p>自定义图片公网 URL 的前缀。物理文件始终在 <code>uploads/yyyy/mm/</code>，只改 URL 形态，不动磁盘。.htaccess 里的 catch-all 重写规则会把任何前缀自动指向 uploads。</p>
+                    </div>
+
+                    <?php if ($_force_proxy): ?>
+                        <div class="settings-callout settings-callout-compact">
+                            <strong>当前由「图片请求统计」或「防盗链」强制走 <code>/i/&lt;文件&gt;</code> PHP 路由</strong>
+                            <p class="m-0 text-xs text-gray">下方设置仍会保存，但只有在关闭「图片请求统计」+「防盗链」之后才会生效。</p>
+                        </div>
+                    <?php endif; ?>
+
                     <div class="settings-grid">
-                        <div class="grid gap-2">
-                            <label for="accessLogPaths">access.log 路径（多个用英文逗号分隔）</label>
-                            <input id="accessLogPaths" form="settingsForm" type="text" name="access_log_paths" value="<?= htmlspecialchars(implode(',', ACCESS_LOG_PATHS)) ?>" placeholder="/var/log/nginx/access.log,/var/log/apache2/access.log">
+                        <div class="grid gap-2 col-span-2">
+                            <label for="urlPrefix">URL 前缀</label>
+                            <input
+                                id="urlPrefix"
+                                form="settingsForm"
+                                type="text"
+                                name="url_prefix"
+                                value="<?= htmlspecialchars($_url_prefix) ?>"
+                                placeholder="/uploads/"
+                                autocomplete="off"
+                                pattern="^/([a-z0-9][a-z0-9_-]*/)?$"
+                                maxlength="32"
+                                data-url-prefix-input>
+                            <p class="settings-field-hint">
+                                必须以 <code>/</code> 开头和结尾，中间可填任意小写字母数字 <code>_</code> <code>-</code>。
+                                禁用前缀：<code>api</code> / <code>static</code> / <code>assets</code> / <code>data</code> / <code>logs</code> / <code>settings</code> / <code>gallery</code> 等系统路径。
+                            </p>
                         </div>
-                        <div class="grid gap-2">
-                            <label for="accessLogCacheTtl">统计缓存时间（秒）</label>
-                            <input id="accessLogCacheTtl" form="settingsForm" type="number" min="30" max="86400" name="access_log_cache_ttl" value="<?= (int)ACCESS_LOG_CACHE_TTL ?>">
+                        <div class="grid gap-2 col-span-2">
+                            <label>预设</label>
+                            <div class="settings-format-tags__presets" data-url-prefix-presets>
+                                <?php foreach ($_preset_prefixes as $_p): ?>
+                                    <button type="button" class="settings-format-tags__preset" data-url-prefix-preset value="<?= htmlspecialchars($_p) ?>">
+                                        <?= htmlspecialchars($_p) ?>
+                                    </button>
+                                <?php endforeach; ?>
+                            </div>
                         </div>
-                        <div class="grid gap-2">
-                            <label for="accessLogMaxMb">单个日志最多扫描（MB）</label>
-                            <input id="accessLogMaxMb" form="settingsForm" type="number" min="1" max="500" name="access_log_max_mb" value="<?= (int)ceil(ACCESS_LOG_MAX_BYTES / 1024 / 1024) ?>">
+                        <div class="grid gap-2 col-span-2">
+                            <label>预览</label>
+                            <div class="settings-toggle-row settings-toggle-row-control" style="cursor:default;">
+                                <span class="settings-toggle-copy">
+                                    <strong>当前 URL 形态：</strong>
+                                    <code data-url-prefix-preview>
+                                        <?= htmlspecialchars(rtrim((string)SITE_URL, '/') . $_url_prefix) ?>2026/05/abc.webp
+                                    </code>
+                                    <small class="text-gray" data-url-prefix-stats-hint>
+                                        <?php if ($_url_prefix === '/uploads/'): ?>
+                                            由 Web 服务器直接 serve（最快）— <strong>无访问统计</strong>
+                                        <?php else: ?>
+                                            由 PHP 路由 serve — 配合「启用图片请求计数」可统计 view_count
+                                        <?php endif; ?>
+                                    </small>
+                                </span>
+                            </div>
                         </div>
                     </div>
 
-                    <p class="m-0 text-sm text-gray">说明：统计值来自当前可读取的 access.log；如果服务器做了日志轮转、CDN 缓存或浏览器缓存，数字只代表日志里记录到的请求次数。</p>
-                </section>
-<?php endif; // tab: system (access log section) ?>
+                    <p class="m-0 text-xs text-gray">
+                        <strong>统计说明：</strong>
+                        除了 <code>/uploads/</code>（直连物理路径，Web 服务器直接 serve，PHP 不参与），<strong>其他所有前缀（包括 <code>/i/</code>、<code>/img/</code>、<code>/photo/</code>、<code>/anyword/</code>、<code>/</code>）都会经 PHP 路由</strong>，是否累加访问数由「启用图片请求计数」开关控制。
+                        <br><br>
+                        <strong>简单结论：</strong>
+                        想要统计 → 任选 <code>/uploads/</code> 之外的前缀；
+                        追求最快 → 用 <code>/uploads/</code>。
+                        <br>
+                        <strong>切换前缀是安全的</strong>：老的 <code>/uploads/...</code> 链接和任何 <code>/&lt;新前缀&gt;/...</code> 都能 serve 同一张图，不会死链。
+                    </p>
 
-<?php $tab_uses_main_form = in_array($active_settings_tab, ['general', 'storage', 'import', 'auth', 'watermark'], true); ?>
+                    <script>
+                        (function () {
+                            const root = document.querySelector('[data-pjax-container].settings-page');
+                            if (!root) return;
+
+                            const input = root.querySelector('[data-url-prefix-input]');
+                            const presetsBox = root.querySelector('[data-url-prefix-presets]');
+                            const preview = root.querySelector('[data-url-prefix-preview]');
+                            const statsHint = root.querySelector('[data-url-prefix-stats-hint]');
+                            if (!input || !preview) return;
+
+                            // 简易 normalise — 跟后端 PHP 的 normalizeUrlPrefix 同语义
+                            const sanitize = (raw) => {
+                                let s = String(raw || '').trim().toLowerCase();
+                                if (s === '' || s === '/') return '/';
+                                s = s.replace(/[^a-z0-9_/\-]/g, '');
+                                if (!s.startsWith('/')) s = '/' + s;
+                                if (!s.endsWith('/')) s = s + '/';
+                                return /^\/([a-z0-9][a-z0-9_-]*\/)?$/.test(s) ? s : '';
+                            };
+
+                            const updatePreview = () => {
+                                const prefix = sanitize(input.value);
+                                const base = window.location.origin;
+                                if (prefix === '') {
+                                    preview.textContent = '⚠ 格式不合法 — 必须以 / 开头和结尾，仅允许 a-z 0-9 _ -';
+                                    preview.style.color = '#d73a49';
+                                    return;
+                                }
+                                preview.style.color = '';
+                                preview.textContent = base + prefix + '2026/05/abc.webp';
+                                if (statsHint) {
+                                    if (prefix === '/uploads/') {
+                                        statsHint.innerHTML = '由 Web 服务器直接 serve（最快）— <strong>无访问统计</strong>';
+                                    } else {
+                                        statsHint.textContent = '由 PHP 路由 serve — 配合「启用图片请求计数」可统计 view_count';
+                                    }
+                                }
+                            };
+
+                            input.addEventListener('input', updatePreview);
+                            input.addEventListener('blur', () => {
+                                const cleaned = sanitize(input.value);
+                                if (cleaned !== '') input.value = cleaned;
+                            });
+
+                            presetsBox?.addEventListener('click', (e) => {
+                                const btn = e.target.closest('[data-url-prefix-preset]');
+                                if (!btn) return;
+                                input.value = btn.value;
+                                updatePreview();
+                                input.dispatchEvent(new Event('change', { bubbles: true })); // 触发 form change → autosave
+                            });
+                        })();
+                    </script>
+                </section>
+<?php endif; // tab: image (图片链接前缀 section) ?>
+
+<?php
+// 哪些 tab 用主 settings 表单（含底部"保存设置"按钮）。新结构下：
+//   basic / image / storage / account 都有可保存字段
+//   system (数据库) 只有备份管理 — 配置走自己的 /api/v1/backup/config，不需要主表单
+$tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage', 'account'], true);
+?>
 <?php if ($tab_uses_main_form): ?>
                 <div class="settings-save-actions">
                     <button type="submit" form="settingsForm" class="btn btn--primary btn--lg">
@@ -1155,9 +2416,17 @@ require_once APP_ROOT . '/header.php';
                 </div>
 <?php endif; ?>
 </div><!-- /.settings-shell -->
-</main>
 
 <script>
+/*
+ * 关键：这个 <script> 必须在 </main> 之前。
+ *
+ * Pjax.executeScripts() 只 walk 新 main 容器内的 <script> 标签来重新
+ * 执行（这样 PJAX 切 tab 后所有 toggle / picker / 弹窗的 listener
+ * 才会重新绑到新 DOM 上）。如果脚本写在 </main> 后面，初次访问
+ * 该 tab 没问题（普通 DOMContentLoaded 跑），但通过 PJAX 切到这个
+ * tab 时 listener 就会全丢 — 表现为「点开关没反应」「按钮不响应」等。
+ */
 (function () {
     const flashMessage = <?= json_encode($message, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
     const flashType = <?= json_encode($message_type === 'success' ? 'success' : 'error', JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
@@ -1178,7 +2447,21 @@ require_once APP_ROOT . '/header.php';
     // 立即尝试一次，避免 DOMContentLoaded 时序导致丢失
     showFlash();
 
-    document.addEventListener('DOMContentLoaded', () => {
+    /*
+     * Idempotent + PJAX-aware initialiser.
+     *
+     * On the FIRST page load we wait for DOMContentLoaded then run init().
+     * On every PJAX swap we re-run init() immediately (the new container
+     * is already in the DOM by the time this script executes). The
+     * `_settingsInited` marker on the container prevents double-binding
+     * if the user clicks the same tab twice or another script triggers
+     * a re-init.
+     */
+    const init = () => {
+        const container = document.querySelector('[data-pjax-container].settings-page');
+        if (!container) return;
+        if (container._settingsInited) return;
+        container._settingsInited = true;
         if (!flashShown) {
             showFlash();
             if (!flashShown) {
@@ -1276,72 +2559,125 @@ require_once APP_ROOT . '/header.php';
             }
         };
 
-        const bindHomeBackgroundPicker = () => {
-            const input = document.querySelector('[data-home-background-input]');
-            const preview = document.querySelector('[data-home-background-preview]');
-            const label = document.querySelector('[data-home-background-label]');
-            const hint = document.querySelector('[data-home-background-hint]');
-            const resetInput = document.querySelector('[data-home-background-reset-value]');
-            const resetButton = document.querySelector('[data-home-background-reset]');
-            if (!input || !preview) return;
+        // ---------------------------------------------------------------------
+        // 允许上传格式 — 标签编辑器
+        //
+        // 之前是固定 checkbox 网格（限制于 SUPPORTED_IMAGE_TYPES）。改成 chip
+        // 输入：用户可以填任意扩展名（heic / jxl / raw 等），后端只对内容做
+        // image/* MIME 校验。
+        //
+        // 行为：
+        //   • 输入框输入字符 + 回车 / 逗号 / 空格 / 失焦 → 添加 chip
+        //   • 点 chip 上的 × → 移除（同时移除对应的 hidden input）
+        //   • 输入框为空时按 Backspace → 移除最后一个 chip（常见交互）
+        //   • 点击预设按钮 → 添加 chip + 自身从预设区消失
+        //   • 同名 chip 不重复添加
+        //   • 添加 / 移除都触发 form 'change' 事件，让 auto-save 接管
+        // ---------------------------------------------------------------------
+        const bindFormatTagsEditor = () => {
+            const root = document.querySelector('[data-format-tags]');
+            if (!root) return;
+            const chipsBox = root.querySelector('[data-format-tags-chips]');
+            const input = root.querySelector('[data-format-tags-input]');
+            const presetsBox = root.querySelector('[data-format-tags-presets]');
+            if (!chipsBox || !input) return;
 
-            let objectUrl = '';
-            const defaultUrl = preview.getAttribute('data-default-background-url') || '/static/images/background.jpg';
-            const defaultPath = preview.getAttribute('data-default-background-path') || 'static/images/background.jpg';
-            const revokeObjectUrl = () => {
-                if (objectUrl) {
-                    URL.revokeObjectURL(objectUrl);
-                    objectUrl = '';
+            const sanitize = (raw) =>
+                String(raw || '').toLowerCase().replace(/^[.\s]+/, '').replace(/[^a-z0-9]/g, '').slice(0, 10);
+
+            const collectExisting = () => Array.from(
+                chipsBox.querySelectorAll('input[name="upload_allowed_types[]"]')
+            ).map((el) => el.value);
+
+            const announceChange = () => {
+                // 触发 form 上的 change 事件，让 auto-save / dirty 检查跟进
+                const form = document.getElementById('settingsForm');
+                form?.dispatchEvent(new Event('change', { bubbles: true }));
+            };
+
+            const refreshPresetButton = (type, action) => {
+                if (!presetsBox) return;
+                const btn = presetsBox.querySelector(`button[data-format-tag-preset][value="${type}"]`);
+                if (action === 'remove' && btn) {
+                    btn.remove();
+                } else if (action === 'add' && !btn) {
+                    // 简单做法：移除时不把 preset 加回来（用户主动删通常是不想要了）
+                    // 留给"快速添加"区只展示从未被加过的预设
                 }
             };
 
-            input.addEventListener('change', () => {
-                const file = input.files && input.files[0] ? input.files[0] : null;
-                revokeObjectUrl();
+            const addType = (raw) => {
+                const type = sanitize(raw);
+                if (!type) return false;
+                const existing = collectExisting();
+                if (existing.includes(type)) return false;
 
-                if (!file) return;
+                const chip = document.createElement('span');
+                chip.className = 'settings-format-tags__chip';
+                chip.setAttribute('data-format-tag-chip', '');
+                chip.innerHTML = `
+                    <span>.${type}</span>
+                    <input type="hidden" name="upload_allowed_types[]" value="${type}">
+                    <button type="button" class="settings-format-tags__remove" data-format-tag-remove aria-label="移除 ${type}">
+                        <i class="fa-light fa-xmark" aria-hidden="true"></i>
+                    </button>
+                `;
+                chipsBox.insertBefore(chip, input);
+                refreshPresetButton(type, 'remove');
+                announceChange();
+                return true;
+            };
 
-                const filename = file.name || '';
-                const isAllowedType = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
-                const isAllowedName = /\.(jpe?g|png|webp)$/i.test(filename);
-                if (!isAllowedType && !isAllowedName) {
-                    input.value = '';
-                    notifySettings('首页背景图仅支持 JPG/JPEG/PNG/WebP', 'error');
-                    return;
-                }
+            const removeChip = (chip) => {
+                if (!chip) return;
+                chip.remove();
+                announceChange();
+            };
 
-                objectUrl = URL.createObjectURL(file);
-                preview.style.backgroundImage = `url('${objectUrl.replace(/'/g, "\\'")}')`;
-                if (resetInput) {
-                    resetInput.value = '0';
-                }
-                if (label) {
-                    label.textContent = `待保存背景：${filename}`;
-                }
-                if (hint) {
-                    hint.textContent = '已选择新背景图，点击页面底部“保存设置”后写入配置。';
-                }
-            });
-
-            resetButton?.addEventListener('click', () => {
-                revokeObjectUrl();
+            const flushInput = () => {
+                const value = input.value.trim();
+                if (value === '') return;
+                addType(value);
                 input.value = '';
-                if (resetInput) {
-                    resetInput.value = '1';
+            };
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
+                    e.preventDefault();
+                    flushInput();
+                } else if (e.key === 'Backspace' && input.value === '') {
+                    const last = chipsBox.querySelector('span[data-format-tag-chip]:last-of-type');
+                    if (last) removeChip(last);
                 }
-                preview.style.backgroundImage = `url('${defaultUrl.replace(/'/g, "\\'")}')`;
-                if (label) {
-                    label.textContent = `待恢复默认：${defaultPath}`;
-                }
-                if (hint) {
-                    hint.textContent = '已选择恢复默认背景，点击页面底部“保存设置”后写入配置。';
+            });
+            input.addEventListener('blur', flushInput);
+            // 防止粘贴 "jpg, png, webp" 这种逗号串：拦截 paste 拆分
+            input.addEventListener('paste', (e) => {
+                const text = (e.clipboardData?.getData('text') || '').trim();
+                if (!text) return;
+                if (/[,;\s]/.test(text)) {
+                    e.preventDefault();
+                    text.split(/[,;\s]+/).forEach(addType);
+                    input.value = '';
                 }
             });
 
-            window.addEventListener('pagehide', revokeObjectUrl);
+            chipsBox.addEventListener('click', (e) => {
+                const removeBtn = e.target.closest('[data-format-tag-remove]');
+                if (removeBtn) {
+                    removeChip(removeBtn.closest('[data-format-tag-chip]'));
+                }
+            });
+
+            presetsBox?.addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-format-tag-preset]');
+                if (btn) {
+                    addType(btn.value);
+                }
+            });
         };
 
-        bindHomeBackgroundPicker();
+        bindFormatTagsEditor();
 
         function syncRemoteStorageUsage() {
             const usage = document.querySelector('input[name="remote_storage_usage"]:checked')?.value || 'backup';
@@ -1379,7 +2715,7 @@ require_once APP_ROOT . '/header.php';
                 apache_hotlink_protection_enabled: 'hotlinkProtectionEnabled',
                 hotlink_allow_empty_referer: 'hotlinkAllowEmptyReferer',
                 watermark_panel_enabled: 'watermarkPanelEnabled',
-                access_log_stats_enabled: 'accessLogStatsEnabled',
+                image_view_counter_enabled: 'imageViewCounterEnabled',
             };
             Object.entries(checkboxMap).forEach(([key, id]) => {
                 if (!Object.prototype.hasOwnProperty.call(settings, key)) {
@@ -1407,12 +2743,29 @@ require_once APP_ROOT . '/header.php';
                 setRadioValue('remote_storage_usage', settings.remote_storage_usage);
             }
             if (Object.prototype.hasOwnProperty.call(settings, 'upload_allowed_types') && Array.isArray(settings.upload_allowed_types)) {
-                const allowedUploadTypes = new Set(settings.upload_allowed_types.map((type) => String(type).toLowerCase()));
-                document.querySelectorAll('input[name="upload_allowed_types[]"]').forEach((input) => {
-                    if (input instanceof HTMLInputElement && input.type === 'checkbox') {
-                        input.checked = allowedUploadTypes.has(String(input.value).toLowerCase());
-                    }
-                });
+                // 标签编辑器同步 — 用 server 返回的扩展名列表重建 chips。
+                // 之前是 checkbox 网格，本来是逐个 .checked = true/false；
+                // 现在 chip 模式下改为重新构建 hidden input 列表。
+                const chipsBox = document.querySelector('[data-format-tags-chips]');
+                const inputBox = document.querySelector('[data-format-tags-input]');
+                if (chipsBox && inputBox) {
+                    chipsBox.querySelectorAll('span[data-format-tag-chip]').forEach((c) => c.remove());
+                    settings.upload_allowed_types.forEach((raw) => {
+                        const type = String(raw || '').toLowerCase().replace(/^[.\s]+/, '').replace(/[^a-z0-9]/g, '').slice(0, 10);
+                        if (!type) return;
+                        const chip = document.createElement('span');
+                        chip.className = 'settings-format-tags__chip';
+                        chip.setAttribute('data-format-tag-chip', '');
+                        chip.innerHTML = `
+                            <span>.${type}</span>
+                            <input type="hidden" name="upload_allowed_types[]" value="${type}">
+                            <button type="button" class="settings-format-tags__remove" data-format-tag-remove aria-label="移除 ${type}">
+                                <i class="fa-light fa-xmark" aria-hidden="true"></i>
+                            </button>
+                        `;
+                        chipsBox.insertBefore(chip, inputBox);
+                    });
+                }
             }
 
             window.requestAnimationFrame(() => {
@@ -1433,33 +2786,6 @@ require_once APP_ROOT . '/header.php';
 
             if (data.created_token) {
                 showCreatedTokenPanel(data.created_token);
-            }
-
-            if (data.home_background_url) {
-                const preview = document.querySelector('[data-home-background-preview]');
-                if (preview) {
-                    preview.style.backgroundImage = `url('${String(data.home_background_url).replace(/'/g, "\\'")}')`;
-                }
-                document.documentElement.style.setProperty(
-                    '--home-background-image',
-                    `url('${String(data.home_background_url).replace(/'/g, "\\'")}')`
-                );
-                const label = document.querySelector('[data-home-background-label]');
-                if (label && data.home_background_path) {
-                    label.textContent = `当前背景：${data.home_background_path}`;
-                }
-                const hint = document.querySelector('[data-home-background-hint]');
-                if (hint) {
-                    hint.innerHTML = '背景图已保存，首页下次打开会使用当前图片。上传文件保存为 <code>static/images/background-*.jpg</code>，不会覆盖默认背景图。';
-                }
-                const input = document.getElementById('homeBackgroundUpload');
-                if (input) {
-                    input.value = '';
-                }
-                const resetInput = document.querySelector('[data-home-background-reset-value]');
-                if (resetInput) {
-                    resetInput.value = '0';
-                }
             }
 
             if (data.saved_settings) {
@@ -1684,6 +3010,9 @@ require_once APP_ROOT . '/header.php';
             });
         }
 
+        // ----------------------------------------------------------------
+        // 水印 — 主开关 + 类型切换 + 磨砂层开关 控制下面整组表单的显示
+        // ----------------------------------------------------------------
         const watermarkEnabledInput = document.getElementById('watermarkEnabled');
         const watermarkConfig = document.querySelector('[data-watermark-config]');
         const watermarkTypeInputs = Array.from(document.querySelectorAll('input[name="watermark_type"]'));
@@ -1716,6 +3045,22 @@ require_once APP_ROOT . '/header.php';
             watermarkPanelInput?.addEventListener('change', syncWatermarkConfig);
         }
 
+        // ----------------------------------------------------------------
+        // 防盗链 — 主开关控制下面所有相关表单（允许无来源请求 / 允许域名
+        // / 服务器规则提示）的显示。关闭时这些选项无意义，全部隐藏避免
+        // 用户填了之后困惑「为什么不生效」。
+        // ----------------------------------------------------------------
+        const hotlinkEnabledInput = document.getElementById('hotlinkProtectionEnabled');
+        const hotlinkConfigBlocks = Array.from(document.querySelectorAll('[data-hotlink-config]'));
+        const syncHotlinkConfig = () => {
+            const enabled = !!hotlinkEnabledInput?.checked;
+            hotlinkConfigBlocks.forEach((block) => { block.hidden = !enabled; });
+        };
+        if (hotlinkEnabledInput && hotlinkConfigBlocks.length) {
+            syncHotlinkConfig();
+            hotlinkEnabledInput.addEventListener('change', syncHotlinkConfig);
+        }
+
         const settingsForm = document.getElementById('settingsForm');
         const autoSaveSettingNames = new Set([
             'auto_compress_on_upload',
@@ -1729,11 +3074,9 @@ require_once APP_ROOT . '/header.php';
             'hotlink_allow_empty_referer',
             'watermark_image_clear',
             'watermark_panel_enabled',
-            'access_log_stats_enabled',
+            'image_view_counter_enabled',
         ]);
         const autoSaveOmitNames = [
-            'home_background_upload',
-            'home_background_reset',
             'watermark_font_upload',
             'watermark_image_upload',
         ];
@@ -1928,17 +3271,18 @@ require_once APP_ROOT . '/header.php';
                 setMetricProgress('metricCpuLoadCircle', 'metricCpuLoadPercent', cpuLoadPercent);
                 setMetricProgress('metricDiskCircle', 'metricDiskPercent', s.disk && s.disk.usage_percent ? s.disk.usage_percent : 0);
 
-                const runtimeLimit = String((s.php_upload_limit_text ?? '') || '');
-                const configuredLimit = String((s.config_upload_limit_text ?? '') || '');
-                if (runtimeLimit && configuredLimit) {
-                    setText('metricUploadLimit', runtimeLimit + ' / ' + configuredLimit);
-                }
+                // 上传上限卡片：直接展示 PHP / Web 服务器允许的实际值（如 "20 MB"），
+                // 不再做「实际 vs 配置」的对比 — LitePic 不再让用户在后台改上限，
+                // 卡片只反映服务器当前限制。统一用 is-on 绿色徽章 — 只要服务器
+                // 报得出一个上限值，对图床场景就是「能用」状态。
                 const uploadStatusEl = document.getElementById('metricUploadStatus');
                 if (uploadStatusEl) {
-                    const uploadOk = !!s.upload_limit_ok;
-                    uploadStatusEl.classList.remove('is-on', 'is-off', 'is-warn');
-                    uploadStatusEl.classList.add(uploadOk ? 'is-on' : 'is-warn');
-                    uploadStatusEl.textContent = uploadOk ? '一致' : '未生效';
+                    const runtimeLimitText = String((s.php_upload_limit_text ?? '') || '');
+                    if (runtimeLimitText) {
+                        uploadStatusEl.textContent = runtimeLimitText;
+                    }
+                    uploadStatusEl.classList.remove('is-off', 'is-warn');
+                    uploadStatusEl.classList.add('is-on');
                 }
 
                 const cap = s.capability || {};
@@ -2086,8 +3430,17 @@ require_once APP_ROOT . '/header.php';
             passkeyRegisterBtn.addEventListener('click', registerPasskey);
         }
         loadPasskeys();
+    };
 
-    });
+    // First load: wait for DOMContentLoaded.
+    // PJAX swap: this script is re-executed inside the new <main> by
+    // Pjax.executeScripts(); document is already loaded so init() runs
+    // synchronously below.
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
 
     window.addEventListener('load', () => {
         if (!flashShown) {
@@ -2096,5 +3449,7 @@ require_once APP_ROOT . '/header.php';
     }, { once: true });
 })();
 </script>
+
+</main>
 
 <?php require_once APP_ROOT . '/footer.php'; ?>
