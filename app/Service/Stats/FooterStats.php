@@ -8,8 +8,12 @@ use LitePic\Repository\ImageRepository;
 /**
  * Aggregate counts shown in the footer / dashboard widgets.
  *
- * Reads straight from the SQLite images table, with a short-TTL cache
- * to amortise the SUM(size) across many concurrent page loads.
+ * Reads straight from the SQLite images table — no file cache needed
+ * since SUM(size) is a few microseconds on the indexed column.
+ *
+ * The legacy `data/footer_stats_cache.json` is still written so any
+ * external tooling that reads it doesn't break, but it's no longer the
+ * source of truth.
  */
 final class FooterStats
 {
@@ -31,18 +35,33 @@ final class FooterStats
     }
 
     /**
-     * Cached snapshot for templates that want everything at once.
+     * One-shot snapshot for templates. The $ttl param is kept for
+     * source-compat with the legacy procedural API but is ignored —
+     * SQLite is fast enough that there's no need to cache.
      *
      * @return array{image_count:int,total_size:int}
      */
     public function snapshot(int $ttl = 45): array
     {
-        // Defer to the legacy cached implementation for now so we keep
-        // the on-disk JSON cache compatible with anything that still reads it.
-        $stats = get_footer_stats_cached($ttl);
-        return [
-            'image_count' => (int)($stats['image_count'] ?? 0),
-            'total_size' => (int)($stats['total_size'] ?? 0),
+        $snapshot = [
+            'image_count' => $this->imageCount(),
+            'total_size' => $this->totalSize(),
         ];
+
+        // Keep the legacy on-disk cache in lock-step for any caller that
+        // still reads it directly (planning to delete entirely once we've
+        // verified nothing external reads it).
+        @file_put_contents(self::cacheFile(), json_encode([
+            'ts' => time(),
+            'image_count' => $snapshot['image_count'],
+            'total_size' => $snapshot['total_size'],
+        ], JSON_UNESCAPED_UNICODE), LOCK_EX);
+
+        return $snapshot;
+    }
+
+    public static function cacheFile(): string
+    {
+        return (defined('APP_ROOT') ? APP_ROOT : dirname(__DIR__, 3)) . '/data/footer_stats_cache.json';
     }
 }
