@@ -241,7 +241,7 @@ require_once APP_ROOT . '/header.php';
 
 <?php if (in_array($active_settings_tab, ['system'], true)): ?>
                     <section class="settings-block-runtime">
-                        <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
+                        <div class="settings-section-header">
                             <h3 class="settings-card-title">
                                 <i class="fa-light fa-server" aria-hidden="true"></i>
                                 <span>服务器信息</span>
@@ -374,7 +374,7 @@ require_once APP_ROOT . '/header.php';
 
 <?php if (in_array($active_settings_tab, ['general'], true)): ?>
                     <section>
-                        <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
+                        <div class="settings-section-header">
                             <h3 class="settings-card-title">
                                 <i class="fa-light fa-sliders" aria-hidden="true"></i>
                                 <span>基础设置</span>
@@ -382,14 +382,14 @@ require_once APP_ROOT . '/header.php';
                             <p>站点信息、上传规则和压缩策略</p>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-3.5">
+                        <div class="settings-grid">
                             <div class="grid gap-2">
                                 <label for="siteName">站点名称</label>
-                                <input id="siteName" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="site_name" value="<?= htmlspecialchars(SITE_NAME) ?>">
+                                <input id="siteName" type="text" name="site_name" value="<?= htmlspecialchars(SITE_NAME) ?>">
                             </div>
                             <div class="grid gap-2">
                                 <label for="siteDescription">站点描述</label>
-                                <input id="siteDescription" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="site_description" value="<?= htmlspecialchars(SITE_DESCRIPTION) ?>">
+                                <input id="siteDescription" type="text" name="site_description" value="<?= htmlspecialchars(SITE_DESCRIPTION) ?>">
                             </div>
                             <div class="grid gap-2 col-span-2">
                                 <label for="homeBackgroundUpload">首页背景图替换</label>
@@ -407,7 +407,7 @@ require_once APP_ROOT . '/header.php';
                                         <div class="settings-background-file-row">
                                             <input
                                                 id="homeBackgroundUpload"
-                                                class="settings-file-input w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border"
+                                                class="settings-file-input"
                                                 type="file"
                                                 name="home_background_upload"
                                                 accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
@@ -426,7 +426,7 @@ require_once APP_ROOT . '/header.php';
                             </div>
                             <div class="grid gap-2">
                                 <label for="maxFileSize">最大上传大小（MB）</label>
-                                <input id="maxFileSize" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="number" min="1" max="50" name="max_file_size_mb" value="<?= (int)round(MAX_FILE_SIZE / 1024 / 1024) ?>">
+                                <input id="maxFileSize" type="number" min="1" max="50" name="max_file_size_mb" value="<?= (int)round(MAX_FILE_SIZE / 1024 / 1024) ?>">
                             </div>
                             <div class="grid gap-2">
                                 <div class="flex items-center justify-between gap-2">
@@ -436,7 +436,7 @@ require_once APP_ROOT . '/header.php';
                                         <i class="fa-light fa-arrow-up-right-from-square"></i>
                                     </a>
                                 </div>
-                                <select id="compressionMode" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" name="compression_mode">
+                                <select id="compressionMode" name="compression_mode">
                                     <option value="tinypng" <?= $current_compression_mode === 'tinypng' ? 'selected' : '' ?>>TinyPNG</option>
                                     <option value="gd" <?= $current_compression_mode === 'gd' ? 'selected' : '' ?>>GD</option>
                                     <option value="imagemagick" <?= $current_compression_mode === 'imagemagick' ? 'selected' : '' ?>>ImageMagick</option>
@@ -500,7 +500,7 @@ require_once APP_ROOT . '/header.php';
 
 <?php if (in_array($active_settings_tab, ['storage'], true)): ?>
                     <section>
-                        <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
+                        <div class="settings-section-header">
                             <h3 class="settings-card-title">
                                 <i class="fa-light fa-cloud-arrow-up" aria-hidden="true"></i>
                                 <span>远程存储（R2 / S3）</span>
@@ -508,7 +508,7 @@ require_once APP_ROOT . '/header.php';
                             <p>可作为远程备份，也可作为云端图片访问源</p>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-3.5">
+                        <div class="settings-grid">
                             <div class="grid gap-2 col-span-2">
                                 <label>远程用途</label>
                                 <div class="settings-radio-group settings-remote-usage-group" role="radiogroup" aria-label="远程存储用途">
@@ -530,31 +530,31 @@ require_once APP_ROOT . '/header.php';
                             </div>
                             <div class="grid gap-2">
                                 <label for="s3Endpoint">Endpoint</label>
-                                <input id="s3Endpoint" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="s3_endpoint" value="<?= htmlspecialchars(S3_ENDPOINT) ?>" placeholder="https://<accountid>.r2.cloudflarestorage.com">
+                                <input id="s3Endpoint" type="text" name="s3_endpoint" value="<?= htmlspecialchars(S3_ENDPOINT) ?>" placeholder="https://<accountid>.r2.cloudflarestorage.com">
                             </div>
                             <div class="grid gap-2">
                                 <label for="s3Bucket">Bucket</label>
-                                <input id="s3Bucket" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="s3_bucket" value="<?= htmlspecialchars(S3_BUCKET) ?>">
+                                <input id="s3Bucket" type="text" name="s3_bucket" value="<?= htmlspecialchars(S3_BUCKET) ?>">
                             </div>
                             <div class="grid gap-2">
                                 <label for="s3Key">Access Key</label>
-                                <input id="s3Key" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="s3_key" value="<?= htmlspecialchars(S3_KEY) ?>">
+                                <input id="s3Key" type="text" name="s3_key" value="<?= htmlspecialchars(S3_KEY) ?>">
                             </div>
                             <div class="grid gap-2">
                                 <label for="s3Secret">Secret Key</label>
-                                <input id="s3Secret" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="password" name="s3_secret" value="<?= htmlspecialchars(S3_SECRET) ?>">
+                                <input id="s3Secret" type="password" name="s3_secret" value="<?= htmlspecialchars(S3_SECRET) ?>">
                             </div>
                             <div class="grid gap-2">
                                 <label for="s3Region">Region</label>
-                                <input id="s3Region" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="s3_region" value="<?= htmlspecialchars(S3_REGION) ?>" placeholder="R2 建议 auto">
+                                <input id="s3Region" type="text" name="s3_region" value="<?= htmlspecialchars(S3_REGION) ?>" placeholder="R2 建议 auto">
                             </div>
                             <div class="grid gap-2">
                                 <label for="s3PathPrefix">对象路径前缀</label>
-                                <input id="s3PathPrefix" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="s3_path_prefix" value="<?= htmlspecialchars(S3_PATH_PREFIX) ?>" placeholder="uploads">
+                                <input id="s3PathPrefix" type="text" name="s3_path_prefix" value="<?= htmlspecialchars(S3_PATH_PREFIX) ?>" placeholder="uploads">
                             </div>
                             <div class="grid gap-2 col-span-2" data-remote-public-url-field <?= REMOTE_STORAGE_USAGE === 'storage' ? '' : 'hidden' ?>>
                                 <label for="s3PublicBaseUrl">公网访问域名<span data-remote-public-required><?= REMOTE_STORAGE_USAGE === 'storage' ? '（云端存储必填）' : '（云端存储时使用）' ?></span></label>
-                                <input id="s3PublicBaseUrl" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="s3_public_base_url" value="<?= htmlspecialchars(S3_PUBLIC_BASE_URL) ?>" placeholder="https://cdn.example.com">
+                                <input id="s3PublicBaseUrl" type="text" name="s3_public_base_url" value="<?= htmlspecialchars(S3_PUBLIC_BASE_URL) ?>" placeholder="https://cdn.example.com">
                             </div>
                         </div>
 
@@ -613,7 +613,7 @@ require_once APP_ROOT . '/header.php';
 
 <?php if (in_array($active_settings_tab, ['import'], true)): ?>
                     <section>
-                        <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
+                        <div class="settings-section-header">
                             <h3 class="settings-card-title">
                                 <i class="fa-light fa-folder-open" aria-hidden="true"></i>
                                 <span>扫描导入</span>
@@ -624,7 +624,7 @@ require_once APP_ROOT . '/header.php';
                             <label for="scanSourcePath">扫描路径（留空默认 upload / uploads）</label>
                             <input
                                 id="scanSourcePath"
-                                class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border"
+                               
                                 type="text"
                                 name="scan_source_path"
                                 value="<?= htmlspecialchars(trim((string)($_POST['scan_source_path'] ?? ''))) ?>"
@@ -688,7 +688,7 @@ require_once APP_ROOT . '/header.php';
 
 <?php if (in_array($active_settings_tab, ['auth'], true)): ?>
                     <section>
-                        <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
+                        <div class="settings-section-header">
                             <h3 class="settings-card-title">
                                 <i class="fa-light fa-shield-halved" aria-hidden="true"></i>
                                 <span>安全设置</span>
@@ -699,7 +699,7 @@ require_once APP_ROOT . '/header.php';
                         <div class="grid gap-2">
                             <label for="adminApiKey">管理员 API Key</label>
                             <div class="relative">
-                                <input id="adminApiKey" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border has-toggle pr-[50px]" type="password" name="admin_api_key" value="<?= htmlspecialchars(ADMIN_API_KEY) ?>" autocomplete="off">
+                                <input id="adminApiKey" class="has-toggle" type="password" name="admin_api_key" value="<?= htmlspecialchars(ADMIN_API_KEY) ?>" autocomplete="off">
                                 <button
                                     type="button"
                                     class="secret-toggle-btn absolute right-px top-px bottom-px w-12 border-0 border-l border-border bg-transparent text-gray cursor-pointer"
@@ -718,7 +718,7 @@ require_once APP_ROOT . '/header.php';
 
 <?php if (in_array($active_settings_tab, ['auth'], true)): ?>
                 <section>
-                    <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
+                    <div class="settings-section-header">
                         <h3 class="settings-card-title">
                             <i class="fa-light fa-key" aria-hidden="true"></i>
                             <span>API Token 管理（第三方上传）</span>
@@ -730,7 +730,7 @@ require_once APP_ROOT . '/header.php';
                         <?= \LitePic\Core\Csrf::inputField() ?>
                         <input type="hidden" name="form_action" value="create_token">
                         <input type="hidden" name="active_tab" value="auth">
-                        <input class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="token_name" placeholder="Token 名称（如：wordpress-prod）">
+                        <input type="text" name="token_name" placeholder="Token 名称（如：wordpress-prod）">
                         <button type="submit" class="btn btn--primary">
                             <i class="fa-light fa-key"></i>
                             创建 Token
@@ -741,7 +741,7 @@ require_once APP_ROOT . '/header.php';
                         <div class="settings-callout">
                             <strong>新 Token（仅显示一次）</strong>
                             <div class="settings-inline-form settings-token-form">
-                                <input class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" readonly value="<?= htmlspecialchars($created_token) ?>">
+                                <input type="text" readonly value="<?= htmlspecialchars($created_token) ?>">
                                 <button type="button" class="btn btn--secondary copy-token-btn" data-copy="<?= htmlspecialchars($created_token) ?>">复制</button>
                             </div>
                         </div>
@@ -800,7 +800,7 @@ require_once APP_ROOT . '/header.php';
                 </section>
 
                 <section>
-                    <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
+                    <div class="settings-section-header">
                         <h3 class="settings-card-title">
                             <i class="fa-light fa-fingerprint" aria-hidden="true"></i>
                             <span>Passkey 管理</span>
@@ -837,7 +837,7 @@ require_once APP_ROOT . '/header.php';
 
 <?php if (in_array($active_settings_tab, ['compression'], true)): ?>
                 <section>
-                    <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
+                    <div class="settings-section-header">
                         <h3 class="settings-card-title">
                             <i class="fa-light fa-image" aria-hidden="true"></i>
                             <span>图片压缩 API 管理（<a class="settings-title-link" href="https://tinypng.com/" target="_blank" rel="noopener noreferrer"><span>TinyPNG</span><i class="fa-sharp fa-light fa-square-arrow-up-right" aria-hidden="true"></i></a>）</span>
@@ -849,7 +849,7 @@ require_once APP_ROOT . '/header.php';
                         <?= \LitePic\Core\Csrf::inputField() ?>
                         <input type="hidden" name="form_action" value="add_compression_api">
                         <input type="hidden" name="active_tab" value="compression">
-                        <input class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="compression_api_key" placeholder="输入 TinyPNG API Key">
+                        <input type="text" name="compression_api_key" placeholder="输入 TinyPNG API Key">
                         <button type="submit" class="btn btn--primary">
                             <i class="fa-light fa-plus"></i>
                             添加 Key
@@ -940,7 +940,7 @@ require_once APP_ROOT . '/header.php';
 
 <?php if (in_array($active_settings_tab, ['watermark'], true)): ?>
                 <section>
-                    <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
+                    <div class="settings-section-header">
                         <h3 class="settings-card-title">
                             <i class="fa-light fa-stamp" aria-hidden="true"></i>
                             <span>水印与防盗链</span>
@@ -989,7 +989,7 @@ require_once APP_ROOT . '/header.php';
                         <div class="grid grid-cols-3 gap-3.5">
                             <div class="grid gap-2">
                                 <label for="watermarkPosition">水印位置</label>
-                                <select id="watermarkPosition" form="settingsForm" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" name="watermark_position">
+                                <select id="watermarkPosition" form="settingsForm" name="watermark_position">
                                     <option value="bottom-right" <?= WATERMARK_POSITION === 'bottom-right' ? 'selected' : '' ?>>右下角</option>
                                     <option value="bottom-left" <?= WATERMARK_POSITION === 'bottom-left' ? 'selected' : '' ?>>左下角</option>
                                     <option value="top-right" <?= WATERMARK_POSITION === 'top-right' ? 'selected' : '' ?>>右上角</option>
@@ -999,54 +999,54 @@ require_once APP_ROOT . '/header.php';
                             </div>
                             <div class="grid gap-2">
                                 <label for="watermarkOpacity">水印透明度（1-100）</label>
-                                <input id="watermarkOpacity" form="settingsForm" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="number" min="1" max="100" name="watermark_opacity" value="<?= (int)WATERMARK_OPACITY ?>">
+                                <input id="watermarkOpacity" form="settingsForm" type="number" min="1" max="100" name="watermark_opacity" value="<?= (int)WATERMARK_OPACITY ?>">
                             </div>
                             <div class="grid gap-2">
                                 <label for="watermarkMargin">水印边距</label>
-                                <input id="watermarkMargin" form="settingsForm" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="number" min="0" max="240" name="watermark_margin" value="<?= (int)WATERMARK_MARGIN ?>">
+                                <input id="watermarkMargin" form="settingsForm" type="number" min="0" max="240" name="watermark_margin" value="<?= (int)WATERMARK_MARGIN ?>">
                             </div>
                         </div>
 
                         <div class="grid gap-3.5" data-watermark-mode="text" <?= WATERMARK_TYPE === 'text' ? '' : 'hidden' ?>>
                             <strong class="text-dark text-sm">文字水印设置</strong>
-                            <div class="grid grid-cols-2 gap-3.5">
+                            <div class="settings-grid">
                                 <div class="grid gap-2">
                                     <label for="watermarkText">水印文字</label>
-                                    <input id="watermarkText" form="settingsForm" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="watermark_text" value="<?= htmlspecialchars(WATERMARK_TEXT) ?>" placeholder="LitePic">
+                                    <input id="watermarkText" form="settingsForm" type="text" name="watermark_text" value="<?= htmlspecialchars(WATERMARK_TEXT) ?>" placeholder="LitePic">
                                 </div>
                                 <div class="grid gap-2">
                                     <label for="watermarkColor">水印颜色</label>
-                                    <input id="watermarkColor" form="settingsForm" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="watermark_color" value="<?= htmlspecialchars(WATERMARK_COLOR) ?>" placeholder="#ffffff">
+                                    <input id="watermarkColor" form="settingsForm" type="text" name="watermark_color" value="<?= htmlspecialchars(WATERMARK_COLOR) ?>" placeholder="#ffffff">
                                 </div>
                                 <div class="grid gap-2">
                                     <label for="watermarkFontSize">水印字号</label>
-                                    <input id="watermarkFontSize" form="settingsForm" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="number" min="8" max="72" name="watermark_font_size" value="<?= (int)WATERMARK_FONT_SIZE ?>">
+                                    <input id="watermarkFontSize" form="settingsForm" type="number" min="8" max="72" name="watermark_font_size" value="<?= (int)WATERMARK_FONT_SIZE ?>">
                                 </div>
                                 <div class="grid gap-2">
                                     <label for="watermarkFontUpload">上传字体（TTF / OTF）</label>
-                                    <input id="watermarkFontUpload" form="settingsForm" class="settings-file-input w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="file" name="watermark_font_upload" accept=".ttf,.otf,font/ttf,font/otf">
+                                    <input id="watermarkFontUpload" form="settingsForm" class="settings-file-input" type="file" name="watermark_font_upload" accept=".ttf,.otf,font/ttf,font/otf">
                                 </div>
                                 <div class="grid gap-2 col-span-2">
                                     <label for="watermarkFontPath">字体文件路径（默认尝试 Ubuntu）</label>
-                                    <input id="watermarkFontPath" form="settingsForm" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="watermark_font_path" value="<?= htmlspecialchars(WATERMARK_FONT_PATH) ?>" placeholder="/path/to/font.ttf">
+                                    <input id="watermarkFontPath" form="settingsForm" type="text" name="watermark_font_path" value="<?= htmlspecialchars(WATERMARK_FONT_PATH) ?>" placeholder="/path/to/font.ttf">
                                 </div>
                             </div>
                         </div>
 
                         <div class="grid gap-3.5" data-watermark-mode="image" <?= WATERMARK_TYPE === 'image' ? '' : 'hidden' ?>>
                             <strong class="text-dark text-sm">图片水印设置</strong>
-                            <div class="grid grid-cols-2 gap-3.5">
+                            <div class="settings-grid">
                                 <div class="grid gap-2">
                                     <label for="watermarkImageUpload">上传 PNG 图片水印</label>
-                                    <input id="watermarkImageUpload" form="settingsForm" class="settings-file-input w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="file" name="watermark_image_upload" accept="image/png,.png">
+                                    <input id="watermarkImageUpload" form="settingsForm" class="settings-file-input" type="file" name="watermark_image_upload" accept="image/png,.png">
                                 </div>
                                 <div class="grid gap-2">
                                     <label for="watermarkImageWidth">PNG 水印最大宽度</label>
-                                    <input id="watermarkImageWidth" form="settingsForm" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="number" min="24" max="800" name="watermark_image_width" value="<?= (int)WATERMARK_IMAGE_WIDTH ?>">
+                                    <input id="watermarkImageWidth" form="settingsForm" type="number" min="24" max="800" name="watermark_image_width" value="<?= (int)WATERMARK_IMAGE_WIDTH ?>">
                                 </div>
                                 <div class="grid gap-2 col-span-2">
                                     <label for="watermarkImagePath">PNG 水印路径</label>
-                                    <input id="watermarkImagePath" form="settingsForm" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="watermark_image_path" value="<?= htmlspecialchars(WATERMARK_IMAGE_PATH) ?>" placeholder="/path/to/watermark.png">
+                                    <input id="watermarkImagePath" form="settingsForm" type="text" name="watermark_image_path" value="<?= htmlspecialchars(WATERMARK_IMAGE_PATH) ?>" placeholder="/path/to/watermark.png">
                                 </div>
                                 <?php if (WATERMARK_IMAGE_PATH !== ''): ?>
                                     <label class="settings-toggle-row col-span-2" for="watermarkImageClear">
@@ -1066,15 +1066,15 @@ require_once APP_ROOT . '/header.php';
                         <div class="grid grid-cols-3 gap-3.5" data-watermark-panel-settings <?= WATERMARK_PANEL_ENABLED ? '' : 'hidden' ?>>
                             <div class="grid gap-2">
                                 <label for="watermarkPanelOpacity">磨砂层透明度（1-100）</label>
-                                <input id="watermarkPanelOpacity" form="settingsForm" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="number" min="1" max="100" name="watermark_panel_opacity" value="<?= (int)WATERMARK_PANEL_OPACITY ?>">
+                                <input id="watermarkPanelOpacity" form="settingsForm" type="number" min="1" max="100" name="watermark_panel_opacity" value="<?= (int)WATERMARK_PANEL_OPACITY ?>">
                             </div>
                             <div class="grid gap-2">
                                 <label for="watermarkPanelPadding">磨砂层内边距</label>
-                                <input id="watermarkPanelPadding" form="settingsForm" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="number" min="0" max="80" name="watermark_panel_padding" value="<?= (int)WATERMARK_PANEL_PADDING ?>">
+                                <input id="watermarkPanelPadding" form="settingsForm" type="number" min="0" max="80" name="watermark_panel_padding" value="<?= (int)WATERMARK_PANEL_PADDING ?>">
                             </div>
                             <div class="grid gap-2">
                                 <label for="watermarkPanelRadius">磨砂层圆角</label>
-                                <input id="watermarkPanelRadius" form="settingsForm" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="number" min="0" max="80" name="watermark_panel_radius" value="<?= (int)WATERMARK_PANEL_RADIUS ?>">
+                                <input id="watermarkPanelRadius" form="settingsForm" type="number" min="0" max="80" name="watermark_panel_radius" value="<?= (int)WATERMARK_PANEL_RADIUS ?>">
                             </div>
                         </div>
                     </div>
@@ -1082,7 +1082,7 @@ require_once APP_ROOT . '/header.php';
                     <div class="grid gap-3.5">
                         <div class="grid gap-2 col-span-2">
                             <label for="hotlinkAllowedDomains">防盗链允许域名</label>
-                            <input id="hotlinkAllowedDomains" form="settingsForm" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="hotlink_allowed_domains" value="<?= htmlspecialchars(implode(',', HOTLINK_ALLOWED_DOMAINS)) ?>" placeholder="example.com,cdn.example.com">
+                            <input id="hotlinkAllowedDomains" form="settingsForm" type="text" name="hotlink_allowed_domains" value="<?= htmlspecialchars(implode(',', HOTLINK_ALLOWED_DOMAINS)) ?>" placeholder="example.com,cdn.example.com">
                         </div>
                     </div>
 
@@ -1110,7 +1110,7 @@ require_once APP_ROOT . '/header.php';
 
 <?php if (in_array($active_settings_tab, ['system'], true)): ?>
                 <section>
-                    <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
+                    <div class="settings-section-header">
                         <h3 class="settings-card-title">
                             <i class="fa-light fa-chart-line" aria-hidden="true"></i>
                             <span>访问日志统计</span>
@@ -1126,18 +1126,18 @@ require_once APP_ROOT . '/header.php';
                         </label>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3.5">
+                    <div class="settings-grid">
                         <div class="grid gap-2">
                             <label for="accessLogPaths">access.log 路径（多个用英文逗号分隔）</label>
-                            <input id="accessLogPaths" form="settingsForm" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="access_log_paths" value="<?= htmlspecialchars(implode(',', ACCESS_LOG_PATHS)) ?>" placeholder="/var/log/nginx/access.log,/var/log/apache2/access.log">
+                            <input id="accessLogPaths" form="settingsForm" type="text" name="access_log_paths" value="<?= htmlspecialchars(implode(',', ACCESS_LOG_PATHS)) ?>" placeholder="/var/log/nginx/access.log,/var/log/apache2/access.log">
                         </div>
                         <div class="grid gap-2">
                             <label for="accessLogCacheTtl">统计缓存时间（秒）</label>
-                            <input id="accessLogCacheTtl" form="settingsForm" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="number" min="30" max="86400" name="access_log_cache_ttl" value="<?= (int)ACCESS_LOG_CACHE_TTL ?>">
+                            <input id="accessLogCacheTtl" form="settingsForm" type="number" min="30" max="86400" name="access_log_cache_ttl" value="<?= (int)ACCESS_LOG_CACHE_TTL ?>">
                         </div>
                         <div class="grid gap-2">
                             <label for="accessLogMaxMb">单个日志最多扫描（MB）</label>
-                            <input id="accessLogMaxMb" form="settingsForm" class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="number" min="1" max="500" name="access_log_max_mb" value="<?= (int)ceil(ACCESS_LOG_MAX_BYTES / 1024 / 1024) ?>">
+                            <input id="accessLogMaxMb" form="settingsForm" type="number" min="1" max="500" name="access_log_max_mb" value="<?= (int)ceil(ACCESS_LOG_MAX_BYTES / 1024 / 1024) ?>">
                         </div>
                     </div>
 
@@ -1255,7 +1255,7 @@ require_once APP_ROOT . '/header.php';
             panel.innerHTML = `
                 <strong>新 Token（仅显示一次）</strong>
                 <div class="settings-inline-form settings-token-form">
-                    <input class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" readonly value="${escapeAttr(token)}">
+                    <input type="text" readonly value="${escapeAttr(token)}">
                     <button type="button" class="btn btn--secondary copy-token-btn" data-copy="${escapeAttr(token)}">复制</button>
                 </div>
             `;
