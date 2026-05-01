@@ -2612,194 +2612,28 @@ function compress_with_tinypng($filepath) {
 /**
  * 压缩 API Key 存储文件路径
  */
-function get_compression_api_keys_file(): string {
-    return __DIR__ . '/data/compression_api_keys.json';
-}
-
-/**
- * 压缩 API Key 在 .env 的存储键名
- */
-function get_compression_api_keys_env_key(): string {
-    return 'COMPRESSION_API_KEYS_JSON';
-}
-
-/**
- * 获取压缩 API Key 列表
- */
 function get_compression_api_keys(): array {
-    $data = [];
-    $raw_env = trim((string)env_value(get_compression_api_keys_env_key(), ''));
-    if ($raw_env !== '') {
-        $decoded = json_decode($raw_env, true);
-        if (is_array($decoded)) {
-            $data = $decoded;
-        }
-    }
-
-    // 兼容旧 JSON 文件：若 .env 未配置则回退读取，并自动迁移到 .env
-    if (empty($data)) {
-        $file = get_compression_api_keys_file();
-        if (is_file($file)) {
-            $content = file_get_contents($file);
-            if ($content !== false && trim($content) !== '') {
-                $decoded = json_decode($content, true);
-                if (is_array($decoded)) {
-                    $data = $decoded;
-                    write_env_kv([
-                        get_compression_api_keys_env_key() => env_quote_for_file(
-                            json_encode(array_values($data), JSON_UNESCAPED_UNICODE)
-                        ),
-                    ]);
-                }
-            }
-        }
-    }
-
-    $rows = [];
-    foreach ($data as $row) {
-        if (!is_array($row)) {
-            continue;
-        }
-        $api_key = (string)($row['api_key'] ?? '');
-        if ($api_key === '') {
-            continue;
-        }
-        $rows[] = [
-            'id' => (string)($row['id'] ?? uniqid('cmp_', true)),
-            'name' => (string)($row['name'] ?? 'TinyPNG'),
-            'api_key' => $api_key,
-            'enabled' => (bool)($row['enabled'] ?? true),
-            'used_count' => (int)($row['used_count'] ?? 0),
-            'success_count' => (int)($row['success_count'] ?? 0),
-            'failed_count' => (int)($row['failed_count'] ?? 0),
-            'last_used_at' => $row['last_used_at'] ?? null,
-            'last_status_code' => (int)($row['last_status_code'] ?? 0),
-            'last_error' => $row['last_error'] ?? null,
-            'created_at' => (string)($row['created_at'] ?? date('c')),
-        ];
-    }
-
-    return $rows;
+    return (new \LitePic\Repository\CompressionKeyRepository())->all();
 }
 
-/**
- * 保存压缩 API Key 列表
- */
-function save_compression_api_keys(array $keys): bool {
-    $payload = json_encode(array_values($keys), JSON_UNESCAPED_UNICODE);
-    if (!is_string($payload)) {
-        return false;
-    }
-    return write_env_kv([
-        get_compression_api_keys_env_key() => env_quote_for_file($payload),
-    ]);
-}
-
-/**
- * 新增压缩 API Key
- */
 function add_compression_api_key(string $name, string $api_key): bool {
-    $name = trim($name);
-    $api_key = trim($api_key);
-    if ($api_key === '') {
-        return false;
-    }
-    if ($name === '') {
-        $name = 'TinyPNG';
-    }
-
-    $keys = get_compression_api_keys();
-    $keys[] = [
-        'id' => uniqid('cmp_', true),
-        'name' => $name,
-        'api_key' => $api_key,
-        'enabled' => true,
-        'used_count' => 0,
-        'success_count' => 0,
-        'failed_count' => 0,
-        'last_used_at' => null,
-        'last_status_code' => 0,
-        'last_error' => null,
-        'created_at' => date('c'),
-    ];
-
-    return save_compression_api_keys($keys);
+    return (new \LitePic\Repository\CompressionKeyRepository())->create($name, $api_key);
 }
 
-/**
- * 启用/禁用压缩 API Key
- */
 function set_compression_api_enabled(string $id, bool $enabled): bool {
-    $keys = get_compression_api_keys();
-    $updated = false;
-    foreach ($keys as &$key) {
-        if ((string)($key['id'] ?? '') === $id) {
-            $key['enabled'] = $enabled;
-            $updated = true;
-            break;
-        }
-    }
-    unset($key);
-
-    return $updated ? save_compression_api_keys($keys) : false;
+    return (new \LitePic\Repository\CompressionKeyRepository())->setEnabled($id, $enabled);
 }
 
-/**
- * 删除压缩 API Key
- */
 function delete_compression_api_key(string $id): bool {
-    $keys = get_compression_api_keys();
-    $before = count($keys);
-    $keys = array_values(array_filter($keys, static function (array $key) use ($id): bool {
-        return (string)($key['id'] ?? '') !== $id;
-    }));
-
-    if (count($keys) === $before) {
-        return false;
-    }
-
-    return save_compression_api_keys($keys);
+    return (new \LitePic\Repository\CompressionKeyRepository())->delete($id);
 }
 
-/**
- * 获取启用状态的压缩 API Key
- */
 function get_active_compression_api_keys(): array {
-    return array_values(array_filter(get_compression_api_keys(), static function (array $key): bool {
-        return !empty($key['enabled']) && !empty($key['api_key']);
-    }));
+    return (new \LitePic\Repository\CompressionKeyRepository())->active();
 }
 
-/**
- * 记录压缩 API Key 使用统计
- */
 function record_compression_api_usage(string $id, bool $success, int $status_code = 0, ?string $error = null): void {
-    $keys = get_compression_api_keys();
-    $updated = false;
-
-    foreach ($keys as &$key) {
-        if ((string)($key['id'] ?? '') !== $id) {
-            continue;
-        }
-
-        $key['used_count'] = (int)($key['used_count'] ?? 0) + 1;
-        if ($success) {
-            $key['success_count'] = (int)($key['success_count'] ?? 0) + 1;
-            $key['last_error'] = null;
-        } else {
-            $key['failed_count'] = (int)($key['failed_count'] ?? 0) + 1;
-            $key['last_error'] = $error;
-        }
-        $key['last_status_code'] = $status_code;
-        $key['last_used_at'] = date('c');
-        $updated = true;
-        break;
-    }
-    unset($key);
-
-    if ($updated) {
-        save_compression_api_keys($keys);
-    }
+    (new \LitePic\Repository\CompressionKeyRepository())->recordUsage($id, $success, $status_code, $error);
 }
 
 /**
