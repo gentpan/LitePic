@@ -88,163 +88,39 @@ function get_uploaded_images() {
  * 生成文件名
  */
 function generate_filename($ext) {
-    $filename = uniqid() . '.' . strtolower($ext);
-    while (file_exists(get_file_path($filename))) {
-        $filename = uniqid() . '_' . rand(100, 999) . '.' . strtolower($ext);
-    }
-    return $filename;
+    return \LitePic\Service\Image\PathService::generateFilename((string)$ext);
 }
 
-/**
- * 规范化图库文件标识（日期存储时使用相对路径，如 2026/03/demo.png）
- */
 function normalize_image_identifier(string $identifier): string {
-    $normalized = trim(str_replace('\\', '/', $identifier));
-    $normalized = ltrim($normalized, '/');
-    if ($normalized === '') {
-        return '';
-    }
-
-    $parts = explode('/', $normalized);
-    $safe_parts = [];
-    foreach ($parts as $part) {
-        $part = trim($part);
-        if ($part === '' || $part === '.' || $part === '..') {
-            return '';
-        }
-        $safe_parts[] = $part;
-    }
-
-    return implode('/', $safe_parts);
+    return \LitePic\Service\Image\PathService::normalizeIdentifier($identifier);
 }
 
-/**
- * 根据本地路径生成图库文件标识
- */
 function get_image_identifier_from_path(string $path): ?string {
-    $normalized = str_replace('\\', '/', $path);
-    $base = rtrim(str_replace('\\', '/', UPLOAD_PATH_LOCAL), '/') . '/';
-    if (!str_starts_with($normalized, $base)) {
-        return null;
-    }
-
-    $relative = normalize_image_identifier(substr($normalized, strlen($base)));
-    return $relative !== '' ? $relative : null;
+    return \LitePic\Service\Image\PathService::identifierFromPath($path);
 }
 
-/**
- * 获取文件显示名
- */
 function get_image_display_name(string $identifier): string {
-    $normalized = normalize_image_identifier($identifier);
-    if ($normalized === '') {
-        return basename($identifier);
-    }
-
-    return basename($normalized);
+    return \LitePic\Service\Image\PathService::displayName($identifier);
 }
 
-/**
- * 生成图片访问 URL
- */
 function encode_image_identifier_for_url(string $identifier): string {
-    $parts = array_map('rawurlencode', explode('/', trim($identifier, '/')));
-    return implode('/', $parts);
+    return \LitePic\Service\Image\PathService::encodeForUrl($identifier);
 }
 
 function get_img_url($filename) {
-    $identifier = normalize_image_identifier((string)$filename);
-    if ($identifier !== '') {
-        $remote_url = remote_storage_public_url_for_identifier($identifier);
-        if ($remote_url !== null) {
-            return $remote_url;
-        }
-        if (defined('HOTLINK_PROTECTION_ENABLED') && HOTLINK_PROTECTION_ENABLED) {
-            return rtrim(SITE_URL, '/') . '/i/' . encode_image_identifier_for_url($identifier);
-        }
-        return SITE_URL . UPLOAD_PATH_WEB . $identifier;
-    }
-
-    if (STORAGE_TYPE === 'date') {
-        $path = get_file_path($filename);
-        $relative = get_image_identifier_from_path($path);
-        if ($relative !== null) {
-            $remote_url = remote_storage_public_url_for_identifier($relative);
-            if ($remote_url !== null) {
-                return $remote_url;
-            }
-            if (defined('HOTLINK_PROTECTION_ENABLED') && HOTLINK_PROTECTION_ENABLED) {
-                return rtrim(SITE_URL, '/') . '/i/' . encode_image_identifier_for_url($relative);
-            }
-            return SITE_URL . UPLOAD_PATH_WEB . $relative;
-        }
-    }
-
-    if (defined('HOTLINK_PROTECTION_ENABLED') && HOTLINK_PROTECTION_ENABLED) {
-        return rtrim(SITE_URL, '/') . '/i/' . rawurlencode(get_image_display_name((string)$filename));
-    }
-
-    return SITE_URL . UPLOAD_PATH_WEB . get_image_display_name((string)$filename);
+    return \LitePic\Service\Image\ImageUrl::forIdentifier((string)$filename);
 }
 
-/**
- * 生成缩略图文件名
- */
 function get_thumbnail_filename(string $filename): string {
-    $name = pathinfo(get_image_display_name($filename), PATHINFO_FILENAME);
-    return $name . '.thumb.jpg';
+    return \LitePic\Service\Image\ImageUrl::thumbnailFilename($filename);
 }
 
-/**
- * 获取缩略图本地路径（与原图同年月目录，放在 .thumbs 下）
- */
 function get_thumbnail_path(string $filename): string {
-    $thumb_filename = get_thumbnail_filename($filename);
-    $identifier = normalize_image_identifier($filename);
-
-    if (STORAGE_TYPE === 'date') {
-        $relative = $identifier;
-        if ($relative === '') {
-            $source_path = get_file_path($filename);
-            $relative = (string)get_image_identifier_from_path($source_path);
-        }
-        $parts = explode('/', trim($relative, '/'));
-
-        $year = $parts[0] ?? date('Y');
-        $month = $parts[1] ?? date('m');
-
-        return UPLOAD_PATH_LOCAL . '.thumbs' . DIRECTORY_SEPARATOR . $year . DIRECTORY_SEPARATOR . $month . DIRECTORY_SEPARATOR . $thumb_filename;
-    }
-
-    return UPLOAD_PATH_LOCAL . '.thumbs' . DIRECTORY_SEPARATOR . $thumb_filename;
+    return \LitePic\Service\Image\ImageUrl::thumbnailPath($filename);
 }
 
-/**
- * 获取缩略图 URL
- */
 function get_thumbnail_url(string $filename): string {
-    $thumb_filename = get_thumbnail_filename($filename);
-    $identifier = normalize_image_identifier($filename);
-    $remote_url = remote_storage_public_url_for_local_path(get_thumbnail_path($filename));
-    if ($remote_url !== null) {
-        return $remote_url;
-    }
-
-    if (STORAGE_TYPE === 'date') {
-        $relative = $identifier;
-        if ($relative === '') {
-            $source_path = get_file_path($filename);
-            $relative = (string)get_image_identifier_from_path($source_path);
-        }
-        $parts = explode('/', trim($relative, '/'));
-
-        $year = $parts[0] ?? date('Y');
-        $month = $parts[1] ?? date('m');
-
-        return SITE_URL . UPLOAD_PATH_WEB . '.thumbs/' . $year . '/' . $month . '/' . $thumb_filename;
-    }
-
-    return SITE_URL . UPLOAD_PATH_WEB . '.thumbs/' . $thumb_filename;
+    return \LitePic\Service\Image\ImageUrl::thumbnailUrl($filename);
 }
 
 function remote_storage_credentials_valid(): bool {
@@ -1195,39 +1071,11 @@ function delete_thumbnail(string $filename): void {
  * 获取存储路径
  */
 function get_storage_path() {
-    if (STORAGE_TYPE === 'date') {
-        $year = date('Y');
-        $month = date('m');
-        $path = UPLOAD_PATH_LOCAL . $year . DIRECTORY_SEPARATOR . $month . DIRECTORY_SEPARATOR;
-        
-        if (!is_dir($path)) {
-            mkdir($path, 0755, true);
-        }
-        
-        return $path;
-    }
-    return UPLOAD_PATH_LOCAL;
+    return \LitePic\Service\Image\PathService::todaysStoragePath();
 }
 
-/**
- * 根据时间戳获取存储目录
- */
 function get_storage_path_by_timestamp(int $timestamp): string {
-    if ($timestamp <= 0) {
-        return get_storage_path();
-    }
-
-    if (STORAGE_TYPE === 'date') {
-        $year = date('Y', $timestamp);
-        $month = date('m', $timestamp);
-        $path = UPLOAD_PATH_LOCAL . $year . DIRECTORY_SEPARATOR . $month . DIRECTORY_SEPARATOR;
-        if (!is_dir($path)) {
-            mkdir($path, 0755, true);
-        }
-        return $path;
-    }
-
-    return UPLOAD_PATH_LOCAL;
+    return \LitePic\Service\Image\PathService::storagePathByTimestamp($timestamp);
 }
 
 /**
@@ -1699,89 +1547,14 @@ function scan_and_import_uploads(array $options = []): array {
  * 获取文件完整路径
  */
 function get_file_path($filename) {
-    $raw_identifier = (string)$filename;
-    $identifier = normalize_image_identifier($raw_identifier);
-    if ($identifier !== '') {
-        return UPLOAD_PATH_LOCAL . str_replace('/', DIRECTORY_SEPARATOR, $identifier);
-    }
-
-    // 兼容旧逻辑：仅传 basename 时在日期目录中查找首个匹配项
-    $filename = basename($raw_identifier);
-    
-    if (STORAGE_TYPE === 'date') {
-        // 尝试仅在标准日期目录中查找文件
-        $safe_filename = str_replace(['*', '?', '[', ']'], '', $filename);
-        $files = glob(UPLOAD_PATH_LOCAL . '[0-9][0-9][0-9][0-9]/[0-1][0-9]/' . $safe_filename);
-        if (!empty($files)) {
-            $files = array_values(array_filter($files, static function (string $path): bool {
-                $normalized = str_replace('\\', '/', $path);
-                if (str_contains($normalized, '/.thumbs/')) {
-                    return false;
-                }
-                // 二次校验月份目录合法，避免 00/13 等路径误匹配
-                if (!preg_match('#/(\d{4})/(0[1-9]|1[0-2])/#', $normalized)) {
-                    return false;
-                }
-                return true;
-            }));
-            if (!empty($files)) {
-                return $files[0];
-            }
-        }
-    }
-    
-    // 如果找不到或不是日期存储，返回默认路径
-    $default_path = UPLOAD_PATH_LOCAL . $filename;
-    
-    // 记录调试信息
-    if (!file_exists($default_path)) {
-        error_log("File not found: {$default_path}");
-        debug_log("File lookup failed", [
-            'filename' => $filename,
-            'storage_type' => STORAGE_TYPE,
-            'path' => $default_path
-        ], 'warning');
-    }
-    
-    return $default_path;
+    return \LitePic\Service\Image\PathService::resolveFilePath((string)$filename);
 }
 
 /**
  * 根据真实文件内容推断格式标签
  */
 function detect_real_image_format(string $filepath): string {
-    if (!is_file($filepath)) {
-        return strtoupper((string)pathinfo($filepath, PATHINFO_EXTENSION));
-    }
-
-    $mime = '';
-    $image_info = @getimagesize($filepath);
-    if (is_array($image_info) && isset($image_info['mime'])) {
-        $mime = strtolower((string)$image_info['mime']);
-    } elseif (function_exists('mime_content_type')) {
-        $mime = strtolower((string)@mime_content_type($filepath));
-    }
-
-    $map = [
-        'image/jpeg' => 'JPG',
-        'image/jpg' => 'JPG',
-        'image/png' => 'PNG',
-        'image/webp' => 'WEBP',
-        'image/avif' => 'AVIF',
-        'image/gif' => 'GIF',
-        'image/svg+xml' => 'SVG',
-        'image/x-icon' => 'ICO',
-        'image/vnd.microsoft.icon' => 'ICO',
-        'image/bmp' => 'BMP',
-        'image/tiff' => 'TIFF',
-    ];
-
-    if ($mime !== '' && isset($map[$mime])) {
-        return $map[$mime];
-    }
-
-    $ext = strtoupper((string)pathinfo($filepath, PATHINFO_EXTENSION));
-    return $ext !== '' ? $ext : 'FILE';
+    return \LitePic\Service\Image\ImageFormat::detectLabel($filepath);
 }
 
 /**
@@ -1790,64 +1563,7 @@ function detect_real_image_format(string $filepath): string {
  * @return array{width:int,height:int}|null
  */
 function get_svg_dimensions(string $filepath): ?array {
-    if (!is_file($filepath) || !is_readable($filepath)) {
-        return null;
-    }
-
-    $content = @file_get_contents($filepath, false, null, 0, 65536);
-    if (!is_string($content) || $content === '') {
-        return null;
-    }
-
-    if (!preg_match('/<svg\b[^>]*>/i', $content, $tag_match)) {
-        return null;
-    }
-
-    $tag = $tag_match[0];
-    $get_attr = static function (string $name) use ($tag): ?string {
-        if (preg_match('/\b' . preg_quote($name, '/') . '\s*=\s*([\'"])(.*?)\1/i', $tag, $m)) {
-            return trim((string)$m[2]);
-        }
-        return null;
-    };
-
-    $parse_length = static function (?string $value): ?int {
-        if ($value === null || $value === '' || str_contains($value, '%')) {
-            return null;
-        }
-        if (!preg_match('/^(-?\d+(?:\.\d+)?)([a-z]*)$/iu', trim($value), $m)) {
-            return null;
-        }
-        $unit = strtolower((string)($m[2] ?? ''));
-        if ($unit !== '' && $unit !== 'px') {
-            return null;
-        }
-        $number = (float)$m[1];
-        return $number > 0 ? (int)round($number) : null;
-    };
-
-    $width = $parse_length($get_attr('width'));
-    $height = $parse_length($get_attr('height'));
-    if ($width !== null && $height !== null) {
-        return ['width' => $width, 'height' => $height];
-    }
-
-    $view_box = $get_attr('viewBox');
-    if ($view_box !== null) {
-        $parts = preg_split('/[\s,]+/', trim($view_box));
-        if (is_array($parts) && count($parts) >= 4) {
-            $vb_width = (float)$parts[2];
-            $vb_height = (float)$parts[3];
-            if ($vb_width > 0 && $vb_height > 0) {
-                return [
-                    'width' => (int)round($vb_width),
-                    'height' => (int)round($vb_height),
-                ];
-            }
-        }
-    }
-
-    return null;
+    return \LitePic\Service\Image\ImageFormat::svgDimensions($filepath);
 }
 
 /**
@@ -1855,70 +1571,9 @@ function get_svg_dimensions(string $filepath): ?array {
  */
 function get_image_info($filename) {
     try {
-        $identifier = normalize_image_identifier((string)$filename);
-        if ($identifier === '') {
-            $identifier = get_image_display_name((string)$filename);
-        }
-        $filepath = get_file_path($filename);
-        
-        if (!file_exists($filepath)) {
-            debug_log("File not found", [
-                'filename' => $filename,
-                'filepath' => $filepath
-            ], 'warning');
-            return null;
-        }
-
-        // 获取基本信息
-        $filesize = filesize($filepath);
-        $upload_time = filemtime($filepath);
-        $dimensions = @getimagesize($filepath);
-        $format = detect_real_image_format($filepath);
-        $width = (int)($dimensions[0] ?? 0);
-        $height = (int)($dimensions[1] ?? 0);
-        $dimensions_label = $width . 'x' . $height;
-        if ($format === 'SVG') {
-            $svg_dimensions = get_svg_dimensions($filepath);
-            if (is_array($svg_dimensions)) {
-                $width = $svg_dimensions['width'];
-                $height = $svg_dimensions['height'];
-                $dimensions_label = $width . 'x' . $height;
-            } else {
-                $width = 0;
-                $height = 0;
-                $dimensions_label = '矢量图';
-            }
-        }
-        
-        // 获取原始文件名
-        $original_name = get_original_filename($identifier);
-        if (!$original_name) {
-            $original_name = get_image_display_name($identifier); // 如果没有映射就使用当前文件名
-        }
-        
-        $thumb_url = get_img_url($identifier);
-        if (can_generate_thumbnail($identifier)) {
-            if (create_thumbnail((string)$identifier)) {
-                $thumb_url = get_thumbnail_url((string)$identifier);
-            }
-        }
-
-        return [
-            'filename' => $identifier,
-            'original_name' => $original_name, // 确保这个字段存在
-            'size' => $filesize,
-            'filesize' => format_filesize($filesize),
-            'width' => $width,
-            'height' => $height,
-            'dimensions' => $dimensions_label,
-            'format' => $format,
-            'time' => $upload_time,
-            'url' => get_img_url($identifier),
-            'thumb_url' => $thumb_url,
-            'request_count' => get_image_request_count($identifier)
-        ];
-    } catch (Exception $e) {
-        error_log("Error getting image info: " . $e->getMessage());
+        return (new \LitePic\Service\Image\ImageInfo())->get((string)$filename);
+    } catch (\Throwable $e) {
+        error_log('Error getting image info: ' . $e->getMessage());
         return null;
     }
 }
@@ -2477,33 +2132,23 @@ function compress_with_gd(string $filepath, int $quality = 85): bool {
  * 是否支持压缩
  */
 function can_compress_extension(string $ext): bool {
-    return in_array(strtolower($ext), ['jpg', 'jpeg', 'png'], true);
+    return \LitePic\Service\Image\ImageFormat::canCompress($ext);
 }
 
-/**
- * 是否支持转换 WebP
- */
 function can_convert_webp_extension(string $ext): bool {
-    return in_array(strtolower($ext), ['jpg', 'jpeg', 'png', 'gif'], true);
+    return \LitePic\Service\Image\ImageFormat::canConvertWebp($ext);
 }
 
 function can_convert_avif_extension(string $ext): bool {
-    return in_array(strtolower($ext), ['jpg', 'jpeg', 'png', 'gif'], true);
+    return \LitePic\Service\Image\ImageFormat::canConvertAvif($ext);
 }
 
 function can_convert_preferred_extension(string $ext): bool {
-    return CONVERT_PREFERRED_FORMAT === 'avif'
-        ? can_convert_avif_extension($ext)
-        : can_convert_webp_extension($ext);
+    return \LitePic\Service\Image\ImageFormat::canConvertPreferred($ext);
 }
 
-/**
- * 获取压缩模式
- */
 function get_compression_mode(): string {
-    $mode = strtolower(trim((string)COMPRESSION_MODE));
-    $allowed = ['tinypng', 'gd', 'imagemagick'];
-    return in_array($mode, $allowed, true) ? $mode : 'imagemagick';
+    return \LitePic\Service\Image\ImageFormat::compressionMode();
 }
 
 /**
@@ -4464,97 +4109,23 @@ function get_total_size() {
  * 验证管理员权限
  */
 function is_admin(): bool {
-    if (!isset($_COOKIE[API_KEY_COOKIE]) || ADMIN_API_KEY === '') {
-        return false;
-    }
-
-    return hash_equals(hash('sha256', ADMIN_API_KEY), (string)$_COOKIE[API_KEY_COOKIE]);
+    return (new \LitePic\Service\Auth\AuthService())->isAdmin();
 }
 
-/**
- * 读取请求头
- */
 function get_request_header(string $name): ?string {
-    $server_key = 'HTTP_' . strtoupper(str_replace('-', '_', $name));
-    if (!empty($_SERVER[$server_key])) {
-        return trim((string)$_SERVER[$server_key]);
-    }
-
-    if (function_exists('getallheaders')) {
-        $headers = getallheaders();
-        foreach ($headers as $key => $value) {
-            if (strcasecmp((string)$key, $name) === 0) {
-                return trim((string)$value);
-            }
-        }
-    }
-
-    return null;
+    return \LitePic\Service\Auth\AuthService::requestHeader($name);
 }
 
-/**
- * 获取请求携带的 API Key
- */
 function get_request_api_key(): ?string {
-    $key = get_request_header('X-API-Key');
-    if (!empty($key)) {
-        return $key;
-    }
-
-    $auth = get_request_header('Authorization');
-    if (!empty($auth) && preg_match('/^Bearer\s+(.+)$/i', $auth, $matches)) {
-        return trim($matches[1]);
-    }
-
-    return null;
+    return \LitePic\Service\Auth\AuthService::requestApiKey();
 }
 
-/**
- * 验证第三方 API 请求权限（支持 Cookie 登录或 API Key）
- */
 function has_upload_api_access(): bool {
-    if (is_admin()) {
-        return true;
-    }
-
-    $api_key = get_request_api_key();
-    if (empty($api_key)) {
-        return false;
-    }
-
-    if (ADMIN_API_KEY !== '' && hash_equals(ADMIN_API_KEY, $api_key)) {
-        return true;
-    }
-
-    if (defined('THIRD_PARTY_API_KEYS') && is_array(THIRD_PARTY_API_KEYS)) {
-        foreach (THIRD_PARTY_API_KEYS as $allowed_key) {
-            if (is_string($allowed_key) && $allowed_key !== '' && hash_equals($allowed_key, $api_key)) {
-                return true;
-            }
-        }
-    }
-
-    if (verify_managed_api_token($api_key)) {
-        return true;
-    }
-
-    return false;
+    return (new \LitePic\Service\Auth\AuthService())->hasUploadApiAccess();
 }
 
-/**
- * 验证后台管理接口权限（仅管理员 Cookie 或管理员主密钥）
- */
 function is_api_request_authorized(): bool {
-    if (is_admin()) {
-        return true;
-    }
-
-    $api_key = get_request_api_key();
-    if ($api_key === null || $api_key === '') {
-        return false;
-    }
-
-    return ADMIN_API_KEY !== '' && hash_equals(ADMIN_API_KEY, $api_key);
+    return (new \LitePic\Service\Auth\AuthService())->isApiRequestAuthorized();
 }
 
 /**
