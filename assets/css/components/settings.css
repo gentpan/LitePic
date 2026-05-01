@@ -11,28 +11,28 @@
   gap: 22px;
 }
 
+/* Inner sections inside the shell get a uniform row layout — no
+ * per-section card chrome (the .settings-shell carries the frame).
+ * Targets BOTH in-form sections (under .settings-panel) and
+ * out-of-form sections (e.g. API Token, Passkey, TinyPNG) so every
+ * tab's header looks identical. */
 .settings-page .settings-panel > section,
-.settings-page > section {
+.settings-page .settings-shell > section {
   display: grid;
   gap: 14px;
-  padding: 22px 24px;
-  border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
-  border-radius: var(--radius-md);
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--surface) 94%, transparent),
-      color-mix(in srgb, var(--surface) 88%, var(--light) 12%));
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.72) inset,
-    0 14px 38px rgba(15, 23, 42, 0.06);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
 }
 
-.settings-page .settings-panel > section > div:first-child,
-.settings-page > section > div:first-child {
-  min-height: 44px;
-  padding-bottom: 14px;
-  border-bottom-color: color-mix(in srgb, var(--border-color) 74%, transparent);
-}
+/* (header styling is owned by .settings-section-header below — see the
+ * `Semantic helpers` block at the bottom of this file. The previous
+ * `> div:first-child { min-height:44px; padding-bottom:14px }` rule
+ * fired only on direct-child sections of .settings-page and gave
+ * in-form headers a different height than out-of-form headers — that
+ * was the source of the per-tab inconsistency.) */
 
 .settings-page h3 {
   font-size: 1rem;
@@ -722,8 +722,10 @@
   font-size: 1rem;
 }
 
-html[data-theme="dark"] .settings-page .settings-panel > section,
-html[data-theme="dark"] .settings-page > section,
+/* Dark-theme overrides for the shell card + the runtime info tiles.
+ * Sections themselves no longer carry card chrome (the shell does), so
+ * we tint the shell instead of every section. */
+html[data-theme="dark"] .settings-page .settings-shell,
 html[data-theme="dark"] .settings-layout .runtime-gauge-card,
 html[data-theme="dark"] .settings-block-runtime .runtime-meta-grid > article,
 html[data-theme="dark"] .settings-block-runtime .runtime-capability-grid > article {
@@ -811,11 +813,10 @@ html[data-theme="dark"] .settings-block-runtime .runtime-meta-label > i {
     width: 100%;
   }
 
-  .settings-page .settings-panel > section,
-  .settings-page > section {
-    padding: 18px;
-    border-radius: var(--radius-md);
-  }
+  /* Sections are flat rows now (the .settings-shell carries the
+   * card chrome), so no per-section padding override needed in
+   * mobile. The .settings-shell mobile rule below tightens the
+   * outer padding instead. */
 }
 
 /* =============================================================
