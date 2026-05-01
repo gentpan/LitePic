@@ -893,178 +893,19 @@ function remote_storage_restore_all_to_local(): array {
  * 是否支持生成缩略图（仅栅格图）
  */
 function can_generate_thumbnail(string $filename): bool {
-    $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-    return in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif'], true);
+    return \LitePic\Service\Image\ThumbnailService::canGenerate($filename);
 }
 
-/**
- * 生成或更新缩略图
- */
 function create_thumbnail(string $filename, bool $force = false): bool {
-    if (!can_generate_thumbnail($filename)) {
-        return false;
-    }
-
-    $source_path = get_file_path($filename);
-    if (!file_exists($source_path)) {
-        return false;
-    }
-
-    $thumb_path = get_thumbnail_path($filename);
-    if (!$force && file_exists($thumb_path)) {
-        return true;
-    }
-
-    $thumb_dir = dirname($thumb_path);
-    if (!is_dir($thumb_dir) && !mkdir($thumb_dir, 0755, true)) {
-        return false;
-    }
-
-    $image_info = @getimagesize($source_path);
-    if ($image_info === false) {
-        return false;
-    }
-
-    $source_width = (int)($image_info[0] ?? 0);
-    $source_height = (int)($image_info[1] ?? 0);
-    if ($source_width <= 0 || $source_height <= 0) {
-        return false;
-    }
-
-    $scale = min(
-        THUMBNAIL_MAX_WIDTH / $source_width,
-        THUMBNAIL_MAX_HEIGHT / $source_height,
-        1
-    );
-
-    $target_width = max(1, (int)floor($source_width * $scale));
-    $target_height = max(1, (int)floor($source_height * $scale));
-
-    if (create_thumbnail_with_imagick($source_path, $thumb_path, $target_width, $target_height)) {
-        return true;
-    }
-
-    $source = create_image_resource($source_path, (string)$image_info['mime']);
-    if (!$source) {
-        return false;
-    }
-
-    $thumb = imagecreatetruecolor($target_width, $target_height);
-    if (!$thumb) {
-        return false;
-    }
-
-    // 统一输出 JPG，透明图层用白底
-    $white = imagecolorallocate($thumb, 255, 255, 255);
-    imagefilledrectangle($thumb, 0, 0, $target_width, $target_height, $white);
-    imagecopyresampled($thumb, $source, 0, 0, 0, 0, $target_width, $target_height, $source_width, $source_height);
-
-    $saved = imagejpeg($thumb, $thumb_path, THUMBNAIL_QUALITY);
-    imagedestroy($source);
-    imagedestroy($thumb);
-
-    return $saved;
+    return (new \LitePic\Service\Image\ThumbnailService())->create($filename, $force);
 }
 
-/**
- * 使用 ImageMagick 生成缩略图，避免超大图片被 GD memory_limit 拦截。
- */
-function create_thumbnail_with_imagick(string $source_path, string $thumb_path, int $target_width, int $target_height): bool {
-    if (!class_exists('Imagick') || $target_width <= 0 || $target_height <= 0) {
-        return false;
-    }
-
-    try {
-        $image = new Imagick();
-        $image->readImage($source_path);
-        $image->setFirstIterator();
-        $frame = $image->getImage();
-        $image->clear();
-        $image->destroy();
-
-        $frame->setImagePage(0, 0, 0, 0);
-        $frame->setImageBackgroundColor('white');
-        if (defined('Imagick::ALPHACHANNEL_REMOVE')) {
-            $frame->setImageAlphaChannel(Imagick::ALPHACHANNEL_REMOVE);
-        }
-        $frame->mergeImageLayers(Imagick::LAYERMETHOD_FLATTEN);
-        $frame->thumbnailImage($target_width, $target_height, true, true);
-        $frame->setImageFormat('jpeg');
-        $frame->setImageCompression(Imagick::COMPRESSION_JPEG);
-        $frame->setImageCompressionQuality(THUMBNAIL_QUALITY);
-
-        $saved = $frame->writeImage($thumb_path);
-        $frame->clear();
-        $frame->destroy();
-
-        return $saved && file_exists($thumb_path);
-    } catch (Throwable $e) {
-        debug_log('ImageMagick thumbnail create failed', [
-            'file' => basename($source_path),
-            'error' => $e->getMessage(),
-        ], 'warning');
-        return false;
-    }
-}
-
-/**
- * 一键生成全部缩略图
- */
 function generate_all_thumbnails(bool $force = true): array {
-    $images = get_uploaded_images();
-    $report = [
-        'total' => count($images),
-        'created' => 0,
-        'skipped' => 0,
-        'failed' => 0,
-    ];
-
-    foreach ($images as $filename) {
-        $name = (string)$filename;
-        if (!can_generate_thumbnail($name)) {
-            $report['skipped']++;
-            continue;
-        }
-        $ok = create_thumbnail($name, $force);
-        if ($ok) {
-            $report['created']++;
-        } else {
-            $report['failed']++;
-        }
-    }
-
-    return $report;
+    return (new \LitePic\Service\Image\ThumbnailService())->generateAll($force);
 }
 
-/**
- * 删除缩略图
- */
 function delete_thumbnail(string $filename): void {
-    $identifier = normalize_image_identifier($filename);
-    $safe_name = $identifier !== '' ? $identifier : basename($filename);
-    $thumb_name = get_thumbnail_filename($safe_name);
-    $candidates = [
-        get_thumbnail_path($safe_name),
-        UPLOAD_PATH_LOCAL . '.thumbs' . DIRECTORY_SEPARATOR . $thumb_name,
-        UPLOAD_PATH_LOCAL . 'thumbs' . DIRECTORY_SEPARATOR . $thumb_name,
-    ];
-
-    $source_path = get_file_path($safe_name);
-    $source_dir = dirname($source_path);
-    $base_name = pathinfo($safe_name, PATHINFO_FILENAME);
-    $ext = strtolower((string)pathinfo($safe_name, PATHINFO_EXTENSION));
-
-    $candidates[] = $source_dir . DIRECTORY_SEPARATOR . '.thumbs' . DIRECTORY_SEPARATOR . $thumb_name;
-    $candidates[] = $source_dir . DIRECTORY_SEPARATOR . 'thumbs' . DIRECTORY_SEPARATOR . $thumb_name;
-    $candidates[] = $source_dir . DIRECTORY_SEPARATOR . $base_name . '.thumb.jpg';
-    if ($ext !== '') {
-        $candidates[] = $source_dir . DIRECTORY_SEPARATOR . $base_name . '.thumb.' . $ext;
-    }
-    foreach (array_unique($candidates) as $thumb_path) {
-        if (is_string($thumb_path) && $thumb_path !== '' && file_exists($thumb_path)) {
-            @unlink($thumb_path);
-        }
-    }
+    (new \LitePic\Service\Image\ThumbnailService())->delete($filename);
 }
 
 /**
