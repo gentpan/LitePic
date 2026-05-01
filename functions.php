@@ -919,145 +919,28 @@ function get_storage_path_by_timestamp(int $timestamp): string {
     return \LitePic\Service\Image\PathService::storagePathByTimestamp($timestamp);
 }
 
-/**
- * 扫描目录下所有可导入图片
- */
 function collect_importable_images_from_dir(string $dir): array {
-    $images = [];
-    if (!is_dir($dir)) {
-        return $images;
-    }
-
-    try {
-        $it = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS)
-        );
-    } catch (Throwable $e) {
-        return $images;
-    }
-
-    foreach ($it as $item) {
-        if (!$item instanceof SplFileInfo || !$item->isFile()) {
-            continue;
-        }
-        $path = (string)$item->getPathname();
-        $normalized = str_replace('\\', '/', $path);
-        if (str_contains($normalized, '/.thumbs/')) {
-            continue;
-        }
-        $ext = strtolower((string)pathinfo($path, PATHINFO_EXTENSION));
-        if (!in_array($ext, ALLOWED_TYPES, true)) {
-            continue;
-        }
-        $images[] = $path;
-    }
-
-    return $images;
+    return \LitePic\Service\Importer\Importer::collectImagesIn($dir);
 }
 
 function scan_import_is_absolute_path(string $path): bool {
-    return $path !== '' && (str_starts_with($path, '/') || preg_match('/^[A-Za-z]:[\\\\\\/]/', $path) === 1);
+    return \LitePic\Service\Importer\Importer::isAbsolutePath($path);
 }
 
 function resolve_scan_import_sources(string $source_input, array &$errors = []): array {
-    $sources = [];
-    $raw_items = [];
-    $source_input = trim($source_input);
-    $using_default_sources = $source_input === '';
-
-    if ($using_default_sources) {
-        $raw_items = ['upload', 'uploads'];
-    } else {
-        $raw_items = preg_split('/[\r\n,]+/', $source_input) ?: [];
-    }
-
-    foreach ($raw_items as $raw_item) {
-        $raw_item = trim((string)$raw_item);
-        $raw_item = trim($raw_item, " \t\n\r\0\x0B\"'");
-        if ($raw_item === '') {
-            continue;
-        }
-
-        $candidate = scan_import_is_absolute_path($raw_item)
-            ? $raw_item
-            : __DIR__ . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $raw_item);
-        $real = realpath($candidate);
-        if ($real === false || !is_dir($real)) {
-            if (!$using_default_sources) {
-                $errors[] = '目录不存在: ' . $raw_item;
-            }
-            continue;
-        }
-        if (!is_readable($real)) {
-            if (!$using_default_sources) {
-                $errors[] = '目录不可读: ' . $raw_item;
-            }
-            continue;
-        }
-
-        $normalized_key = rtrim(str_replace('\\', '/', $real), '/');
-        $sources[$normalized_key] = $real;
-    }
-
-    return array_values($sources);
+    return (new \LitePic\Service\Importer\Importer())->resolveSources($source_input, $errors);
 }
 
 function scan_import_relative_identifier(string $source_path, string $source_root): string {
-    $normalized_path = str_replace('\\', '/', $source_path);
-    $normalized_root = rtrim(str_replace('\\', '/', $source_root), '/') . '/';
-    if (str_starts_with($normalized_path, $normalized_root)) {
-        $relative = substr($normalized_path, strlen($normalized_root));
-    } else {
-        $relative = basename($source_path);
-    }
-
-    return normalize_image_identifier($relative);
+    return \LitePic\Service\Importer\Importer::relativeIdentifier($source_path, $source_root);
 }
 
 function unique_import_target_identifier(string $relative_identifier): string {
-    $relative_identifier = normalize_image_identifier($relative_identifier);
-    if ($relative_identifier === '') {
-        return '';
-    }
-
-    $target_path = UPLOAD_PATH_LOCAL . str_replace('/', DIRECTORY_SEPARATOR, $relative_identifier);
-    if (!file_exists($target_path)) {
-        return $relative_identifier;
-    }
-
-    $dir = (string)pathinfo($relative_identifier, PATHINFO_DIRNAME);
-    $name = (string)pathinfo($relative_identifier, PATHINFO_FILENAME);
-    $ext = strtolower((string)pathinfo($relative_identifier, PATHINFO_EXTENSION));
-    $prefix = $dir !== '.' && $dir !== '' ? $dir . '/' : '';
-    for ($i = 1; $i <= 999; $i++) {
-        $candidate = $prefix . $name . '-' . $i . ($ext !== '' ? '.' . $ext : '');
-        $candidate_path = UPLOAD_PATH_LOCAL . str_replace('/', DIRECTORY_SEPARATOR, $candidate);
-        if (!file_exists($candidate_path)) {
-            return $candidate;
-        }
-    }
-
-    return '';
+    return \LitePic\Service\Importer\Importer::uniqueTargetIdentifier($relative_identifier);
 }
 
-/**
- * 通过 hash 建立当前图库索引，避免重复导入
- */
 function build_uploaded_hash_index(): array {
-    $index = [];
-    $images = get_uploaded_images();
-    foreach ($images as $filename) {
-        $path = get_file_path((string)$filename);
-        if (!is_file($path) || !is_readable($path)) {
-            continue;
-        }
-        $hash = @sha1_file($path);
-        if (!is_string($hash) || $hash === '') {
-            continue;
-        }
-        $index[$hash] = (string)$filename;
-    }
-    return $index;
+    return (new \LitePic\Service\Importer\Importer())->buildHashIndex();
 }
 
 function import_task_has_work(array $options): bool {
@@ -1065,328 +948,25 @@ function import_task_has_work(array $options): bool {
 }
 
 function import_task_enqueue(string $filename, array $options): bool {
-    $filename = normalize_image_identifier($filename);
-    if ($filename === '') return false;
-    if (!import_task_has_work($options)) return false;
-    return (new \LitePic\Repository\ImportQueueRepository())->enqueue($filename, $options);
+    return (new \LitePic\Service\Importer\Importer())->enqueue($filename, $options);
 }
 
 function import_task_process_image(array $task): array {
-    $filename = normalize_image_identifier((string)($task['filename'] ?? ''));
-    $result = [
-        'success' => false,
-        'filename' => $filename,
-        'final_filename' => $filename,
-        'thumb_created' => 0,
-        'compressed' => 0,
-        'webp_created' => 0,
-        'avif_created' => 0,
-        'watermark_applied' => 0,
-        'skip_compress' => 0,
-        'skip_webp' => 0,
-        'skip_avif' => 0,
-        'skip_watermark' => 0,
-        'errors' => [],
-    ];
-
-    if ($filename === '') {
-        $result['errors'][] = '任务缺少图片路径';
-        return $result;
-    }
-
-    $path = get_file_path($filename);
-    if (!is_file($path)) {
-        $result['errors'][] = '图片不存在: ' . $filename;
-        return $result;
-    }
-
-    $final_filename = $filename;
-    $ext = strtolower((string)pathinfo($final_filename, PATHINFO_EXTENSION));
-
-    if (!empty($task['auto_compress'])) {
-        if (can_compress_extension($ext)) {
-            $compress_result = compress_image_by_mode(get_file_path($final_filename), 85);
-            if (!empty($compress_result['success'])) {
-                $result['compressed']++;
-            } else {
-                $result['skip_compress']++;
-            }
-        } else {
-            $result['skip_compress']++;
-        }
-    }
-
-    if (!empty($task['auto_webp'])) {
-        if (can_convert_webp_extension($ext)) {
-            $origin_path = get_file_path($final_filename);
-            if (convert_to_webp($origin_path)) {
-                $webp_path = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.webp', $origin_path);
-                if (is_string($webp_path) && is_file($webp_path)) {
-                    $webp_filename = get_image_identifier_from_path($webp_path) ?? basename($webp_path);
-                    if ($webp_filename !== $final_filename) {
-                        if (!KEEP_ORIGINAL_AFTER_PROCESS) {
-                            @unlink($origin_path);
-                            delete_thumbnail($final_filename);
-                        }
-                        $final_filename = $webp_filename;
-                        $ext = strtolower((string)pathinfo($final_filename, PATHINFO_EXTENSION));
-                    }
-                    $result['webp_created']++;
-                } else {
-                    $result['skip_webp']++;
-                }
-            } else {
-                $result['skip_webp']++;
-            }
-        } else {
-            $result['skip_webp']++;
-        }
-    } elseif (!empty($task['auto_avif'])) {
-        if (can_convert_avif_extension($ext)) {
-            $origin_path = get_file_path($final_filename);
-            if (convert_to_avif($origin_path)) {
-                $avif_path = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.avif', $origin_path);
-                if (is_string($avif_path) && is_file($avif_path)) {
-                    $avif_filename = get_image_identifier_from_path($avif_path) ?? basename($avif_path);
-                    if ($avif_filename !== $final_filename) {
-                        if (!KEEP_ORIGINAL_AFTER_PROCESS) {
-                            @unlink($origin_path);
-                            delete_thumbnail($final_filename);
-                        }
-                        $final_filename = $avif_filename;
-                        $ext = strtolower((string)pathinfo($final_filename, PATHINFO_EXTENSION));
-                    }
-                    $result['avif_created']++;
-                } else {
-                    $result['skip_avif']++;
-                }
-            } else {
-                $result['skip_avif']++;
-            }
-        } else {
-            $result['skip_avif']++;
-        }
-    }
-
-    if (!empty($task['watermark'])) {
-        $watermark = apply_watermark_to_image($final_filename);
-        if (!empty($watermark['applied'])) {
-            $result['watermark_applied']++;
-        } elseif (!empty($watermark['enabled'])) {
-            $result['skip_watermark']++;
-        }
-    }
-
-    if (!empty($task['create_thumbnail']) && can_generate_thumbnail($final_filename) && create_thumbnail($final_filename, true)) {
-        $result['thumb_created']++;
-    }
-
-    if (!empty($task['remote_sync']) && remote_storage_enabled() && remote_storage_config_valid()) {
-        remote_storage_sync_file_and_thumbnail($final_filename);
-    }
-
-    $result['success'] = true;
-    $result['final_filename'] = $final_filename;
-    return $result;
+    return (new \LitePic\Service\Importer\Importer())->processTask($task);
 }
 
 function import_task_process_queue(int $limit = 8): array {
-    $repo = new \LitePic\Repository\ImportQueueRepository();
-    $result = [
-        'processed' => 0, 'succeeded' => 0, 'failed' => 0, 'pending' => 0,
-        'thumb_created' => 0, 'compressed' => 0, 'webp_created' => 0, 'avif_created' => 0,
-        'watermark_applied' => 0, 'skip_compress' => 0, 'skip_webp' => 0,
-        'skip_avif' => 0, 'skip_watermark' => 0, 'errors' => [],
-    ];
-
-    foreach ($repo->nextBatch($limit) as $row) {
-        $result['processed']++;
-        // import_task_process_image still expects a flat shape; spread options.
-        $task = ['id' => $row['id'], 'filename' => $row['filename'], 'attempts' => $row['attempts']]
-              + $row['options'];
-        $report = import_task_process_image($task);
-
-        foreach (['thumb_created', 'compressed', 'webp_created', 'avif_created', 'watermark_applied',
-                  'skip_compress', 'skip_webp', 'skip_avif', 'skip_watermark'] as $key) {
-            $result[$key] += (int)($report[$key] ?? 0);
-        }
-
-        if (!empty($report['success'])) {
-            $repo->markDone($row['id']);
-            $result['succeeded']++;
-            continue;
-        }
-        $errors = is_array($report['errors'] ?? null) ? $report['errors'] : ['任务处理失败'];
-        $result['failed']++;
-        $result['errors'] = array_merge($result['errors'], $errors);
-        $repo->markFailure($row['id'], (string)($errors[0] ?? '任务处理失败'));
-    }
-
-    $result['pending'] = $repo->pendingCount();
-    return $result;
+    return (new \LitePic\Service\Importer\Importer())->processQueue($limit);
 }
 
 function import_task_queue_status(): array {
-    $repo = new \LitePic\Repository\ImportQueueRepository();
-    return [
-        'pending' => $repo->pendingCount(),
-        'failed' => $repo->failedCount(),
-    ];
+    return (new \LitePic\Service\Importer\Importer())->queueStatus();
 }
 
-/**
- * 扫描并导入旧目录图片到当前图床
- * 说明：
- * - 默认扫描 ./upload 与 ./uploads，也可传入 source_path 指定目录
- * - 递归扫描源目录与子目录
- * - 导入时保留源目录内的相对路径
- * - 自动生成缩略图、压缩、转换等后处理会进入导入任务队列
- */
 function scan_and_import_uploads(array $options = []): array {
-    $create_thumb = !array_key_exists('create_thumbnail', $options) || (bool)$options['create_thumbnail'];
-    $auto_webp = !empty($options['auto_webp']);
-    $auto_avif = !empty($options['auto_avif']);
-    $auto_compress = !empty($options['auto_compress']);
-    $queue_processing = !array_key_exists('queue_processing', $options) || (bool)$options['queue_processing'];
-
-    $legacy_dir = __DIR__ . DIRECTORY_SEPARATOR . 'upload';
-    $current_root = rtrim(UPLOAD_PATH_LOCAL, DIRECTORY_SEPARATOR);
-
-    $report = [
-        'scanned' => 0,
-        'imported' => 0,
-        'duplicates' => 0,
-        'failed' => 0,
-        'thumb_created' => 0,
-        'compressed' => 0,
-        'webp_created' => 0,
-        'avif_created' => 0,
-        'watermark_applied' => 0,
-        'skip_compress' => 0,
-        'skip_webp' => 0,
-        'skip_avif' => 0,
-        'skip_watermark' => 0,
-        'tasks_queued' => 0,
-        'errors' => [],
-    ];
-
-    $sources = resolve_scan_import_sources((string)($options['source_path'] ?? ''), $report['errors']);
-
-    if (empty($sources)) {
-        $report['errors'][] = '未找到可扫描目录（upload / uploads）';
-        return $report;
-    }
-
-    $existing_hashes = build_uploaded_hash_index();
-    $current_root_normalized = str_replace('\\', '/', $current_root) . '/';
-    $legacy_root_normalized = str_replace('\\', '/', $legacy_dir) . '/';
-
-    foreach ($sources as $source_dir) {
-        $files = collect_importable_images_from_dir($source_dir);
-        foreach ($files as $source_path) {
-            $report['scanned']++;
-
-            $normalized = str_replace('\\', '/', $source_path);
-            $is_in_current_uploads = str_starts_with($normalized, $current_root_normalized);
-            $is_in_legacy_upload = str_starts_with($normalized, $legacy_root_normalized);
-            $relative_identifier = scan_import_relative_identifier($source_path, $source_dir);
-            if ($relative_identifier === '') {
-                $report['failed']++;
-                $report['errors'][] = '路径解析失败: ' . $source_path;
-                continue;
-            }
-
-            // 跳过当前系统自动生成缩略图文件
-            $base = basename($normalized);
-            if (preg_match('/\\.thumb\\.[a-z0-9]+$/i', $base)) {
-                continue;
-            }
-
-            $ext = strtolower((string)pathinfo($source_path, PATHINFO_EXTENSION));
-            if (!in_array($ext, ALLOWED_TYPES, true)) {
-                continue;
-            }
-
-            $hash = @sha1_file($source_path);
-            if (is_string($hash) && $hash !== '' && isset($existing_hashes[$hash])) {
-                $report['duplicates']++;
-                continue;
-            }
-
-            // 如果文件已经在当前 uploads 目录，直接补映射与后处理
-            $final_filename = '';
-            if ($is_in_current_uploads && !$is_in_legacy_upload) {
-                $identifier = get_image_identifier_from_path($source_path);
-                if ($identifier === null) {
-                    $report['failed']++;
-                    $report['errors'][] = '路径解析失败: ' . $source_path;
-                    continue;
-                }
-                save_original_filename($identifier, basename($source_path));
-                $final_filename = $identifier;
-            } else {
-                $target_identifier = unique_import_target_identifier($relative_identifier);
-                if ($target_identifier === '') {
-                    $report['failed']++;
-                    $report['errors'][] = '目标路径生成失败: ' . $relative_identifier;
-                    continue;
-                }
-                $target_path = UPLOAD_PATH_LOCAL . str_replace('/', DIRECTORY_SEPARATOR, $target_identifier);
-                $target_dir = dirname($target_path);
-                if (!is_dir($target_dir) && !mkdir($target_dir, 0755, true)) {
-                    $report['failed']++;
-                    $report['errors'][] = '创建目录失败: ' . $target_dir;
-                    continue;
-                }
-
-                if (!@copy($source_path, $target_path)) {
-                    $report['failed']++;
-                    $report['errors'][] = '复制失败: ' . $source_path;
-                    continue;
-                }
-
-                $mtime = @filemtime($source_path);
-                if ($mtime !== false) {
-                    @touch($target_path, (int)$mtime);
-                }
-
-                $final_filename = get_image_identifier_from_path($target_path) ?? $target_identifier;
-                save_original_filename($final_filename, $relative_identifier);
-            }
-
-            $task_options = [
-                'create_thumbnail' => $create_thumb,
-                'auto_compress' => $auto_compress,
-                'auto_webp' => $auto_webp,
-                'auto_avif' => $auto_avif,
-                'watermark' => defined('WATERMARK_ENABLED') && WATERMARK_ENABLED,
-                'remote_sync' => remote_storage_enabled() && remote_storage_config_valid(),
-            ];
-            if ($queue_processing && import_task_has_work($task_options)) {
-                if (import_task_enqueue($final_filename, $task_options)) {
-                    $report['tasks_queued']++;
-                } else {
-                    $report['failed']++;
-                    $report['errors'][] = '任务入队失败: ' . $final_filename;
-                }
-            }
-
-            $final_hash = @sha1_file(get_file_path($final_filename));
-            if (is_string($final_hash) && $final_hash !== '') {
-                $existing_hashes[$final_hash] = $final_filename;
-            } elseif (is_string($hash) && $hash !== '') {
-                $existing_hashes[$hash] = $final_filename;
-            }
-            $report['imported']++;
-        }
-    }
-
-    return $report;
+    return (new \LitePic\Service\Importer\Importer())->scanAndImport($options);
 }
 
-/**
- * 获取文件完整路径
- */
 function get_file_path($filename) {
     return \LitePic\Service\Image\PathService::resolveFilePath((string)$filename);
 }
