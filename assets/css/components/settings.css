@@ -202,15 +202,8 @@
   white-space: nowrap;
 }
 
-.settings-page button:not([data-target]) {
-  min-height: var(--settings-control-height);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0;
-  line-height: 1;
-}
-
+/* Settings buttons use .btn family below. Loading state still works
+ * as a generic addon since it just toggles opacity / pointer-events. */
 .settings-page button.is-loading {
   opacity: .72;
   cursor: progress;
@@ -899,4 +892,177 @@ html[data-theme="dark"] .settings-block-runtime .runtime-meta-label > i {
     padding: 0 10px;
     font-size: 0.85rem;
   }
+}
+
+/* =============================================================
+ * Settings shell — wraps tab nav + active tab content in ONE card
+ *
+ * Replaces the previous "every section is its own white card"
+ * styling. Now there's a single outer frame; inner sections are
+ * just spaced rows inside it (no individual borders / shadows).
+ * ============================================================= */
+.settings-page .settings-shell {
+  display: grid;
+  gap: 18px;
+  padding: 22px 24px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--surface) 94%, transparent),
+      color-mix(in srgb, var(--surface) 88%, var(--light) 12%));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.72) inset,
+    0 14px 38px rgba(15, 23, 42, 0.06);
+}
+
+/* When inside the shell, individual sections drop their card chrome
+ * (border + shadow + gradient + padding) and just become labelled
+ * row groups. The shell carries the visual frame. */
+.settings-page .settings-shell .settings-panel,
+.settings-page .settings-shell {
+  background-image: none;
+}
+
+.settings-page .settings-shell .settings-panel > section,
+.settings-page .settings-shell > section {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+/* Section divider between rows (subtle line) */
+.settings-page .settings-shell .settings-panel > section + section,
+.settings-page .settings-shell > section + section {
+  padding-top: 18px;
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
+}
+
+/* Tab nav: sit flush at the top of the shell with its own underline */
+.settings-page .settings-shell > .settings-tab-nav {
+  margin: -22px -24px 4px;
+  padding: 14px 24px 12px;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: color-mix(in srgb, var(--light) 38%, var(--surface) 62%);
+}
+
+@media (max-width: 720px) {
+  .settings-page .settings-shell {
+    padding: 16px 14px;
+  }
+  .settings-page .settings-shell > .settings-tab-nav {
+    margin: -16px -14px 4px;
+    padding: 10px 14px 10px;
+  }
+}
+
+/* =============================================================
+ * Unified .btn system
+ *
+ * Every button in the settings page (tab actions, inline forms,
+ * the main save button) uses this so heights/paddings/typography
+ * line up regardless of which form they belong to.
+ *
+ * Variants: --primary (filled blue), --secondary (outlined),
+ *           --danger (red filled), --lg (44px tall save button)
+ * ============================================================= */
+.settings-page .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--dark);
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease, box-shadow .15s ease;
+  text-decoration: none;
+  /* Reset native button defaults that fight the height */
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.settings-page .btn > i {
+  font-size: 0.95em;
+  line-height: 1;
+}
+
+.settings-page .btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent);
+  outline-offset: 2px;
+}
+
+.settings-page .btn:disabled,
+.settings-page .btn[aria-disabled="true"] {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+/* Primary — filled blue */
+.settings-page .btn--primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.settings-page .btn--primary:hover {
+  background: color-mix(in srgb, var(--primary) 88%, #000 12%);
+  border-color: color-mix(in srgb, var(--primary) 88%, #000 12%);
+}
+
+/* Secondary — outlined */
+.settings-page .btn--secondary {
+  background: var(--surface);
+  border-color: color-mix(in srgb, var(--border-color) 70%, transparent);
+  color: var(--dark);
+}
+
+.settings-page .btn--secondary:hover {
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
+  border-color: color-mix(in srgb, var(--primary) 32%, var(--border-color) 68%);
+}
+
+/* Danger — filled red */
+.settings-page .btn--danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.settings-page .btn--danger:hover {
+  background: color-mix(in srgb, var(--danger) 88%, #000 12%);
+  border-color: color-mix(in srgb, var(--danger) 88%, #000 12%);
+}
+
+/* Larger size — used for the save-settings button */
+.settings-page .btn--lg {
+  height: 44px;
+  padding: 0 22px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: 8px;
+}
+
+/* Full width inside narrow grid cells */
+.settings-page .btn--block {
+  width: 100%;
+}
+
+/* Save bar: stick the save button below the panel inside the shell. */
+.settings-page .settings-shell .settings-save-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 18px;
+  margin-top: 4px;
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
 }

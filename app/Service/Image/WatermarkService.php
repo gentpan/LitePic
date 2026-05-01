@@ -281,7 +281,10 @@ final class WatermarkService
             '/Library/Fonts/Ubuntu-Regular.ttf',
         ];
         foreach ($candidates as $path) {
-            if (is_file($path)) return $path;
+            // System font paths (/usr/share/fonts, /Library/Fonts) are usually
+            // outside open_basedir on shared hosts and is_file() emits a
+            // warning even with @ on some PHP builds. Suppress the warning.
+            if (@is_file($path)) return $path;
         }
         return '';
     }
@@ -289,7 +292,7 @@ final class WatermarkService
     public static function resolveFontPath(): string
     {
         $configured = trim((string)(defined('WATERMARK_FONT_PATH') ? WATERMARK_FONT_PATH : ''));
-        if ($configured !== '' && is_file($configured)) {
+        if ($configured !== '' && @is_file($configured)) {
             return $configured;
         }
         return self::defaultFontPath();
