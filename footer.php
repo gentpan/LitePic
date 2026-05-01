@@ -9,12 +9,15 @@ $footer_is_home_guest = isset($body_class)
 <!-- 页脚 -->
 <footer class="site-footer">
     <div class="footer-content w-full max-w-[1280px] px-4 mx-auto flex gap-6 items-center justify-between box-border">
-        <!-- 版权信息 -->
-        <div class="footer-copyright text-gray text-sm">
-            <span class="inline-flex items-center gap-1.5">
-                <span>&copy; <?= date('Y') ?></span>
-                <a href="https://litepic.io" class="text-gray hover:text-dark no-underline transition-colors duration-200" target="_blank" rel="noopener noreferrer">LitePic</a>
-            </span>
+        <!-- 左侧：版权 + 站点名称 + Powered by LitePic 徽章 -->
+        <div class="footer-copyright text-gray text-sm inline-flex items-center gap-2 flex-wrap">
+            <span>&copy; <?= date('Y') ?></span>
+            <span><?= htmlspecialchars(SITE_NAME, ENT_QUOTES, 'UTF-8') ?></span>
+            <span class="opacity-60">&middot;</span>
+            <a href="https://litepic.io" target="_blank" rel="noopener noreferrer" class="powered-shield powered-shield--sharp" title="Powered by LitePic">
+                <span class="powered-shield__label">LitePic</span>
+                <span class="powered-shield__value">v<?= htmlspecialchars(SITE_VERSION, ENT_QUOTES, 'UTF-8') ?></span>
+            </a>
         </div>
 
         <div class="footer-right">
@@ -22,7 +25,7 @@ $footer_is_home_guest = isset($body_class)
                 <a href="https://github.com/gentpan/LitePic" class="footer-link footer-icon-link" title="GitHub" aria-label="GitHub" target="_blank" rel="noopener noreferrer">
                     <i class="fab fa-github" aria-hidden="true"></i>
                 </a>
-                <a href="/docs" class="footer-link footer-icon-link" title="使用说明" aria-label="使用说明">
+                <a href="https://litepic.io/docs" class="footer-link footer-icon-link" title="使用说明" aria-label="使用说明" target="_blank" rel="noopener noreferrer">
                     <i class="fa-light fa-book" aria-hidden="true"></i>
                 </a>
                 <button type="button" class="footer-link footer-icon-link" title="版权说明" aria-label="版权说明" data-license-dialog>

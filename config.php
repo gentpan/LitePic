@@ -58,8 +58,24 @@ if (!function_exists('load_dotenv_file')) {
 
 load_dotenv_file(__DIR__ . '/.env');
 
+/**
+ * env_value / env_bool / env_csv resolve config values in this order:
+ *
+ *   1. SQLite `settings` table (warmed into Config's static cache by
+ *      bootstrap.php BEFORE this file runs). This is the canonical
+ *      source of truth for everything editable via the settings UI.
+ *   2. $_ENV / $_SERVER (loaded from .env). First-boot fallback only —
+ *      after the install path or first save copies values into the DB,
+ *      .env can be deleted without effect.
+ *   3. The default argument.
+ */
+
 if (!function_exists('env_value')) {
     function env_value(string $key, $default = null) {
+        $cached = \LitePic\Core\Config::settingsLookup($key);
+        if ($cached !== null) {
+            return $cached === '' ? $default : $cached;
+        }
         $value = $_ENV[$key] ?? $_SERVER[$key] ?? (function_exists('getenv') ? getenv($key) : false);
         return ($value === false || $value === '') ? $default : $value;
     }
@@ -67,29 +83,32 @@ if (!function_exists('env_value')) {
 
 if (!function_exists('env_bool')) {
     function env_bool(string $key, bool $default): bool {
-        $value = $_ENV[$key] ?? $_SERVER[$key] ?? (function_exists('getenv') ? getenv($key) : false);
-        if ($value === false || $value === '') {
+        $cached = \LitePic\Core\Config::settingsLookup($key);
+        $raw = $cached !== null
+            ? $cached
+            : ($_ENV[$key] ?? $_SERVER[$key] ?? (function_exists('getenv') ? getenv($key) : false));
+        if ($raw === false || $raw === null || $raw === '') {
             return $default;
         }
-
-        $normalized = strtolower(trim((string)$value));
+        $normalized = strtolower(trim((string)$raw));
         return in_array($normalized, ['1', 'true', 'yes', 'on'], true);
     }
 }
 
 if (!function_exists('env_csv')) {
     function env_csv(string $key, array $default = []): array {
-        $value = $_ENV[$key] ?? $_SERVER[$key] ?? (function_exists('getenv') ? getenv($key) : false);
-        if ($value === false || trim((string)$value) === '') {
+        $cached = \LitePic\Core\Config::settingsLookup($key);
+        $raw = $cached !== null
+            ? $cached
+            : ($_ENV[$key] ?? $_SERVER[$key] ?? (function_exists('getenv') ? getenv($key) : false));
+        if ($raw === false || $raw === null || trim((string)$raw) === '') {
             return $default;
         }
-
-        $items = array_map('trim', explode(',', (string)$value));
+        $items = array_map('trim', explode(',', (string)$raw));
         $items = array_filter($items, static function ($v) {
             return $v !== '';
         });
-
-        return array_values($items);
+        return $items === [] ? $default : array_values($items);
     }
 }
 
@@ -103,17 +122,11 @@ $default_scheme = $is_https ? 'https' : 'http';
 // 基础配置
 define('SITE_NAME', env_value('SITE_NAME', 'LitePic'));
 define('SITE_DESCRIPTION', env_value('SITE_DESCRIPTION', '轻量级图床程序'));
-define('SITE_VERSION', '3.0.0');
-$home_background_image = (string)env_value('HOME_BACKGROUND_IMAGE', '/static/images/background.jpg');
-$home_background_image_path = parse_url($home_background_image, PHP_URL_PATH);
-if (
-    !is_string($home_background_image_path) ||
-    !preg_match('#^/static/images/[A-Za-z0-9._/-]+$#', $home_background_image_path) ||
-    str_contains($home_background_image_path, '..')
-) {
-    $home_background_image = '/static/images/background.jpg';
-}
-define('HOME_BACKGROUND_IMAGE', $home_background_image);
+define('SITE_VERSION', '3.1.0');
+// 首页背景固定从 static/images/background.jpg 读取。源码部署，要换背景
+// 直接替换这个文件即可，无需通过设置后台上传 — 这跟整个项目的 "源码即配置"
+// 哲学一致。常量保留是给 header.php 用，不再支持 .env / DB 覆盖。
+define('HOME_BACKGROUND_IMAGE', '/static/images/background.jpg');
 
 // 网站路径配置
 define('SITE_URL', env_value('SITE_URL', $default_scheme . '://' . $default_host));
@@ -129,10 +142,21 @@ $supported_image_types = [
 define('SUPPORTED_IMAGE_TYPES', $supported_image_types);
 define('ALLOWED_TYPES', SUPPORTED_IMAGE_TYPES);
 
-$allowed_upload_types = array_values(array_intersect(
-    array_map('strtolower', env_csv('UPLOAD_ALLOWED_TYPES', SUPPORTED_IMAGE_TYPES)),
-    SUPPORTED_IMAGE_TYPES
-));
+// 用户在设置里能自填扩展名（heic / jxl / raw / dng 等），不再跟
+// SUPPORTED_IMAGE_TYPES 取交集。安全方面：上传时 UploadService::validateMime
+// 仍会拒绝任何非 image/* 内容（哪怕扩展名叫 php），SettingsController 也对
+// 明确危险后缀做了黑名单。这里只做格式 sanitize：lowercase / 去 . / 字母数字
+// 限定 / 最多 10 字符。
+$_raw_allowed = env_csv('UPLOAD_ALLOWED_TYPES', SUPPORTED_IMAGE_TYPES);
+$allowed_upload_types = [];
+foreach ($_raw_allowed as $_ext) {
+    $_ext = strtolower(ltrim(trim((string)$_ext), '.'));
+    $_ext = preg_replace('/[^a-z0-9]/', '', $_ext) ?? '';
+    if ($_ext === '' || strlen($_ext) > 10) continue;
+    if (!in_array($_ext, $allowed_upload_types, true)) {
+        $allowed_upload_types[] = $_ext;
+    }
+}
 if (empty($allowed_upload_types)) {
     $allowed_upload_types = SUPPORTED_IMAGE_TYPES;
 }
@@ -140,13 +164,30 @@ define('ALLOWED_UPLOAD_TYPES', $allowed_upload_types);
 define('MAX_FILE_SIZE', max(1, (int)env_value('MAX_FILE_SIZE_MB', 20)) * 1024 * 1024);
 define('MIN_IMAGE_WIDTH', 20);
 define('MIN_IMAGE_HEIGHT', 20);
+// 单张图最大像素数 — 转换 / 压缩流水线的安全阀。超过这个值的图直接跳过
+// 处理（保留原图，不转 WebP/AVIF / 不生成缩略图），避免一张超大图把整个
+// PHP 进程的内存吃光。默认 100MP，对常见手机拍 + 单反足够（35mm 全画幅
+// 一般在 50MP 上下；6100 万像素哈苏才会超）。可用 .env 调或在 settings 关掉。
+define('IMAGE_PROCESS_MAX_PIXELS', max(0, (int)env_value('IMAGE_PROCESS_MAX_PIXELS', 100_000_000)));
+// WebP / AVIF 输出质量（1-100，与 GD imagewebp/imageavif、Imagick 都通用）
+define('WEBP_QUALITY', max(1, min(100, (int)env_value('WEBP_QUALITY', 80))));
+define('AVIF_QUALITY', max(1, min(100, (int)env_value('AVIF_QUALITY', 80))));
+// 格式转换引擎：
+//   auto     — 优先 Imagick（更省内存，能处理 10080×3716 这种大图），不可用则回退 GD
+//   imagick  — 强制 Imagick，不可用则失败（用户在重视大图能力的服务器上设置）
+//   gd       — 强制 GD（兼容性最好但内存占用大，不适合超过 30MP 的图）
+define('CONVERSION_ENGINE', in_array(strtolower((string)env_value('CONVERSION_ENGINE', 'auto')),
+    ['auto', 'imagick', 'gd'], true) ? strtolower((string)env_value('CONVERSION_ENGINE', 'auto')) : 'auto');
 define('THUMBNAIL_MAX_WIDTH', 640);
 define('THUMBNAIL_MAX_HEIGHT', 360);
 define('THUMBNAIL_QUALITY', 82);
 
 // 安全配置
 define('API_KEY_COOKIE', 'img_api_key');
-define('ADMIN_API_KEY', env_value('ADMIN_API_KEY', ''));
+// 默认管理员密码（首次启动 / 安装向导用）。登录时如果发现密码仍是默认值，
+// 前端会强制弹窗要求改密码（详见 api/auth.php 的 must_change_password 标记）。
+define('DEFAULT_ADMIN_API_KEY', '12345678');
+define('ADMIN_API_KEY', env_value('ADMIN_API_KEY', DEFAULT_ADMIN_API_KEY));
 define('THIRD_PARTY_API_KEYS', env_csv('THIRD_PARTY_API_KEYS', []));
 define('COOKIE_LIFETIME', 30 * 24 * 60 * 60); // 30天
 define('COOKIE_PATH', '/');
@@ -216,11 +257,26 @@ define('HOTLINK_PROTECTION_ENABLED', env_bool('HOTLINK_PROTECTION_ENABLED', fals
 define('HOTLINK_ALLOWED_DOMAINS', env_csv('HOTLINK_ALLOWED_DOMAINS', []));
 define('HOTLINK_ALLOW_EMPTY_REFERER', env_bool('HOTLINK_ALLOW_EMPTY_REFERER', true));
 
-// Web 服务器访问日志统计（统计 /uploads/... 与 /i/... 图片请求）
-define('ACCESS_LOG_STATS_ENABLED', env_bool('ACCESS_LOG_STATS_ENABLED', true));
-define('ACCESS_LOG_PATHS', env_csv('ACCESS_LOG_PATHS', []));
-define('ACCESS_LOG_CACHE_TTL', max(30, min(86400, (int)env_value('ACCESS_LOG_CACHE_TTL', 300))));
-define('ACCESS_LOG_MAX_BYTES', max(1048576, min(524288000, (int)env_value('ACCESS_LOG_MAX_BYTES', 20971520))));
+// 图片请求统计（PHP 直读：开启后图片公网链接走 /i/<file>，每次成功
+// 提供时累加 images.view_count；不依赖 Web 服务器日志）
+define('IMAGE_VIEW_COUNTER_ENABLED', env_bool('IMAGE_VIEW_COUNTER_ENABLED', true));
+
+// 图片公网链接前缀 — ImageUrl 拿这个前缀拼出公网 URL。
+//   /uploads/   — 默认，跟磁盘路径完全一致，Web server 直接 serve（最快）
+//   /           — 根目录直链 /2026/05/abc.webp（短，仍由 Web server serve）
+//   /i/         — PHP 代理前缀 /i/2026/05/abc.webp（每次走 image.php，可统计 view_count）
+//   /img/       — 用户自定义短前缀，等同 default 但 URL 看起来不像默认安装
+//   /<任意名>/  — 用户随便起 — .htaccess 里的 catch-all rewrite 会把任何
+//                 单词前缀 + /yyyy/mm/file 路径自动 serve 出 uploads/yyyy/mm/file
+//
+// 物理文件永远在 uploads/yyyy/mm/，URL 前缀只是显示层皮肤。切换前缀**绝对安全**：
+// 老的 /uploads/... 链接和新的 /<前缀>/... 链接都能 serve 同一个文件。
+$_url_prefix_raw = trim((string)env_value('URL_PREFIX', '/uploads/'));
+// 规范化：必须以 / 开头和结尾，只接受小写字母数字 _ - ；非法回退默认
+if (!preg_match('#^/([a-z0-9][a-z0-9_-]*/)?$#', $_url_prefix_raw)) {
+    $_url_prefix_raw = '/uploads/';
+}
+define('URL_PREFIX', $_url_prefix_raw);
 
 // 远程存储（S3 兼容协议，Cloudflare R2 / AWS S3 通用）
 $remote_storage_usage = strtolower((string)env_value('REMOTE_STORAGE_USAGE', env_value('REMOTE_STORAGE_MODE', 'backup')));

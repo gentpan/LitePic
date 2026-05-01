@@ -45,3 +45,25 @@ RewriteRule ^ - [L]
 RewriteRule ^$ index.php [QSA,L]
 RewriteRule ^(upload|gallery|docs|api|settings|stats)/?$ index.php [QSA,L]
 RewriteRule ^i/.*$ index.php [QSA,L]
+
+# 设置子页面路径化 URL（/settings/tasks → settings 主入口 + ?tab=tasks）
+# 让浏览器地址栏显示干净的 /settings/<tab> 而不是 ?tab= 查询串
+RewriteRule ^settings/([a-z]+)/?$ index.php?tab=$1 [QSA,L]
+
+# 自定义图片 URL 前缀 → 全部走 image.php 做统计 + serve
+#
+# 用户可以在「设置 → 图片处理 → 图片链接前缀」自由填任意单词 prefix
+# （/img/、/photo/、/p/、/、/foo-bar/ 等）。物理文件始终在
+# uploads/yyyy/mm/file，这两条规则把任何前缀的 /<prefix>/yyyy/mm/file
+# 重写到 image.php?file=yyyy/mm/file，由 PHP 流式提供 + 累加 view_count
+# （只有「启用图片请求计数」开关 ON 时才真的累加；否则只 serve 不计数）。
+#
+# 排除的前缀（保留为框架 / 直连路径，不走 PHP）：
+#   uploads — 默认前缀，文件直接 serve（最快，无计数）
+#   i       — 已经是 PHP 路由（/i/<file> 由 image.php 直接处理）
+#   api / static / assets / data / logs — 框架路由，绝不能踩
+#
+# 同时支持「无前缀」直链：/yyyy/mm/file（前缀=根 "/"）→ 同样走 PHP
+RewriteCond %{REQUEST_URI} !^/(uploads|i|api|static|assets|data|logs)/
+RewriteRule ^[a-z0-9][a-z0-9_-]*/([0-9]{4}/[0-9]{2}/[^/]+\.(?:jpg|jpeg|png|gif|webp|avif|svg|ico|bmp|tiff|tif|heic|jxl|raw|dng))$ image.php?file=$1 [L,QSA]
+RewriteRule ^([0-9]{4}/[0-9]{2}/[^/]+\.(?:jpg|jpeg|png|gif|webp|avif|svg|ico|bmp|tiff|tif|heic|jxl|raw|dng))$ image.php?file=$1 [L,QSA]

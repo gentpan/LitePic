@@ -8,13 +8,13 @@ namespace LitePic\Service\Image;
  *
  * Resolution order:
  *   1. If remote storage is set up to serve traffic, return the CDN URL.
- *   2. If hotlink protection is on, route through `/i/<identifier>` so
- *      the request hits image.php and the referer check.
+ *   2. If hotlink protection OR the view counter is on, route through
+ *      `/i/<identifier>` so the request hits image.php (which enforces
+ *      the referer check and/or increments view_count).
  *   3. Otherwise serve the file directly out of /uploads/.
  *
  * The thumbnail variant follows the same logic plus a `.thumbs/yyyy/mm/`
- * sub-path. The remote-storage helpers needed here live in the legacy
- * procedural layer for now (will move to RemoteStorageService later).
+ * sub-path.
  */
 final class ImageUrl
 {
@@ -37,7 +37,7 @@ final class ImageUrl
         }
 
         $display = PathService::displayName($filename);
-        return self::isHotlinkProtected()
+        return self::shouldRouteThroughPhp()
             ? rtrim(SITE_URL, '/') . '/i/' . rawurlencode($display)
             : SITE_URL . UPLOAD_PATH_WEB . $display;
     }
@@ -83,16 +83,41 @@ final class ImageUrl
         return SITE_URL . UPLOAD_PATH_WEB . '.thumbs/' . $thumb;
     }
 
+    /**
+     * Build the public URL for a stored identifier (e.g. "2026/05/abc.webp").
+     *
+     * 决策优先级：
+     *   1. 防盗链 / 图片请求统计 任一开启 → 强制走 /i/ (PHP 端可校验 / 计数)
+     *      — URL_PREFIX 设置在这种情况下不生效（功能 trump 美观）
+     *   2. 否则按 URL_PREFIX 拼接：<URL_PREFIX><identifier>
+     *      物理文件路径不变，.htaccess 里的 catch-all rewrite 会把任何单词
+     *      前缀 + /yyyy/mm/file 自动指向 uploads/yyyy/mm/file
+     */
     private static function buildLocalUrl(string $identifier): string
     {
-        return self::isHotlinkProtected()
-            ? rtrim(SITE_URL, '/') . '/i/' . PathService::encodeForUrl($identifier)
-            : SITE_URL . UPLOAD_PATH_WEB . $identifier;
+        // 功能优先：防盗链 / 视图计数器开了，必须走 PHP，无视 URL_PREFIX
+        if (ImageServeService::isRoutedThroughPhp()) {
+            return rtrim(SITE_URL, '/') . '/i/' . PathService::encodeForUrl($identifier);
+        }
+
+        $prefix = defined('URL_PREFIX') ? URL_PREFIX : '/uploads/';
+        // /i/ 前缀也走 PHP（用户主动选了代理路径）
+        if ($prefix === '/i/') {
+            return rtrim(SITE_URL, '/') . '/i/' . PathService::encodeForUrl($identifier);
+        }
+        // 其它前缀（包括 /uploads/、/、/img/、/photo/ 等）都拼接成
+        // <SITE_URL><prefix><identifier>，由 Apache 直接 serve
+        return rtrim(SITE_URL, '/') . $prefix . $identifier;
     }
 
-    private static function isHotlinkProtected(): bool
+    /**
+     * True when EITHER hotlink protection OR the image view counter is
+     * configured on. Both features need every public image request to
+     * pass through PHP, so the URL points at the `/i/<identifier>` route.
+     */
+    private static function shouldRouteThroughPhp(): bool
     {
-        return defined('HOTLINK_PROTECTION_ENABLED') && HOTLINK_PROTECTION_ENABLED;
+        return ImageServeService::isRoutedThroughPhp();
     }
 
     /**

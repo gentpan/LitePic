@@ -10,10 +10,6 @@ use LitePic\Repository\ImageRepository;
  *
  * Reads straight from the SQLite images table — no file cache needed
  * since SUM(size) is a few microseconds on the indexed column.
- *
- * The legacy `data/footer_stats_cache.json` is still written so any
- * external tooling that reads it doesn't break, but it's no longer the
- * source of truth.
  */
 final class FooterStats
 {
@@ -43,25 +39,9 @@ final class FooterStats
      */
     public function snapshot(int $ttl = 45): array
     {
-        $snapshot = [
+        return [
             'image_count' => $this->imageCount(),
             'total_size' => $this->totalSize(),
         ];
-
-        // Keep the legacy on-disk cache in lock-step for any caller that
-        // still reads it directly (planning to delete entirely once we've
-        // verified nothing external reads it).
-        @file_put_contents(self::cacheFile(), json_encode([
-            'ts' => time(),
-            'image_count' => $snapshot['image_count'],
-            'total_size' => $snapshot['total_size'],
-        ], JSON_UNESCAPED_UNICODE), LOCK_EX);
-
-        return $snapshot;
-    }
-
-    public static function cacheFile(): string
-    {
-        return (defined('APP_ROOT') ? APP_ROOT : dirname(__DIR__, 3)) . '/data/footer_stats_cache.json';
     }
 }

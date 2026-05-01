@@ -246,10 +246,14 @@ class GalleryManager {
             <form method="post" class="pagination-form">
                 <ul class="pagination-list">
                     <li>
-                        <button type="submit" name="page" value="<?= $this->normalizePage(1) ?>" class="page-link" aria-label="第一页" <?= $current === 1 ? 'disabled aria-disabled="true"' : '' ?>>«</button>
+                        <button type="submit" name="page" value="<?= $this->normalizePage(1) ?>" class="page-link page-link--nav" aria-label="第一页" title="第一页" <?= $current === 1 ? 'disabled aria-disabled="true"' : '' ?>>
+                            <i class="fa-light fa-angles-left" aria-hidden="true"></i>
+                        </button>
                     </li>
                     <li>
-                        <button type="submit" name="page" value="<?= $this->normalizePage($current - 1) ?>" class="page-link" aria-label="上一页" <?= $current === 1 ? 'disabled aria-disabled="true"' : '' ?>>‹</button>
+                        <button type="submit" name="page" value="<?= $this->normalizePage($current - 1) ?>" class="page-link page-link--nav" aria-label="上一页" title="上一页" <?= $current === 1 ? 'disabled aria-disabled="true"' : '' ?>>
+                            <i class="fa-light fa-angle-left" aria-hidden="true"></i>
+                        </button>
                     </li>
 
                     <?php if ($start > 1): ?>
@@ -273,10 +277,14 @@ class GalleryManager {
                     <?php endif; ?>
 
                     <li>
-                        <button type="submit" name="page" value="<?= $this->normalizePage($current + 1) ?>" class="page-link" aria-label="下一页" <?= $current === $total ? 'disabled aria-disabled="true"' : '' ?>>›</button>
+                        <button type="submit" name="page" value="<?= $this->normalizePage($current + 1) ?>" class="page-link page-link--nav" aria-label="下一页" title="下一页" <?= $current === $total ? 'disabled aria-disabled="true"' : '' ?>>
+                            <i class="fa-light fa-angle-right" aria-hidden="true"></i>
+                        </button>
                     </li>
                     <li>
-                        <button type="submit" name="page" value="<?= $this->normalizePage($total) ?>" class="page-link" aria-label="最后一页" <?= $current === $total ? 'disabled aria-disabled="true"' : '' ?>>»</button>
+                        <button type="submit" name="page" value="<?= $this->normalizePage($total) ?>" class="page-link page-link--nav" aria-label="最后一页" title="最后一页" <?= $current === $total ? 'disabled aria-disabled="true"' : '' ?>>
+                            <i class="fa-light fa-angles-right" aria-hidden="true"></i>
+                        </button>
                     </li>
                 </ul>
             </form>

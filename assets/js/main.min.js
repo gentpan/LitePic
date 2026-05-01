@@ -3,6 +3,182 @@
 /* ===== script.js ===== */
 window.ImgEt = window.ImgEt || {};
 
+/* =============================================================
+ * Pjax — drop-in HTML-fragment navigation for tabbed pages
+ *
+ * Why: clicking a settings tab used to hit `/settings?tab=storage`
+ * with a full document load. The server returns the same header /
+ * nav / footer every time, so the visible side-effect is the top
+ * "设置" button briefly losing its active state and the page
+ * scrollbar/state being thrown away.
+ *
+ * What this does:
+ *   • Intercept clicks on `[data-pjax]` links
+ *   • fetch() the target URL, parse the returned HTML
+ *   • Find the new `[data-pjax-container]` (we mark <main> with it)
+ *   • Replace the current container with the new one
+ *   • Manually re-execute any `<script>` tags inside the new
+ *     container — innerHTML-injected scripts don't run on their own
+ *   • history.pushState so the URL stays correct, popstate handled
+ *     for back/forward
+ *   • Top header / footer / <head> stays untouched → no flicker
+ *
+ * Falls back to a normal full-page navigation if anything goes wrong
+ * (server returned no container, fetch failed, etc.) so the page
+ * still works with JS off / on weird CDN errors.
+ *
+ * The inline scripts inside a pjax container should be written
+ * idempotently — they run once on first load, then again on every
+ * swap. The settings page already wraps init in a function that
+ * detects whether the container has been bound.
+ * ============================================================= */
+window.Pjax = {
+    containerSelector: '[data-pjax-container]',
+    linkSelector: 'a[data-pjax]',
+    loadingClass: 'is-pjax-loading',
+    isNavigating: false,
+
+    init() {
+        if (this._inited) return;
+        this._inited = true;
+
+        // Click delegation — intercept every click on a pjax link
+        document.addEventListener('click', (e) => {
+            const link = e.target.closest(this.linkSelector);
+            if (!link) return;
+            // Respect modifiers (cmd-click for new tab, etc.)
+            if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+            if (link.target && link.target !== '' && link.target !== '_self') return;
+            // Same-origin only — external links go through normal nav
+            try {
+                const url = new URL(link.href, window.location.origin);
+                if (url.origin !== window.location.origin) return;
+            } catch { return; }
+
+            e.preventDefault();
+            // data-pjax="soft" — fetch + swap content but DON'T touch the URL.
+            // Used by tab navigation where we want subtab content swapping
+            // without polluting the address bar / browser history with
+            // ?tab=XYZ permutations. Refresh in this mode goes back to
+            // the page's default view.
+            const soft = link.getAttribute('data-pjax') === 'soft';
+            this.go(link.href, { push: !soft });
+        });
+
+        // Browser back / forward
+        window.addEventListener('popstate', (e) => {
+            // Only swap if we're navigating to something we owned
+            if (e.state && e.state.pjax) {
+                this.go(window.location.href, { push: false });
+            }
+        });
+
+        // Mark the initial state as pjax so popstate works on first back
+        if (!history.state || !history.state.pjax) {
+            history.replaceState({ pjax: true }, '', window.location.href);
+        }
+    },
+
+    async go(url, opts = {}) {
+        const { push = true } = opts;
+        if (this.isNavigating) return; // ignore rapid double-clicks
+        const container = document.querySelector(this.containerSelector);
+        if (!container) {
+            window.location.href = url;
+            return;
+        }
+
+        this.isNavigating = true;
+        container.classList.add(this.loadingClass);
+
+        try {
+            const resp = await fetch(url, {
+                headers: {
+                    'X-Pjax': '1',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'text/html',
+                },
+                credentials: 'same-origin',
+                redirect: 'follow',
+            });
+
+            if (!resp.ok) {
+                throw new Error('HTTP ' + resp.status);
+            }
+
+            const html = await resp.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const newContainer = doc.querySelector(this.containerSelector);
+
+            if (!newContainer) {
+                // Server returned a page without our container — full reload
+                window.location.href = url;
+                return;
+            }
+
+            // Update title to match the new page
+            if (doc.title) document.title = doc.title;
+
+            // Swap. We replace the OLD container with the NEW one rather
+            // than just innerHTML to preserve attributes (data-*, class).
+            container.replaceWith(newContainer);
+            newContainer.classList.remove(this.loadingClass);
+
+            // <script> tags created by replaceWith don't auto-execute;
+            // walk through and recreate them so they run.
+            this.executeScripts(newContainer);
+
+            // History
+            if (push) {
+                history.pushState({ pjax: true }, '', url);
+            }
+
+            // Reset scroll to top of the new tab
+            window.scrollTo(0, 0);
+
+            // Notify any subscribers (theme system, nav indicator, etc.)
+            document.dispatchEvent(new CustomEvent('pjax:loaded', {
+                detail: { url, container: newContainer },
+            }));
+        } catch (err) {
+            console.error('[Pjax] navigation failed, falling back to full reload:', err);
+            window.location.href = url;
+        } finally {
+            this.isNavigating = false;
+            // (loading class removed during swap; if swap failed and we
+            //  fell back to window.location.href, the page is reloading
+            //  anyway so cleanup doesn't matter)
+        }
+    },
+
+    /**
+     * <script> elements injected via innerHTML / replaceWith / DOMParser
+     * don't execute by spec. We walk the new container and recreate each
+     * one, which DOES trigger execution.
+     */
+    executeScripts(container) {
+        const scripts = Array.from(container.querySelectorAll('script'));
+        scripts.forEach((oldScript) => {
+            const fresh = document.createElement('script');
+            for (const attr of oldScript.attributes) {
+                fresh.setAttribute(attr.name, attr.value);
+            }
+            if (oldScript.src) {
+                // External script: just swap (browser fetches + executes)
+                fresh.async = false;
+            } else {
+                fresh.textContent = oldScript.textContent;
+            }
+            oldScript.replaceWith(fresh);
+        });
+    },
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.Pjax) window.Pjax.init();
+});
+
 /* ===== nav-indicator.js ===== */
 (function () {
     function initNavIndicator() {
@@ -559,26 +735,69 @@ function initLicenseDialog() {
 
         const content = `
             <div class="litepic-license-dialog">
-                <p class="license-lead">LitePic 是一款开源 PHP 单机版图床程序，适合个人、自托管和轻量团队场景使用。</p>
-                <div class="license-meta">
-                    <div class="license-meta-row">
-                        <span class="license-meta-label"><i class="fa-light fa-code-branch" aria-hidden="true"></i>项目地址</span>
-                        <a href="https://github.com/gentpan/LitePic" target="_blank" rel="noopener noreferrer">github.com/gentpan/LitePic</a>
+                <!-- Hero: logo + 名称 + 版本徽章 + 副标题 -->
+                <header class="license-hero">
+                    <span class="license-hero-logo" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="32" height="32" xmlns="http://www.w3.org/2000/svg">
+                            <path fill="#0052D9" d="M12 0c4.5 0 6.75 0 8.25.75 1.75.75 2.25 1.25 3 3C24 5.25 24 7.5 24 12s0 6.75-.75 8.25c-.75 1.75-1.25 2.25-3 3C18.75 24 16.5 24 12 24s-6.75 0-8.25-.75c-1.75-.75-2.25-1.25-3-3C0 18.75 0 16.5 0 12s0-6.75.75-8.25c.75-1.75 1.25-2.25 3-3C5.25 0 7.5 0 12 0z"/>
+                            <!-- L 和右上角点同步放大 ~1.4x（围绕 viewBox 中心 12,12 缩放），
+                                 让品牌字模在 squircle 内更醒目，不再像被吞噬的小标。 -->
+                            <path d="M4.2 4.3h3.2v12.2h6.2v2.9H4.2V4.3z" fill="#fff"/>
+                            <circle cx="18" cy="7" r="2.4" fill="#fff"/>
+                        </svg>
+                    </span>
+                    <div class="license-hero-text">
+                        <h3 class="license-hero-title">
+                            LitePic
+                            <span class="license-hero-version">v3.0.0</span>
+                        </h3>
+                        <p class="license-hero-tagline">轻量级自托管 PHP 图床，零依赖、单目录部署</p>
                     </div>
-                    <div class="license-meta-row">
-                        <span class="license-meta-label"><i class="fa-light fa-user-pen" aria-hidden="true"></i>作者</span>
-                        <a href="https://github.com/gentpan" target="_blank" rel="noopener noreferrer">gentpan</a>
+                </header>
+
+                <!-- 信息卡片 — 仓库 / 作者 / 协议 / Issues -->
+                <div class="license-cards">
+                    <a class="license-card" href="https://github.com/gentpan/LitePic" target="_blank" rel="noopener noreferrer">
+                        <i class="fa-light fa-code-branch" aria-hidden="true"></i>
+                        <div class="license-card-body">
+                            <span class="license-card-label">仓库</span>
+                            <span class="license-card-value">gentpan/LitePic</span>
+                        </div>
+                    </a>
+                    <a class="license-card" href="https://github.com/gentpan" target="_blank" rel="noopener noreferrer">
+                        <i class="fa-light fa-user-pen" aria-hidden="true"></i>
+                        <div class="license-card-body">
+                            <span class="license-card-label">作者</span>
+                            <span class="license-card-value">@gentpan</span>
+                        </div>
+                    </a>
+                    <div class="license-card">
+                        <i class="fa-light fa-scale-balanced" aria-hidden="true"></i>
+                        <div class="license-card-body">
+                            <span class="license-card-label">协议</span>
+                            <span class="license-card-value">MIT License</span>
+                        </div>
                     </div>
-                    <div class="license-meta-row">
-                        <span class="license-meta-label"><i class="fa-light fa-scale-balanced" aria-hidden="true"></i>开源协议</span>
-                        <span>MIT License</span>
-                    </div>
-                    <div class="license-meta-row">
-                        <span class="license-meta-label"><i class="fa-light fa-circle-question" aria-hidden="true"></i>问题反馈</span>
-                        <a href="https://github.com/gentpan/LitePic/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a>
-                    </div>
+                    <a class="license-card" href="https://github.com/gentpan/LitePic/issues" target="_blank" rel="noopener noreferrer">
+                        <i class="fa-light fa-circle-question" aria-hidden="true"></i>
+                        <div class="license-card-body">
+                            <span class="license-card-label">反馈</span>
+                            <span class="license-card-value">GitHub Issues</span>
+                        </div>
+                    </a>
                 </div>
-                <p class="license-note">二次开发、分发或商用时，请保留版权与协议声明，并以仓库中的 LICENSE 文件为准。</p>
+
+                <!-- 法律声明 -->
+                <p class="license-note">
+                    <i class="fa-light fa-circle-info" aria-hidden="true"></i>
+                    <span>二次开发、分发或商用时，请保留版权与协议声明，并以仓库中的 LICENSE 文件为准。</span>
+                </p>
+
+                <!-- 官网入口 -->
+                <a class="license-footer" href="https://litepic.io" target="_blank" rel="noopener noreferrer">
+                    <span>访问官网 litepic.io</span>
+                    <i class="fa-light fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                </a>
             </div>
         `;
 
@@ -588,27 +807,194 @@ function initLicenseDialog() {
 
 document.addEventListener('DOMContentLoaded', initLicenseDialog);
 
-// 缩略图右键时临时切换为原图地址，确保“查看图片/在新标签打开图片”走原图
-document.addEventListener('contextmenu', (e) => {
-    const img = e.target.closest('.img-box img[data-original-url], .img-card img[data-original-url]');
-    if (!img) return;
+/* =====================================================================
+ * 图库卡片右键菜单
+ * ---------------------------------------------------------------------
+ *  - 只在 .img-card / .img-box 上拦截，其它区域走浏览器默认菜单
+ *  - 菜单项按 data-* 标志位条件渲染：
+ *      重新生成缩略图 / 复制原图链接 / 下载原图 / 下载 WebP / 下载 AVIF /
+ *      下载缩略图 / 转换 AVIF（默认 WebP 时显示）/ 转换 WebP（默认 AVIF 时显示）
+ *  - 点击菜单外、按 Esc、或滚动都会自动关闭
+ * ===================================================================== */
+(function() {
+    let menuEl = null;
 
-    const originalUrl = img.dataset.originalUrl || '';
-    const currentSrc = img.getAttribute('src') || '';
-    if (!originalUrl || currentSrc === originalUrl) {
-        return;
+    function close() {
+        if (menuEl) {
+            menuEl.remove();
+            menuEl = null;
+        }
+        document.removeEventListener('mousedown', onOutside, true);
+        document.removeEventListener('keydown', onKey, true);
+        window.removeEventListener('scroll', close, true);
+        window.removeEventListener('resize', close, true);
     }
 
-    img.dataset.thumbUrl = currentSrc;
-    img.setAttribute('src', originalUrl);
+    function onOutside(e) {
+        if (menuEl && !menuEl.contains(e.target)) close();
+    }
+    function onKey(e) {
+        if (e.key === 'Escape') close();
+    }
 
-    window.setTimeout(() => {
-        const thumbUrl = img.dataset.thumbUrl || '';
-        if (thumbUrl !== '') {
-            img.setAttribute('src', thumbUrl);
+    // 触发下载 — 用 <a download> 同源文件直接保存到本地
+    function download(url, filename) {
+        if (!url) return;
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename || '';
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    }
+
+    async function copyToClipboard(text) {
+        try {
+            await navigator.clipboard.writeText(text);
+            window.ImgEt?.Utils?.showNotification?.('已复制到剪贴板', 'success');
+        } catch {
+            window.ImgEt?.Utils?.showNotification?.('复制失败', 'error');
         }
-    }, 5000);
-}, true);
+    }
+
+    // 调 /api/v1/action 重新生成缩略图，成功后给 <img src> 加 cache-bust
+    async function regenerateThumbnail(filename, card) {
+        const csrf = window.CSRF_TOKEN || '';
+        try {
+            const res = await fetch('/api/v1/action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ action: 'regenerate_thumbnail', file: filename, csrf_token: csrf }),
+            });
+            const json = await res.json();
+            if (json.status !== 'success') throw new Error(json.message || '生成失败');
+            // 刷新可见缩略图：原 src + ?v=<时间戳> 强制 reload
+            const img = card.querySelector('img');
+            if (img) {
+                const baseUrl = json.thumb_url || img.getAttribute('src');
+                const sep = baseUrl.includes('?') ? '&' : '?';
+                img.setAttribute('src', baseUrl + sep + 'v=' + Date.now());
+            }
+            card.dataset.thumbUrl = json.thumb_url || card.dataset.thumbUrl || '';
+            card.dataset.hasThumb = '1';
+            window.ImgEt?.Utils?.showNotification?.('缩略图已重新生成', 'success');
+        } catch (e) {
+            window.ImgEt?.Utils?.showNotification?.('缩略图生成失败：' + e.message, 'error');
+        }
+    }
+
+    // 通用 action 调用 — 用于 webp / avif 转换
+    async function runAction(action, filename) {
+        const csrf = window.CSRF_TOKEN || '';
+        const labelMap = { webp: '转换 WebP', avif: '转换 AVIF' };
+        const label = labelMap[action] || action;
+        try {
+            const res = await fetch('/api/v1/action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ action, file: filename, csrf_token: csrf }),
+            });
+            const json = await res.json();
+            if (json.status !== 'success') throw new Error(json.message || '操作失败');
+            window.ImgEt?.Utils?.showNotification?.(label + ' 完成', 'success');
+        } catch (e) {
+            window.ImgEt?.Utils?.showNotification?.(label + ' 失败：' + e.message, 'error');
+        }
+    }
+
+    // 构建菜单 HTML — items 是 [{icon, label, onClick} | {separator: true}]
+    function build(items, x, y) {
+        close(); // 之前的菜单先关掉
+        menuEl = document.createElement('div');
+        menuEl.className = 'img-context-menu';
+        menuEl.innerHTML = items.map((it, i) => {
+            if (it.separator) {
+                return '<div class="img-context-menu__sep" aria-hidden="true"></div>';
+            }
+            return `<button type="button" class="img-context-menu__item" data-idx="${i}">
+                <i class="fa-light ${it.icon}" aria-hidden="true"></i>
+                <span>${it.label}</span>
+            </button>`;
+        }).join('');
+        document.body.appendChild(menuEl);
+
+        // 边缘检测 + 翻转
+        const rect = menuEl.getBoundingClientRect();
+        const vw = window.innerWidth, vh = window.innerHeight;
+        const left = (x + rect.width  > vw - 8) ? Math.max(8, x - rect.width)  : x;
+        const top  = (y + rect.height > vh - 8) ? Math.max(8, y - rect.height) : y;
+        menuEl.style.left = left + 'px';
+        menuEl.style.top  = top + 'px';
+
+        // 绑定 item click
+        menuEl.querySelectorAll('.img-context-menu__item').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const idx = parseInt(btn.dataset.idx, 10);
+                const item = items[idx];
+                close();
+                if (item && typeof item.onClick === 'function') {
+                    item.onClick();
+                }
+            });
+        });
+
+        // 关闭事件
+        setTimeout(() => {
+            document.addEventListener('mousedown', onOutside, true);
+            document.addEventListener('keydown', onKey, true);
+            window.addEventListener('scroll', close, true);
+            window.addEventListener('resize', close, true);
+        }, 0);
+    }
+
+    document.addEventListener('contextmenu', (e) => {
+        const card = e.target.closest('.img-card, .img-box');
+        if (!card) return;          // 不在图片卡片上 → 让浏览器默认菜单接管
+        e.preventDefault();          // 在卡片上 → 阻止默认菜单，弹自定义
+
+        const ds = card.dataset;
+        const filename = ds.filename || '';
+        const url      = ds.url || '';
+        const thumbUrl = ds.thumbUrl || '';
+        const webpUrl  = ds.webpUrl || '';
+        const avifUrl  = ds.avifUrl || '';
+        const hasWebp  = ds.hasWebp === '1';
+        const hasAvif  = ds.hasAvif === '1';
+        const hasThumb = ds.hasThumb === '1';
+        const canConvert = ds.canConvert === '1';
+        const preferred = (ds.preferredFormat || 'webp').toLowerCase();
+
+        const items = [
+            { icon: 'fa-image', label: '重新生成缩略图', onClick: () => regenerateThumbnail(filename, card) },
+            { separator: true },
+            { icon: 'fa-link',  label: '复制原图链接',   onClick: () => copyToClipboard(url) },
+            { separator: true },
+            { icon: 'fa-download', label: '下载原图',     onClick: () => download(url, filename) },
+        ];
+        if (hasWebp && webpUrl) {
+            items.push({ icon: 'fa-download', label: '下载 WebP', onClick: () => download(webpUrl, filename.replace(/\.[a-z0-9]+$/i, '.webp')) });
+        }
+        if (hasAvif && avifUrl) {
+            items.push({ icon: 'fa-download', label: '下载 AVIF', onClick: () => download(avifUrl, filename.replace(/\.[a-z0-9]+$/i, '.avif')) });
+        }
+        if (hasThumb && thumbUrl) {
+            items.push({ icon: 'fa-download', label: '下载缩略图', onClick: () => download(thumbUrl, 'thumb_' + filename) });
+        }
+        // 提供"非默认偏好格式"的转换入口 — 默认按钮已经显示偏好格式那个，
+        // 右键补一个反方向，方便用户偶尔切到另一种格式。
+        if (canConvert) {
+            items.push({ separator: true });
+            if (preferred === 'avif') {
+                items.push({ icon: 'fa-file-code', label: '转换 WebP', onClick: () => runAction('webp', filename) });
+            } else {
+                items.push({ icon: 'fa-file-code', label: '转换 AVIF', onClick: () => runAction('avif', filename) });
+            }
+        }
+
+        build(items, e.clientX, e.clientY);
+    });
+})();
 
 /* ---------------------------
    主题切换（Footer 按钮逻辑）
@@ -1043,7 +1429,22 @@ window.ApiManager = {
         return this.activeLoginRedirect || panel?.dataset?.activeRedirect || panel?.dataset?.successRedirect || this.primaryLoginButton?.dataset?.loginRedirect || '';
     },
 
-    finishLogin() {
+    finishLogin(opts = {}) {
+        // 仍在用默认密码 → 强制弹出改密窗口，跳过自动跳转
+        if (opts && opts.mustChangePassword) {
+            this.hideLoginPanel();
+            this.openChangePasswordModal({
+                forced: true,
+                currentPassword: opts.currentPassword || '',
+                onSuccess: () => {
+                    const redirect = this.getLoginSuccessRedirect();
+                    if (redirect) window.location.href = redirect;
+                    else window.location.reload();
+                },
+            });
+            return;
+        }
+
         const redirect = this.getLoginSuccessRedirect();
         this.hideLoginPanel();
         setTimeout(() => {
@@ -1053,6 +1454,151 @@ window.ApiManager = {
                 window.location.reload();
             }
         }, 1000);
+    },
+
+    /**
+     * 强制 / 主动 修改密码弹窗。
+     * forced=true 时：用户不能跳过（无 X、无 ESC、无外部点击），必须改密成功后才放行。
+     * 当前密码已知（刚登录拿到）则预填。
+     */
+    openChangePasswordModal(opts = {}) {
+        const forced = !!opts.forced;
+        const currentPassword = opts.currentPassword || '';
+        const onSuccess = typeof opts.onSuccess === 'function' ? opts.onSuccess : null;
+
+        // 如果已经存在则复用
+        let overlay = document.getElementById('changePasswordOverlay');
+        if (overlay) overlay.remove();
+
+        overlay = document.createElement('div');
+        overlay.id = 'changePasswordOverlay';
+        overlay.className = 'change-password-overlay' + (forced ? ' is-forced' : '');
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-labelledby', 'changePasswordTitle');
+        overlay.innerHTML = `
+            <div class="change-password-dialog" role="document">
+                <header class="change-password-header" id="changePasswordTitle">
+                    <i class="fa-light fa-shield-keyhole" aria-hidden="true"></i>
+                    <span>${forced ? '请修改默认密码' : '修改管理员密码'}</span>
+                </header>
+                ${forced ? '<p class="change-password-notice">检测到您仍在使用初始默认密码 <code>12345678</code>。为了账户安全，请立即设置一个新的强密码。</p>' : ''}
+                <form class="change-password-form" novalidate>
+                    <label class="change-password-field">
+                        <span>当前密码</span>
+                        <input type="password" name="currentPassword" autocomplete="current-password" value="${currentPassword.replace(/"/g, '&quot;')}" ${currentPassword ? 'readonly' : 'required'}>
+                    </label>
+                    <label class="change-password-field">
+                        <span>新密码（至少 8 位）</span>
+                        <input type="password" name="newPassword" autocomplete="new-password" minlength="8" required>
+                    </label>
+                    <label class="change-password-field">
+                        <span>确认新密码</span>
+                        <input type="password" name="confirmPassword" autocomplete="new-password" minlength="8" required>
+                    </label>
+                    <div class="change-password-actions">
+                        ${forced ? '' : '<button type="button" class="change-password-cancel">取消</button>'}
+                        <button type="submit" class="change-password-submit">
+                            <i class="fa-light fa-check" aria-hidden="true"></i>
+                            <span>保存新密码</span>
+                        </button>
+                    </div>
+                    <p class="change-password-msg" role="status" aria-live="polite"></p>
+                </form>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        document.body.classList.add('login-modal-open');
+
+        const dialog = overlay.querySelector('.change-password-dialog');
+        const form = overlay.querySelector('.change-password-form');
+        const submitBtn = overlay.querySelector('.change-password-submit');
+        const cancelBtn = overlay.querySelector('.change-password-cancel');
+        const msg = overlay.querySelector('.change-password-msg');
+        const newPwdInput = form.querySelector('input[name="newPassword"]');
+
+        const close = () => {
+            overlay.remove();
+            document.body.classList.remove('login-modal-open');
+        };
+
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => close());
+        }
+
+        // 强制模式下点击外层 / ESC 都不关闭
+        if (!forced) {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) close();
+            });
+            document.addEventListener('keydown', function escClose(e) {
+                if (e.key === 'Escape' && document.getElementById('changePasswordOverlay')) {
+                    close();
+                    document.removeEventListener('keydown', escClose);
+                }
+            });
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            msg.textContent = '';
+            msg.className = 'change-password-msg';
+
+            const fd = new FormData(form);
+            const payload = {
+                action: 'change_password',
+                currentPassword: String(fd.get('currentPassword') || '').trim(),
+                newPassword: String(fd.get('newPassword') || '').trim(),
+                confirmPassword: String(fd.get('confirmPassword') || '').trim(),
+            };
+
+            if (payload.newPassword.length < 8) {
+                msg.textContent = '新密码至少 8 位';
+                msg.classList.add('is-error');
+                return;
+            }
+            if (payload.newPassword !== payload.confirmPassword) {
+                msg.textContent = '两次输入的新密码不一致';
+                msg.classList.add('is-error');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-light fa-spinner-third fa-spin" aria-hidden="true"></i> <span>保存中...</span>';
+            try {
+                const resp = await fetch('/api/auth.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(payload),
+                });
+                const data = await resp.json().catch(() => ({}));
+                if (!resp.ok || data.status !== 'success') {
+                    throw new Error(data.message || `请求失败 (${resp.status})`);
+                }
+                msg.textContent = '密码已修改';
+                msg.classList.add('is-success');
+                ImgEt.Utils.showNotification('密码修改成功', 'success', { variant: 'auth' });
+                setTimeout(() => {
+                    close();
+                    if (onSuccess) onSuccess();
+                }, 600);
+            } catch (err) {
+                console.error('Change password error:', err);
+                msg.textContent = err.message || '修改失败';
+                msg.classList.add('is-error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa-light fa-check" aria-hidden="true"></i> <span>保存新密码</span>';
+            }
+        });
+
+        // 聚焦第一个空输入
+        const firstEmpty = form.querySelector('input:not([readonly])');
+        if (firstEmpty) setTimeout(() => firstEmpty.focus(), 100);
     },
 
     // 登录处理
@@ -1100,8 +1646,13 @@ window.ApiManager = {
 
             // 修正：检查 data.status 是否为 'success'，而不是 data.success
             if (data.status === 'success') {
-                ImgEt.Utils.showNotification('登录成功', 'success', { variant: 'auth' });
-                this.finishLogin();
+                if (data.must_change_password) {
+                    ImgEt.Utils.showNotification('登录成功，请立即修改默认密码', 'warning', { variant: 'auth' });
+                    this.finishLogin({ mustChangePassword: true, currentPassword: apiKey });
+                } else {
+                    ImgEt.Utils.showNotification('登录成功', 'success', { variant: 'auth' });
+                    this.finishLogin();
+                }
             } else {
                 throw new Error(data.message || 'API Key 无效');
             }
@@ -1157,8 +1708,13 @@ window.ApiManager = {
 
             const verifyData = await verifyRes.json();
             if (verifyData.status === 'success') {
-                ImgEt.Utils.showNotification('Passkey 登录成功', 'success', { variant: 'auth' });
-                this.finishLogin();
+                if (verifyData.must_change_password) {
+                    ImgEt.Utils.showNotification('Passkey 登录成功，请立即修改默认管理员密码', 'warning', { variant: 'auth' });
+                    this.finishLogin({ mustChangePassword: true });
+                } else {
+                    ImgEt.Utils.showNotification('Passkey 登录成功', 'success', { variant: 'auth' });
+                    this.finishLogin();
+                }
             } else {
                 throw new Error(verifyData.message || 'Passkey 验证失败');
             }
@@ -1555,14 +2111,20 @@ class DeleteManager extends BaseProcessor {
         setTimeout(async () => {
             imgCard.remove();
             GalleryManager.updateImageCount();
-            // 只有在非批量模式才补位（避免重复请求）
+
+            // 单图删除补位 — 始终走 #loadNewImages(1) 拿一张新图增量
+            // 插入到末尾。
+            //
+            // 旧逻辑会在 .gallery-shell 存在时调 refreshCurrentPage()，
+            // 那个方法会重新 fetch 整页 HTML、replace shell DOM、所有
+            // <img> 重新解码、所有事件 listener 重新绑定 — 视觉上等于
+            // 整页刷新一次，500ms-1s 的卡顿。
+            //
+            // 改成 #loadNewImages(1) 后只新建一个卡片节点 + 装绑它的
+            // 事件，跟首页 / 其它页面保持一致的丝滑增量行为。
             if (!suppressLoad) {
                 try {
-                    if (document.querySelector('.gallery-shell')) {
-                        await GalleryManager.refreshCurrentPage();
-                    } else {
-                        await this.#loadNewImages(1);
-                    }
+                    await this.#loadNewImages(1);
                 } catch (e) { /* already handled inside */ }
             }
         }, this.#updateDelay);
@@ -1603,7 +2165,15 @@ class DeleteManager extends BaseProcessor {
                             const cardHtml = await ApiService.getCardTemplate(image);
                             gallery.insertAdjacentHTML('beforeend', cardHtml);
                             const newCard = gallery.lastElementChild;
-                            if (newCard) GalleryManager.initNewCard(newCard);
+                            if (newCard) {
+                                GalleryManager.initNewCard(newCard);
+                                // 加 CSS 类触发淡入动画 — 跟删除的淡出对称，
+                                // 视觉上像"位置被另一张图自然填上"
+                                newCard.classList.add('appearing');
+                                requestAnimationFrame(() => {
+                                    requestAnimationFrame(() => newCard.classList.remove('appearing'));
+                                });
+                            }
                         } catch (errCard) {
                             console.error('插入新卡片失败:', errCard);
                         }
@@ -1615,7 +2185,13 @@ class DeleteManager extends BaseProcessor {
                             const cardHtml = await ApiService.getCardTemplate(image, 'recent');
                             uploadGrid.insertAdjacentHTML('beforeend', cardHtml);
                             const newCard = uploadGrid.lastElementChild;
-                            if (newCard) GalleryManager.initNewCard(newCard);
+                            if (newCard) {
+                                GalleryManager.initNewCard(newCard);
+                                newCard.classList.add('appearing');
+                                requestAnimationFrame(() => {
+                                    requestAnimationFrame(() => newCard.classList.remove('appearing'));
+                                });
+                            }
                         } catch (errCard) {
                             console.error('插入新卡片失败:', errCard);
                         }
@@ -1736,12 +2312,23 @@ class ImageProcessor extends BaseProcessor {
         const savedPercent = Number.isFinite(Number(data.saved_percent))
             ? Number(data.saved_percent).toFixed(1).replace(/\.0$/, '')
             : '0';
+        // 把后端实际调用的压缩引擎在 toast 标题里标出来 — 用户可以
+        // 一眼看到压缩方式设置是否生效（method 由 CompressionService
+        // 按 COMPRESSION_MODE 设置 dispatch 到 GD / TinyPNG / ImageMagick）
+        const engineLabels = {
+            gd:          'GD',
+            tinypng:     'TinyPNG',
+            imagemagick: 'ImageMagick',
+        };
+        const method = (data.method || data.mode || '').toLowerCase();
+        const engineName = engineLabels[method] || method || '';
+        const title = engineName ? `压缩完成 · ${engineName}` : '压缩完成';
         ImgEt.Utils.showNotification(
-            '压缩完成',
+            title,
             'success',
             {
                 variant: ['process', 'compress'],
-                title: '压缩完成',
+                title,
                 detail: `${originalSize} → ${compressedSize}`,
                 meta: `节省 ${savedSize} (${savedPercent}%)`,
                 icon: 'fa-arrows-minimize',
@@ -2302,6 +2889,45 @@ class GalleryManager {
             ImageProcessor.processSingleAvif(filename, card);
         } else if (btn.classList.contains('delete-btn')) {
             DeleteManager.handleDelete(filename);
+        }
+    }
+
+    /**
+     * 把单张图扔回处理队列（priority=10 优先于普通上传任务）。
+     * 后台 worker 会按当前 settings 重新生成缩略图 / WebP / AVIF / 水印。
+     * 适用场景：用户改了压缩设置 / 想给老图补一个 AVIF 版本 / 之前处理失败想再来一次。
+     */
+    static async handleReprocess(filename, card, btn) {
+        if (!filename) return;
+        if (!confirm(`将 ${filename} 扔回处理队列？\n\n后台会按当前设置重新生成缩略图 / WebP / AVIF / 水印（不会动原图）。`)) {
+            return;
+        }
+        const originalHTML = btn?.innerHTML;
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-light fa-spinner fa-spin"></i>';
+        }
+        try {
+            const resp = await fetch('/api/v1/queue/reprocess?filename=' + encodeURIComponent(filename), {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (data.status !== 'success') {
+                throw new Error(data.message || '请求失败');
+            }
+            ImgEt.Utils.showNotification(
+                `已加入队列（队列深度：${data.queue_pending}）— 处理完成后刷新即可看到新版本`,
+                'success'
+            );
+        } catch (e) {
+            ImgEt.Utils.showNotification('重新处理失败：' + (e.message || e), 'error');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            }
         }
     }
 
@@ -2961,14 +3587,81 @@ class UploadManager {
             file,
             name: file.name || `image-${id}`,
             extension: this.getFileExtension(file.name),
-            previewUrl: file.type && file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
+            previewUrl: '',                 // 异步生成 128px 缩略图填上（见 generateThumbnail）
             loaded: 0,
             total: Number.isFinite(file.size) && file.size > 0 ? file.size : 1,
             state: 'queued',
             error: ''
         };
         this.uploadRecords.set(id, record);
+
+        // 关键：不要直接把 URL.createObjectURL(file) 当 src — 那是个指向原始
+        // 4032×3024 等全分辨率位图的 blob URL，浏览器会真的把整张解码进内存
+        // 哪怕 CSS 只显示 46×46。50 张手机照片直接占爆 GPU/RAM，所以我们
+        // 用 canvas 离屏缩成 128 px JPEG blob 再用作预览，原图 record.file
+        // 不动（上传时仍是原始 file 对象）。
+        if (file.type && file.type.startsWith('image/')) {
+            this.generateThumbnail(file).then((thumbUrl) => {
+                if (!this.uploadRecords.has(id)) return;     // 用户已经移除
+                record.previewUrl = thumbUrl;
+                this.updateQueueRowPreview(id, thumbUrl);
+            }).catch(() => {
+                // 缩略图失败不影响上传 — 留空，UI 会 fallback 到默认 file-image 图标
+            });
+        }
         return record;
+    }
+
+    /**
+     * 把本地 File 离屏缩成 ≤128 px 的 JPEG blob URL，用于队列预览。
+     * 用 createImageBitmap 异步解码（不阻塞主线程），canvas 缩放后转 blob。
+     * 比 `URL.createObjectURL(file)` 直接当 src 节省 99%+ 内存。
+     */
+    async generateThumbnail(file) {
+        const MAX = 128;
+        let bitmap = null;
+        try {
+            // createImageBitmap 是 worker-friendly 的解码方式，比 new Image()
+            // + onload 快且不会污染主线程。Safari 14+ / Chrome 50+ 全部支持。
+            bitmap = await createImageBitmap(file);
+        } catch (e) {
+            // 极少数老格式（HEIC 等）createImageBitmap 不认 — 回退到原 file 的
+            // object URL，至少能显示，但浏览器会承受全分辨率代价（罕见情况
+            // 不做优化，跟旧行为持平）
+            return URL.createObjectURL(file);
+        }
+
+        const ratio = Math.min(MAX / bitmap.width, MAX / bitmap.height, 1);
+        const w = Math.max(1, Math.round(bitmap.width * ratio));
+        const h = Math.max(1, Math.round(bitmap.height * ratio));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d', { alpha: false });
+        ctx.imageSmoothingQuality = 'medium';
+        ctx.drawImage(bitmap, 0, 0, w, h);
+        bitmap.close?.();        // 立即释放原始解码位图（这是大头）
+
+        return await new Promise((resolve) => {
+            canvas.toBlob((blob) => {
+                resolve(blob ? URL.createObjectURL(blob) : '');
+            }, 'image/jpeg', 0.78);
+        });
+    }
+
+    /**
+     * 在不重建整张队列 DOM 的前提下，把刚生成的缩略图 src 注入到对应行。
+     * 配合 createUploadRecord 异步流程使用。
+     */
+    updateQueueRowPreview(recordId, previewUrl) {
+        if (!previewUrl || !this.elements.queueList) return;
+        const row = this.elements.queueList.querySelector(`[data-record-id="${recordId}"]`);
+        if (!row) return;
+        const thumbBox = row.querySelector('.upload-queue-thumb');
+        if (!thumbBox) return;
+        // 只替换 thumbBox 内容，不动外层 article — 不会触发整列 re-decode
+        thumbBox.innerHTML = `<img src="${previewUrl}" alt="" loading="lazy" decoding="async" width="46" height="46">`;
     }
 
     getQueueRecords() {
@@ -3023,8 +3716,12 @@ class UploadManager {
             const progress = Math.round(this.getRecordProgress(record) * 100);
             const removable = record.state !== 'uploading' && record.state !== 'processing';
             const uploadable = ['queued', 'failed'].includes(record.state) && !active;
+            // 缩略图属性：
+            //   loading="lazy"   — 滚出视口的图不解码，滑回来才解
+            //   decoding="async" — 解码丢到 worker 线程，不阻塞滚动
+            //   width/height     — 提前占好布局空间，避免 CLS / 重排
             const thumb = record.previewUrl
-                ? `<img src="${record.previewUrl}" alt="">`
+                ? `<img src="${record.previewUrl}" alt="" loading="lazy" decoding="async" width="46" height="46">`
                 : `<i class="fa-light fa-file-image"></i>`;
             return `
                 <article class="upload-queue-item ${status.className}" data-record-id="${record.id}">
@@ -3049,6 +3746,55 @@ class UploadManager {
                 </article>
             `;
         }).join('');
+    }
+
+    /**
+     * 单行原地更新 — 不动任何 <img>，只改 class / 状态文字 / 进度条。
+     * 替代旧的"settle 后整张 list.innerHTML 重建"做法，避免 50 张图全
+     * 量重建 50 次造成的滚动卡顿和缩略图重新解码。
+     */
+    updateQueueRow(record) {
+        const list = this.elements.queueList;
+        if (!list || !record) return;
+        const row = list.querySelector(`[data-record-id="${record.id}"]`);
+        if (!row) {
+            // 不存在 — 触发一次完整 render（添加 / 移除场景）
+            this.renderUploadQueue();
+            return;
+        }
+        const status = this.getQueueStatus(record);
+        const progress = Math.round(this.getRecordProgress(record) * 100);
+        const active = this.isBatchUploading();
+        const removable = record.state !== 'uploading' && record.state !== 'processing';
+        const uploadable = ['queued', 'failed'].includes(record.state) && !active;
+
+        // 保留所有原 class，只重写 is-* 状态修饰符
+        row.className = 'upload-queue-item ' + status.className;
+
+        const stateBox = row.querySelector('.upload-queue-state');
+        if (stateBox) {
+            stateBox.innerHTML = `<span><i class="fa-light ${status.icon}"></i>${escapeHtml(status.text)}</span><em>${progress}%</em>`;
+        }
+        const bar = row.querySelector('.upload-queue-progress > span');
+        if (bar) bar.style.width = progress + '%';
+
+        const uploadBtn = row.querySelector('button[data-queue-action="upload"]');
+        if (uploadBtn) uploadBtn.disabled = !uploadable;
+        const removeBtn = row.querySelector('button[data-queue-action="remove"]');
+        if (removeBtn) removeBtn.disabled = !removable;
+    }
+
+    /**
+     * 队列头部按钮（一键上传 / 清空）的可用状态 — 跟整张 list 解耦，
+     * 单文件 settle 时刷它就够了，不用整张重建。
+     */
+    updateQueueHeaderState() {
+        const records = this.getQueueRecords();
+        const pendingCount = records.filter(r => ['queued', 'failed'].includes(r.state)).length;
+        const active = this.isBatchUploading();
+        if (this.elements.queueCount) this.elements.queueCount.textContent = String(records.length);
+        if (this.elements.uploadAllBtn) this.elements.uploadAllBtn.disabled = pendingCount === 0 || active;
+        if (this.elements.clearQueueBtn) this.elements.clearQueueBtn.disabled = records.length === 0 || active;
     }
 
     /**
@@ -3097,7 +3843,11 @@ class UploadManager {
                 record.state = 'failed';
             }
             record.loaded = record.total;
-            this.renderUploadQueue();
+            // 关键改动：只更新该行 + 头部按钮态，不再整张 list.innerHTML 重建。
+            // 之前的写法在 50 张队列下，每完成一张就重建整张 50 行 + 重新解码
+            // 50 张缩略图，是滚动卡顿和"空白闪烁"的主要根因。
+            this.updateQueueRow(record);
+            this.updateQueueHeaderState();
             this.updateBatchProgressUI();
             this.processUploadQueue();
             this.checkUploadComplete();
@@ -3225,6 +3975,9 @@ class UploadManager {
         record.state = 'uploading';
         record.loaded = loaded;
         record.total = total > 0 ? total : record.total;
+        // 单行原地更新（更新该行的状态文字 + 进度条），避免每次进度回调
+        // 都触发整个 list.innerHTML 重建造成滚动卡顿
+        this.updateQueueRow(record);
         this.updateBatchProgressUI();
     }
 
@@ -3239,6 +3992,7 @@ class UploadManager {
         record.processingText = tasks.length > 0
             ? `服务器处理中：${tasks.join('，')}`
             : '服务器处理中';
+        this.updateQueueRow(record);
         this.updateBatchProgressUI();
     }
 
@@ -3410,6 +4164,15 @@ class UploadManager {
             // 修改这里：使用原始文件名显示成功消息
             this.showUploadSuccess(file.name, record, result);
             this.completedUploads.push(result);
+
+            // 服务端可能已把缩略图 / 压缩 / WebP / AVIF 任务入队，由 ImageProcessor::drain
+            // 在响应送达后异步处理。把这条记录扔进 poller，每 2.5s 拉一次状态，
+            // 处理完成后把行状态从 "已上传" 升级为 "已处理"（含 webp/avif/缩略图标记）
+            if (result.processing && result.processing.queued && result.filename) {
+                record.serverFilename = String(result.filename);
+                record.serverState = 'post-processing';
+                this.startPostProcessPoll();
+            }
             return true;
 
         } catch (err) {
@@ -3417,6 +4180,84 @@ class UploadManager {
             this.handleUploadError(record, err.message);
             return false;
         }
+    }
+
+    /**
+     * 异步处理状态轮询（poller）。
+     * 单实例：一个 poller 服务于所有正在 post-processing 的 record。
+     * 每 2.5s 跑一次，每次最多 100 个 id。Queue 全空时自动停。
+     */
+    startPostProcessPoll() {
+        if (this.postProcessPollTimer) return;
+        const tick = async () => {
+            const pending = this.getQueueRecords().filter(
+                (r) => r.serverState === 'post-processing' && r.serverFilename
+            );
+            if (pending.length === 0) {
+                window.clearInterval(this.postProcessPollTimer);
+                this.postProcessPollTimer = 0;
+                return;
+            }
+
+            // 只查这一轮在排队的 id（最多 100 — server 端上限同步）
+            const ids = pending.slice(0, 100).map((r) => r.serverFilename);
+            try {
+                const resp = await fetch('/api/v1/image-status?ids=' + encodeURIComponent(ids.join(',')), {
+                    credentials: 'same-origin',
+                    headers: { 'Accept': 'application/json' },
+                });
+                const data = await resp.json().catch(() => null);
+                if (!data || data.status !== 'success' || !Array.isArray(data.items)) return;
+
+                const byId = new Map(data.items.map((it) => [it.filename, it]));
+                pending.forEach((record) => {
+                    const item = byId.get(record.serverFilename);
+                    if (!item) return;
+
+                    // queue_state === 'done' 意味着所有 post-process 工作已完成
+                    if (item.queue_state === 'done') {
+                        record.serverState = 'done-processed';
+                        record.serverProcessed = {
+                            currentFilename: item.current_filename,
+                            currentUrl: item.current_url,
+                            thumbUrl: item.thumb_url,
+                            hasWebp: !!item.has_webp,
+                            hasAvif: !!item.has_avif,
+                            hasThumbnail: !!item.has_thumbnail,
+                        };
+                        // 行内显示一条进度文字 — 用 .upload-queue-item 上的 state 标志
+                        const list = this.elements.queueList;
+                        const row = list?.querySelector(`[data-record-id="${record.id}"]`);
+                        if (row) {
+                            const stateBox = row.querySelector('.upload-queue-state span');
+                            if (stateBox) {
+                                const tags = [];
+                                if (item.has_webp) tags.push('WebP');
+                                if (item.has_avif) tags.push('AVIF');
+                                if (item.has_thumbnail) tags.push('缩略图');
+                                const suffix = tags.length ? `（${tags.join(' · ')}）` : '';
+                                stateBox.innerHTML = `<i class="fa-light fa-check-double"></i>已处理${suffix}`;
+                            }
+                        }
+                    } else if (item.queue_state === 'processing') {
+                        // 中间态：服务端正在跑某一项工作
+                        const list = this.elements.queueList;
+                        const row = list?.querySelector(`[data-record-id="${record.id}"]`);
+                        const stateBox = row?.querySelector('.upload-queue-state span');
+                        if (stateBox) {
+                            stateBox.innerHTML = '<i class="fa-light fa-spinner fa-spin"></i>处理中...';
+                        }
+                    }
+                });
+            } catch (e) {
+                // 静默 — 网络抖动 / 后端临时错都不该让 UI 卡住
+                console.warn('[post-process poll]', e);
+            }
+        };
+
+        // 立即跑一次（避免第一次 2.5s 才有反馈），然后定时
+        tick();
+        this.postProcessPollTimer = window.setInterval(tick, 2500);
     }
 
     /**

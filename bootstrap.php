@@ -7,10 +7,13 @@ declare(strict_types=1);
  * Single entry point that all PHP requests flow through. Responsibilities:
  *   1. Define APP_ROOT
  *   2. Register the PSR-4 autoloader
- *   3. Load .env into Config
- *   4. Bring up Logger
+ *   3. Bring up Logger
+ *   4. Load .env (first-boot fallback only — DB is the canonical store)
  *   5. Open the SQLite connection and run any pending migrations
- *   6. Pull in `config.php` constants (consumed by views/templates)
+ *   6. Warm the settings cache from the DB (one SELECT * FROM settings),
+ *      then seed it from .env if the table is still empty (one-time)
+ *   7. Pull in `config.php` constants (define()s read from settings cache
+ *      first via env_value/bool/csv, then $_ENV, then defaults)
  */
 
 if (!defined('APP_ROOT')) {
@@ -20,12 +23,12 @@ if (!defined('APP_ROOT')) {
 require_once APP_ROOT . '/app/Core/Autoloader.php';
 \LitePic\Core\Autoloader::register('LitePic\\', APP_ROOT . '/app');
 
-\LitePic\Core\Config::init(APP_ROOT . '/.env');
 \LitePic\Core\Logger::init(APP_ROOT . '/logs');
 
-// Constants (SITE_NAME, MAX_FILE_SIZE, WATERMARK_*, S3_*, ENABLE_*).
-// Views and templates reference these directly.
-require_once APP_ROOT . '/config.php';
+// .env is now optional — load it into $_ENV so first-boot installs and
+// CLI scripts that ship a .env still work, but every save via the
+// settings UI persists to the DB and shadows the .env value from then on.
+\LitePic\Core\Config::init(APP_ROOT . '/.env');
 
 \LitePic\Core\Database::init(APP_ROOT . '/data/litepic.sqlite');
 
@@ -41,3 +44,15 @@ try {
     }
 }
 
+// Warm the settings cache (DB → static map). On a fresh install where
+// the settings table is still empty, seedFromEnvIfEmpty() copies any
+// values present in .env into the DB so subsequent UI saves don't get
+// silently shadowed. After this point env_value/bool/csv read DB-first.
+\LitePic\Core\Config::warmSettings();
+\LitePic\Core\Config::seedFromEnvIfEmpty();
+
+// Constants (SITE_NAME, MAX_FILE_SIZE, WATERMARK_*, S3_*, ENABLE_*).
+// Views and templates reference these directly. The env_value/bool/csv
+// helpers consult the settings cache first, so define() effectively
+// loads from SQLite without any caller changes.
+require_once APP_ROOT . '/config.php';

@@ -23,7 +23,7 @@ final class ConversionService
             $filepath,
             'webp',
             'imagewebp',
-            80,
+            (int)(defined('WEBP_QUALITY') ? WEBP_QUALITY : 80),
             'WebP'
         );
     }
@@ -34,7 +34,7 @@ final class ConversionService
             $filepath,
             'avif',
             'imageavif',
-            80,
+            (int)(defined('AVIF_QUALITY') ? AVIF_QUALITY : 80),
             'AVIF'
         );
     }
@@ -112,9 +112,7 @@ final class ConversionService
 
         // GD treats images as RGBA truecolor internally; 1.8x for intermediate buffers.
         $estimated = (int)($w * $h * 4 * 1.8);
-        $limit = function_exists('ini_size_to_bytes')
-            ? \LitePic\Service\Upload\UploadService::iniSizeToBytes((string)ini_get('memory_limit'))
-            : 0;
+        $limit = \LitePic\Service\Upload\UploadService::iniSizeToBytes((string)ini_get('memory_limit'));
         if ($limit <= 0) return true; // -1 or unparseable means unlimited
         $used = (int)memory_get_usage(true);
         $safety = 8 * 1024 * 1024;
@@ -163,10 +161,6 @@ final class ConversionService
 
     private static function convert(string $filepath, string $targetExt, string $gdFn, int $quality, string $label): bool
     {
-        if (!function_exists($gdFn)) {
-            error_log("Conversion error: 当前环境不支持 {$label}");
-            return false;
-        }
         if (!file_exists($filepath)) {
             error_log("Conversion error: 原始文件不存在 ({$filepath})");
             return false;
@@ -177,39 +171,177 @@ final class ConversionService
             error_log("Conversion error: 无法获取图片信息 ({$filepath})");
             return false;
         }
+        $w = (int)($info[0] ?? 0);
+        $h = (int)($info[1] ?? 0);
         $mime = (string)($info['mime'] ?? '');
-        $source = self::createImageResource($filepath, $mime);
-        if (!$source) {
-            error_log("Conversion error: 无法创建图片资源 ({$filepath})");
+
+        // 绝对上限：超大图（如 200MP+）直接跳过，避免一张图把整个 PHP-FPM
+        // 进程的内存吃光导致 worker 被 OOM kill。默认 100MP，可在 .env 调。
+        $maxPixels = defined('IMAGE_PROCESS_MAX_PIXELS') ? (int)IMAGE_PROCESS_MAX_PIXELS : 100_000_000;
+        if ($maxPixels > 0 && $w > 0 && $h > 0 && ($w * $h) > $maxPixels) {
+            Logger::warning('Skip conversion: image exceeds IMAGE_PROCESS_MAX_PIXELS', [
+                'file' => basename($filepath), 'target' => $label,
+                'width' => $w, 'height' => $h, 'pixels' => $w * $h, 'max' => $maxPixels,
+            ]);
             return false;
         }
 
         $targetPath = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.' . $targetExt, $filepath);
         if (!is_string($targetPath) || $targetPath === '') {
-            imagedestroy($source);
             error_log("Conversion error: 无法确定 {$label} 输出路径");
+            return false;
+        }
+
+        // 决定走哪个引擎 — 由 CONVERSION_ENGINE 设置控制：
+        //   auto    : Imagick 优先（处理大图省内存），不可用回退 GD
+        //   imagick : 强制 Imagick，不可用就直接失败（不偷偷回退到 GD）
+        //   gd      : 强制 GD（兼容性好但 30MP 以上易爆内存）
+        $engine = defined('CONVERSION_ENGINE') ? CONVERSION_ENGINE : 'auto';
+        $tryImagick = ($engine === 'imagick' || $engine === 'auto') && self::imagickSupports($targetExt);
+        $tryGd = ($engine === 'gd' || $engine === 'auto');
+
+        if ($tryImagick && self::convertWithImagick($filepath, $targetPath, $targetExt, $quality, $label)) {
+            self::recordVariant($filepath, $targetPath, $targetExt);
+            return true;
+        }
+
+        // 强制 imagick 模式下，Imagick 失败 = 直接报错
+        if ($engine === 'imagick') {
+            error_log("Conversion error: CONVERSION_ENGINE=imagick 但转换失败 ({$filepath}) — 检查 Imagick 是否装了 libwebp / libheif");
+            return false;
+        }
+
+        // GD fallback — 老服务器没装 Imagick / Imagick 不支持目标格式时
+        if (!$tryGd) {
+            error_log("Conversion error: 当前 CONVERSION_ENGINE={$engine} 但 GD 路径已禁用");
+            return false;
+        }
+        if (!function_exists($gdFn)) {
+            error_log("Conversion error: 当前环境不支持 {$label}（Imagick 路径也不可用）");
+            return false;
+        }
+        $source = self::createImageResource($filepath, $mime);
+        if (!$source) {
+            error_log("Conversion error: 无法创建 GD 图片资源 ({$filepath}) — 可能内存不足，建议在「设置 → 图片处理」把转换引擎切到 Imagick");
             return false;
         }
 
         $ok = $gdFn($source, $targetPath, $quality);
         imagedestroy($source);
         if (!$ok) {
-            error_log("{$label} generation failed for {$filepath}");
+            error_log("{$label} generation failed via GD for {$filepath}");
             return false;
         }
 
-        // Mirror the original-name into the variant row + flag the parent.
+        self::recordVariant($filepath, $targetPath, $targetExt);
+        return true;
+    }
+
+    /**
+     * 写完变体后把元数据登记到 images 表 — 抽出来让 GD 和 Imagick 两条路径
+     * 共用同一份"成功后处理"代码。
+     */
+    private static function recordVariant(string $filepath, string $targetPath, string $targetExt): void
+    {
         $repo = new ImageRepository();
         $originalIdentifier = PathService::identifierFromPath($filepath) ?? basename($filepath);
-        $original = function_exists('get_original_filename')
-            ? ((new \LitePic\Repository\ImageRepository())->originalNameFor($originalIdentifier) ?? basename($filepath))
-            : basename($filepath);
+        $original = $repo->originalNameFor($originalIdentifier) ?? basename($filepath);
         $variantIdentifier = PathService::identifierFromPath($targetPath) ?? basename($targetPath);
-        if (function_exists('save_original_filename')) {
-            (new \LitePic\Repository\ImageRepository())->recordOriginalName($variantIdentifier, $original);
-        }
+        $repo->recordOriginalName($variantIdentifier, $original);
         $repo->setFlags($originalIdentifier, [$targetExt === 'webp' ? 'has_webp' : 'has_avif' => true]);
-        return true;
+    }
+
+    /**
+     * Imagick 是否可用且支持目标格式（WEBP / AVIF）。
+     * queryFormats 返回的是大写格式名列表。
+     */
+    private static function imagickSupports(string $targetExt): bool
+    {
+        if (!class_exists(\Imagick::class)) return false;
+        try {
+            $im = new \Imagick();
+            $formats = $im->queryFormats(strtoupper($targetExt));
+            $im->clear();
+            return !empty($formats);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Imagick-based 转换路径。处理大图远优于 GD。
+     *
+     *   • setResourceLimit 给 Imagick 自身的内存预算让出空间（默认 256MB
+     *     一般够用），磁盘缓存兜底
+     *   • setImageBackgroundColor + flatten — PNG / GIF 透明背景转 WebP
+     *     需要先 flatten 否则透明像素会被填成黑色
+     *   • setImageCompressionQuality 跟 GD 的 quality 参数语义一致
+     *
+     * 失败时尝试清理输出文件 + 返回 false 让 caller 走 GD fallback。
+     */
+    private static function convertWithImagick(string $filepath, string $targetPath, string $targetExt, int $quality, string $label): bool
+    {
+        $image = null;
+        try {
+            $image = new \Imagick();
+
+            // 给 Imagick 自己的资源预算 — 256MB 内存 / 1GB 磁盘缓存
+            // 内存不够时自动 swap 到磁盘临时文件，慢但能成
+            \Imagick::setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 256 * 1024 * 1024);
+            \Imagick::setResourceLimit(\Imagick::RESOURCETYPE_MAP, 512 * 1024 * 1024);
+            \Imagick::setResourceLimit(\Imagick::RESOURCETYPE_DISK, 1024 * 1024 * 1024);
+
+            $image->readImage($filepath);
+            // 多帧（GIF / 多页 TIFF）只取第一帧 — webp/avif 静态变体没必要多帧
+            $image->setFirstIterator();
+
+            // 透明像素处理：webp 支持 alpha，avif 也支持，但很多源 PNG 用了
+            // palette 透明，coalesce 一下保险
+            if ($image->getImageAlphaChannel()) {
+                // 保留 alpha — webp/avif 都支持
+                $image->setImageBackgroundColor('transparent');
+            }
+
+            $image->setImageFormat(strtoupper($targetExt));
+            $image->setImageCompressionQuality(max(1, min(100, $quality)));
+
+            // libwebp 特定参数 — method 4 是 quality / speed 的合理折中
+            if ($targetExt === 'webp') {
+                $image->setOption('webp:method', '4');
+                $image->setOption('webp:lossless', 'false');
+            } elseif ($targetExt === 'avif') {
+                $image->setOption('heic:speed', '6');  // AVIF (libheif) speed 0=slowest/best, 8=fastest
+            }
+
+            // 写出
+            $ok = $image->writeImage($targetPath);
+
+            $image->clear();
+            $image->destroy();
+            $image = null;
+
+            if (!$ok || !is_file($targetPath) || filesize($targetPath) === 0) {
+                @unlink($targetPath);
+                Logger::warning('Imagick conversion produced empty output', [
+                    'file' => basename($filepath), 'target' => $label,
+                ]);
+                return false;
+            }
+
+            return true;
+        } catch (\Throwable $e) {
+            if ($image) {
+                try { $image->clear(); } catch (\Throwable $_) {}
+                try { $image->destroy(); } catch (\Throwable $_) {}
+            }
+            @unlink($targetPath);
+            Logger::warning('Imagick conversion threw — falling back to GD', [
+                'file'   => basename($filepath),
+                'target' => $label,
+                'error'  => $e->getMessage(),
+            ]);
+            return false;
+        }
     }
 
     /**
@@ -271,9 +403,7 @@ final class ConversionService
 
     private static function logDebug(string $filename, array $compress, array $webp, array $avif = []): void
     {
-        $original = function_exists('get_original_filename')
-            ? ((new \LitePic\Repository\ImageRepository())->originalNameFor($filename) ?? $filename)
-            : $filename;
+        $original = (new \LitePic\Repository\ImageRepository())->originalNameFor($filename) ?? $filename;
         $hadFailure =
             (!empty($compress['attempted']) && empty($compress['compressed'])) ||
             (!empty($webp['attempted']) && empty($webp['created'])) ||

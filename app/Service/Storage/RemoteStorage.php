@@ -181,6 +181,32 @@ final class RemoteStorage
     }
 
     /**
+     * Upload a local file to an explicit object key. Used by
+     * DatabaseBackup to push DB snapshots under `backups/...` instead
+     * of the `uploads/...` prefix that uploadLocalFile() forces.
+     *
+     * @return array{ok:bool,status:int,error:?string,object_key:string}
+     */
+    public function uploadLocalFileAs(string $localPath, string $objectKey): array
+    {
+        if (!file_exists($localPath)) {
+            return ['ok' => false, 'error' => '本地文件不存在', 'status' => 0, 'object_key' => $objectKey];
+        }
+        $data = @file_get_contents($localPath);
+        if ($data === false) {
+            return ['ok' => false, 'error' => '读取本地文件失败', 'status' => 0, 'object_key' => $objectKey];
+        }
+        $mime = self::guessContentType($localPath);
+        $res = $this->objectRequest('PUT', $objectKey, $data, $mime);
+        return [
+            'ok'         => (bool)($res['success'] ?? false),
+            'status'     => (int)($res['status'] ?? 0),
+            'error'      => $res['error'] ?? null,
+            'object_key' => $objectKey,
+        ];
+    }
+
+    /**
      * Sync the original + thumbnail to remote. Drains the deferred
      * delete queue first so it doesn't grow unbounded.
      *
@@ -461,10 +487,9 @@ final class RemoteStorage
                 $basename = basename($targetPath);
                 if (!preg_match('/\.thumb\./i', $basename) && ThumbnailService::canGenerate($basename)) {
                     (new ThumbnailService())->create($basename, true);
-                    if (function_exists('get_original_filename') && (new \LitePic\Repository\ImageRepository())->originalNameFor($basename) === null) {
-                        if (function_exists('save_original_filename')) {
-                            (new \LitePic\Repository\ImageRepository())->recordOriginalName($basename, $basename);
-                        }
+                    $imgRepo = new \LitePic\Repository\ImageRepository();
+                    if ($imgRepo->originalNameFor($basename) === null) {
+                        $imgRepo->recordOriginalName($basename, $basename);
                     }
                 }
                 $restored++;

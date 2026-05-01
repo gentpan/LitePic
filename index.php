@@ -18,6 +18,23 @@ if ($normalizedPath === '/i' || str_starts_with($normalizedPath, '/i/')) {
     exit;
 }
 
+/*
+ * Image URL prefix fallback — 让所有 web server 都支持自定义 URL 前缀。
+ *
+ * .htaccess 里有 catch-all rewrite 把 `/<prefix>/yyyy/mm/file` 重写到
+ * image.php — 但这只在 Apache 上有效。Nginx / Caddy / php -S 不读
+ * .htaccess，请求会按 try_files 兜底落到 index.php，到这里被识别 +
+ * dispatch 给 image.php。
+ *
+ * 排除前缀：uploads（直连）、i（已上面拦截）、api / static / assets /
+ * data / logs（框架路径）。
+ */
+if (preg_match('#^/(?!uploads/|i/|api/|static/|assets/|data/|logs/)([a-z0-9][a-z0-9_-]*/)?([0-9]{4}/[0-9]{2}/[^/]+\.(?:jpg|jpeg|png|gif|webp|avif|svg|ico|bmp|tiff|tif|heic|jxl|raw|dng))$#i', $requestPath, $m)) {
+    $_GET['file'] = $m[2];
+    require __DIR__ . '/image.php';
+    exit;
+}
+
 $page = resolve_page_for_path($requestPath);
 if ($page === null) {
     http_response_code(404);

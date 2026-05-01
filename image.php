@@ -13,4 +13,4 @@ if (str_starts_with($path, '/i/')) {
     $identifier = (string)($_GET['file'] ?? '');
 }
 
-(new \LitePic\Service\Hotlink\HotlinkProtection())->serveProtected($identifier);
+(new \LitePic\Service\Image\ImageServeService())->serve($identifier);

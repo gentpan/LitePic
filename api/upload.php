@@ -59,4 +59,14 @@ if ($raw_files === null) {
 $files = \LitePic\Service\Upload\UploadService::normaliseFilesArray($raw_files);
 $results = (new \LitePic\Service\Upload\UploadService())->handle($files);
 
+// 异步流水线：响应送达后继续在同一 PHP 进程跑 ImageProcessor::drain()
+// 把队列里的缩略图 / 压缩 / WebP / AVIF / 水印 / 远程同步任务做完。
+// register_shutdown_function 保证 Response::success() 里的 exit 之后还能跑。
+// drain() 自带 25 秒 wall-time 上限和 20 个任务上限，不会卡住请求生命周期。
+register_shutdown_function(static function () {
+    \LitePic\Core\ResponseDetacher::runAfterResponse(static function () {
+        (new \LitePic\Service\Image\ImageProcessor())->drain(20, 25);
+    });
+});
+
 \LitePic\Core\Response::success(['results' => $results]);

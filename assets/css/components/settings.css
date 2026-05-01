@@ -239,12 +239,17 @@
 }
 
 .settings-page input:not([type="checkbox"]):not([type="radio"]):focus,
-.settings-page select:focus {
-  border-color: color-mix(in srgb, var(--primary) 58%, var(--border-color) 42%);
+.settings-page input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+.settings-page select:focus,
+.settings-page select:focus-visible,
+.settings-page textarea:focus,
+.settings-page textarea:focus-visible {
+  /* 1px 纯蓝细线（不再跟 border-color 混色，避免被稀释成灰蓝色看不见） */
+  border-color: var(--primary);
   outline: none;
+  /* 外圈柔光：3px 主题色 18% 透明的 halo，让聚焦的输入框从页面里"亮"起来 */
   box-shadow:
-    0 0 0 4px color-mix(in srgb, var(--primary) 12%, transparent),
-    0 1px 0 rgba(255, 255, 255, 0.72) inset;
+    0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
 }
 
 .settings-page input[type="checkbox"],
@@ -828,17 +833,23 @@ html[data-theme="dark"] .settings-block-runtime .runtime-meta-label > i {
  * ============================================================= */
 .settings-page .settings-tab-nav {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
   align-items: center;
+  height: 60px;
+  min-height: 60px;
   margin: 0 0 18px;
   padding: 0 0 12px;
   border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
   list-style: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
 }
 
 .settings-page .settings-tab-nav a {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 6px;
   height: 36px;
@@ -888,6 +899,10 @@ html[data-theme="dark"] .settings-block-runtime .runtime-meta-label > i {
 }
 
 @media (max-width: 720px) {
+  .settings-page .settings-tab-nav {
+    height: 52px;
+    min-height: 52px;
+  }
   .settings-page .settings-tab-nav a {
     height: 32px;
     padding: 0 10px;
@@ -1145,4 +1160,1175 @@ html[data-theme="dark"] .settings-block-runtime .runtime-meta-label > i {
 
 .settings-page .settings-field--full {
   grid-column: 1 / -1;
+}
+
+/* =============================================================
+ * Settings tab title block — sits between the tab nav and the
+ * tab's content (sections). Gives every tab a clear, identical
+ * visual identity (big icon + tab name + short description),
+ * and acts as the heading users land on after clicking a tab.
+ *
+ * Layout: [icon chip] | [title]
+ *                       [description]
+ * ============================================================= */
+.settings-page .settings-tab-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 2px 14px;
+  margin: 0 0 4px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
+}
+
+.settings-page .settings-tab-title__icon {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 直角风格 — 跟 Plan A 设计系统统一，所有 box 元素都不带圆角。 */
+  border-radius: 0;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--primary);
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.settings-page .settings-tab-title__copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-page .settings-tab-title__heading {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--dark);
+  letter-spacing: -0.005em;
+}
+
+.settings-page .settings-tab-title__description {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--gray);
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .settings-page .settings-tab-title {
+    gap: 10px;
+  }
+  .settings-page .settings-tab-title__icon {
+    width: 38px;
+    height: 38px;
+    font-size: 1.15rem;
+  }
+  .settings-page .settings-tab-title__heading {
+    font-size: 1rem;
+  }
+}
+
+html[data-theme="dark"] .settings-page .settings-tab-title__icon {
+  background: color-mix(in srgb, var(--primary) 16%, rgba(255,255,255,0.04) 84%);
+}
+
+/* =============================================================
+ * Top-align EVERY content row inside the settings shell.
+ *
+ * The shell is a CSS grid; without `align-content: start` grid
+ * stretches its rows to fill remaining height when content is
+ * short, which visually pushes things toward center. Pin the
+ * tracks to the top so a tab with one section sits flush at
+ * the top of the shell instead of floating in the middle.
+ *
+ * Same treatment for the in-form panel since it's the inner
+ * grid that holds most sections.
+ * ============================================================= */
+.settings-page .settings-shell,
+.settings-page .settings-shell > .settings-panel {
+  align-content: start;
+  align-items: start;
+}
+
+/* If a tab opens a form but renders no in-form <section>s (e.g.
+ * compression / system tabs that put everything in OUT-of-form
+ * sections), the .settings-panel still has grid + gap and would
+ * inject a phantom row of whitespace before the real sections.
+ * `:not(:has(section))` collapses it to `display: none` so the
+ * layout stays tight. */
+.settings-page .settings-shell > .settings-panel:not(:has(section)) {
+  display: none;
+}
+
+/* =============================================================
+ * Border radius spec — 外 4 内 8
+ *
+ * 用户要求：
+ *   - 外边框（settings-shell 整张大卡片）= 4px
+ *   - 内部表单 / 按钮 / 输入框 / 选项行 / 开关 / 文件拖拽 = 8px
+ *
+ * 这一段集中写在文件末尾以胜过上面所有 `border-radius: 6px / 0 /
+ * var(--radius-md)` 旧规则；这样视觉规范 100% 由这一处控制，加新
+ * 控件时只要套对的 class 就自动跟齐，不用再去翻散落在各处的原值。
+ * ============================================================= */
+
+/* 外: 整张 shell + 顶部 nav 的圆角呼应 (上半 4px、下半 0 紧贴下方 section) */
+.settings-page .settings-shell {
+  border-radius: 4px;
+}
+.settings-page .settings-shell > .settings-tab-nav {
+  border-radius: 4px 4px 0 0;
+}
+
+/* 内: 所有表单输入与下拉框 */
+.settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.settings-page select,
+.settings-page textarea {
+  border-radius: 8px;
+}
+
+/* 内: 通用按钮系统（.btn / .btn--primary / .btn--secondary / .btn--danger）*/
+.settings-page .btn,
+.settings-page .btn--lg {
+  border-radius: 8px;
+}
+
+/* 内: 单行带开关的选项条（自动压缩 / 自动转换 / 启用水印 / 启用图片请求统计 等）*/
+.settings-page .settings-toggle-row {
+  border-radius: 8px;
+}
+
+/* 内: 上传 / 文件拖拽区 (水印图片、首页背景等) */
+.settings-page .file-drop,
+.settings-page .upload-zone,
+.settings-page .settings-drop {
+  border-radius: 8px;
+}
+
+/* 内: 子卡片 / 网格项（运行时指标卡片、水印预览、API Token 行、Passkey 凭证行 等）*/
+.settings-page .runtime-meta-grid > article,
+.settings-page .runtime-capability-grid > article,
+.settings-page .runtime-gauge-card,
+.settings-page .compression-key-row,
+.settings-page .api-token-row,
+.settings-page .passkey-credential-row {
+  border-radius: 8px;
+}
+
+/* 内: 保存设置按钮的 large 变体（覆盖文件中已有的 8px，保持一致即可）*/
+.settings-page .btn--lg {
+  border-radius: 8px;
+}
+
+/* 例外: 保留圆形 / 药丸控件（tab nav 药丸、switch track）— 它们就是要 999px */
+.settings-page .settings-tab-nav a,
+.settings-page .settings-switch {
+  /* 不动 — 仍是 999px (药丸) */
+}
+
+/* =============================================================
+ * PJAX loading state — between click and content swap, fade the
+ * shell slightly so the user sees something is happening. The
+ * is-pjax-loading class is added to <main data-pjax-container>
+ * by Pjax.go() and removed when the new container takes over.
+ * ============================================================= */
+.settings-page.is-pjax-loading {
+  opacity: 0.55;
+  transition: opacity 0.12s ease-out;
+  pointer-events: none;
+}
+
+.settings-page.is-pjax-loading .settings-tab-nav a[aria-current="page"] {
+  position: relative;
+}
+
+.settings-page.is-pjax-loading .settings-tab-nav a[aria-current="page"]::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--primary) 80%, transparent);
+  border-top-color: transparent;
+  animation: settingsPjaxSpin 0.6s linear infinite;
+}
+
+@keyframes settingsPjaxSpin {
+  to { transform: rotate(1turn); }
+}
+
+/* =============================================================
+ * Input focus — 必须放在文件末尾，以胜过中间任何可能稀释 border
+ * 颜色的旧规则。规范：
+ *   • border:    1px 纯主题蓝（不混色，否则在浅灰背景上看不清）
+ *   • outline:   去掉浏览器默认的灰色虚线
+ *   • box-shadow: 3px 主题色 18% 透明的柔光圈（halo）
+ * ============================================================= */
+.settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+.settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus-visible,
+.settings-page select:focus,
+.settings-page select:focus-visible,
+.settings-page textarea:focus,
+.settings-page textarea:focus-visible {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+/* Dark theme: halo 更亮一点，否则在深色背景上看不出柔光 */
+html[data-theme="dark"] .settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+html[data-theme="dark"] .settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus-visible,
+html[data-theme="dark"] .settings-page select:focus,
+html[data-theme="dark"] .settings-page select:focus-visible,
+html[data-theme="dark"] .settings-page textarea:focus,
+html[data-theme="dark"] .settings-page textarea:focus-visible {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 28%, transparent);
+}
+
+/* =============================================================
+ * 配色方案 v3 — 跟全站对齐（与首页 / 图库 / 统计 同款）
+ *
+ * 不再走自己一套白底/灰输入的反向方案；改成跟其它页面 .page-shell
+ * 完全相同的视觉：
+ *   • body 保持灰色（var(--light) #f8f9fa），不再 :has 全局变白
+ *   • settings-shell 用标准卡片样式（白底 + 1px 边框 + rounded-md）
+ *     —— 即 .page-shell 的同款
+ *   • 输入框 / 选项条恢复白色（默认 surface），跟主站其它页一致
+ *   • Tab 药丸悬停换成中性浅灰（slate-100），不再用蓝色
+ *   • 激活 tab 保持品牌蓝 + 白色文字 + 白色 icon
+ *   • Tab 图标 chip 换成中性浅灰
+ *
+ * 之前 v2 的 white-canvas + slate-input + blue-hover 全部撤回。
+ * ============================================================= */
+
+/* 1. 撤销 body 全白：让设置页跟其它页一样浮在灰色 body 上 */
+body:has(.settings-page) {
+  background: var(--light);          /* 恢复 #f8f9fa，跟首页/图库一致 */
+}
+.settings-page {
+  background: transparent;           /* 不挂自己的背景；显示 body 灰 */
+}
+
+/* 2. Shell 用 .page-shell 同款：白底 + 边框 + 圆角，无渐变无阴影 */
+.settings-page .settings-shell {
+  background: var(--surface);        /* #ffffff */
+  background-image: none;
+  border-color: var(--border-color); /* #e2e8f0 */
+  box-shadow: none;
+}
+
+/* 3. Tab nav 条带：跟 shell 同色（白），仅靠下边线分隔 */
+.settings-page .settings-shell > .settings-tab-nav {
+  background: var(--surface);
+  border-bottom-color: var(--border-color);
+}
+
+/* 4. 表单输入：白底（surface），不再 slate-50 */
+.settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.settings-page select,
+.settings-page textarea {
+  background: var(--surface);
+  border-color: var(--border-color);
+  box-shadow: none;
+}
+
+/* 5. Toggle 选项条：白底 + 中性灰悬停（不再蓝晕） */
+.settings-page .settings-toggle-row {
+  background: var(--surface);
+  border-color: var(--border-color);
+}
+.settings-page .settings-toggle-row:hover {
+  background: #f1f5f9;               /* slate-100 中性浅灰 */
+  border-color: #cbd5e1;             /* slate-300 */
+}
+
+/* 6. 分割线统一灰 */
+.settings-page .settings-shell > section + section,
+.settings-page .settings-shell .settings-panel > section + section,
+.settings-page .settings-section-header,
+.settings-page .settings-tab-title {
+  border-color: var(--border-color);
+}
+
+/* 7. Tab 标题图标 chip：换成中性浅灰，跟主题更搭 */
+.settings-page .settings-tab-title__icon {
+  background: #f1f5f9;               /* slate-100 */
+  color: var(--primary);
+}
+
+/* 8. Callout 提示框：保持淡蓝信息块（信息提示用蓝色合理） */
+.settings-page .settings-callout {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: var(--dark);
+}
+.settings-page .settings-callout p,
+.settings-page .settings-callout strong {
+  color: inherit;
+}
+
+/* 9. 文件选择按钮：白底，hover 上主题蓝 */
+.settings-page .settings-file-input::file-selector-button,
+.settings-page .settings-file-input::-webkit-file-upload-button {
+  background: var(--surface);
+  border-color: var(--border-color);
+  color: var(--primary);
+}
+.settings-page .settings-file-input:hover::file-selector-button,
+.settings-page .settings-file-input:hover::-webkit-file-upload-button {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+/* 10. .btn--secondary（次要按钮）：白底 + 中性灰悬停 */
+.settings-page .btn--secondary {
+  background: var(--surface);
+  border-color: var(--border-color);
+  color: var(--dark);
+}
+.settings-page .btn--secondary:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+/* 11. Tab nav 药丸 — 重头戏 ===========================================
+ *   • 未激活：白底 + 浅灰边 + 灰色 icon
+ *   • 悬停：  中性浅灰（slate-100），不再用蓝晕，让蓝色只属于"激活"
+ *   • 激活：  品牌蓝实底 + 白色文字 + 白色 icon
+ *   • 悬停 != 激活时，icon 颜色跟着 hover 提一档，避免"灰 icon 孤立"
+ * =================================================================== */
+.settings-page .settings-tab-nav a {
+  background: var(--surface);
+  border-color: var(--border-color);
+  color: var(--dark);
+}
+.settings-page .settings-tab-nav a > i {
+  color: var(--gray);                /* 默认灰 icon */
+  transition: color 160ms ease;
+}
+
+/* hover：中性浅灰底，icon 换主题蓝（视觉提示"可点"）*/
+.settings-page .settings-tab-nav a:hover {
+  background: #f1f5f9;               /* slate-100，跟 toggle hover 同色，全站统一 */
+  border-color: #cbd5e1;             /* slate-300 */
+  color: var(--dark);
+}
+.settings-page .settings-tab-nav a:hover > i {
+  color: var(--primary);             /* hover icon 上蓝色，跟整体视觉系一致 */
+}
+
+/* 激活：品牌蓝 + 白文字 + 白 icon（强制覆盖默认灰 icon）*/
+.settings-page .settings-tab-nav a[aria-current="page"],
+.settings-page .settings-tab-nav a[aria-current="page"]:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--primary) 24%, transparent);
+}
+.settings-page .settings-tab-nav a[aria-current="page"] > i,
+.settings-page .settings-tab-nav a[aria-current="page"]:hover > i {
+  color: #ffffff;                    /* 激活态 icon 必须白 */
+}
+
+/* 12. 运行时指标卡片 / 子卡片：白底 + 浅边 */
+.settings-page .runtime-meta-grid > article,
+.settings-page .runtime-capability-grid > article,
+.settings-page .runtime-gauge-card,
+.settings-page .compression-key-row,
+.settings-page .api-token-row,
+.settings-page .passkey-credential-row {
+  background: var(--surface);
+  border-color: var(--border-color);
+  box-shadow: none;
+}
+
+/* =============================================================
+ * Dark theme — 不动，沿用变量，自动跟随主题
+ * 上面所有 var(--surface) / var(--light) / var(--border-color) /
+ * var(--gray) 在 dark 模式下都有对应深色值，无需另写覆盖规则。
+ * 仅 #f1f5f9 / #eff6ff / #bfdbfe / #cbd5e1 这几个 hover/callout 硬编码
+ * 在深色下显得太亮，给一组 dark 接管：
+ * ============================================================= */
+html[data-theme="dark"] .settings-page .settings-toggle-row:hover,
+html[data-theme="dark"] .settings-page .btn--secondary:hover,
+html[data-theme="dark"] .settings-page .settings-tab-nav a:hover {
+  background: color-mix(in srgb, var(--surface) 88%, #ffffff 12%);
+  border-color: color-mix(in srgb, var(--border-color) 60%, #ffffff 40%);
+}
+html[data-theme="dark"] .settings-page .settings-tab-title__icon {
+  background: color-mix(in srgb, var(--surface) 88%, #ffffff 12%);
+}
+html[data-theme="dark"] .settings-page .settings-callout {
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface) 86%);
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border-color) 72%);
+  color: var(--dark);
+}
+
+/* =============================================================
+ * 直角设计 v4 — 用户要求全部子 tabs 内容直角
+ *
+ * 覆盖前面所有"4px / 8px / 6px / 10px"的圆角规则；只有以下例外保留圆形/药丸：
+ *   • Tab nav 药丸（功能上就是 pill 形状，不属于"表单"）
+ *   • Switch 轨道（开关本身就是椭圆按钮）
+ *   • Tab 标题图标 chip（视觉装饰小色块）
+ *   • Status pills (.is-on / .is-off / .is-warn) — 都是状态徽章
+ *   • CSS 波浪动画 / 头像（页面其它处 999px）
+ *
+ * 其它所有形状（shell / 输入 / 按钮 / 选项条 / 文件按钮 / callout / 子卡片
+ * / Save 按钮）一律 border-radius: 0。
+ * ============================================================= */
+
+/* --- 外: shell + nav 顶部 --- */
+.settings-page .settings-shell,
+.settings-page .settings-shell > .settings-tab-nav {
+  border-radius: 0;
+}
+
+/* --- 表单输入 / 下拉 / textarea --- */
+.settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.settings-page select,
+.settings-page textarea,
+.settings-page .settings-file-input::file-selector-button,
+.settings-page .settings-file-input::-webkit-file-upload-button {
+  border-radius: 0;
+}
+
+/* --- 按钮（普通 / primary / secondary / danger / lg）--- */
+.settings-page .btn,
+.settings-page .btn--primary,
+.settings-page .btn--secondary,
+.settings-page .btn--danger,
+.settings-page .btn--lg {
+  border-radius: 0;
+}
+
+/* --- 选项条 / 子卡片 / 网格项 / callout / 下拉框 --- */
+.settings-page .settings-toggle-row,
+.settings-page .file-drop,
+.settings-page .upload-zone,
+.settings-page .settings-drop,
+.settings-page .settings-callout,
+.settings-page .runtime-meta-grid > article,
+.settings-page .runtime-capability-grid > article,
+.settings-page .runtime-gauge-card,
+.settings-page .compression-key-row,
+.settings-page .api-token-row,
+.settings-page .passkey-credential-row,
+.settings-page .settings-background-preview {
+  border-radius: 0;
+}
+
+/* --- 例外保留：tab nav pills / switch / 装饰 chip / status pills 不动 ---
+ * （上面没有列出，所以默认保留它们原本的 999px / 10px）
+ */
+
+/* =============================================================
+ * 允许上传格式 — 标签编辑器（chip + 自由输入 + 预设快速添加）
+ *
+ * 替代旧的 .settings-format-options 固定 checkbox 网格。视觉风格
+ * 跟整体 v3/v4 配色一致：白底 + 1px slate 边 + 直角；激活色用主题蓝。
+ * ============================================================= */
+.settings-page .settings-format-tags {
+  display: grid;
+  gap: 10px;
+}
+
+/* 内框：装载所有 chip + 末尾的自由输入框，整体看起来就是一个"超大输入框" */
+.settings-page .settings-format-tags__chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--settings-control-height);
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: 0;
+  cursor: text;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+/* 内框 focus-within：容器边框跟随聚焦状态变蓝 + 加柔光圈 */
+.settings-page .settings-format-tags__chips:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+/* 单个扩展名 chip */
+.settings-page .settings-format-tags__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 4px 0 10px;
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border-color) 76%);
+  color: var(--primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  line-height: 1;
+  user-select: none;
+  white-space: nowrap;
+}
+
+/* chip 上的删除按钮 */
+.settings-page .settings-format-tags__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin-left: 2px;
+  background: transparent;
+  border: 0;
+  color: color-mix(in srgb, var(--primary) 70%, transparent);
+  cursor: pointer;
+  font-size: 0.85em;
+  line-height: 1;
+  transition: background 120ms ease, color 120ms ease;
+}
+.settings-page .settings-format-tags__remove:hover {
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  color: var(--primary);
+}
+
+/* 自由输入框：紧贴 chip 末尾，无边框无背景 */
+.settings-page .settings-format-tags__input {
+  flex: 1 1 120px;
+  min-width: 120px;
+  height: 28px;
+  padding: 0 4px;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: var(--dark);
+  font-size: 0.9rem;
+  /* 覆盖通用 .settings-page input 的 min-height 50px */
+  min-height: 28px;
+}
+.settings-page .settings-format-tags__input:focus,
+.settings-page .settings-format-tags__input:focus-visible {
+  border: 0;                /* 去掉默认聚焦框 — 容器自己有 focus-within 蓝晕 */
+  box-shadow: none;
+  outline: none;
+}
+
+/* 预设快速添加区 */
+.settings-page .settings-format-tags__presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.settings-page .settings-format-tags__presets-label {
+  font-size: 0.78rem;
+  color: var(--gray);
+  margin-right: 2px;
+}
+.settings-page .settings-format-tags__preset {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 8px;
+  background: color-mix(in srgb, var(--light) 60%, var(--surface) 40%);
+  border: 1px dashed color-mix(in srgb, var(--border-color) 80%, transparent);
+  color: var(--gray);
+  font-size: 0.8rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.settings-page .settings-format-tags__preset:hover {
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border-color) 72%);
+  color: var(--primary);
+}
+
+/* =============================================================
+ * 失败任务列表面板（系统 tab → 图片处理队列 → 折叠详情）
+ * 使用原生 <details> + <summary>，无 JS 折叠开关。
+ * ============================================================= */
+.settings-page .settings-queue-failed {
+  margin-top: 8px;
+  padding: 0;
+}
+.settings-page .settings-queue-failed > summary {
+  cursor: pointer;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0;
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: var(--dark);
+  user-select: none;
+}
+.settings-page .settings-queue-failed > summary::-webkit-details-marker {
+  display: none;
+}
+.settings-page .settings-queue-failed > summary::before {
+  content: '▸';
+  display: inline-block;
+  width: 14px;
+  color: var(--gray);
+  transition: transform 120ms ease;
+}
+.settings-page .settings-queue-failed[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+/* 失败任务表里的小操作按钮（重试 / 丢弃）— 比常规 .btn 紧凑 */
+.settings-page [data-queue-failed-table] td .btn {
+  height: 28px;
+  padding: 0 8px;
+  margin-left: 4px;
+}
+.settings-page [data-queue-failed-table] td .btn i {
+  font-size: 0.85em;
+}
+.settings-page [data-queue-failed-table] th,
+.settings-page [data-queue-failed-table] td {
+  padding: 6px 10px;
+}
+
+/* =============================================================
+ * SQLite 数据库 — 4 个元信息徽章（替代之前的 readonly 输入框）
+ *
+ * 布局：
+ *   • 桌面（≥960px）— 4 列等宽 grid，整行铺满 shell 宽度
+ *   • 中屏（≤960px）— 2 列
+ *   • 手机（≤480px）— 1 列
+ * 每个徽章高度一致、宽度均分，整体像 dashboard 状态条。
+ * ============================================================= */
+.settings-page .db-meta-badges {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  align-items: stretch;
+  width: 100%;
+}
+
+@media (max-width: 960px) {
+  .settings-page .db-meta-badges {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 480px) {
+  .settings-page .db-meta-badges {
+    grid-template-columns: 1fr;
+  }
+}
+
+.settings-page .db-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #f8fafc;                                       /* slate-50 */
+  border: 1px solid var(--border-color);
+  font-size: 0.85rem;
+  line-height: 1.2;
+  color: var(--gray);
+  min-height: 40px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.settings-page .db-badge > i {
+  color: var(--primary);
+  font-size: 0.95em;
+  flex-shrink: 0;
+}
+
+.settings-page .db-badge__label {
+  color: var(--gray);
+  flex-shrink: 0;
+}
+
+.settings-page .db-badge__value {
+  background: transparent;
+  padding: 0;
+  color: var(--dark);
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  /* 内容超过单元格宽度（如长路径）时显示省略号，不挤变其它三列 */
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
+
+html[data-theme="dark"] .settings-page .db-badge {
+  background: color-mix(in srgb, var(--surface) 88%, #ffffff 12%);
+}
+
+/* =============================================================
+ * 标题层级重构 — 让 tab 标题（level 1）和 section 标题（level 2）
+ * 一眼能区分。问题是之前两个都用「蓝色图标 chip + 加粗文字」，所以
+ * 「数据库」（tab）和「SQLite 数据库」（section）视觉糊在一起。
+ *
+ * 新设计：
+ *   • Tab 标题 — 大色块 banner
+ *       ✓ 整个 banner 带浅蓝渐变背景
+ *       ✓ 主题色左侧 3px 强调竖线
+ *       ✓ 图标 chip 放大到 52px + 主题色实底（不再是 12% 浅蓝底）
+ *       ✓ 标题字号 1.35rem / 字重 700
+ *       ✓ 底部 2px 实线分隔，跟 section 的 1px 拉开档次
+ *
+ *   • Section 标题 — 简洁 h3 小标题
+ *       ✓ 取消图标 chip，图标缩到 18px 行内灰色
+ *       ✓ 标题 0.98rem / 字重 600
+ *       ✓ 底部 1px 虚线（vs tab 的 2px 实线）
+ *       ✓ 上方加 6px 留白，避开跟 tab 标题挤
+ *
+ * 整体效果：用户一眼看到「我在哪个 tab」（大 banner）+「这块是什么」
+ * （朴素 h3），不再混淆。
+ * ============================================================= */
+
+/* ───────────── Level 1：Tab 标题 ─────────────
+ * 只靠下方 2px 主题蓝实线区分层级，无背景色 / 无 chip 高亮 / 无装饰
+ * 干净简洁，让标题文字本身和图标 chip 担当视觉重点。
+ */
+.settings-page .settings-tab-title {
+  align-items: center;
+  gap: 16px;
+  padding: 6px 2px 16px;
+  margin: 0 0 12px;
+  background: transparent;
+  border-bottom: 2px solid color-mix(in srgb, var(--primary) 28%, var(--border-color) 72%);
+  border-radius: 0;
+}
+
+/* 图标 chip 放大 + 实底色（让它从 banner 里"立"起来）*/
+.settings-page .settings-tab-title__icon {
+  width: 52px;
+  height: 52px;
+  /* 直角风格 — 跟 Plan A 设计系统统一。 */
+  border-radius: 0;
+  background: var(--primary);
+  color: #ffffff;
+  font-size: 1.5rem;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 28%, transparent);
+}
+
+/* 标题文字加大加粗 */
+.settings-page .settings-tab-title__heading {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--dark);
+}
+
+.settings-page .settings-tab-title__description {
+  font-size: 0.88rem;
+  color: var(--gray);
+  margin-top: 4px;
+}
+
+@media (max-width: 720px) {
+  .settings-page .settings-tab-title {
+    gap: 12px;
+    padding: 12px 14px 14px 18px;
+  }
+  .settings-page .settings-tab-title__icon {
+    width: 44px;
+    height: 44px;
+    font-size: 1.25rem;
+  }
+  .settings-page .settings-tab-title__heading {
+    font-size: 1.15rem;
+  }
+}
+
+html[data-theme="dark"] .settings-page .settings-tab-title {
+  background: transparent;
+  border-bottom-color: color-mix(in srgb, var(--primary) 36%, var(--border-color) 64%);
+}
+
+/* ───────────── Level 2：Section header 简洁 h3 ───────────── */
+.settings-page .settings-section-header {
+  padding: 0 0 10px;
+  margin-top: 14px;                  /* 跟上方内容拉开 */
+  border-bottom: 1px dashed color-mix(in srgb, var(--border-color) 80%, transparent);
+}
+
+/* 第一个 section 紧贴 tab 标题就不用上边距了（避免 tab + section 之间留空过大）*/
+.settings-page .settings-shell > .settings-panel > section:first-of-type > .settings-section-header,
+.settings-page .settings-shell > section:first-of-type > .settings-section-header,
+.settings-page .settings-tab-title + section > .settings-section-header,
+.settings-page .settings-tab-title + .settings-panel > section:first-of-type > .settings-section-header {
+  margin-top: 0;
+}
+
+/* Section 标题：小字 + 灰图标 + 无 chip — 跟 tab 标题的强烈对比 */
+.settings-page .settings-card-title {
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: var(--dark);
+  letter-spacing: 0;
+  gap: 7px;
+}
+
+.settings-page .settings-card-title > i {
+  width: 18px;
+  min-width: 18px;
+  font-size: 0.95rem;
+  color: var(--primary);              /* 蓝色 — 用品牌色突出每个 section 头 */
+  background: transparent;            /* 取消任何 chip 背景 */
+}
+
+.settings-page .settings-section-header > p {
+  font-size: 0.76rem;                 /* 比 section 标题再小一档，弱化为辅助说明 */
+  color: var(--gray);
+  margin: 0;
+}
+
+/* =============================================================
+ * 队列状态卡片（任务 tab → 图片处理队列）
+ *
+ * 把之前用 readonly input 显示的「队列深度 / 失败任务 / 上次运行」
+ * 改成数据卡片：大号数字 + 小号 label + 左侧图标，跟仪表盘 KPI 同款。
+ *
+ * 三个卡片排成 2 + 1 网格：
+ *   桌面 ≥720px：第一行两个并排（小卡），第二行一个全宽（宽卡）
+ *   移动 <720px：单列依次堆叠
+ *
+ * 数字活体（队列里有任务、有失败任务）时用主题色 / 警告色高亮，
+ * 一眼看出"是否需要关注"。
+ * ============================================================= */
+.settings-page .queue-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+@media (max-width: 720px) {
+  .settings-page .queue-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* "上次运行" 行宽，跨两列 */
+.settings-page .queue-stat--wide {
+  grid-column: 1 / -1;
+}
+
+.settings-page .queue-stat {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: #f8fafc;                                    /* slate-50，跟数据库 badge 同色系 */
+  border: 1px solid var(--border-color);
+  min-height: 64px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+/* 左侧图标 — 默认灰色，活跃时变主题色 */
+.settings-page .queue-stat__icon {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--gray) 10%, transparent);
+  color: var(--gray);
+  font-size: 1rem;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.settings-page .queue-stat__copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* 大号数字（KPI 主体）*/
+.settings-page .queue-stat__value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--dark);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* "上次运行" 是文字不是数字，字号小一点更易读 */
+.settings-page .queue-stat__value--text {
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  /* 长文本截断省略号 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-page .queue-stat__label {
+  font-size: 0.78rem;
+  color: var(--gray);
+  font-weight: 400;
+}
+
+/* 活跃态 — 队列里有待处理任务 */
+.settings-page .queue-stat--active {
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface) 94%);
+  border-color: color-mix(in srgb, var(--primary) 32%, var(--border-color) 68%);
+}
+.settings-page .queue-stat--active .queue-stat__icon {
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--primary);
+}
+.settings-page .queue-stat--active .queue-stat__value {
+  color: var(--primary);
+}
+
+/* 警告态 — 有失败任务（红色，需要用户关注） */
+.settings-page .queue-stat--alert {
+  background: color-mix(in srgb, #d73a49 6%, var(--surface) 94%);
+  border-color: color-mix(in srgb, #d73a49 32%, var(--border-color) 68%);
+}
+.settings-page .queue-stat--alert .queue-stat__icon {
+  background: color-mix(in srgb, #d73a49 14%, transparent);
+  color: #d73a49;
+}
+.settings-page .queue-stat--alert .queue-stat__value {
+  color: #d73a49;
+}
+
+html[data-theme="dark"] .settings-page .queue-stat {
+  background: color-mix(in srgb, var(--surface) 88%, #ffffff 12%);
+}
+html[data-theme="dark"] .settings-page .queue-stat__icon {
+  background: color-mix(in srgb, #ffffff 8%, transparent);
+}
+
+/* =============================================================
+ * 残留数据清理 (settings → 数据库 tab)
+ * 工具条 + 类别表格 + 提示框，整体跟周边卡片直角风格统一。
+ * ============================================================= */
+
+.settings-page .cleanup-block {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-page .cleanup-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-page .cleanup-status {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  background: color-mix(in srgb, var(--surface) 92%, var(--light) 8%);
+  color: var(--gray);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.settings-page .cleanup-status.is-on    { color: var(--success); border-color: color-mix(in srgb, var(--success) 38%, var(--border-color) 62%); background: color-mix(in srgb, var(--success) 6%, var(--surface) 94%); }
+.settings-page .cleanup-status.is-warn  { color: #92400e; border-color: #fde68a; background: #fef3c7; }
+.settings-page .cleanup-status.is-off   { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--border-color) 65%); background: color-mix(in srgb, var(--danger) 6%, var(--surface) 94%); }
+
+.settings-page .cleanup-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  background: color-mix(in srgb, var(--surface) 96%, var(--light) 4%);
+  font-size: 0.86rem;
+}
+
+.settings-page .cleanup-table th,
+.settings-page .cleanup-table td {
+  padding: 9px 12px;
+  text-align: left;
+  vertical-align: middle;
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
+}
+.settings-page .cleanup-table th {
+  border-top: 0;
+  background: color-mix(in srgb, var(--surface) 90%, #000 10%);
+  color: var(--dark);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.settings-page .cleanup-th-check,
+.settings-page .cleanup-td-check { width: 36px; text-align: center; }
+.settings-page .cleanup-th-num,
+.settings-page .cleanup-td-num   { width: 80px; text-align: right; font-family: var(--font-mono); }
+
+.settings-page .cleanup-checkbox {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.settings-page .cleanup-count {
+  display: inline-block;
+  min-width: 28px;
+  color: var(--gray);
+  font-weight: 700;
+}
+.settings-page .cleanup-count--has {
+  color: var(--primary);
+}
+
+.settings-page .cleanup-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border-color) 78%);
+  background: color-mix(in srgb, var(--primary) 7%, var(--surface) 93%);
+  color: color-mix(in srgb, var(--dark) 76%, var(--gray) 24%);
+  font-size: 0.80rem;
+  line-height: 1.6;
+}
+.settings-page .cleanup-note > i {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--primary);
+  font-size: 14px;
+}
+.settings-page .cleanup-note strong {
+  color: var(--dark);
+}
+
+/* =============================================================
+ * 残留数据清理 - 自定义确认对话框
+ * 替代原生 confirm()，跟周边卡片直角风格统一。
+ * ============================================================= */
+
+.cleanup-confirm {
+  display: grid;
+  gap: 14px;
+}
+
+.cleanup-confirm-lead {
+  margin: 0;
+  color: var(--dark);
+  font-size: 0.92rem;
+  line-height: 1.7;
+}
+.cleanup-confirm-lead strong {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.cleanup-confirm-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: color-mix(in srgb, var(--surface) 92%, var(--light) 8%);
+  overflow: hidden;
+}
+
+.cleanup-confirm-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
+  font-size: 0.88rem;
+}
+.cleanup-confirm-item:first-child {
+  border-top: 0;
+}
+
+.cleanup-confirm-label {
+  color: var(--dark);
+}
+
+.cleanup-confirm-num {
+  color: var(--primary);
+  font-family: var(--font-mono);
+  font-size: 0.86rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cleanup-confirm-safe {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border-color) 78%);
+  background: color-mix(in srgb, var(--primary) 7%, var(--surface) 93%);
+  color: color-mix(in srgb, var(--dark) 76%, var(--gray) 24%);
+  font-size: 0.80rem;
+  line-height: 1.6;
+}
+.cleanup-confirm-safe > i {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--primary);
+  font-size: 14px;
+}
+
+.cleanup-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* 「确认清理」按钮 — 用危险红，强化「不可撤销」感知 */
+.cleanup-confirm-submit {
+  background: var(--danger) !important;
+  border-color: var(--danger) !important;
+  color: #fff !important;
+}
+.cleanup-confirm-submit:hover {
+  filter: brightness(1.08);
+}
+
+/* =============================================================
+ * 本地备份文件 - 恢复 / 删除按钮做成正方形 icon-only 按钮
+ * 覆盖默认 .btn 的 padding，强制 32×32 方块。
+ * ============================================================= */
+
+.settings-page .backup-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.settings-page .backup-action-btn {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px;
+  padding: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.settings-page .backup-action-btn > i {
+  font-size: 13px;
+  line-height: 1;
 }

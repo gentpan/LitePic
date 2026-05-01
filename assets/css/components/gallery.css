@@ -967,3 +967,100 @@
     }
   }
 }
+
+  /* =============================================================
+   * 删除卡片 + 补位动画 — 配合 main.js 里 .deleting / .appearing 切换
+   *
+   * 流程：
+   *   1. 用户点删除 → 卡片加 .deleting → 0.3s 淡出缩小（@keyframes deleteCard）
+   *   2. 卡片从 DOM 移除（grid 自动 reflow，剩下的卡片向左/上"挤"过去）
+   *   3. 服务端拿一张新图，HTML 插到末尾
+   *   4. 新卡片初始 opacity:0 + translateY(8px)（来自 .appearing 类）
+   *   5. JS 下一帧移除 .appearing → 触发 transition 淡入归位
+   *
+   * 不重新加载整页 / 不重新 decode 全部 <img>，单卡操作 < 50ms 完成。
+   * ============================================================= */
+  .img-card.appearing {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+
+  .img-card {
+    transition:
+      opacity 0.28s ease-out,
+      transform 0.28s ease-out,
+      border-color 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+
+/* =============================================================
+ * 分页导航 — 上一页/下一页/首尾页 4 个方向按钮的图标放大
+ * 数字按钮保持 0.86rem text，方向按钮的 FA icon 用 16px 看着更"指引性"
+ * ============================================================= */
+.page-link--nav > i {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* =============================================================
+ * 图库卡片右键菜单
+ * 浮在最顶层、毛玻璃感、Plan A 直角风格
+ * ============================================================= */
+.img-context-menu {
+  position: fixed;
+  z-index: 9999;
+  min-width: 180px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  box-shadow:
+    0 12px 32px -10px rgba(15, 23, 42, 0.22),
+    0 4px 10px -4px rgba(15, 23, 42, 0.14);
+  user-select: none;
+}
+
+.img-context-menu__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: transparent;
+  border: 0;
+  color: var(--dark);
+  font-size: 0.86rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.img-context-menu__item:hover {
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
+  color: var(--primary);
+}
+
+.img-context-menu__item > i {
+  flex-shrink: 0;
+  width: 16px;
+  font-size: 14px;
+  text-align: center;
+  color: var(--gray);
+}
+
+.img-context-menu__item:hover > i {
+  color: var(--primary);
+}
+
+.img-context-menu__sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: color-mix(in srgb, var(--border-color) 60%, transparent);
+}
+
+html[data-theme="dark"] .img-context-menu {
+  background: color-mix(in srgb, var(--surface) 92%, #fff 8%);
+  border-color: rgba(255, 255, 255, 0.10);
+  box-shadow:
+    0 12px 32px -10px rgba(0, 0, 0, 0.6),
+    0 4px 10px -4px rgba(0, 0, 0, 0.4);
+}

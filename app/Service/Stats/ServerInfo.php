@@ -173,16 +173,14 @@ final class ServerInfo
      */
     public function runtimeMetrics(): array
     {
-        $phpUploadLimit = function_exists('get_php_upload_limit_bytes') ? \LitePic\Service\Upload\UploadService::phpUploadLimitBytes() : 0;
+        $phpUploadLimit = \LitePic\Service\Upload\UploadService::phpUploadLimitBytes();
         $configuredUploadLimit = defined('MAX_FILE_SIZE') ? (int)MAX_FILE_SIZE : 0;
         $uptimeSeconds = $this->uptimeSeconds();
         $availability24h = $uptimeSeconds !== null
             ? round((min($uptimeSeconds, 86400) / 86400) * 100, 2)
             : null;
 
-        $memoryLimitBytes = function_exists('ini_size_to_bytes')
-            ? \LitePic\Service\Upload\UploadService::iniSizeToBytes((string)ini_get('memory_limit'))
-            : 0;
+        $memoryLimitBytes = \LitePic\Service\Upload\UploadService::iniSizeToBytes((string)ini_get('memory_limit'));
         $memoryUsedBytes = (int)memory_get_usage(true);
         $memoryPeakBytes = (int)memory_get_peak_usage(true);
 
@@ -219,7 +217,7 @@ final class ServerInfo
             : 0.0;
 
         $distro = $this->distro();
-        $fmt = static fn (int $b) => function_exists('format_filesize') ? \LitePic\Core\Format::filesize($b) : ($b . ' B');
+        $fmt = static fn (int $b) => \LitePic\Core\Format::filesize($b);
 
         return [
             'server_ip' => self::serverIp(),
@@ -448,5 +446,67 @@ final class ServerInfo
         $host = gethostbyname((string)gethostname());
         if ($host !== (string)gethostname() && $host !== '127.0.0.1') return $host;
         return $addr ?: '127.0.0.1';
+    }
+
+    /**
+     * SQLite database snapshot for the settings system tab — file path,
+     * size, schema version, table list with row counts. Read-only,
+     * never writes; safe to call from any settings render.
+     *
+     * @return array{
+     *   path:string, exists:bool, size_bytes:int, size_text:string,
+     *   schema_version:?int, tables:array<int,array{name:string,rows:int}>,
+     *   page_size_bytes:?int, journal_mode:?string,
+     * }
+     */
+    public function databaseSummary(): array
+    {
+        $path = (defined('APP_ROOT') ? APP_ROOT : dirname(__DIR__, 3)) . '/data/litepic.sqlite';
+        $size = is_file($path) ? (int)@filesize($path) : 0;
+
+        $tables = [];
+        $version = null;
+        $pageSize = null;
+        $journalMode = null;
+
+        try {
+            $pdo = \LitePic\Core\Database::connection();
+
+            // Per-table row count (skip sqlite internal tables)
+            $rows = $pdo->query("SELECT name FROM sqlite_master
+                                 WHERE type='table' AND name NOT LIKE 'sqlite_%'
+                                 ORDER BY name")->fetchAll() ?: [];
+            foreach ($rows as $r) {
+                $name = (string)$r['name'];
+                // Quote identifier defensively, even though our table names are static
+                $count = (int)$pdo->query('SELECT COUNT(*) FROM "' . str_replace('"', '""', $name) . '"')
+                                  ->fetchColumn();
+                $tables[] = ['name' => $name, 'rows' => $count];
+            }
+
+            // Schema migrations max version
+            $versionRow = $pdo->query("SELECT MAX(CAST(version AS INTEGER)) FROM schema_migrations")
+                              ->fetchColumn();
+            if ($versionRow !== false && $versionRow !== null) {
+                $version = (int)$versionRow;
+            }
+
+            // PRAGMA introspection
+            $pageSize = (int)$pdo->query('PRAGMA page_size')->fetchColumn() ?: null;
+            $journalMode = (string)$pdo->query('PRAGMA journal_mode')->fetchColumn() ?: null;
+        } catch (\Throwable $e) {
+            // DB not initialised yet — return what we have
+        }
+
+        return [
+            'path'             => $path,
+            'exists'           => is_file($path),
+            'size_bytes'       => $size,
+            'size_text'        => \LitePic\Core\Format::filesize($size),
+            'schema_version'   => $version,
+            'tables'           => $tables,
+            'page_size_bytes'  => $pageSize,
+            'journal_mode'     => $journalMode,
+        ];
     }
 }
