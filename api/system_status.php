@@ -15,13 +15,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 require_once __DIR__ . '/../bootstrap.php';
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
-    error_response('仅支持 GET 请求', 405);
+    \LitePic\Core\Response::error('仅支持 GET 请求', 405);
 }
 
-if (!is_api_request_authorized()) {
-    error_response('权限不足', 403);
+if (!(new \LitePic\Service\Auth\AuthService())->isApiRequestAuthorized()) {
+    \LitePic\Core\Response::error('权限不足', 403);
 }
 
-$metrics = get_server_runtime_metrics();
-success_response(['data' => $metrics]);
+$metrics = (new \LitePic\Service\Stats\ServerInfo())->runtimeMetrics();
+\LitePic\Core\Response::success(['data' => $metrics]);
 

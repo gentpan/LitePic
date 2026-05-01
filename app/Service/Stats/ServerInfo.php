@@ -173,7 +173,7 @@ final class ServerInfo
      */
     public function runtimeMetrics(): array
     {
-        $phpUploadLimit = function_exists('get_php_upload_limit_bytes') ? get_php_upload_limit_bytes() : 0;
+        $phpUploadLimit = function_exists('get_php_upload_limit_bytes') ? \LitePic\Service\Upload\UploadService::phpUploadLimitBytes() : 0;
         $configuredUploadLimit = defined('MAX_FILE_SIZE') ? (int)MAX_FILE_SIZE : 0;
         $uptimeSeconds = $this->uptimeSeconds();
         $availability24h = $uptimeSeconds !== null
@@ -181,7 +181,7 @@ final class ServerInfo
             : null;
 
         $memoryLimitBytes = function_exists('ini_size_to_bytes')
-            ? ini_size_to_bytes((string)ini_get('memory_limit'))
+            ? \LitePic\Service\Upload\UploadService::iniSizeToBytes((string)ini_get('memory_limit'))
             : 0;
         $memoryUsedBytes = (int)memory_get_usage(true);
         $memoryPeakBytes = (int)memory_get_peak_usage(true);
@@ -219,7 +219,7 @@ final class ServerInfo
             : 0.0;
 
         $distro = $this->distro();
-        $fmt = static fn (int $b) => function_exists('format_filesize') ? format_filesize($b) : ($b . ' B');
+        $fmt = static fn (int $b) => function_exists('format_filesize') ? \LitePic\Core\Format::filesize($b) : ($b . ' B');
 
         return [
             'server_ip' => self::serverIp(),

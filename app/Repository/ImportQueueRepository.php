@@ -138,7 +138,7 @@ final class ImportQueueRepository
 
     /**
      * Whether any of the requested operations are non-trivial (matches
-     * the legacy import_task_has_work() check).
+     * the legacy \LitePic\Repository\ImportQueueRepository::hasWork() check).
      */
     public static function hasWork(array $options): bool
     {

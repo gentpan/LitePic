@@ -28,36 +28,36 @@ try {
     switch ($action) {
         case 'register_options':
             // 需要管理员权限才能注册新 Passkey
-            if (!is_admin()) {
-                error_response('需要管理员权限', 403);
+            if (!(new \LitePic\Service\Auth\AuthService())->isAdmin()) {
+                \LitePic\Core\Response::error('需要管理员权限', 403);
             }
-            success_response($webauthn->getRegistrationOptions());
+            \LitePic\Core\Response::success($webauthn->getRegistrationOptions());
             break;
 
         case 'register_verify':
-            if (!is_admin()) {
-                error_response('需要管理员权限', 403);
+            if (!(new \LitePic\Service\Auth\AuthService())->isAdmin()) {
+                \LitePic\Core\Response::error('需要管理员权限', 403);
             }
             $clientDataJsonB64 = (string)($_POST['clientDataJSON'] ?? '');
             $attestationObject = (string)($_POST['attestationObject'] ?? '');
             $credentialId = (string)($_POST['credentialId'] ?? '');
 
             if ($clientDataJsonB64 === '' || $attestationObject === '' || $credentialId === '') {
-                error_response('参数不完整');
+                \LitePic\Core\Response::error('参数不完整');
             }
 
             // clientDataJSON 前端传的是 Base64URL，需解码为原始 JSON 字符串
             $clientDataJson = \LitePic\Service\Auth\Passkey\WebAuthn::base64UrlDecode($clientDataJsonB64);
             $result = $webauthn->verifyRegistration($clientDataJson, $attestationObject, $credentialId);
-            success_response(['message' => 'Passkey 注册成功', 'credentialId' => $result['credentialId']]);
+            \LitePic\Core\Response::success(['message' => 'Passkey 注册成功', 'credentialId' => $result['credentialId']]);
             break;
 
         case 'auth_options':
             $options = $webauthn->getAuthenticationOptions();
             if (empty($options['allowCredentials'])) {
-                error_response('尚未注册 Passkey', 404);
+                \LitePic\Core\Response::error('尚未注册 Passkey', 404);
             }
-            success_response($options);
+            \LitePic\Core\Response::success($options);
             break;
 
         case 'auth_verify':
@@ -67,7 +67,7 @@ try {
             $signature = (string)($_POST['signature'] ?? '');
 
             if ($credentialId === '' || $authenticatorData === '' || $clientDataJsonB64 === '' || $signature === '') {
-                error_response('参数不完整');
+                \LitePic\Core\Response::error('参数不完整');
             }
 
             // clientDataJSON 前端传的是 Base64URL，需解码为原始 JSON 字符串
@@ -86,15 +86,15 @@ try {
                         'samesite' => COOKIE_SAMESITE
                     ]
                 );
-                success_response(['message' => 'Passkey 登录成功']);
+                \LitePic\Core\Response::success(['message' => 'Passkey 登录成功']);
             } else {
-                error_response('Passkey 验证失败', 401);
+                \LitePic\Core\Response::error('Passkey 验证失败', 401);
             }
             break;
 
         case 'list':
-            if (!is_admin()) {
-                error_response('需要管理员权限', 403);
+            if (!(new \LitePic\Service\Auth\AuthService())->isAdmin()) {
+                \LitePic\Core\Response::error('需要管理员权限', 403);
             }
             $creds = $webauthn->getCredentials();
             $list = [];
@@ -106,28 +106,28 @@ try {
                     'signCount' => $cred['signCount'] ?? 0,
                 ];
             }
-            success_response(['credentials' => $list]);
+            \LitePic\Core\Response::success(['credentials' => $list]);
             break;
 
         case 'delete':
-            if (!is_admin()) {
-                error_response('需要管理员权限', 403);
+            if (!(new \LitePic\Service\Auth\AuthService())->isAdmin()) {
+                \LitePic\Core\Response::error('需要管理员权限', 403);
             }
             $credId = (string)($_POST['credentialId'] ?? '');
             if ($credId === '') {
-                error_response('未指定凭证 ID');
+                \LitePic\Core\Response::error('未指定凭证 ID');
             }
             if ($webauthn->deleteCredential($credId)) {
-                success_response(['message' => 'Passkey 已删除']);
+                \LitePic\Core\Response::success(['message' => 'Passkey 已删除']);
             } else {
-                error_response('删除失败', 500);
+                \LitePic\Core\Response::error('删除失败', 500);
             }
             break;
 
         default:
-            error_response('无效操作');
+            \LitePic\Core\Response::error('无效操作');
     }
 } catch (Throwable $e) {
     error_log('Passkey error: ' . $e->getMessage());
-    error_response(safe_error_message($e), 500);
+    \LitePic\Core\Response::error(\LitePic\Core\Response::safeMessage($e), 500);
 }

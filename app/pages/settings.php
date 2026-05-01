@@ -6,7 +6,7 @@ if (!defined('APP_ROOT')) {
 }
 
 
-if (!is_admin()) {
+if (!(new \LitePic\Service\Auth\AuthService())->isAdmin()) {
     header('Location: /upload');
     exit;
 }
@@ -277,7 +277,7 @@ function settings_remote_storage_required_complete(): bool {
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     // CSRF 校验
     $csrf_token = (string)($_POST['csrf_token'] ?? '');
-    if (!csrf_token_verify($csrf_token)) {
+    if (!\LitePic\Core\Csrf::verify($csrf_token)) {
         $message = '安全令牌无效或已过期，请刷新页面后重试';
         $message_type = 'error';
         // 阻止后续处理
@@ -291,7 +291,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     if ($form_action === 'create_token') {
         $token_name = trim((string)($_POST['token_name'] ?? ''));
-        $created = create_managed_api_token($token_name);
+        $created = (new \LitePic\Repository\ApiTokenRepository())->createSafely($token_name);
         if ($created === null) {
             $message = '创建 API Token 失败';
             $message_type = 'error';
@@ -302,7 +302,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
     } elseif ($form_action === 'revoke_token') {
         $token_id = trim((string)($_POST['token_id'] ?? ''));
-        if ($token_id === '' || !revoke_managed_api_token($token_id)) {
+        if ($token_id === '' || !(new \LitePic\Repository\ApiTokenRepository())->revoke($token_id)) {
             $message = '撤销 Token 失败';
             $message_type = 'error';
         } else {
@@ -312,7 +312,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     } elseif ($form_action === 'add_compression_api') {
         $api_name = '';
         $api_key = trim((string)($_POST['compression_api_key'] ?? ''));
-        if (!add_compression_api_key($api_name, $api_key)) {
+        if (!(new \LitePic\Repository\CompressionKeyRepository())->create($api_name, $api_key)) {
             $message = '添加压缩 API Key 失败';
             $message_type = 'error';
         } else {
@@ -322,7 +322,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     } elseif ($form_action === 'toggle_compression_api') {
         $api_id = trim((string)($_POST['compression_api_id'] ?? ''));
         $enable = ((string)($_POST['enable'] ?? '0')) === '1';
-        if ($api_id === '' || !set_compression_api_enabled($api_id, $enable)) {
+        if ($api_id === '' || !(new \LitePic\Repository\CompressionKeyRepository())->setEnabled($api_id, $enable)) {
             $message = '更新压缩 API 状态失败';
             $message_type = 'error';
         } else {
@@ -331,7 +331,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
     } elseif ($form_action === 'delete_compression_api') {
         $api_id = trim((string)($_POST['compression_api_id'] ?? ''));
-        if ($api_id === '' || !delete_compression_api_key($api_id)) {
+        if ($api_id === '' || !(new \LitePic\Repository\CompressionKeyRepository())->delete($api_id)) {
             $message = '删除压缩 API Key 失败';
             $message_type = 'error';
         } else {
@@ -359,7 +359,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
         $saved_settings = ['remote_storage_usage' => $usage];
     } elseif ($form_action === 'test_remote_storage') {
-        $test = remote_storage_test_connection();
+        $test = (new \LitePic\Service\Storage\RemoteStorage())->testConnection();
         if (!empty($test['success'])) {
             $message = '测试成功';
             $message_type = 'success';
@@ -398,7 +398,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $scan_auto_avif = false;
             $scan_warnings[] = 'AVIF 支持未启用，已跳过导入时自动转 AVIF';
         }
-        $report = scan_and_import_uploads([
+        $report = (new \LitePic\Service\Importer\Importer())->scanAndImport([
             'create_thumbnail' => $scan_create_thumbnail,
             'auto_compress' => $scan_auto_compress,
             'auto_webp' => $scan_auto_webp,
@@ -424,7 +424,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
         $message_type = ((int)($report['failed'] ?? 0) > 0 || !empty($scan_warnings)) ? 'error' : 'success';
     } elseif ($form_action === 'process_import_tasks') {
-        $report = import_task_process_queue(8);
+        $report = (new \LitePic\Service\Importer\Importer())->processQueue(8);
         $message = sprintf(
             '导入任务处理完成：处理 %d，成功 %d，失败 %d，剩余 %d，缩略图 %d，压缩 %d，转 WebP %d，转 AVIF %d，水印 %d',
             (int)($report['processed'] ?? 0),
@@ -442,7 +442,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
         $message_type = ((int)($report['failed'] ?? 0) > 0) ? 'error' : 'success';
     } elseif ($form_action === 'generate_all_thumbnails') {
-        $report = generate_all_thumbnails(true);
+        $report = (new \LitePic\Service\Image\ThumbnailService())->generateAll(true);
         $message = sprintf(
             '缩略图生成完成：总计 %d，成功 %d，跳过 %d，失败 %d',
             (int)($report['total'] ?? 0),
@@ -452,15 +452,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         );
         $message_type = ((int)($report['failed'] ?? 0) > 0) ? 'error' : 'success';
     } elseif ($form_action === 'sync_remote_storage_all') {
-        $report = remote_storage_sync_all_local_images();
+        $report = (new \LitePic\Service\Storage\RemoteStorage())->syncAllLocalImages();
         $message = (string)($report['message'] ?? '远程同步失败');
         $message_type = !empty($report['success']) ? 'success' : 'error';
     } elseif ($form_action === 'restore_remote_storage_all') {
-        $report = remote_storage_restore_all_to_local();
+        $report = (new \LitePic\Service\Storage\RemoteStorage())->restoreAllToLocal();
         $message = (string)($report['message'] ?? '远程恢复失败');
         $message_type = !empty($report['success']) ? 'success' : 'error';
     } elseif ($form_action === 'purge_remote_storage') {
-        $result = remote_storage_delete_all_objects();
+        $result = (new \LitePic\Service\Storage\RemoteStorage())->deleteAllObjects();
         $message = (string)($result['message'] ?? '远程清理失败');
         $message_type = !empty($result['success']) ? 'success' : 'error';
     }
@@ -689,7 +689,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 ? '防盗链规则写入 .htaccess 失败，请检查站点根目录写入权限'
                 : '防盗链规则从 .htaccess 移除失败，请检查站点根目录写入权限';
         } elseif ($apache_hotlink_protection_enabled) {
-            $web_server = detect_web_server_software();
+            $web_server = (new \LitePic\Service\Stats\ServerInfo())->webServer();
             if (empty($web_server['uses_htaccess'])) {
                 $settings_warnings[] = sprintf(
                     '当前检测为 %s，.htaccess 通常不会生效，请按使用说明添加对应服务器规则',
@@ -736,7 +736,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             'home_background_url' => $updated_home_background_url,
             'home_background_path' => $updated_home_background_path,
             'saved_settings' => $saved_settings,
-            'import_task_status' => import_task_queue_status(),
+            'import_task_status' => (new \LitePic\Service\Importer\Importer())->queueStatus(),
         ]);
     }
 
@@ -761,15 +761,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     exit;
 }
 
-$managed_tokens = get_managed_api_tokens();
+$managed_tokens = (new \LitePic\Repository\ApiTokenRepository())->allForDisplay();
 $active_tokens = array_values(array_filter($managed_tokens, static function ($token) {
     return empty($token['revoked_at']);
 }));
-$compression_api_keys = get_compression_api_keys();
+$compression_api_keys = (new \LitePic\Repository\CompressionKeyRepository())->all();
 $compression_api_active_count = count(array_filter($compression_api_keys, static function (array $row): bool {
     return !empty($row['enabled']);
 }));
-$current_compression_mode = get_compression_mode();
+$current_compression_mode = \LitePic\Service\Image\ImageFormat::compressionMode();
 $upload_format_labels = [
     'jpg' => 'JPG',
     'jpeg' => 'JPEG',
@@ -783,10 +783,10 @@ $upload_format_labels = [
     'tiff' => 'TIFF',
     'tif' => 'TIF',
 ];
-$import_task_status = import_task_queue_status();
+$import_task_status = (new \LitePic\Service\Importer\Importer())->queueStatus();
 $configured_upload_limit_bytes = (int)MAX_FILE_SIZE;
-$runtime_upload_limit_bytes = get_php_upload_limit_bytes();
-$metrics = get_server_runtime_metrics();
+$runtime_upload_limit_bytes = \LitePic\Service\Upload\UploadService::phpUploadLimitBytes();
+$metrics = (new \LitePic\Service\Stats\ServerInfo())->runtimeMetrics();
 
 $current_php_sapi = (string)($metrics['php_sapi'] ?? php_sapi_name());
 $server_ip = (string)($metrics['server_ip'] ?? '-');
@@ -832,7 +832,7 @@ $disk_usage_percent = max(0.0, min(100.0, (float)($metrics['disk']['usage_percen
 $htaccess_path = APP_ROOT . '/.htaccess';
 $apache_hotlink_rules_enabled = settings_apache_hotlink_rules_enabled($htaccess_path);
 $htaccess_writable = is_file($htaccess_path) ? is_writable($htaccess_path) : is_writable(APP_ROOT);
-$web_server = detect_web_server_software();
+$web_server = (new \LitePic\Service\Stats\ServerInfo())->webServer();
 $server_software = (string)$web_server['raw'];
 $server_label = (string)$web_server['label'];
 $server_uses_htaccess = !empty($web_server['uses_htaccess']);
@@ -874,7 +874,7 @@ require_once APP_ROOT . '/header.php';
         <?php endforeach; ?>
     </nav>
                 <form method="post" enctype="multipart/form-data" class="settings-panel" id="settingsForm">
-                    <?= csrf_token_input() ?>
+                    <?= \LitePic\Core\Csrf::inputField() ?>
                     <input type="hidden" name="form_action" value="save_settings">
                     <input type="hidden" name="active_tab" value="<?= htmlspecialchars($active_settings_tab, ENT_QUOTES, 'UTF-8') ?>">
 
@@ -975,7 +975,7 @@ require_once APP_ROOT . '/header.php';
                                     <div class="flex items-center justify-between gap-2">
                                         <span class="text-sm text-gray">上传上限</span>
                                         <span class="text-sm text-dark whitespace-nowrap overflow-hidden text-ellipsis" id="metricUploadLimit">
-                                            <?= htmlspecialchars(format_filesize($runtime_upload_limit_bytes) . ' / ' . format_filesize($configured_upload_limit_bytes)) ?>
+                                            <?= htmlspecialchars(\LitePic\Core\Format::filesize($runtime_upload_limit_bytes) . ' / ' . \LitePic\Core\Format::filesize($configured_upload_limit_bytes)) ?>
                                         </span>
                                     </div>
                                     <span class="inline-flex items-center justify-center min-h-[28px] px-2.5 text-sm leading-none border border-transparent whitespace-nowrap <?= $upload_ok ? 'is-on' : 'is-warn' ?>" id="metricUploadStatus">
@@ -1366,7 +1366,7 @@ require_once APP_ROOT . '/header.php';
                     </div>
 
                     <form method="post" class="settings-inline-form settings-token-form">
-                        <?= csrf_token_input() ?>
+                        <?= \LitePic\Core\Csrf::inputField() ?>
                         <input type="hidden" name="form_action" value="create_token">
                         <input type="hidden" name="active_tab" value="auth">
                         <input class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="token_name" placeholder="Token 名称（如：wordpress-prod）">
@@ -1413,7 +1413,7 @@ require_once APP_ROOT . '/header.php';
                                         <td>启用中</td>
                                         <td>
                                             <form method="post" data-confirm="确定要撤销此 API Token 吗？使用此 Token 的应用将立即失效。" data-confirm-title="撤销 Token 确认">
-                                                <?= csrf_token_input() ?>
+                                                <?= \LitePic\Core\Csrf::inputField() ?>
                                                 <input type="hidden" name="form_action" value="revoke_token">
                                                 <input type="hidden" name="active_tab" value="auth">
                                                 <input type="hidden" name="token_id" value="<?= htmlspecialchars((string)$token['id']) ?>">
@@ -1485,7 +1485,7 @@ require_once APP_ROOT . '/header.php';
                     </div>
 
                     <form method="post" class="settings-inline-form settings-compression-form">
-                        <?= csrf_token_input() ?>
+                        <?= \LitePic\Core\Csrf::inputField() ?>
                         <input type="hidden" name="form_action" value="add_compression_api">
                         <input type="hidden" name="active_tab" value="compression">
                         <input class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="compression_api_key" placeholder="输入 TinyPNG API Key">
@@ -1542,7 +1542,7 @@ require_once APP_ROOT . '/header.php';
                                         <td>
                                             <div class="flex gap-2 flex-wrap">
                                                 <form method="post">
-                                                    <?= csrf_token_input() ?>
+                                                    <?= \LitePic\Core\Csrf::inputField() ?>
                                                     <input type="hidden" name="form_action" value="toggle_compression_api">
                                                     <input type="hidden" name="active_tab" value="compression">
                                                     <input type="hidden" name="compression_api_id" value="<?= htmlspecialchars($id) ?>">
@@ -1550,7 +1550,7 @@ require_once APP_ROOT . '/header.php';
                                                     <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border border-border bg-light text-dark hover:bg-gray/10 transition-colors"><?= $enabled ? '禁用' : '启用' ?></button>
                                                 </form>
                                                 <form method="post" data-confirm="确定要删除此压缩 API Key 吗？" data-confirm-title="删除 TinyPNG Key 确认">
-                                                    <?= csrf_token_input() ?>
+                                                    <?= \LitePic\Core\Csrf::inputField() ?>
                                                     <input type="hidden" name="form_action" value="delete_compression_api">
                                                     <input type="hidden" name="active_tab" value="compression">
                                                     <input type="hidden" name="compression_api_id" value="<?= htmlspecialchars($id) ?>">

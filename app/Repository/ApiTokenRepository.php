@@ -31,6 +31,41 @@ final class ApiTokenRepository
     }
 
     /**
+     * Card-shaped representation: keeps the legacy `token_hash`,
+     * `revoked_at`, and ISO-8601 timestamp fields so the settings
+     * Token tab renders without bespoke formatting at the call site.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function allForDisplay(): array
+    {
+        return array_map(static function (array $row): array {
+            return [
+                'id' => $row['id'],
+                'name' => $row['name'],
+                'token_hash' => '',
+                'created_at' => $row['created_at'] > 0 ? date('c', $row['created_at']) : '-',
+                'last_used_at' => $row['last_used_at'] !== null ? date('c', $row['last_used_at']) : null,
+                'revoked_at' => null,
+            ];
+        }, $this->all());
+    }
+
+    /**
+     * Wrap `create()` in a try/catch — random_bytes can fail on
+     * exotic systems and we don't want the settings page to 500 over it.
+     */
+    public function createSafely(string $name = 'token'): ?string
+    {
+        try {
+            return $this->create($name);
+        } catch (\Throwable $e) {
+            error_log('createManagedToken failed: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Generate, persist, and return a new token. The plain-text returned
      * here is the only time the caller can see it.
      */

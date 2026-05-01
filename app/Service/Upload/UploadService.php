@@ -208,7 +208,7 @@ final class UploadService
         $identifier = PathService::identifierFromPath($target) ?? $filename;
 
         if (function_exists('save_original_filename')) {
-            save_original_filename($identifier, $originalName);
+            (new \LitePic\Repository\ImageRepository())->recordOriginalName($identifier, $originalName);
         }
         $thumbnails = new ThumbnailService();
         $thumbnails->create($identifier);
@@ -333,6 +333,6 @@ final class UploadService
 
     private static function fmt(int $bytes): string
     {
-        return function_exists('format_filesize') ? format_filesize($bytes) : ($bytes . ' B');
+        return function_exists('format_filesize') ? \LitePic\Core\Format::filesize($bytes) : ($bytes . ' B');
     }
 }

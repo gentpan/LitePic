@@ -12,7 +12,7 @@ use Throwable;
  * (handles huge images that would blow GD's memory_limit) and falls
  * back to GD otherwise.
  *
- * Conversion functions like create_image_resource() still live in the
+ * Conversion functions like \LitePic\Service\Image\ConversionService::createImageResource() still live in the
  * legacy procedural layer and are reached via the global function.
  */
 final class ThumbnailService
@@ -161,10 +161,10 @@ final class ThumbnailService
 
     private function createWithGd(string $source, string $target, int $w, int $h, string $mime, int $quality): bool
     {
-        // Falls back through the legacy create_image_resource() helper for now,
+        // Falls back through the legacy \LitePic\Service\Image\ConversionService::createImageResource() helper for now,
         // which knows how to read jpeg/png/gif/webp into a GD resource.
         if (!function_exists('create_image_resource')) return false;
-        $src = @create_image_resource($source, $mime);
+        $src = @\LitePic\Service\Image\ConversionService::createImageResource($source, $mime);
         if (!$src) return false;
 
         $sw = imagesx($src);

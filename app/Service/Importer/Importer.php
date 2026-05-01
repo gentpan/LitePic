@@ -396,7 +396,7 @@ final class Importer
                 return '';
             }
             if (function_exists('save_original_filename')) {
-                save_original_filename($identifier, basename($sourcePath));
+                (new \LitePic\Repository\ImageRepository())->recordOriginalName($identifier, basename($sourcePath));
             }
             return $identifier;
         }
@@ -424,7 +424,7 @@ final class Importer
 
         $finalFilename = PathService::identifierFromPath($targetPath) ?? $targetIdentifier;
         if (function_exists('save_original_filename')) {
-            save_original_filename($finalFilename, $relativeIdentifier);
+            (new \LitePic\Repository\ImageRepository())->recordOriginalName($finalFilename, $relativeIdentifier);
         }
         return $finalFilename;
     }

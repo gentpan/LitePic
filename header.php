@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-session_init_safe();
+\LitePic\Core\Session::start();
 
 $is_logged_in = ADMIN_API_KEY !== '' &&
     isset($_COOKIE[API_KEY_COOKIE]) &&
@@ -78,7 +78,7 @@ $document_title = isset($html_title) && trim((string)$html_title) !== ''
     <link rel="stylesheet" href="/<?= htmlspecialchars(ltrim($css_bundle, '/'), ENT_QUOTES, 'UTF-8') ?>?v=<?= htmlspecialchars($css_ver, ENT_QUOTES, 'UTF-8') ?>">
     <script>
         // 全局 CSRF Token（用于前端 AJAX 请求）
-        window.CSRF_TOKEN = <?= json_encode(csrf_token_get(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        window.CSRF_TOKEN = <?= json_encode(\LitePic\Core\Csrf::token(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
     </script>
 </head>
 

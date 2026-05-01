@@ -113,9 +113,9 @@ final class AccessLogStats
             $stats['top'][] = [
                 'filename' => (string)$identifier,
                 'request_count' => (int)$count,
-                'url' => function_exists('get_img_url') ? get_img_url((string)$identifier) : '',
+                'url' => function_exists('get_img_url') ? \LitePic\Service\Image\ImageUrl::forIdentifier((string)$identifier) : '',
                 'original_name' => function_exists('get_original_filename')
-                    ? (get_original_filename((string)$identifier) ?? PathService::displayName((string)$identifier))
+                    ? ((new \LitePic\Repository\ImageRepository())->originalNameFor((string)$identifier) ?? PathService::displayName((string)$identifier))
                     : PathService::displayName((string)$identifier),
             ];
         }

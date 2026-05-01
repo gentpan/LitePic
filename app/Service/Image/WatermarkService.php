@@ -16,7 +16,7 @@ namespace LitePic\Service\Image;
  *   5. Save back to the source path with the original MIME
  *
  * Image-resource creation is delegated to the legacy
- * `create_image_resource()` for now — that lives in the conversion
+ * `\LitePic\Service\Image\ConversionService::createImageResource()` for now — that lives in the conversion
  * pipeline and will move when ConversionService gets physical.
  */
 final class WatermarkService
@@ -132,7 +132,7 @@ final class WatermarkService
             $result['skip_reason'] = 'resource_failed';
             return $result;
         }
-        $image = create_image_resource($path, $mime);
+        $image = \LitePic\Service\Image\ConversionService::createImageResource($path, $mime);
         if (!$image) {
             $result['skip_reason'] = 'resource_failed';
             return $result;

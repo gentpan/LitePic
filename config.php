@@ -161,9 +161,14 @@ define('GALLERY_COLUMNS', 4); // 固定图库 4 列
 define('ENABLE_LAZY_LOAD', true);
 define('DEFAULT_SORT', 'date-desc');
 
-// 功能开关
+// 功能开关 — WebP 支持要求 PHP 编译时启用 GD with WebP
 if (!defined('ENABLE_WEBP')) {
-    define('ENABLE_WEBP', true);
+    if (!function_exists('imagewebp')) {
+        error_log('[LitePic] Server does not support WebP conversion');
+        define('ENABLE_WEBP', false);
+    } else {
+        define('ENABLE_WEBP', true);
+    }
 }
 if (!defined('ENABLE_COMPRESSION')) {
     define('ENABLE_COMPRESSION', true);

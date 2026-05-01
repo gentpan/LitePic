@@ -10,9 +10,7 @@ declare(strict_types=1);
  *   3. Load .env into Config
  *   4. Bring up Logger
  *   5. Open the SQLite connection and run any pending migrations
- *   6. Pull in legacy `config.php` constants (still consumed by views)
- *
- * Once Phase 4/5 of the refactor lands, the legacy include can go away.
+ *   6. Pull in `config.php` constants (consumed by views/templates)
  */
 
 if (!defined('APP_ROOT')) {
@@ -25,8 +23,8 @@ require_once APP_ROOT . '/app/Core/Autoloader.php';
 \LitePic\Core\Config::init(APP_ROOT . '/.env');
 \LitePic\Core\Logger::init(APP_ROOT . '/logs');
 
-// Legacy constants (SITE_NAME, MAX_FILE_SIZE, WATERMARK_*, S3_*, etc.).
-// Views and several still-procedural callers reference these directly.
+// Constants (SITE_NAME, MAX_FILE_SIZE, WATERMARK_*, S3_*, ENABLE_*).
+// Views and templates reference these directly.
 require_once APP_ROOT . '/config.php';
 
 \LitePic\Core\Database::init(APP_ROOT . '/data/litepic.sqlite');
@@ -43,5 +41,3 @@ try {
     }
 }
 
-// Legacy procedural helpers (functions.php) — being phased out per service.
-require_once APP_ROOT . '/functions.php';

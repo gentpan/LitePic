@@ -18,6 +18,18 @@ final class LoginAttemptRepository
     public const WINDOW_SECONDS = 300;
     public const MAX_FAILURES = 5;
 
+    /** Convenience: check the current request's IP. */
+    public function isAllowedForCurrentIp(): bool
+    {
+        return $this->isAllowed((string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+    }
+
+    /** Convenience: record a failure against the current request's IP. */
+    public function recordFailureForCurrentIp(): void
+    {
+        $this->recordFailure((string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+    }
+
     public function isAllowed(string $ip): bool
     {
         $row = $this->find($ip);
