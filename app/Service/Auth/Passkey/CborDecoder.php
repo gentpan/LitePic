@@ -1,9 +1,13 @@
 <?php
 declare(strict_types=1);
 
+namespace LitePic\Service\Auth\Passkey;
+
+use Exception;
+
 /**
- * 轻量 CBOR 解码器（支持 WebAuthn 所需的最小类型集）
- * CBOR 类型参考：https://tools.ietf.org/html/rfc8949
+ * Minimal CBOR decoder — covers just the WebAuthn-required type set
+ * (RFC 8949). Only used by the Passkey/WebAuthn flow.
  */
 class CborDecoder {
     private string $data;

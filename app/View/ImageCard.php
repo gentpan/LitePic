@@ -1,13 +1,15 @@
 <?php
 declare(strict_types=1);
 
+namespace LitePic\View;
+
+use LitePic\Core\Format;
+
 /**
- * 图片卡片组件
- * 
- * @param array  $info        图片信息数组
- * @param bool   $show_webp   是否显示WebP转换按钮
- * @param bool   $show_comp   是否显示压缩按钮 
- * @param bool   $show_select 是否显示选择框
+ * Renders the image card markup used in the gallery / upload result list.
+ *
+ * Constructor flags toggle which UI affordances appear: WebP/AVIF/
+ * compress action buttons, and the multi-select checkbox.
  */
 class ImageCard {
     private array $info;
@@ -126,7 +128,7 @@ class ImageCard {
                 </span>
                 <span class="img-meta-badge img-size img-size-badge" title="文件大小">
                     <i class="fa-light fa-hard-drive"></i>
-                    <span class="img-size-value"><?= format_filesize($this->info['size']) ?></span>
+                    <span class="img-size-value"><?= Format::filesize($this->info['size']) ?></span>
                 </span>
                 <span class="img-meta-badge img-format-tag <?= htmlspecialchars($format_class) ?>" title="图片格式">
                     <i class="fa-light fa-file-image"></i>
