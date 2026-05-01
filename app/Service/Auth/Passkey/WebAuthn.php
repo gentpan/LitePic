@@ -1,11 +1,13 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/CborDecoder.php';
+namespace LitePic\Service\Auth\Passkey;
+
+use Exception;
 
 /**
- * 轻量 WebAuthn 实现（Passkey / 无密码登录）
- * 仅支持 ES256 (ECDSA P-256 + SHA-256) 算法
+ * Lightweight WebAuthn (Passkey / passwordless) implementation.
+ * Only supports ES256 (ECDSA P-256 + SHA-256).
  */
 class WebAuthn {
     private string $rpName;
@@ -22,7 +24,7 @@ class WebAuthn {
         $this->rpName = $rpName;
         $this->rpId = $rpId;
         $this->origin = $origin;
-        $this->storagePath = __DIR__ . '/../data/passkeys.json';
+        $this->storagePath = (defined('APP_ROOT') ? APP_ROOT : dirname(__DIR__, 4)) . '/data/passkeys.json';
     }
 
     // ==================== 工具方法 ====================
@@ -76,7 +78,7 @@ class WebAuthn {
     }
 
     private function getChallengePath(string $type): string {
-        $dir = __DIR__ . '/../data/challenges';
+        $dir = (defined('APP_ROOT') ? APP_ROOT : dirname(__DIR__, 4)) . '/data/challenges';
         if (!is_dir($dir) && !mkdir($dir, 0777, true) && !is_dir($dir)) {
             throw new Exception('无法创建 challenges 目录');
         }

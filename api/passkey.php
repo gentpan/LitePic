@@ -22,9 +22,7 @@ if ($rpId === '127.0.0.1') {
 $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $origin = $scheme . '://' . $host;
 
-require_once __DIR__ . '/../lib/CborDecoder.php';
-require_once __DIR__ . '/../lib/WebAuthn.php';
-$webauthn = new WebAuthn($rpName, $rpId, $origin);
+$webauthn = new \LitePic\Service\Auth\Passkey\WebAuthn($rpName, $rpId, $origin);
 
 try {
     switch ($action) {
@@ -49,7 +47,7 @@ try {
             }
 
             // clientDataJSON 前端传的是 Base64URL，需解码为原始 JSON 字符串
-            $clientDataJson = WebAuthn::base64UrlDecode($clientDataJsonB64);
+            $clientDataJson = \LitePic\Service\Auth\Passkey\WebAuthn::base64UrlDecode($clientDataJsonB64);
             $result = $webauthn->verifyRegistration($clientDataJson, $attestationObject, $credentialId);
             success_response(['message' => 'Passkey 注册成功', 'credentialId' => $result['credentialId']]);
             break;
@@ -73,7 +71,7 @@ try {
             }
 
             // clientDataJSON 前端传的是 Base64URL，需解码为原始 JSON 字符串
-            $clientDataJson = WebAuthn::base64UrlDecode($clientDataJsonB64);
+            $clientDataJson = \LitePic\Service\Auth\Passkey\WebAuthn::base64UrlDecode($clientDataJsonB64);
             if ($webauthn->verifyAuthentication($credentialId, $authenticatorData, $clientDataJson, $signature)) {
                 // 认证成功，设置管理员 Cookie
                 setcookie(

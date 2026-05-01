@@ -29,7 +29,6 @@ if ($action === 'render_card') {
         exit;
     }
 
-    require_once __DIR__ . '/lib/ImageCard.php';
     if (!is_api_request_authorized()) {
         http_response_code(403);
         echo '<b>Error</b> 权限不足';
@@ -68,7 +67,7 @@ if ($action === 'render_card') {
     $isGallery = $type === 'gallery';
 
     try {
-        $card = new ImageCard($info, $isGallery, $isGallery, $isGallery);
+        $card = new \LitePic\View\ImageCard($info, $isGallery, $isGallery, $isGallery);
         echo $card->render();
     } catch (Throwable $e) {
         http_response_code(500);

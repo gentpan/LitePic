@@ -1,8 +1,6 @@
 <?php
 declare(strict_types=1);
 
-require_once APP_ROOT . '/lib/ImageCard.php';
-
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
@@ -222,7 +220,7 @@ class GalleryManager {
                     continue;
                 }
 
-                $card = new ImageCard($info, true, true, true);
+                $card = new \LitePic\View\ImageCard($info, true, true, true);
                 echo $card->render();
             }
             ?>
