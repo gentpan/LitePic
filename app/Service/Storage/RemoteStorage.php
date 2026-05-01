@@ -29,6 +29,57 @@ final class RemoteStorage
     public function isEnabled(): bool { return $this->credentialsValid(); }
     public function isConfigValid(): bool { return $this->credentialsValid(); }
 
+    /**
+     * Build the env-var dict to write when the settings page submits
+     * R2/S3 credentials. Falls back to current values for any missing
+     * field so a partial form post doesn't blank existing config.
+     *
+     * @return array<string,string>
+     */
+    public static function envFromPostedForm(): array
+    {
+        $usage = strtolower(trim((string)($_POST['remote_storage_usage'] ?? (defined('REMOTE_STORAGE_USAGE') ? REMOTE_STORAGE_USAGE : 'backup'))));
+        if (!in_array($usage, ['backup', 'storage'], true)) $usage = 'backup';
+
+        $get = static function (string $field, string $constName, bool $trimSlash = false) {
+            $val = trim((string)($_POST[$field] ?? (defined($constName) ? constant($constName) : '')));
+            if ($trimSlash) $val = trim($val, '/');
+            return \LitePic\Core\Format::envQuote($val);
+        };
+
+        return [
+            'REMOTE_STORAGE_MODE' => 'sync',
+            'REMOTE_STORAGE_USAGE' => $usage,
+            'S3_PROVIDER' => 's3',
+            'S3_BUCKET' => $get('s3_bucket', 'S3_BUCKET'),
+            'S3_REGION' => $get('s3_region', 'S3_REGION'),
+            'S3_ENDPOINT' => $get('s3_endpoint', 'S3_ENDPOINT'),
+            'S3_KEY' => $get('s3_key', 'S3_KEY'),
+            'S3_SECRET' => $get('s3_secret', 'S3_SECRET'),
+            'S3_PATH_PREFIX' => $get('s3_path_prefix', 'S3_PATH_PREFIX', true),
+            'S3_PUBLIC_BASE_URL' => $get('s3_public_base_url', 'S3_PUBLIC_BASE_URL'),
+        ];
+    }
+
+    /**
+     * Whether the posted form has all the fields needed to actually
+     * use remote storage. `storage` mode also requires a public base
+     * URL because that's what gets served to viewers.
+     */
+    public static function postedFormIsComplete(): bool
+    {
+        $current = static fn (string $field, string $constName) => trim(
+            (string)($_POST[$field] ?? (defined($constName) ? constant($constName) : ''))
+        );
+        $usage = strtolower($current('remote_storage_usage', 'REMOTE_STORAGE_USAGE'));
+        $base = $current('s3_bucket', 'S3_BUCKET') !== ''
+             && $current('s3_endpoint', 'S3_ENDPOINT') !== ''
+             && $current('s3_key', 'S3_KEY') !== ''
+             && $current('s3_secret', 'S3_SECRET') !== '';
+        if (!$base) return false;
+        return $usage !== 'storage' || $current('s3_public_base_url', 'S3_PUBLIC_BASE_URL') !== '';
+    }
+
     public function credentialsValid(): bool
     {
         return defined('S3_BUCKET') && S3_BUCKET !== ''

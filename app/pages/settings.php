@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 if (!defined('APP_ROOT')) {
-    require_once dirname(__DIR__, 2) . '/app/Core/bootstrap.php';
+    require_once dirname(__DIR__, 2) . '/bootstrap.php';
 }
 
 
@@ -67,61 +67,17 @@ function bool_from_post(string $key): bool {
 }
 
 function settings_compression_capability(): array {
-    $metrics = get_server_runtime_metrics();
-    $capability = is_array($metrics['capability'] ?? null) ? $metrics['capability'] : [];
-
-    return [
-        'gd' => !empty($capability['gd']),
-        'imagick' => !empty($capability['imagick']),
-        'avif' => !empty($capability['avif']),
-        'webp' => !empty($capability['webp']),
-    ];
+    return \LitePic\Service\Stats\ServerInfo::compressionCapability();
 }
 
 function env_encode_value(string $value): string {
-    return '"' . str_replace(['\\', '"', "\n", "\r"], ['\\\\', '\\"', '\\n', '\\r'], $value) . '"';
+    return \LitePic\Core\Format::envQuote($value);
 }
 
 function write_env_values(string $env_path, array $updates): bool {
-    $lines = [];
-    if (is_file($env_path)) {
-        $existing = file($env_path, FILE_IGNORE_NEW_LINES);
-        if ($existing !== false) {
-            $lines = $existing;
-        }
-    }
-
-    $remaining = $updates;
-    foreach ($lines as $index => $line) {
-        if (!is_string($line)) {
-            continue;
-        }
-        if (!preg_match('/^\s*([A-Z0-9_]+)\s*=/', $line, $matches)) {
-            continue;
-        }
-        $key = $matches[1];
-        if (!array_key_exists($key, $remaining)) {
-            continue;
-        }
-        $lines[$index] = $key . '=' . (string)$remaining[$key];
-        unset($remaining[$key]);
-    }
-
-    if (!empty($remaining)) {
-        if (!empty($lines) && trim((string)end($lines)) !== '') {
-            $lines[] = '';
-        }
-        foreach ($remaining as $key => $value) {
-            $lines[] = $key . '=' . (string)$value;
-        }
-    }
-
-    $content = implode(PHP_EOL, $lines);
-    if ($content !== '') {
-        $content .= PHP_EOL;
-    }
-
-    return file_put_contents($env_path, $content, LOCK_EX) !== false;
+    // The path is always APP_ROOT/.env in this app; Config::write is
+    // hard-wired to that single location, so $env_path is ignored here.
+    return \LitePic\Core\Config::write($updates);
 }
 
 function write_user_ini_values(string $ini_path, array $updates): bool {
@@ -167,53 +123,7 @@ function write_user_ini_values(string $ini_path, array $updates): bool {
 }
 
 function settings_store_watermark_upload(string $field, array $allowed_extensions, ?string &$error = null): ?string {
-    if (empty($_FILES[$field]) || !is_array($_FILES[$field])) {
-        return null;
-    }
-
-    $file = $_FILES[$field];
-    $error_code = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
-    if ($error_code === UPLOAD_ERR_NO_FILE) {
-        return null;
-    }
-    if ($error_code !== UPLOAD_ERR_OK) {
-        $error = '上传文件失败，请检查 PHP 上传限制';
-        return null;
-    }
-
-    $tmp_name = (string)($file['tmp_name'] ?? '');
-    $name = (string)($file['name'] ?? '');
-    $extension = strtolower((string)pathinfo($name, PATHINFO_EXTENSION));
-    if (!in_array($extension, $allowed_extensions, true)) {
-        $error = '上传格式不支持';
-        return null;
-    }
-    if ($tmp_name === '' || !is_uploaded_file($tmp_name)) {
-        $error = '上传临时文件无效';
-        return null;
-    }
-    if ($extension === 'png') {
-        $info = @getimagesize($tmp_name);
-        if (!is_array($info) || (string)($info['mime'] ?? '') !== 'image/png') {
-            $error = 'PNG 水印文件无效';
-            return null;
-        }
-    }
-
-    $dir = APP_ROOT . '/data/watermarks';
-    if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
-        $error = '水印资源目录不可写';
-        return null;
-    }
-
-    $prefix = $extension === 'png' ? 'image' : 'font';
-    $target = $dir . '/' . $prefix . '-' . date('YmdHis') . '-' . bin2hex(random_bytes(4)) . '.' . $extension;
-    if (!move_uploaded_file($tmp_name, $target)) {
-        $error = '保存上传文件失败';
-        return null;
-    }
-
-    return $target;
+    return \LitePic\Service\Image\WatermarkService::storeUploadedAsset($field, $allowed_extensions, $error);
 }
 
 function settings_home_background_url(string $web_path): string {
@@ -317,148 +227,27 @@ function settings_store_home_background_upload(string $field, ?string &$error = 
 }
 
 function settings_open_basedir_value(string $ini_path): string {
-    $paths = [
-        rtrim(APP_ROOT, '/') . '/',
-        '/tmp/',
-        '/proc/cpuinfo',
-        '/proc/meminfo',
-        '/proc/uptime',
-        '/etc/os-release',
-    ];
-
-    if (is_file($ini_path)) {
-        $lines = file($ini_path, FILE_IGNORE_NEW_LINES);
-        if ($lines !== false) {
-            foreach ($lines as $line) {
-                if (!is_string($line) || !preg_match('/^\s*open_basedir\s*=\s*(.+)\s*$/', $line, $matches)) {
-                    continue;
-                }
-                foreach (explode(PATH_SEPARATOR, trim((string)$matches[1])) as $path) {
-                    $path = trim($path);
-                    if ($path !== '') {
-                        $paths[] = $path;
-                    }
-                }
-                break;
-            }
-        }
-    }
-
-    $normalized = [];
-    foreach ($paths as $path) {
-        $path = trim($path);
-        if ($path === '') {
-            continue;
-        }
-        if ($path === APP_ROOT) {
-            $path = rtrim(APP_ROOT, '/') . '/';
-        }
-        $normalized[$path] = true;
-    }
-
-    return implode(PATH_SEPARATOR, array_keys($normalized));
+    return \LitePic\Service\Stats\ServerInfo::openBasedirValue($ini_path);
 }
 
 function settings_normalize_domain(string $domain): string {
-    $domain = strtolower(trim($domain));
-    if ($domain === '') {
-        return '';
-    }
-    $host = parse_url(str_contains($domain, '://') ? $domain : ('https://' . $domain), PHP_URL_HOST);
-    if (is_string($host) && $host !== '') {
-        $domain = $host;
-    }
-    if (str_starts_with($domain, '*.')) {
-        $domain = substr($domain, 2);
-    }
-    $domain = preg_replace('/:\d+$/', '', $domain) ?? $domain;
-    $domain = trim($domain, '.');
-    return preg_match('/^[a-z0-9.-]+$/', $domain) ? $domain : '';
+    return \LitePic\Service\Hotlink\HotlinkProtection::normalizeDomain($domain);
 }
 
 function settings_hotlink_domains_from_input(string $domains): array {
-    $items = [];
-    $site_host = parse_url((string)SITE_URL, PHP_URL_HOST);
-    if (is_string($site_host)) {
-        $items[] = $site_host;
-    }
-    $request_host = (string)($_SERVER['HTTP_HOST'] ?? '');
-    if ($request_host !== '') {
-        $items[] = $request_host;
-    }
-    foreach (explode(',', $domains) as $domain) {
-        $items[] = $domain;
-    }
-
-    $normalized = [];
-    foreach ($items as $item) {
-        $domain = settings_normalize_domain((string)$item);
-        if ($domain !== '') {
-            $normalized[$domain] = true;
-        }
-    }
-
-    return array_keys($normalized);
+    return \LitePic\Service\Hotlink\HotlinkProtection::domainsFromInput($domains);
 }
 
 function settings_apache_hotlink_rules_block(string $domains, bool $allow_empty_referer): string {
-    $allowed_domains = settings_hotlink_domains_from_input($domains);
-    if (empty($allowed_domains)) {
-        $allowed_domains = ['localhost'];
-    }
-    $domain_pattern = implode('|', array_map(static function (string $domain): string {
-        return preg_quote($domain, '/');
-    }, $allowed_domains));
-
-    $lines = [
-        '# BEGIN LitePic Hotlink Protection',
-        '<IfModule mod_rewrite.c>',
-        '    RewriteEngine On',
-    ];
-    if ($allow_empty_referer) {
-        $lines[] = '    RewriteCond %{HTTP_REFERER} !^$';
-    }
-    $lines[] = '    RewriteCond %{HTTP_REFERER} !^https?://([^/]+\.)?(' . $domain_pattern . ')(:[0-9]+)?(/|$) [NC]';
-    $lines[] = '    RewriteRule ^uploads/.*\.(jpg|jpeg|png|gif|webp|avif|svg|ico|bmp|tiff|tif)$ - [F,L]';
-    $lines[] = '</IfModule>';
-    $lines[] = '# END LitePic Hotlink Protection';
-
-    return implode(PHP_EOL, $lines);
+    return \LitePic\Service\Hotlink\HotlinkProtection::apacheRulesBlock($domains, $allow_empty_referer);
 }
 
 function settings_write_apache_hotlink_rules(string $htaccess_path, bool $enabled, string $domains, bool $allow_empty_referer): bool {
-    if (!$enabled && !is_file($htaccess_path)) {
-        return true;
-    }
-
-    $content = is_file($htaccess_path) ? file_get_contents($htaccess_path) : '';
-    if (!is_string($content)) {
-        return false;
-    }
-
-    $pattern = '/\R?# BEGIN LitePic Hotlink Protection\R.*?# END LitePic Hotlink Protection\R?/s';
-    $content = preg_replace($pattern, PHP_EOL, $content) ?? $content;
-    $content = rtrim($content) . PHP_EOL;
-
-    if ($enabled) {
-        $block = settings_apache_hotlink_rules_block($domains, $allow_empty_referer);
-        $anchor = '# 真实文件/目录直接访问';
-        if (str_contains($content, $anchor)) {
-            $content = str_replace($anchor, $block . PHP_EOL . PHP_EOL . $anchor, $content);
-        } else {
-            $content .= PHP_EOL . $block . PHP_EOL;
-        }
-    }
-
-    return file_put_contents($htaccess_path, $content, LOCK_EX) !== false;
+    return \LitePic\Service\Hotlink\HotlinkProtection::writeApacheRules($htaccess_path, $enabled, $domains, $allow_empty_referer);
 }
 
 function settings_apache_hotlink_rules_enabled(string $htaccess_path): bool {
-    if (!is_file($htaccess_path)) {
-        return false;
-    }
-    $content = file_get_contents($htaccess_path);
-    return is_string($content) && str_contains($content, '# BEGIN LitePic Hotlink Protection');
+    return \LitePic\Service\Hotlink\HotlinkProtection::apacheRulesEnabled($htaccess_path);
 }
 
 function settings_is_ajax_request(): bool {
@@ -478,36 +267,11 @@ function settings_json_response(array $payload, int $status_code = 200): void {
 }
 
 function settings_remote_storage_env_from_post(): array {
-    $usage = strtolower(trim((string)($_POST['remote_storage_usage'] ?? REMOTE_STORAGE_USAGE)));
-    if (!in_array($usage, ['backup', 'storage'], true)) {
-        $usage = 'backup';
-    }
-
-    return [
-        'REMOTE_STORAGE_MODE' => 'sync',
-        'REMOTE_STORAGE_USAGE' => $usage,
-        'S3_PROVIDER' => 's3',
-        'S3_BUCKET' => env_encode_value(trim((string)($_POST['s3_bucket'] ?? S3_BUCKET))),
-        'S3_REGION' => env_encode_value(trim((string)($_POST['s3_region'] ?? S3_REGION))),
-        'S3_ENDPOINT' => env_encode_value(trim((string)($_POST['s3_endpoint'] ?? S3_ENDPOINT))),
-        'S3_KEY' => env_encode_value(trim((string)($_POST['s3_key'] ?? S3_KEY))),
-        'S3_SECRET' => env_encode_value(trim((string)($_POST['s3_secret'] ?? S3_SECRET))),
-        'S3_PATH_PREFIX' => env_encode_value(trim((string)($_POST['s3_path_prefix'] ?? S3_PATH_PREFIX), '/')),
-        'S3_PUBLIC_BASE_URL' => env_encode_value(trim((string)($_POST['s3_public_base_url'] ?? S3_PUBLIC_BASE_URL))),
-    ];
+    return \LitePic\Service\Storage\RemoteStorage::envFromPostedForm();
 }
 
 function settings_remote_storage_required_complete(): bool {
-    $usage = strtolower(trim((string)($_POST['remote_storage_usage'] ?? REMOTE_STORAGE_USAGE)));
-    $base_complete = trim((string)($_POST['s3_bucket'] ?? S3_BUCKET)) !== ''
-        && trim((string)($_POST['s3_endpoint'] ?? S3_ENDPOINT)) !== ''
-        && trim((string)($_POST['s3_key'] ?? S3_KEY)) !== ''
-        && trim((string)($_POST['s3_secret'] ?? S3_SECRET)) !== '';
-    if (!$base_complete) {
-        return false;
-    }
-
-    return $usage !== 'storage' || trim((string)($_POST['s3_public_base_url'] ?? S3_PUBLIC_BASE_URL)) !== '';
+    return \LitePic\Service\Storage\RemoteStorage::postedFormIsComplete();
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {

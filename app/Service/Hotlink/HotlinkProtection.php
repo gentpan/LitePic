@@ -151,4 +151,104 @@ final class HotlinkProtection
         }
         return $referer === $allowed || str_ends_with($referer, '.' . $allowed);
     }
+
+    /**
+     * Strip a domain string down to a bare hostname: drop scheme, port,
+     * leading wildcard, and trailing dots. Returns '' if the result
+     * isn't a valid host fragment.
+     */
+    public static function normalizeDomain(string $domain): string
+    {
+        $domain = strtolower(trim($domain));
+        if ($domain === '') return '';
+        $host = parse_url(str_contains($domain, '://') ? $domain : ('https://' . $domain), PHP_URL_HOST);
+        if (is_string($host) && $host !== '') $domain = $host;
+        if (str_starts_with($domain, '*.')) $domain = substr($domain, 2);
+        $domain = preg_replace('/:\d+$/', '', $domain) ?? $domain;
+        $domain = trim($domain, '.');
+        return preg_match('/^[a-z0-9.-]+$/', $domain) ? $domain : '';
+    }
+
+    /**
+     * Take a comma-separated allowlist (from the settings form) and
+     * return the deduplicated host list, with the current SITE_URL host
+     * and HTTP_HOST always included.
+     *
+     * @return array<int,string>
+     */
+    public static function domainsFromInput(string $domains): array
+    {
+        $items = [];
+        $siteHost = parse_url(defined('SITE_URL') ? (string)SITE_URL : '', PHP_URL_HOST);
+        if (is_string($siteHost)) $items[] = $siteHost;
+        $requestHost = (string)($_SERVER['HTTP_HOST'] ?? '');
+        if ($requestHost !== '') $items[] = $requestHost;
+        foreach (explode(',', $domains) as $domain) $items[] = $domain;
+
+        $normalized = [];
+        foreach ($items as $item) {
+            $d = self::normalizeDomain((string)$item);
+            if ($d !== '') $normalized[$d] = true;
+        }
+        return array_keys($normalized);
+    }
+
+    /**
+     * Render the Apache mod_rewrite block that enforces the allowlist.
+     * The block is wrapped in BEGIN/END markers so it can be replaced
+     * cleanly without touching the rest of the .htaccess.
+     */
+    public static function apacheRulesBlock(string $domains, bool $allowEmptyReferer): string
+    {
+        $allowed = self::domainsFromInput($domains);
+        if ($allowed === []) $allowed = ['localhost'];
+        $pattern = implode('|', array_map(static fn (string $d) => preg_quote($d, '/'), $allowed));
+
+        $lines = [
+            '# BEGIN LitePic Hotlink Protection',
+            '<IfModule mod_rewrite.c>',
+            '    RewriteEngine On',
+        ];
+        if ($allowEmptyReferer) {
+            $lines[] = '    RewriteCond %{HTTP_REFERER} !^$';
+        }
+        $lines[] = '    RewriteCond %{HTTP_REFERER} !^https?://([^/]+\.)?(' . $pattern . ')(:[0-9]+)?(/|$) [NC]';
+        $lines[] = '    RewriteRule ^uploads/.*\.(jpg|jpeg|png|gif|webp|avif|svg|ico|bmp|tiff|tif)$ - [F,L]';
+        $lines[] = '</IfModule>';
+        $lines[] = '# END LitePic Hotlink Protection';
+        return implode(PHP_EOL, $lines);
+    }
+
+    /**
+     * Idempotently write (or remove) the rules block in `$htaccessPath`.
+     * If `$enabled=false` and the file doesn't exist, no-op.
+     */
+    public static function writeApacheRules(string $htaccessPath, bool $enabled, string $domains, bool $allowEmptyReferer): bool
+    {
+        if (!$enabled && !is_file($htaccessPath)) return true;
+        $content = is_file($htaccessPath) ? file_get_contents($htaccessPath) : '';
+        if (!is_string($content)) return false;
+
+        $pattern = '/\R?# BEGIN LitePic Hotlink Protection\R.*?# END LitePic Hotlink Protection\R?/s';
+        $content = preg_replace($pattern, PHP_EOL, $content) ?? $content;
+        $content = rtrim($content) . PHP_EOL;
+
+        if ($enabled) {
+            $block = self::apacheRulesBlock($domains, $allowEmptyReferer);
+            $anchor = '# 真实文件/目录直接访问';
+            if (str_contains($content, $anchor)) {
+                $content = str_replace($anchor, $block . PHP_EOL . PHP_EOL . $anchor, $content);
+            } else {
+                $content .= PHP_EOL . $block . PHP_EOL;
+            }
+        }
+        return file_put_contents($htaccessPath, $content, LOCK_EX) !== false;
+    }
+
+    public static function apacheRulesEnabled(string $htaccessPath): bool
+    {
+        if (!is_file($htaccessPath)) return false;
+        $content = file_get_contents($htaccessPath);
+        return is_string($content) && str_contains($content, '# BEGIN LitePic Hotlink Protection');
+    }
 }

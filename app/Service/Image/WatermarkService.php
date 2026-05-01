@@ -34,6 +34,59 @@ final class WatermarkService
     }
 
     /**
+     * Save an uploaded font (.ttf/.otf) or PNG-image asset under
+     * data/watermarks/ and return the absolute path. Returns null
+     * (with `$error` set) if validation fails. PNG uploads also get a
+     * MIME re-check against the file body to catch extension spoofing.
+     */
+    public static function storeUploadedAsset(string $field, array $allowedExtensions, ?string &$error = null): ?string
+    {
+        if (empty($_FILES[$field]) || !is_array($_FILES[$field])) {
+            return null;
+        }
+        $file = $_FILES[$field];
+        $errorCode = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
+        if ($errorCode === UPLOAD_ERR_NO_FILE) return null;
+        if ($errorCode !== UPLOAD_ERR_OK) {
+            $error = '上传文件失败，请检查 PHP 上传限制';
+            return null;
+        }
+
+        $tmp = (string)($file['tmp_name'] ?? '');
+        $name = (string)($file['name'] ?? '');
+        $ext = strtolower((string)pathinfo($name, PATHINFO_EXTENSION));
+        if (!in_array($ext, $allowedExtensions, true)) {
+            $error = '上传格式不支持';
+            return null;
+        }
+        if ($tmp === '' || !is_uploaded_file($tmp)) {
+            $error = '上传临时文件无效';
+            return null;
+        }
+        if ($ext === 'png') {
+            $info = @getimagesize($tmp);
+            if (!is_array($info) || (string)($info['mime'] ?? '') !== 'image/png') {
+                $error = 'PNG 水印文件无效';
+                return null;
+            }
+        }
+
+        $appRoot = defined('APP_ROOT') ? APP_ROOT : dirname(__DIR__, 3);
+        $dir = $appRoot . '/data/watermarks';
+        if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+            $error = '水印资源目录不可写';
+            return null;
+        }
+        $prefix = $ext === 'png' ? 'image' : 'font';
+        $target = $dir . '/' . $prefix . '-' . date('YmdHis') . '-' . bin2hex(random_bytes(4)) . '.' . $ext;
+        if (!move_uploaded_file($tmp, $target)) {
+            $error = '保存上传文件失败';
+            return null;
+        }
+        return $target;
+    }
+
+    /**
      * @return array{enabled:bool, attempted:bool, applied:bool, skip_reason:?string}
      */
     public function apply(string $filename): array
