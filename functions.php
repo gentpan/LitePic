@@ -124,774 +124,130 @@ function get_thumbnail_url(string $filename): string {
 }
 
 function remote_storage_credentials_valid(): bool {
-    return S3_BUCKET !== ''
-        && S3_KEY !== ''
-        && S3_SECRET !== ''
-        && S3_ENDPOINT !== '';
+    return (new \LitePic\Service\Storage\RemoteStorage())->credentialsValid();
 }
 
 function remote_storage_usage(): string {
-    $usage = defined('REMOTE_STORAGE_USAGE') ? strtolower((string)REMOTE_STORAGE_USAGE) : 'backup';
-    return in_array($usage, ['backup', 'storage'], true) ? $usage : 'backup';
+    return (new \LitePic\Service\Storage\RemoteStorage())->usage();
 }
 
 function remote_storage_mode(): string {
-    return remote_storage_credentials_valid() ? 'sync' : 'off';
+    return (new \LitePic\Service\Storage\RemoteStorage())->mode();
 }
 
 function remote_storage_enabled(): bool {
-    return remote_storage_credentials_valid();
+    return (new \LitePic\Service\Storage\RemoteStorage())->isEnabled();
 }
 
 function remote_storage_config_valid(): bool {
-    return remote_storage_credentials_valid();
+    return (new \LitePic\Service\Storage\RemoteStorage())->isConfigValid();
 }
 
 function remote_storage_public_delivery_enabled(): bool {
-    return remote_storage_usage() === 'storage'
-        && remote_storage_credentials_valid()
-        && defined('S3_PUBLIC_BASE_URL')
-        && trim((string)S3_PUBLIC_BASE_URL) !== '';
+    return (new \LitePic\Service\Storage\RemoteStorage())->publicDeliveryEnabled();
 }
 
 function remote_storage_public_url_for_object_key(string $object_key): ?string {
-    $object_key = trim($object_key, '/');
-    if (!remote_storage_public_delivery_enabled() || $object_key === '') {
-        return null;
-    }
-
-    $base = rtrim((string)S3_PUBLIC_BASE_URL, '/');
-    if ($base === '') {
-        return null;
-    }
-
-    return $base . '/' . remote_storage_encoded_key($object_key);
+    return (new \LitePic\Service\Storage\RemoteStorage())->publicUrlForObjectKey($object_key);
 }
 
 function remote_storage_public_url_for_identifier(string $identifier): ?string {
-    $identifier = normalize_image_identifier($identifier);
-    if ($identifier === '') {
-        return null;
-    }
-
-    return remote_storage_public_url_for_object_key(remote_storage_prefix() . $identifier);
+    return (new \LitePic\Service\Storage\RemoteStorage())->publicUrlForIdentifier($identifier);
 }
 
 function remote_storage_public_url_for_local_path(string $local_path): ?string {
-    $object_key = remote_storage_object_key_from_local_path($local_path);
-    if ($object_key === null) {
-        return null;
-    }
-
-    return remote_storage_public_url_for_object_key($object_key);
+    return (new \LitePic\Service\Storage\RemoteStorage())->publicUrlForLocalPath($local_path);
 }
 
 function remote_storage_queue_delete_object(string $object_key, ?int $delay_seconds = null): void {
-    $delay_seconds = $delay_seconds ?? (defined('REMOTE_STORAGE_DELETE_DELAY_SECONDS') ? (int)REMOTE_STORAGE_DELETE_DELAY_SECONDS : 86400);
-    (new \LitePic\Repository\RemoteDeleteQueueRepository())->enqueue($object_key, $delay_seconds);
+    $delay = $delay_seconds ?? (defined('REMOTE_STORAGE_DELETE_DELAY_SECONDS') ? (int)REMOTE_STORAGE_DELETE_DELAY_SECONDS : 86400);
+    (new \LitePic\Repository\RemoteDeleteQueueRepository())->enqueue($object_key, $delay);
 }
 
 function remote_storage_process_delete_queue(int $limit = 25): array {
-    $repo = new \LitePic\Repository\RemoteDeleteQueueRepository();
-    $result = ['processed' => 0, 'deleted' => 0, 'failed' => 0, 'pending' => 0];
-
-    $total = $repo->totalCount();
-    if ($total === 0) {
-        return $result;
-    }
-    if (!remote_storage_credentials_valid()) {
-        $result['pending'] = $total;
-        return $result;
-    }
-
-    foreach ($repo->dueNow($limit) as $item) {
-        $result['processed']++;
-        if (remote_storage_delete_object($item['object_key'])) {
-            $repo->delete($item['id']);
-            $result['deleted']++;
-            continue;
-        }
-        $attempts = $item['attempts'] + 1;
-        $backoff = min(3600 * $attempts, 86400);
-        $repo->recordFailure($item['id'], 'delete_failed', time() + $backoff);
-        $result['failed']++;
-    }
-
-    $result['pending'] = $repo->totalCount();
-    return $result;
+    return (new \LitePic\Service\Storage\RemoteStorage())->processDeleteQueue($limit);
 }
 
 function remote_storage_prefix(): string {
-    $prefix = trim((string)S3_PATH_PREFIX, '/');
-    return $prefix === '' ? '' : $prefix . '/';
+    return \LitePic\Service\Storage\RemoteStorage::prefix();
 }
 
 function remote_storage_relative_path(string $local_path): ?string {
-    $normalized = str_replace('\\', '/', $local_path);
-    $base = rtrim(str_replace('\\', '/', UPLOAD_PATH_LOCAL), '/') . '/';
-    if (!str_starts_with($normalized, $base)) {
-        return null;
-    }
-    $relative = ltrim(substr($normalized, strlen($base)), '/');
-    return $relative === '' ? null : $relative;
+    return \LitePic\Service\Storage\RemoteStorage::relativePath($local_path);
 }
 
 function remote_storage_object_key_from_local_path(string $local_path): ?string {
-    $relative = remote_storage_relative_path($local_path);
-    if ($relative === null) {
-        return null;
-    }
-    return remote_storage_prefix() . $relative;
+    return \LitePic\Service\Storage\RemoteStorage::objectKeyFromLocalPath($local_path);
 }
 
 function remote_storage_object_key_for_filename(string $filename): ?string {
-    return remote_storage_object_key_from_local_path(get_file_path($filename));
+    return (new \LitePic\Service\Storage\RemoteStorage())->objectKeyForFilename($filename);
 }
 
 function remote_storage_object_key_for_thumbnail(string $filename): ?string {
-    return remote_storage_object_key_from_local_path(get_thumbnail_path($filename));
+    return (new \LitePic\Service\Storage\RemoteStorage())->objectKeyForThumbnail($filename);
 }
 
 function remote_storage_guess_content_type(string $path): string {
-    if (function_exists('mime_content_type')) {
-        $mime = @mime_content_type($path);
-        if (is_string($mime) && $mime !== '') {
-            return $mime;
-        }
-    }
-    $ext = strtolower((string)pathinfo($path, PATHINFO_EXTENSION));
-    return match ($ext) {
-        'jpg', 'jpeg' => 'image/jpeg',
-        'png' => 'image/png',
-        'gif' => 'image/gif',
-        'webp' => 'image/webp',
-        'svg' => 'image/svg+xml',
-        'bmp' => 'image/bmp',
-        'ico' => 'image/x-icon',
-        'tif', 'tiff' => 'image/tiff',
-        'json' => 'application/json',
-        'txt', 'log' => 'text/plain',
-        default => 'application/octet-stream',
-    };
+    return \LitePic\Service\Storage\RemoteStorage::guessContentType($path);
 }
 
 function remote_storage_endpoint_host(): string {
-    $endpoint = trim((string)S3_ENDPOINT);
-    if ($endpoint === '') {
-        return '';
-    }
-    $parts = parse_url($endpoint);
-    return (string)($parts['host'] ?? '');
+    return \LitePic\Service\Storage\RemoteStorage::endpointHost();
 }
 
 function remote_storage_endpoint_base(): string {
-    $endpoint = rtrim(trim((string)S3_ENDPOINT), '/');
-    return $endpoint;
+    return \LitePic\Service\Storage\RemoteStorage::endpointBase();
 }
 
 function remote_storage_encoded_key(string $object_key): string {
-    $parts = array_map('rawurlencode', explode('/', ltrim($object_key, '/')));
-    return implode('/', $parts);
+    return \LitePic\Service\Storage\RemoteStorage::encodeKey($object_key);
 }
 
 function remote_storage_request(string $method, string $object_key, ?string $body = null, string $content_type = 'application/octet-stream'): array {
-    if (!function_exists('curl_init')) {
-        return ['success' => false, 'status' => 0, 'error' => 'cURL 扩展未启用'];
-    }
-    if (!remote_storage_config_valid()) {
-        return ['success' => false, 'status' => 0, 'error' => '远程存储配置不完整'];
-    }
-
-    $endpoint = remote_storage_endpoint_base();
-    $host = remote_storage_endpoint_host();
-    if ($endpoint === '' || $host === '') {
-        return ['success' => false, 'status' => 0, 'error' => 'S3_ENDPOINT 无效'];
-    }
-
-    $bucket = trim((string)S3_BUCKET);
-    $region = trim((string)S3_REGION);
-    if ($region === '') {
-        $region = 'auto';
-    }
-
-    $amz_date = gmdate('Ymd\THis\Z');
-    $date_stamp = gmdate('Ymd');
-    $service = 's3';
-    $algorithm = 'AWS4-HMAC-SHA256';
-
-    $key_path = remote_storage_encoded_key($object_key);
-    $canonical_uri = '/' . rawurlencode($bucket) . '/' . $key_path;
-    $url = $endpoint . $canonical_uri;
-
-    $payload = $body ?? '';
-    $payload_hash = hash('sha256', $payload);
-    $canonical_headers = "host:{$host}\n" . "x-amz-content-sha256:{$payload_hash}\n" . "x-amz-date:{$amz_date}\n";
-    $signed_headers = 'host;x-amz-content-sha256;x-amz-date';
-    $canonical_request = strtoupper($method) . "\n" .
-        $canonical_uri . "\n\n" .
-        $canonical_headers . "\n" .
-        $signed_headers . "\n" .
-        $payload_hash;
-    $credential_scope = "{$date_stamp}/{$region}/{$service}/aws4_request";
-    $string_to_sign = $algorithm . "\n" .
-        $amz_date . "\n" .
-        $credential_scope . "\n" .
-        hash('sha256', $canonical_request);
-
-    $k_date = hash_hmac('sha256', $date_stamp, 'AWS4' . S3_SECRET, true);
-    $k_region = hash_hmac('sha256', $region, $k_date, true);
-    $k_service = hash_hmac('sha256', $service, $k_region, true);
-    $k_signing = hash_hmac('sha256', 'aws4_request', $k_service, true);
-    $signature = hash_hmac('sha256', $string_to_sign, $k_signing);
-
-    $authorization = $algorithm .
-        ' Credential=' . S3_KEY . '/' . $credential_scope .
-        ', SignedHeaders=' . $signed_headers .
-        ', Signature=' . $signature;
-
-    $headers = [
-        'Host: ' . $host,
-        'x-amz-content-sha256: ' . $payload_hash,
-        'x-amz-date: ' . $amz_date,
-        'Authorization: ' . $authorization,
-    ];
-
-    if (strtoupper($method) === 'PUT') {
-        $headers[] = 'Content-Type: ' . $content_type;
-    }
-
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_CUSTOMREQUEST => strtoupper($method),
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HEADER => false,
-        CURLOPT_CONNECTTIMEOUT => 8,
-        CURLOPT_TIMEOUT => 30,
-        CURLOPT_HTTPHEADER => $headers,
-    ]);
-
-    if (strtoupper($method) === 'PUT') {
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-    }
-
-    $resp_body = curl_exec($ch);
-    $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curl_error = curl_error($ch);
-    if (PHP_VERSION_ID < 80500) {
-        curl_close($ch);
-    }
-
-    if ($resp_body === false) {
-        return ['success' => false, 'status' => $status, 'error' => $curl_error !== '' ? $curl_error : '远程请求失败'];
-    }
-
-    $success = $status >= 200 && $status < 300;
-    return [
-        'success' => $success,
-        'status' => $status,
-        'error' => $success ? null : ('HTTP ' . $status),
-        'body' => is_string($resp_body) ? $resp_body : '',
-    ];
+    return (new \LitePic\Service\Storage\RemoteStorage())->objectRequest($method, $object_key, $body, $content_type);
 }
 
 function remote_storage_upload_local_file(string $local_path): array {
-    if (!file_exists($local_path)) {
-        return ['success' => false, 'error' => '本地文件不存在'];
-    }
-    $object_key = remote_storage_object_key_from_local_path($local_path);
-    if ($object_key === null) {
-        return ['success' => false, 'error' => '对象路径解析失败'];
-    }
-    $data = file_get_contents($local_path);
-    if ($data === false) {
-        return ['success' => false, 'error' => '读取本地文件失败'];
-    }
-    $mime = remote_storage_guess_content_type($local_path);
-    $res = remote_storage_request('PUT', $object_key, $data, $mime);
-    return [
-        'success' => (bool)($res['success'] ?? false),
-        'status' => (int)($res['status'] ?? 0),
-        'error' => $res['error'] ?? null,
-        'object_key' => $object_key,
-    ];
+    return (new \LitePic\Service\Storage\RemoteStorage())->uploadLocalFile($local_path);
 }
 
 function remote_storage_delete_object(string $object_key): bool {
-    $res = remote_storage_request('DELETE', $object_key, '');
-    return (bool)($res['success'] ?? false);
+    return (new \LitePic\Service\Storage\RemoteStorage())->deleteObject($object_key);
 }
 
 function remote_storage_sync_file_and_thumbnail(string $filename): array {
-    remote_storage_process_delete_queue();
-
-    $result = [
-        'enabled' => remote_storage_enabled(),
-        'mode' => remote_storage_mode(),
-        'usage' => remote_storage_usage(),
-        'configured' => remote_storage_config_valid(),
-        'public_delivery' => remote_storage_public_delivery_enabled(),
-        'uploaded' => [],
-        'errors' => [],
-    ];
-
-    if (!remote_storage_enabled()) {
-        return $result;
-    }
-    if (!remote_storage_config_valid()) {
-        $result['errors'][] = '远程存储配置不完整';
-        return $result;
-    }
-
-    $main_path = get_file_path($filename);
-    if (file_exists($main_path)) {
-        $main_upload = remote_storage_upload_local_file($main_path);
-        if (!empty($main_upload['success'])) {
-            $result['uploaded'][] = $main_upload['object_key'] ?? '';
-        } else {
-            $result['errors'][] = '主图上传失败: ' . (string)($main_upload['error'] ?? 'unknown');
-        }
-    } else {
-        $result['errors'][] = '主图不存在';
-    }
-
-    $thumb_path = get_thumbnail_path($filename);
-    if (file_exists($thumb_path)) {
-        $thumb_upload = remote_storage_upload_local_file($thumb_path);
-        if (!empty($thumb_upload['success'])) {
-            $result['uploaded'][] = $thumb_upload['object_key'] ?? '';
-        } else {
-            $result['errors'][] = '缩略图上传失败: ' . (string)($thumb_upload['error'] ?? 'unknown');
-        }
-    }
-
-    return $result;
+    return (new \LitePic\Service\Storage\RemoteStorage())->syncFileAndThumbnail($filename);
 }
 
 function remote_storage_delete_file_and_thumbnail(string $filename): void {
-    remote_storage_process_delete_queue();
-
-    $keys = [];
-    $file_key = remote_storage_object_key_for_filename($filename);
-    if (is_string($file_key) && $file_key !== '') {
-        $keys[] = $file_key;
-    }
-    $thumb_key = remote_storage_object_key_for_thumbnail($filename);
-    if (is_string($thumb_key) && $thumb_key !== '') {
-        $keys[] = $thumb_key;
-    }
-    $keys = array_values(array_unique($keys));
-    foreach ($keys as $key) {
-        remote_storage_queue_delete_object($key);
-    }
+    (new \LitePic\Service\Storage\RemoteStorage())->deleteFileAndThumbnail($filename);
 }
 
 function remote_storage_bucket_request(string $method, array $query = [], string $body = '', string $content_type = 'application/xml'): array {
-    if (!function_exists('curl_init')) {
-        return ['success' => false, 'status' => 0, 'error' => 'cURL 扩展未启用'];
-    }
-    if (!remote_storage_credentials_valid()) {
-        return ['success' => false, 'status' => 0, 'error' => '远程存储配置不完整'];
-    }
-
-    $endpoint = remote_storage_endpoint_base();
-    $host = remote_storage_endpoint_host();
-    if ($endpoint === '' || $host === '') {
-        return ['success' => false, 'status' => 0, 'error' => 'S3_ENDPOINT 无效'];
-    }
-
-    $bucket = trim((string)S3_BUCKET);
-    $region = trim((string)S3_REGION);
-    if ($region === '') {
-        $region = 'auto';
-    }
-
-    ksort($query);
-    $query_pairs = [];
-    foreach ($query as $k => $v) {
-        $key = rawurlencode((string)$k);
-        if ($v === null || $v === '') {
-            $query_pairs[] = $key . '=';
-        } else {
-            $query_pairs[] = $key . '=' . rawurlencode((string)$v);
-        }
-    }
-    $canonical_query = implode('&', $query_pairs);
-    $canonical_uri = '/' . rawurlencode($bucket);
-    $url = $endpoint . $canonical_uri . ($canonical_query !== '' ? '?' . $canonical_query : '');
-
-    $amz_date = gmdate('Ymd\THis\Z');
-    $date_stamp = gmdate('Ymd');
-    $service = 's3';
-    $algorithm = 'AWS4-HMAC-SHA256';
-    $payload_hash = hash('sha256', $body);
-    $canonical_headers = "host:{$host}\n" . "x-amz-content-sha256:{$payload_hash}\n" . "x-amz-date:{$amz_date}\n";
-    $signed_headers = 'host;x-amz-content-sha256;x-amz-date';
-    $canonical_request = strtoupper($method) . "\n" .
-        $canonical_uri . "\n" .
-        $canonical_query . "\n" .
-        $canonical_headers . "\n" .
-        $signed_headers . "\n" .
-        $payload_hash;
-    $credential_scope = "{$date_stamp}/{$region}/{$service}/aws4_request";
-    $string_to_sign = $algorithm . "\n" .
-        $amz_date . "\n" .
-        $credential_scope . "\n" .
-        hash('sha256', $canonical_request);
-
-    $k_date = hash_hmac('sha256', $date_stamp, 'AWS4' . S3_SECRET, true);
-    $k_region = hash_hmac('sha256', $region, $k_date, true);
-    $k_service = hash_hmac('sha256', $service, $k_region, true);
-    $k_signing = hash_hmac('sha256', 'aws4_request', $k_service, true);
-    $signature = hash_hmac('sha256', $string_to_sign, $k_signing);
-
-    $authorization = $algorithm .
-        ' Credential=' . S3_KEY . '/' . $credential_scope .
-        ', SignedHeaders=' . $signed_headers .
-        ', Signature=' . $signature;
-
-    $headers = [
-        'Host: ' . $host,
-        'x-amz-content-sha256: ' . $payload_hash,
-        'x-amz-date: ' . $amz_date,
-        'Authorization: ' . $authorization,
-    ];
-    if ($body !== '') {
-        $headers[] = 'Content-Type: ' . $content_type;
-    }
-
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_CUSTOMREQUEST => strtoupper($method),
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HEADER => false,
-        CURLOPT_CONNECTTIMEOUT => 8,
-        CURLOPT_TIMEOUT => 60,
-        CURLOPT_HTTPHEADER => $headers,
-    ]);
-    if ($body !== '') {
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
-    }
-
-    $resp_body = curl_exec($ch);
-    $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curl_error = curl_error($ch);
-    if (PHP_VERSION_ID < 80500) {
-        curl_close($ch);
-    }
-    if ($resp_body === false) {
-        return ['success' => false, 'status' => $status, 'error' => $curl_error !== '' ? $curl_error : '远程请求失败'];
-    }
-    $success = $status >= 200 && $status < 300;
-    return [
-        'success' => $success,
-        'status' => $status,
-        'error' => $success ? null : ('HTTP ' . $status),
-        'body' => is_string($resp_body) ? $resp_body : '',
-    ];
+    return (new \LitePic\Service\Storage\RemoteStorage())->bucketRequest($method, $query, $body, $content_type);
 }
 
 function remote_storage_list_objects(string $prefix = '', string $continuation_token = ''): array {
-    $query = [
-        'list-type' => '2',
-        'max-keys' => '1000',
-    ];
-    if ($prefix !== '') {
-        $query['prefix'] = $prefix;
-    }
-    if ($continuation_token !== '') {
-        $query['continuation-token'] = $continuation_token;
-    }
-
-    $res = remote_storage_bucket_request('GET', $query, '');
-    if (empty($res['success'])) {
-        return [
-            'success' => false,
-            'error' => (string)($res['error'] ?? '列举远程对象失败'),
-            'objects' => [],
-            'is_truncated' => false,
-            'next_token' => '',
-        ];
-    }
-
-    $body = (string)($res['body'] ?? '');
-    $xml = @simplexml_load_string($body);
-    if ($xml === false) {
-        return [
-            'success' => false,
-            'error' => '解析远程对象列表失败',
-            'objects' => [],
-            'is_truncated' => false,
-            'next_token' => '',
-        ];
-    }
-
-    $objects = [];
-    if (isset($xml->Contents)) {
-        foreach ($xml->Contents as $item) {
-            $key = (string)($item->Key ?? '');
-            if ($key !== '') {
-                $objects[] = $key;
-            }
-        }
-    }
-
-    $is_truncated = ((string)($xml->IsTruncated ?? 'false')) === 'true';
-    $next_token = (string)($xml->NextContinuationToken ?? '');
-
-    return [
-        'success' => true,
-        'error' => null,
-        'objects' => $objects,
-        'is_truncated' => $is_truncated,
-        'next_token' => $next_token,
-    ];
+    return (new \LitePic\Service\Storage\RemoteStorage())->listObjects($prefix, $continuation_token);
 }
 
 function remote_storage_delete_all_objects(): array {
-    if (!remote_storage_credentials_valid()) {
-        return ['success' => false, 'message' => '远程存储配置不完整', 'deleted' => 0, 'failed' => 0];
-    }
-
-    $prefix = remote_storage_prefix();
-    $deleted = 0;
-    $failed = 0;
-    $token = '';
-    $loops = 0;
-    $max_loops = 500;
-
-    do {
-        $loops++;
-        if ($loops > $max_loops) {
-            return [
-                'success' => false,
-                'message' => '删除中止：分页次数过多，请稍后重试',
-                'deleted' => $deleted,
-                'failed' => $failed,
-            ];
-        }
-
-        $list = remote_storage_list_objects($prefix, $token);
-        if (empty($list['success'])) {
-            return [
-                'success' => false,
-                'message' => '列举对象失败：' . (string)($list['error'] ?? 'unknown'),
-                'deleted' => $deleted,
-                'failed' => $failed,
-            ];
-        }
-
-        $objects = is_array($list['objects'] ?? null) ? $list['objects'] : [];
-        foreach ($objects as $key) {
-            if (!is_string($key) || $key === '') {
-                continue;
-            }
-            if (remote_storage_delete_object($key)) {
-                $deleted++;
-            } else {
-                $failed++;
-            }
-        }
-
-        $token = (string)($list['next_token'] ?? '');
-        $has_more = !empty($list['is_truncated']) && $token !== '';
-    } while ($has_more);
-
-    $scope = $prefix !== '' ? ('前缀 ' . $prefix) : '整个 Bucket';
-    $msg = sprintf('远程清理完成（%s）：成功 %d，失败 %d', $scope, $deleted, $failed);
-    if ($failed === 0) {
-        \LitePic\Core\Database::connection()->exec('DELETE FROM remote_delete_queue');
-    }
-    return [
-        'success' => $failed === 0,
-        'message' => $msg,
-        'deleted' => $deleted,
-        'failed' => $failed,
-    ];
+    return (new \LitePic\Service\Storage\RemoteStorage())->deleteAllObjects();
 }
 
 function remote_storage_test_connection(): array {
-    if (!remote_storage_config_valid()) {
-        return ['success' => false, 'message' => 'S3/R2 配置不完整'];
-    }
-
-    $probe_key = remote_storage_prefix() . '.healthcheck/litepic-' . gmdate('YmdHis') . '.txt';
-    $probe_body = 'litepic-health-check';
-    $put = remote_storage_request('PUT', $probe_key, $probe_body, 'text/plain');
-    if (empty($put['success'])) {
-        return ['success' => false, 'message' => '连接失败（上传测试失败）: ' . (string)($put['error'] ?? 'unknown')];
-    }
-
-    $delete_ok = remote_storage_delete_object($probe_key);
-    if (!$delete_ok) {
-        return ['success' => false, 'message' => '连接成功但清理测试文件失败，请检查删除权限'];
-    }
-
-    $queue = remote_storage_process_delete_queue();
-    $suffix = ((int)($queue['deleted'] ?? 0) > 0)
-        ? sprintf('；已处理到期远程删除 %d 个', (int)$queue['deleted'])
-        : '';
-    return ['success' => true, 'message' => '连接测试成功' . $suffix];
+    return (new \LitePic\Service\Storage\RemoteStorage())->testConnection();
 }
 
-/**
- * 一键同步：将当前本地图库（原图+缩略图）全量同步到远端
- */
 function remote_storage_sync_all_local_images(): array {
-    if (!remote_storage_config_valid()) {
-        return ['success' => false, 'message' => '远程存储配置不完整', 'total' => 0, 'synced' => 0, 'failed' => 0];
-    }
-
-    $images = get_uploaded_images();
-    $total = count($images);
-    $synced = 0;
-    $failed = 0;
-    $errors = [];
-
-    foreach ($images as $filename) {
-        $res = remote_storage_sync_file_and_thumbnail((string)$filename);
-        if (!empty($res['errors']) && is_array($res['errors'])) {
-            $failed++;
-            $errors[] = (string)$filename . ': ' . implode(' | ', array_slice($res['errors'], 0, 2));
-        } else {
-            $synced++;
-        }
-    }
-
-    $message = sprintf('远程同步完成：总计 %d，成功 %d，失败 %d', $total, $synced, $failed);
-    if (!empty($errors)) {
-        $message .= '；示例错误：' . implode(' ; ', array_slice($errors, 0, 3));
-    }
-
-    return [
-        'success' => $failed === 0,
-        'message' => $message,
-        'total' => $total,
-        'synced' => $synced,
-        'failed' => $failed,
-        'errors' => $errors,
-    ];
+    return (new \LitePic\Service\Storage\RemoteStorage())->syncAllLocalImages();
 }
 
-/**
- * 一键恢复：从远程对象存储下载前缀下全部对象到本地 uploads
- */
 function remote_storage_restore_all_to_local(): array {
-    if (!remote_storage_config_valid()) {
-        return ['success' => false, 'message' => '远程存储配置不完整', 'total' => 0, 'restored' => 0, 'failed' => 0];
-    }
-
-    $prefix = remote_storage_prefix();
-    $token = '';
-    $loops = 0;
-    $max_loops = 500;
-    $total = 0;
-    $restored = 0;
-    $failed = 0;
-    $errors = [];
-
-    do {
-        $loops++;
-        if ($loops > $max_loops) {
-            return [
-                'success' => false,
-                'message' => '恢复中止：分页次数过多，请稍后重试',
-                'total' => $total,
-                'restored' => $restored,
-                'failed' => $failed,
-                'errors' => $errors,
-            ];
-        }
-
-        $list = remote_storage_list_objects($prefix, $token);
-        if (empty($list['success'])) {
-            return [
-                'success' => false,
-                'message' => '列举远程对象失败：' . (string)($list['error'] ?? 'unknown'),
-                'total' => $total,
-                'restored' => $restored,
-                'failed' => $failed,
-                'errors' => $errors,
-            ];
-        }
-
-        $objects = is_array($list['objects'] ?? null) ? $list['objects'] : [];
-        foreach ($objects as $object_key) {
-            if (!is_string($object_key) || $object_key === '') {
-                continue;
-            }
-            $total++;
-
-            $relative = $object_key;
-            if ($prefix !== '' && str_starts_with($object_key, $prefix)) {
-                $relative = substr($object_key, strlen($prefix));
-            }
-            $relative = ltrim((string)$relative, '/');
-            if ($relative === '') {
-                continue;
-            }
-
-            $target_path = rtrim(UPLOAD_PATH_LOCAL, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
-            $target_dir = dirname($target_path);
-            if (!is_dir($target_dir) && !mkdir($target_dir, 0755, true) && !is_dir($target_dir)) {
-                $failed++;
-                $errors[] = '创建目录失败: ' . $target_dir;
-                continue;
-            }
-
-            $get = remote_storage_request('GET', $object_key, '');
-            if (empty($get['success'])) {
-                $failed++;
-                $errors[] = '下载失败: ' . $object_key . ' (' . (string)($get['error'] ?? 'unknown') . ')';
-                continue;
-            }
-
-            $body = (string)($get['body'] ?? '');
-            if ($body === '') {
-                $failed++;
-                $errors[] = '下载为空: ' . $object_key;
-                continue;
-            }
-
-            if (file_put_contents($target_path, $body, LOCK_EX) === false) {
-                $failed++;
-                $errors[] = '写入失败: ' . $target_path;
-                continue;
-            }
-
-            // 对恢复下来的原图补缩略图与文件名映射
-            $basename = basename($target_path);
-            if (!preg_match('/\.thumb\./i', $basename) && can_generate_thumbnail($basename)) {
-                create_thumbnail($basename, true);
-                if (get_original_filename($basename) === null) {
-                    save_original_filename($basename, $basename);
-                }
-            }
-
-            $restored++;
-        }
-
-        $token = (string)($list['next_token'] ?? '');
-        $has_more = !empty($list['is_truncated']) && $token !== '';
-    } while ($has_more);
-
-    $message = sprintf('远程恢复完成：总计 %d，成功 %d，失败 %d', $total, $restored, $failed);
-    if (!empty($errors)) {
-        $message .= '；示例错误：' . implode(' ; ', array_slice($errors, 0, 3));
-    }
-
-    return [
-        'success' => $failed === 0,
-        'message' => $message,
-        'total' => $total,
-        'restored' => $restored,
-        'failed' => $failed,
-        'errors' => $errors,
-    ];
+    return (new \LitePic\Service\Storage\RemoteStorage())->restoreAllToLocal();
 }
 
-/**
- * 是否支持生成缩略图（仅栅格图）
- */
 function can_generate_thumbnail(string $filename): bool {
     return \LitePic\Service\Image\ThumbnailService::canGenerate($filename);
 }
