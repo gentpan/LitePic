@@ -5,13 +5,13 @@ if (!defined('APP_ROOT')) {
     require_once dirname(__DIR__, 2) . '/bootstrap.php';
 }
 
-$is_logged_in = is_admin();
+$is_logged_in = (new \LitePic\Service\Auth\AuthService())->isAdmin();
 
 $body_class = 'home-guest';
 $page_title = '';
 $html_title = trim(SITE_DESCRIPTION) !== '' ? SITE_NAME . ' ｜ ' . SITE_DESCRIPTION : SITE_NAME;
-$image_count = get_image_count();
-$total_size = get_total_size();
+$image_count = (new \LitePic\Service\Stats\FooterStats())->imageCount();
+$total_size = (new \LitePic\Service\Stats\FooterStats())->totalSize();
 
 require_once APP_ROOT . '/header.php';
 ?>
@@ -25,7 +25,7 @@ require_once APP_ROOT . '/header.php';
                 <span>本站已托管</span>
                 <span class="home-stat-number" data-count-to="<?= (int)$image_count ?>"><?= number_format($image_count) ?></span>
                 <span>张图片，共占用储存</span>
-                <span class="home-stat-number" data-size-to="<?= (int)$total_size ?>"><?= htmlspecialchars(format_filesize($total_size)) ?></span>
+                <span class="home-stat-number" data-size-to="<?= (int)$total_size ?>"><?= htmlspecialchars(\LitePic\Core\Format::filesize($total_size)) ?></span>
             </div>
 
             <div class="home-hero-actions">

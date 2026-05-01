@@ -6,7 +6,7 @@ if (!defined('APP_ROOT')) {
 }
 
 // 检查登录状态
-$is_logged_in = is_admin();
+$is_logged_in = (new \LitePic\Service\Auth\AuthService())->isAdmin();
 if (!$is_logged_in) {
     header('Location: /');
     exit;
@@ -15,7 +15,7 @@ if (!$is_logged_in) {
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && (string)($_POST['form_action'] ?? '') === 'save_upload_processing') {
     header('Content-Type: application/json; charset=UTF-8');
 
-    if (!csrf_token_verify((string)($_POST['csrf_token'] ?? ''))) {
+    if (!\LitePic\Core\Csrf::verify((string)($_POST['csrf_token'] ?? ''))) {
         http_response_code(403);
         echo json_encode([
             'success' => false,
@@ -32,7 +32,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && (string)($_POST['form_actio
         $convert_format = 'webp';
     }
 
-    $metrics = get_server_runtime_metrics();
+    $metrics = (new \LitePic\Service\Stats\ServerInfo())->runtimeMetrics();
     $capability = is_array($metrics['capability'] ?? null) ? $metrics['capability'] : [];
     if ($auto_convert && $convert_format === 'webp' && empty($capability['webp'])) {
         http_response_code(422);
@@ -61,7 +61,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && (string)($_POST['form_actio
 
     $auto_webp = $auto_convert && $convert_format === 'webp';
     $auto_avif = $auto_convert && $convert_format === 'avif';
-    $updated = write_env_kv([
+    $updated = \LitePic\Core\Config::write([
         'AUTO_COMPRESS_ON_UPLOAD' => $auto_compress ? 'true' : 'false',
         'AUTO_CONVERT_WEBP_ON_UPLOAD' => $auto_webp ? 'true' : 'false',
         'AUTO_CONVERT_AVIF_ON_UPLOAD' => $auto_avif ? 'true' : 'false',
@@ -77,7 +77,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && (string)($_POST['form_actio
         exit;
     }
 
-    $current_compression_mode = get_compression_mode();
+    $current_compression_mode = \LitePic\Service\Image\ImageFormat::compressionMode();
     $current_compression_labels = [
         'imagemagick' => 'ImageMagick',
         'gd' => 'GD 压缩',
@@ -107,8 +107,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && (string)($_POST['form_actio
 $page_title = '图片上传';
 
 // 前端上传大小校验与后端一致（受 PHP 与系统配置共同约束）
-$effective_max_upload_bytes = get_effective_upload_max_bytes();
-$compression_mode = get_compression_mode();
+$effective_max_upload_bytes = (new \LitePic\Service\Upload\UploadService())->maxBytes();
+$compression_mode = \LitePic\Service\Image\ImageFormat::compressionMode();
 $compression_mode_labels = [
     'imagemagick' => 'ImageMagick',
     'gd' => 'GD 压缩',
@@ -118,7 +118,7 @@ $compression_label = $compression_mode_labels[$compression_mode] ?? 'ImageMagick
 $compression_enabled = AUTO_COMPRESS_ON_UPLOAD;
 $conversion_enabled = AUTO_CONVERT_WEBP_ON_UPLOAD || AUTO_CONVERT_AVIF_ON_UPLOAD;
 $conversion_format = AUTO_CONVERT_AVIF_ON_UPLOAD ? 'AVIF' : 'WebP';
-$tinypng_active_count = count(get_active_compression_api_keys());
+$tinypng_active_count = count((new \LitePic\Repository\CompressionKeyRepository())->active());
 $tinypng_mode_enabled = $compression_enabled && $compression_mode === 'tinypng';
 $upload_mime_map = [
     'jpg' => 'image/jpeg',
@@ -151,7 +151,7 @@ require_once APP_ROOT . '/header.php';
         <div class="upload-brand-icon" aria-hidden="true">
             <i class="fa-brands fa-upwork"></i>
         </div>
-        <div class="upload-header upload-toolbar-row" data-upload-processing-controls data-csrf-token="<?= htmlspecialchars(csrf_token_get()) ?>" data-convert-format="<?= htmlspecialchars(strtolower($conversion_format)) ?>">
+        <div class="upload-header upload-toolbar-row" data-upload-processing-controls data-csrf-token="<?= htmlspecialchars(\LitePic\Core\Csrf::token()) ?>" data-convert-format="<?= htmlspecialchars(strtolower($conversion_format)) ?>">
             <div class="upload-info">
                 <span class="hint">
                     <i class="fa-light fa-info-circle"></i>
@@ -267,18 +267,18 @@ require_once APP_ROOT . '/header.php';
         </div>
         <div class="upload-grid">
             <?php
-            $recent_images = array_slice(get_uploaded_images(), 0, 5);
+            $recent_images = array_slice((new \LitePic\Repository\ImageRepository())->listIdentifiersSafe(), 0, 5);
             foreach ($recent_images as $image):
-                $img_url = get_img_url($image);
+                $img_url = \LitePic\Service\Image\ImageUrl::forIdentifier($image);
                 $preview_url = $img_url;
-                if (can_generate_thumbnail($image) && create_thumbnail((string)$image)) {
-                    $preview_url = get_thumbnail_url((string)$image);
+                if (\LitePic\Service\Image\ThumbnailService::canGenerate($image) && (new \LitePic\Service\Image\ThumbnailService())->create((string)$image)) {
+                    $preview_url = \LitePic\Service\Image\ImageUrl::thumbnailUrl((string)$image);
                 }
             ?>
                 <div class="img-box"
                     data-filename="<?= htmlspecialchars($image) ?>"
-                    data-date="<?= filemtime(get_file_path($image)) ?>"
-                    data-size="<?= filesize(get_file_path($image)) ?>"
+                    data-date="<?= filemtime(\LitePic\Service\Image\PathService::resolveFilePath($image)) ?>"
+                    data-size="<?= filesize(\LitePic\Service\Image\PathService::resolveFilePath($image)) ?>"
                     data-url="<?= htmlspecialchars($img_url) ?>">
                     <img src="<?= htmlspecialchars($preview_url) ?>"
                          data-original-url="<?= htmlspecialchars($img_url) ?>"

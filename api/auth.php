@@ -36,7 +36,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
         session_destroy();
 
-        success_response([
+        \LitePic\Core\Response::success([
             'message' => '已退出登录',
             'cookie_name' => API_KEY_COOKIE
         ]);
@@ -46,8 +46,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     // 处理登录请求
     if (isset($data['apiKey'])) {
         // 速率限制检查
-        if (!check_login_rate_limit()) {
-            error_response('登录尝试过于频繁，请 5 分钟后再试', 429);
+        if (!(new \LitePic\Repository\LoginAttemptRepository())->isAllowedForCurrentIp()) {
+            \LitePic\Core\Response::error('登录尝试过于频繁，请 5 分钟后再试', 429);
         }
 
         $api_key = trim($data['apiKey']);
@@ -66,14 +66,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 ]
             );
             
-            success_response(['message' => '登录成功']);
+            \LitePic\Core\Response::success(['message' => '登录成功']);
         } else {
-            record_login_failure();
-            error_response('API Key 无效', 401);
+            (new \LitePic\Repository\LoginAttemptRepository())->recordFailureForCurrentIp();
+            \LitePic\Core\Response::error('API Key 无效', 401);
         }
         exit;
     }
 }
 
 // 处理无效请求
-error_response('无效的请求', 405);
+\LitePic\Core\Response::error('无效的请求', 405);

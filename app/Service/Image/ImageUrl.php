@@ -22,7 +22,7 @@ final class ImageUrl
     {
         $identifier = PathService::normalizeIdentifier($filename);
         if ($identifier !== '') {
-            $remote = remote_storage_public_url_for_identifier($identifier);
+            $remote = (new \LitePic\Service\Storage\RemoteStorage())->publicUrlForIdentifier($identifier);
             if ($remote !== null) return $remote;
             return self::buildLocalUrl($identifier);
         }
@@ -30,7 +30,7 @@ final class ImageUrl
         if (defined('STORAGE_TYPE') && STORAGE_TYPE === 'date') {
             $relative = PathService::identifierFromPath(PathService::resolveFilePath($filename));
             if ($relative !== null) {
-                $remote = remote_storage_public_url_for_identifier($relative);
+                $remote = (new \LitePic\Service\Storage\RemoteStorage())->publicUrlForIdentifier($relative);
                 if ($remote !== null) return $remote;
                 return self::buildLocalUrl($relative);
             }
@@ -68,7 +68,7 @@ final class ImageUrl
     public static function thumbnailUrl(string $filename): string
     {
         $thumb = self::thumbnailFilename($filename);
-        $remote = remote_storage_public_url_for_local_path(self::thumbnailPath($filename));
+        $remote = (new \LitePic\Service\Storage\RemoteStorage())->publicUrlForLocalPath(self::thumbnailPath($filename));
         if ($remote !== null) return $remote;
 
         if (defined('STORAGE_TYPE') && STORAGE_TYPE === 'date') {

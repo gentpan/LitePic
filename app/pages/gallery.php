@@ -30,7 +30,7 @@ class GalleryManager {
 
     private function checkAuth(): void {
         // 使用全局函数进行验证
-        $this->is_admin = is_admin();
+        $this->is_admin = (new \LitePic\Service\Auth\AuthService())->isAdmin();
                          
         if (!$this->is_admin) {
             error_log("Unauthorized access attempt to gallery.php from " . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
@@ -41,7 +41,7 @@ class GalleryManager {
 
     private function loadImages(): void {
         // 先获取所有图片总数（使用完整的 get_uploaded_images 结果）
-        $all_images = get_uploaded_images();
+        $all_images = (new \LitePic\Repository\ImageRepository())->listIdentifiersSafe();
         $this->all_images_count = count($all_images);
         
         // 存储全部图片用于分页
@@ -214,7 +214,7 @@ class GalleryManager {
         <div class="gallery">
             <?php
             foreach ($this->paged_images as $img) {
-                $info = get_image_info($img);
+                $info = (new \LitePic\Service\Image\ImageInfo())->getSafe($img);
                 if (!$info) {
                     error_log("Failed to get image info for: " . htmlspecialchars($img));
                     continue;

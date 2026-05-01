@@ -25,6 +25,20 @@ final class ImageInfo
     /**
      * @return array<string, mixed>|null
      */
+    /**
+     * `get()` wrapped with a swallow-and-log fallback. Used by templates
+     * that need a never-throws contract.
+     */
+    public function getSafe(string $filename): ?array
+    {
+        try {
+            return $this->get($filename);
+        } catch (\Throwable $e) {
+            error_log('Error getting image info: ' . $e->getMessage());
+            return null;
+        }
+    }
+
     public function get(string $filename): ?array
     {
         $identifier = PathService::normalizeIdentifier($filename);
@@ -87,8 +101,8 @@ final class ImageInfo
 
         $thumbUrl = ImageUrl::forIdentifier($identifier);
         // Thumbnail generation is still in legacy land for now.
-        if (function_exists('can_generate_thumbnail') && can_generate_thumbnail($identifier)) {
-            if (function_exists('create_thumbnail') && create_thumbnail((string)$identifier)) {
+        if (function_exists('can_generate_thumbnail') && \LitePic\Service\Image\ThumbnailService::canGenerate($identifier)) {
+            if (function_exists('create_thumbnail') && (new \LitePic\Service\Image\ThumbnailService())->create((string)$identifier)) {
                 $thumbUrl = ImageUrl::thumbnailUrl((string)$identifier);
             }
         }
@@ -106,7 +120,7 @@ final class ImageInfo
             'url' => ImageUrl::forIdentifier($identifier),
             'thumb_url' => $thumbUrl,
             'request_count' => function_exists('get_image_request_count')
-                ? (int)get_image_request_count($identifier)
+                ? (int)(new \LitePic\Service\Stats\AccessLogStats())->imageRequestCount($identifier)
                 : 0,
         ];
     }

@@ -226,6 +226,128 @@ final class ImageRepository
         return Database::connection()->query($sql)->fetchAll(PDO::FETCH_COLUMN) ?: [];
     }
 
+    /**
+     * `listIdentifiers` wrapped with a swallow-and-log fallback. Used
+     * by templates that need a never-throws contract — better to render
+     * an empty gallery than crash the whole page on a transient PDO blip.
+     *
+     * @return array<int, string>
+     */
+    public function listIdentifiersSafe(string $sort = 'date-desc'): array
+    {
+        try {
+            return $this->listIdentifiers($sort);
+        } catch (\Throwable $e) {
+            \LitePic\Core\Logger::error('Error listing image identifiers', ['error' => $e->getMessage()]);
+            return [];
+        }
+    }
+
+    /**
+     * Set/clear `original_name` for an image. Inserts a minimal row if
+     * the image isn't tracked yet (size + mtime read from disk).
+     */
+    public function recordOriginalName(string $systemName, string $originalName): void
+    {
+        $normalized = \LitePic\Service\Image\PathService::normalizeIdentifier($systemName);
+        $filename = $normalized !== '' ? $normalized : basename($systemName);
+        if ($filename === '') return;
+
+        if ($this->exists($filename)) {
+            $this->update($filename, ['original_name' => $originalName]);
+            return;
+        }
+        $absolute = \LitePic\Service\Image\PathService::resolveFilePath($filename);
+        $size = is_file($absolute) ? (int)@filesize($absolute) : 0;
+        $mtime = is_file($absolute) ? (int)@filemtime($absolute) : time();
+
+        $this->insert([
+            'filename' => $filename,
+            'original_name' => $originalName,
+            'ext' => strtolower((string)pathinfo($filename, PATHINFO_EXTENSION)),
+            'size' => $size,
+            'created_at' => $mtime,
+        ]);
+    }
+
+    /**
+     * Return the human-readable original_name for `$systemName`,
+     * or null if there's no record / the column is empty.
+     */
+    public function originalNameFor(string $systemName): ?string
+    {
+        $normalized = \LitePic\Service\Image\PathService::normalizeIdentifier($systemName);
+        $filename = $normalized !== '' ? $normalized : basename($systemName);
+        if ($filename === '') return null;
+        $row = $this->find($filename);
+        if ($row === null) return null;
+        $original = $row['original_name'] ?? null;
+        return ($original === null || $original === '') ? null : (string)$original;
+    }
+
+    /**
+     * Paginated/searched query that returns the API-card shape used by
+     * /api/v1/list and the gallery page. Hydration goes through
+     * ImageInfo so dimensions/format/url are filled in once per row.
+     *
+     * @return array{items: array<int,array<string,mixed>>, pagination: array<string,int>}
+     */
+    public function queryForApi(int $page = 1, int $perPage = 20, string $query = '', string $sort = 'date-desc', bool $all = false): array
+    {
+        $info = new \LitePic\Service\Image\ImageInfo($this);
+
+        $toItems = static function (array $names) use ($info): array {
+            $items = [];
+            foreach ($names as $name) {
+                $row = $info->get((string)$name);
+                if ($row === null) continue;
+                $items[] = [
+                    'filename' => (string)$row['filename'],
+                    'original_name' => (string)($row['original_name'] ?? $row['filename']),
+                    'url' => (string)$row['url'],
+                    'thumb_url' => (string)($row['thumb_url'] ?? $row['url']),
+                    'size' => (int)($row['size'] ?? 0),
+                    'size_text' => \LitePic\Core\Format::filesize((int)($row['size'] ?? 0)),
+                    'dimensions' => (string)($row['dimensions'] ?? ''),
+                    'width' => (int)($row['width'] ?? 0),
+                    'height' => (int)($row['height'] ?? 0),
+                    'format' => (string)($row['format'] ?? ''),
+                    'time' => (int)($row['time'] ?? 0),
+                    'time_text' => date('Y-m-d H:i', (int)($row['time'] ?? time())),
+                    'request_count' => (int)($row['request_count'] ?? 0),
+                ];
+            }
+            return $items;
+        };
+
+        if ($all) {
+            $rows = $this->listAll($sort, $query);
+            $names = array_map(static fn ($r) => (string)$r['filename'], $rows);
+            $total = count($names);
+            return [
+                'items' => $toItems($names),
+                'pagination' => [
+                    'page' => 1,
+                    'per_page' => $total > 0 ? $total : 0,
+                    'total' => $total,
+                    'total_pages' => $total > 0 ? 1 : 0,
+                ],
+            ];
+        }
+
+        $pageData = $this->paginate($page, $perPage, $sort, $query);
+        $names = array_map(static fn ($r) => (string)$r['filename'], $pageData['items']);
+        return [
+            'items' => $toItems($names),
+            'pagination' => [
+                'page' => $pageData['page'],
+                'per_page' => $pageData['per_page'],
+                'total' => $pageData['total'],
+                'total_pages' => $pageData['total_pages'],
+            ],
+        ];
+    }
+
     private function orderClause(string $sort): string
     {
         return match ($sort) {

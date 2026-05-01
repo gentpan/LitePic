@@ -367,7 +367,7 @@ final class RemoteStorage
         if (!$this->credentialsValid()) {
             return ['success' => false, 'message' => '远程存储配置不完整', 'total' => 0, 'synced' => 0, 'failed' => 0];
         }
-        $images = function_exists('get_uploaded_images') ? get_uploaded_images() : [];
+        $images = function_exists('get_uploaded_images') ? (new \LitePic\Repository\ImageRepository())->listIdentifiersSafe() : [];
         $total = count($images);
         $synced = $failed = 0;
         $errors = [];
@@ -461,9 +461,9 @@ final class RemoteStorage
                 $basename = basename($targetPath);
                 if (!preg_match('/\.thumb\./i', $basename) && ThumbnailService::canGenerate($basename)) {
                     (new ThumbnailService())->create($basename, true);
-                    if (function_exists('get_original_filename') && get_original_filename($basename) === null) {
+                    if (function_exists('get_original_filename') && (new \LitePic\Repository\ImageRepository())->originalNameFor($basename) === null) {
                         if (function_exists('save_original_filename')) {
-                            save_original_filename($basename, $basename);
+                            (new \LitePic\Repository\ImageRepository())->recordOriginalName($basename, $basename);
                         }
                     }
                 }

@@ -7,8 +7,8 @@ if (!defined('APP_ROOT')) {
 
 
 // 获取所有图片
-$images = get_uploaded_images();
-$access_stats = get_access_log_stats();
+$images = (new \LitePic\Repository\ImageRepository())->listIdentifiersSafe();
+$access_stats = (new \LitePic\Service\Stats\AccessLogStats())->get();
 $access_total_requests = (int)($access_stats['total_requests'] ?? 0);
 $access_top_images = is_array($access_stats['top'] ?? null) ? $access_stats['top'] : [];
 $access_readable_paths = is_array($access_stats['readable_paths'] ?? null) ? $access_stats['readable_paths'] : [];
@@ -32,7 +32,7 @@ $stats = [
 
 // 遍历处理每张图片
 foreach ($images as $image) {
-    $filepath = get_file_path($image);
+    $filepath = \LitePic\Service\Image\PathService::resolveFilePath($image);
     if (!file_exists($filepath)) {
         continue;
     }
@@ -136,7 +136,7 @@ require_once APP_ROOT . '/header.php';
             <div class="stat-circle">
                 <div class="stat-circle-inner">
                     <div class="stat-circle-icon"><i class="fa-light fa-hard-drive"></i></div>
-                    <div class="stat-circle-value"><?= format_filesize($stats['total_size']) ?></div>
+                    <div class="stat-circle-value"><?= \LitePic\Core\Format::filesize($stats['total_size']) ?></div>
                     <div class="stat-circle-label">总存储空间</div>
                 </div>
             </div>
@@ -215,7 +215,7 @@ require_once APP_ROOT . '/header.php';
                             <tr>
                                 <td><?= htmlspecialchars((string)$year) ?></td>
                                 <td><?= number_format($data['count']) ?></td>
-                                <td><?= format_filesize($data['size']) ?></td>
+                                <td><?= \LitePic\Core\Format::filesize($data['size']) ?></td>
                             </tr>
                         <?php endforeach; ?>
                         </tbody>
@@ -235,7 +235,7 @@ require_once APP_ROOT . '/header.php';
                             <tr>
                                 <td><?= htmlspecialchars((string)$month) ?></td>
                                 <td><?= number_format($data['count']) ?></td>
-                                <td><?= format_filesize($data['size']) ?></td>
+                                <td><?= \LitePic\Core\Format::filesize($data['size']) ?></td>
                             </tr>
                         <?php endforeach; ?>
                         </tbody>

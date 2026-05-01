@@ -13,10 +13,10 @@ $auto_webp = AUTO_CONVERT_WEBP_ON_UPLOAD ? '已开启' : '已关闭';
 $auto_avif = AUTO_CONVERT_AVIF_ON_UPLOAD ? '已开启' : '已关闭';
 $keep_original = KEEP_ORIGINAL_AFTER_PROCESS ? '保留' : '不保留';
 $exif_clean = defined('ENABLE_EXIF_CLEAN') && ENABLE_EXIF_CLEAN ? '已开启' : '已关闭';
-$web_server = detect_web_server_software();
+$web_server = (new \LitePic\Service\Stats\ServerInfo())->webServer();
 $web_server_label = (string)$web_server['label'];
 $web_server_raw = (string)$web_server['raw'];
-$hotlink_hosts = hotlink_allowed_hosts();
+$hotlink_hosts = (new \LitePic\Service\Hotlink\HotlinkProtection())->allowedHosts();
 if (empty($hotlink_hosts)) {
     $hotlink_hosts = ['example.com'];
 }

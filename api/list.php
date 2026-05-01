@@ -30,11 +30,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 require_once __DIR__ . '/../bootstrap.php';
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
-    error_response('仅支持 GET 请求', 405);
+    \LitePic\Core\Response::error('仅支持 GET 请求', 405);
 }
 
-if (!is_api_request_authorized()) {
-    error_response('权限不足', 403);
+if (!(new \LitePic\Service\Auth\AuthService())->isApiRequestAuthorized()) {
+    \LitePic\Core\Response::error('权限不足', 403);
 }
 
 $page = max(1, (int)($_GET['page'] ?? 1));
@@ -42,8 +42,8 @@ $per_page = max(1, min(100, (int)($_GET['per_page'] ?? 20)));
 $query = trim((string)($_GET['q'] ?? ''));
 $sort = (string)($_GET['sort'] ?? 'date-desc');
 
-$data = query_uploaded_images_for_api($page, $per_page, $query, $sort, false);
+$data = (new \LitePic\Repository\ImageRepository())->queryForApi($page, $per_page, $query, $sort, false);
 
-success_response([
+\LitePic\Core\Response::success([
     'data' => $data,
 ]);

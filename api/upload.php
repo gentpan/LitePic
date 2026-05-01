@@ -36,11 +36,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 require_once __DIR__ . '/../bootstrap.php';
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    error_response('仅支持 POST 请求', 405);
+    \LitePic\Core\Response::error('仅支持 POST 请求', 405);
 }
 
-if (!has_upload_api_access()) {
-    error_response('权限不足', 403);
+if (!(new \LitePic\Service\Auth\AuthService())->hasUploadApiAccess()) {
+    \LitePic\Core\Response::error('权限不足', 403);
 }
 
 $raw_files = null;
@@ -53,10 +53,10 @@ if (isset($_FILES['image'])) {
 }
 
 if ($raw_files === null) {
-    error_response('未上传任何文件', 400);
+    \LitePic\Core\Response::error('未上传任何文件', 400);
 }
 
-$files = normalize_uploaded_files($raw_files);
-$results = handle_uploaded_files($files);
+$files = \LitePic\Service\Upload\UploadService::normaliseFilesArray($raw_files);
+$results = (new \LitePic\Service\Upload\UploadService())->handle($files);
 
-success_response(['results' => $results]);
+\LitePic\Core\Response::success(['results' => $results]);

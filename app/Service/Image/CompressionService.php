@@ -362,6 +362,6 @@ final class CompressionService
 
     private static function fmt(int $bytes): string
     {
-        return function_exists('format_filesize') ? format_filesize($bytes) : ($bytes . ' B');
+        return function_exists('format_filesize') ? \LitePic\Core\Format::filesize($bytes) : ($bytes . ' B');
     }
 }

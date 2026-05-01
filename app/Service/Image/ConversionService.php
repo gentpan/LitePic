@@ -113,7 +113,7 @@ final class ConversionService
         // GD treats images as RGBA truecolor internally; 1.8x for intermediate buffers.
         $estimated = (int)($w * $h * 4 * 1.8);
         $limit = function_exists('ini_size_to_bytes')
-            ? ini_size_to_bytes((string)ini_get('memory_limit'))
+            ? \LitePic\Service\Upload\UploadService::iniSizeToBytes((string)ini_get('memory_limit'))
             : 0;
         if ($limit <= 0) return true; // -1 or unparseable means unlimited
         $used = (int)memory_get_usage(true);
@@ -202,11 +202,11 @@ final class ConversionService
         $repo = new ImageRepository();
         $originalIdentifier = PathService::identifierFromPath($filepath) ?? basename($filepath);
         $original = function_exists('get_original_filename')
-            ? (get_original_filename($originalIdentifier) ?? basename($filepath))
+            ? ((new \LitePic\Repository\ImageRepository())->originalNameFor($originalIdentifier) ?? basename($filepath))
             : basename($filepath);
         $variantIdentifier = PathService::identifierFromPath($targetPath) ?? basename($targetPath);
         if (function_exists('save_original_filename')) {
-            save_original_filename($variantIdentifier, $original);
+            (new \LitePic\Repository\ImageRepository())->recordOriginalName($variantIdentifier, $original);
         }
         $repo->setFlags($originalIdentifier, [$targetExt === 'webp' ? 'has_webp' : 'has_avif' => true]);
         return true;
@@ -272,7 +272,7 @@ final class ConversionService
     private static function logDebug(string $filename, array $compress, array $webp, array $avif = []): void
     {
         $original = function_exists('get_original_filename')
-            ? (get_original_filename($filename) ?? $filename)
+            ? ((new \LitePic\Repository\ImageRepository())->originalNameFor($filename) ?? $filename)
             : $filename;
         $hadFailure =
             (!empty($compress['attempted']) && empty($compress['compressed'])) ||
