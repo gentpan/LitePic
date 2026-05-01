@@ -1746,282 +1746,38 @@ function get_image_request_count(string $filename, ?array $access_stats = null):
     return (new \LitePic\Service\Stats\AccessLogStats())->imageRequestCount($filename, $access_stats);
 }
 
-/**
- * 重新整理文件数组
- */
 function reArrayFiles($files) {
-    $file_array = [];
-    $file_count = count($files['name']);
-    $file_keys = array_keys($files);
-
-    for ($i = 0; $i < $file_count; $i++) {
-        foreach ($file_keys as $key) {
-            $file_array[$i][$key] = $files[$key][$i];
-        }
-    }
-
-    return $file_array;
+    return \LitePic\Service\Upload\UploadService::normaliseFilesArray(['name' => $files['name']] + $files);
 }
 
-/**
- * 将 php.ini 尺寸字符串转为字节数（如 2M / 512K / 1G）
- */
 function ini_size_to_bytes($value): int {
-    $raw = trim((string)$value);
-    if ($raw === '') {
-        return 0;
-    }
-
-    $unit = strtolower(substr($raw, -1));
-    $num = (float)$raw;
-    if ($num <= 0) {
-        return 0;
-    }
-
-    switch ($unit) {
-        case 'p':
-            $num *= 1024;
-            // no break
-        case 't':
-            $num *= 1024;
-            // no break
-        case 'g':
-            $num *= 1024;
-            // no break
-        case 'm':
-            $num *= 1024;
-            // no break
-        case 'k':
-            $num *= 1024;
-            break;
-        default:
-            // 纯数字按字节处理
-            break;
-    }
-
-    return (int)round($num);
+    return \LitePic\Service\Upload\UploadService::iniSizeToBytes($value);
 }
 
-/**
- * 获取 PHP 上传限制（upload_max_filesize 与 post_max_size 的较小值）
- */
 function get_php_upload_limit_bytes(): int {
-    $upload_max = ini_size_to_bytes(ini_get('upload_max_filesize'));
-    $post_max = ini_size_to_bytes(ini_get('post_max_size'));
-
-    if ($upload_max <= 0 && $post_max <= 0) {
-        return 0;
-    }
-    if ($upload_max <= 0) {
-        return $post_max;
-    }
-    if ($post_max <= 0) {
-        return $upload_max;
-    }
-    return min($upload_max, $post_max);
+    return \LitePic\Service\Upload\UploadService::phpUploadLimitBytes();
 }
 
-/**
- * 获取应用可用的实际上传上限（系统配置与 PHP 限制取最小值）
- */
 function get_effective_upload_max_bytes(): int {
-    $php_limit = get_php_upload_limit_bytes();
-    if ($php_limit <= 0) {
-        return (int)MAX_FILE_SIZE;
-    }
-    return min((int)MAX_FILE_SIZE, $php_limit);
+    return (new \LitePic\Service\Upload\UploadService())->maxBytes();
 }
 
-/**
- * 将上传错误码映射为可读消息
- */
 function get_upload_error_message(int $error_code, string $filename = ''): string {
-    $name = $filename !== '' ? "文件 {$filename} " : '文件 ';
-    switch ($error_code) {
-        case UPLOAD_ERR_INI_SIZE:
-            return $name . '超过 PHP 上传限制（upload_max_filesize/post_max_size）。当前约为 ' . format_filesize(get_php_upload_limit_bytes());
-        case UPLOAD_ERR_FORM_SIZE:
-            return $name . '超过表单限制大小';
-        case UPLOAD_ERR_PARTIAL:
-            return $name . '上传不完整（网络中断或连接重置）';
-        case UPLOAD_ERR_NO_FILE:
-            return $name . '未选择上传文件';
-        case UPLOAD_ERR_NO_TMP_DIR:
-            return '服务器缺少临时目录（upload_tmp_dir）';
-        case UPLOAD_ERR_CANT_WRITE:
-            return '服务器写入磁盘失败';
-        case UPLOAD_ERR_EXTENSION:
-            return '上传被 PHP 扩展拦截';
-        default:
-            return $name . '上传失败（错误码: ' . $error_code . '）';
-    }
+    return (new \LitePic\Service\Upload\UploadService())->uploadErrorMessage($error_code, $filename);
 }
 
-/**
- * 标准化上传文件数组（兼容单文件和多文件结构）
- */
 function normalize_uploaded_files(array $raw_files): array {
-    if (!isset($raw_files['name'])) {
-        return [];
-    }
-
-    if (!is_array($raw_files['name'])) {
-        return [$raw_files];
-    }
-
-    return reArrayFiles($raw_files);
+    return \LitePic\Service\Upload\UploadService::normaliseFilesArray($raw_files);
 }
 
-/**
- * 统一处理上传文件并返回结果数组
- *
- * @param array<int, array<string, mixed>> $files
- * @return array<int, array<string, mixed>>
- */
 function handle_uploaded_files(array $files): array {
-    $results = [];
-
-    foreach ($files as $file) {
-        $original_name = (string)($file['name'] ?? '');
-        $upload_error = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
-        if ($upload_error !== UPLOAD_ERR_OK) {
-            $results[] = [
-                'status' => 'error',
-                'message' => get_upload_error_message($upload_error, $original_name),
-            ];
-            continue;
-        }
-
-        $ext = strtolower((string)pathinfo($original_name, PATHINFO_EXTENSION));
-        if (!in_array($ext, ALLOWED_UPLOAD_TYPES, true)) {
-            $results[] = [
-                'status' => 'error',
-                'message' => "文件 {$original_name} 类型不支持",
-            ];
-            continue;
-        }
-
-        // 增加 MIME / 文件头校验（防止扩展名伪造）
-        $tmp_name = (string)($file['tmp_name'] ?? '');
-        if ($tmp_name !== '' && !validate_upload_mime($tmp_name, $ext)) {
-            $results[] = [
-                'status' => 'error',
-                'message' => "文件 {$original_name} 内容与实际类型不符或包含危险内容",
-            ];
-            continue;
-        }
-
-        if ((int)($file['size'] ?? 0) > get_effective_upload_max_bytes()) {
-            $results[] = [
-                'status' => 'error',
-                'message' => "文件 {$original_name} 超过大小限制（当前上限 " . format_filesize(get_effective_upload_max_bytes()) . '）',
-            ];
-            continue;
-        }
-
-        if ($tmp_name === '') {
-            $results[] = [
-                'status' => 'error',
-                'message' => "文件 {$original_name} 上传源无效",
-            ];
-            continue;
-        }
-
-        $filename = generate_filename($ext);
-        $storage_path = get_storage_path();
-        $target = $storage_path . $filename;
-
-        if (!is_dir($storage_path) && !mkdir($storage_path, 0755, true) && !is_dir($storage_path)) {
-            $results[] = [
-                'status' => 'error',
-                'message' => "文件 {$original_name} 存储目录创建失败",
-            ];
-            continue;
-        }
-
-        if (!move_uploaded_file($tmp_name, $target)) {
-            $results[] = [
-                'status' => 'error',
-                'message' => "文件 {$original_name} 保存失败",
-            ];
-            continue;
-        }
-
-        $identifier = get_image_identifier_from_path($target) ?? $filename;
-
-        save_original_filename($identifier, $original_name);
-        create_thumbnail($identifier);
-        $processing = run_upload_post_process($identifier);
-
-        $final_filename = $identifier;
-        $final_url = get_img_url($identifier);
-        $original_deleted = false;
-
-        // 若启用了自动转 WebP 且转换成功，则仅保留 WebP，删除原图
-        if (!empty($processing['auto_webp']['created']) && !empty($processing['auto_webp']['filename'])) {
-            $webp_filename = normalize_image_identifier((string)$processing['auto_webp']['filename']);
-            $webp_path = get_file_path($webp_filename);
-            if (file_exists($webp_path)) {
-                $origin_path = get_file_path($identifier);
-                if (file_exists($origin_path) && basename($origin_path) !== get_image_display_name($webp_filename)) {
-                    if (!KEEP_ORIGINAL_AFTER_PROCESS) {
-                        @unlink($origin_path);
-                        delete_thumbnail($identifier);
-                        $original_deleted = true;
-                    }
-                }
-                $final_filename = $webp_filename;
-                $final_url = get_img_url($webp_filename);
-            }
-        }
-
-        // 若启用了自动转 AVIF 且转换成功，则仅保留 AVIF，删除之前的文件
-        if (!empty($processing['auto_avif']['created']) && !empty($processing['auto_avif']['filename'])) {
-            $avif_filename = normalize_image_identifier((string)$processing['auto_avif']['filename']);
-            $avif_path = get_file_path($avif_filename);
-            if (file_exists($avif_path)) {
-                $prev_path = get_file_path($final_filename);
-                if (file_exists($prev_path) && basename($prev_path) !== get_image_display_name($avif_filename)) {
-                    if (!KEEP_ORIGINAL_AFTER_PROCESS) {
-                        @unlink($prev_path);
-                        delete_thumbnail($final_filename);
-                        $original_deleted = true;
-                    }
-                }
-                $final_filename = $avif_filename;
-                $final_url = get_img_url($avif_filename);
-            }
-        }
-
-        $watermark = apply_watermark_to_image($final_filename);
-
-        $final_thumbnail_url = $final_url;
-        if (can_generate_thumbnail($final_filename) && create_thumbnail((string)$final_filename)) {
-            $final_thumbnail_url = get_thumbnail_url((string)$final_filename);
-        }
-
-        $remote_sync = remote_storage_sync_file_and_thumbnail($final_filename);
-        $processing['original_deleted'] = $original_deleted;
-        $processing['final_filename'] = $final_filename;
-        $processing['remote_storage'] = $remote_sync;
-        $processing['watermark'] = $watermark;
-
-        $results[] = [
-            'status' => 'success',
-            'filename' => $final_filename,
-            'original_name' => $original_name,
-            'url' => $final_url,
-            'thumbnail_url' => $final_thumbnail_url,
-            'processing' => $processing,
-        ];
-    }
-
-    return $results;
+    return (new \LitePic\Service\Upload\UploadService())->handle($files);
 }
 
-/**
- * 格式化文件大小
- */
+function validate_upload_mime(string $tmp_name, string $ext): bool {
+    return (new \LitePic\Service\Upload\UploadService())->validateMime($tmp_name, $ext);
+}
+
 function format_filesize($bytes) {
     $size = (float)$bytes;
     if (!is_finite($size) || $size <= 0) {
@@ -2200,82 +1956,6 @@ function record_login_failure(): void {
         ->recordFailure((string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
 }
 
-/**
- * 上传文件 MIME 类型校验
- * 返回 true 表示通过，false 表示不通过
- */
-function validate_upload_mime(string $tmp_name, string $ext): bool {
-    if (!is_file($tmp_name) || !is_readable($tmp_name)) {
-        return false;
-    }
-
-    // SVG 单独处理：需检查是否包含恶意脚本
-    if ($ext === 'svg') {
-        $content = file_get_contents($tmp_name);
-        if ($content === false) {
-            return false;
-        }
-        // 解码 HTML 实体后再检查（防止 &#x3c;script 绕过）
-        $decoded = html_entity_decode($content, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $lower = strtolower($decoded);
-        // 检测危险标签、事件处理器及 foreignObject
-        $dangerous = [
-            '<script', 'javascript:', 'onload=', 'onerror=', 'onmouseover=',
-            'onfocus=', 'onbegin=', 'onend=', 'onactivate=', 'onclick=',
-            '<foreignobject', 'xlink:href', 'data:image/svg+xml',
-        ];
-        foreach ($dangerous as $d) {
-            if (str_contains($lower, $d)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    // 使用 finfo 获取真实 MIME 类型
-    if (function_exists('finfo_open')) {
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        if ($finfo) {
-            $mime = finfo_file($finfo, $tmp_name);
-            finfo_close($finfo);
-            if ($mime === false) {
-                return false;
-            }
-        } else {
-            return false;
-        }
-    } elseif (function_exists('mime_content_type')) {
-        $mime = mime_content_type($tmp_name);
-        if ($mime === false) {
-            return false;
-        }
-    } else {
-        // 无 MIME 检测扩展时，使用 getimagesize 做降级校验
-        $info = @getimagesize($tmp_name);
-        if ($info === false) {
-            return false;
-        }
-        $mime = $info['mime'] ?? '';
-    }
-
-    $allowed_mimes = [
-        'image/jpeg' => ['jpg', 'jpeg'],
-        'image/png' => ['png'],
-        'image/gif' => ['gif'],
-        'image/webp' => ['webp'],
-        'image/avif' => ['avif'],
-        'image/x-icon' => ['ico'],
-        'image/vnd.microsoft.icon' => ['ico'],
-        'image/bmp' => ['bmp'],
-        'image/tiff' => ['tiff', 'tif'],
-    ];
-
-    if (!isset($allowed_mimes[$mime])) {
-        return false;
-    }
-
-    return in_array($ext, $allowed_mimes[$mime], true);
-}
 
 /**
  * 生产环境安全的错误信息输出
