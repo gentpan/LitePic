@@ -824,3 +824,79 @@ html[data-theme="dark"] .settings-block-runtime .runtime-meta-label > i {
     border-radius: var(--radius-md);
   }
 }
+
+/* =============================================================
+ * Settings tab nav (above the panel)
+ *
+ * Replaces the inline Tailwind soup from the markup. Uses the same
+ * theme variables as everything else on the page so dark/light/Azure
+ * themes stay coherent without per-tab overrides.
+ * ============================================================= */
+.settings-page .settings-tab-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 18px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  list-style: none;
+}
+
+.settings-page .settings-tab-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--dark);
+  text-decoration: none;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  border-radius: 999px;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  white-space: nowrap;
+}
+
+.settings-page .settings-tab-nav a > i {
+  font-size: 0.95em;
+  line-height: 1;
+  color: var(--gray);
+}
+
+.settings-page .settings-tab-nav a:hover {
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
+  border-color: color-mix(in srgb, var(--primary) 32%, var(--border-color) 68%);
+  color: var(--dark);
+}
+
+.settings-page .settings-tab-nav a:hover > i {
+  color: var(--primary);
+}
+
+.settings-page .settings-tab-nav a[aria-current="page"] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--primary) 24%, transparent);
+}
+
+.settings-page .settings-tab-nav a[aria-current="page"] > i {
+  color: #fff;
+}
+
+.settings-page .settings-tab-nav a:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+  .settings-page .settings-tab-nav a {
+    height: 32px;
+    padding: 0 10px;
+    font-size: 0.85rem;
+  }
+}

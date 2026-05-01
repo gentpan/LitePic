@@ -220,17 +220,13 @@ require_once APP_ROOT . '/header.php';
 ?>
 
 <main class="page-container page-main settings-page settings-layout" data-active-settings-tab="<?= htmlspecialchars($active_settings_tab, ENT_QUOTES, 'UTF-8') ?>">
-    <nav class="settings-tab-nav flex flex-wrap gap-2 border-b border-border pb-3 mb-4" aria-label="设置分类">
+    <nav class="settings-tab-nav" aria-label="设置分类">
         <?php foreach ($settings_tabs as $tab_key => $tab_meta): ?>
             <?php
             $is_active = $tab_key === $active_settings_tab;
             $href = '/settings' . ($tab_key === 'general' ? '' : '?tab=' . rawurlencode($tab_key));
-            $base_classes = 'inline-flex items-center gap-2 px-3 py-2 text-sm rounded-md border transition-colors';
-            $active_classes = 'bg-primary text-white border-primary';
-            $idle_classes = 'border-border bg-light text-dark hover:bg-gray/10';
             ?>
             <a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>"
-               class="<?= $base_classes ?> <?= $is_active ? $active_classes : $idle_classes ?>"
                <?= $is_active ? 'aria-current="page"' : '' ?>>
                 <i class="fa-light <?= htmlspecialchars((string)$tab_meta['icon'], ENT_QUOTES, 'UTF-8') ?>" aria-hidden="true"></i>
                 <span><?= htmlspecialchars((string)$tab_meta['label']) ?></span>
