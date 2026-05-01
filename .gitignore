@@ -16,6 +16,9 @@ Thumbs.db
 data/*.json
 data/*.txt
 data/watermarks/
+data/litepic.sqlite
+data/litepic.sqlite-wal
+data/litepic.sqlite-shm
 static/images/background-*.jpg
 static/images/background-*.jpeg
 static/images/background-*.png

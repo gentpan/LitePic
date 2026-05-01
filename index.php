@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/app/core/bootstrap.php';
+require_once __DIR__ . '/app/Core/bootstrap.php';
 require_once __DIR__ . '/app/http/router.php';
 
 $uriPath = parse_url((string)($_SERVER['REQUEST_URI'] ?? '/upload'), PHP_URL_PATH);

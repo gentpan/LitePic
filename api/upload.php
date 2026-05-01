@@ -33,8 +33,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     exit;
 }
 
-require_once __DIR__ . '/../config.php';
-require_once __DIR__ . '/../functions.php';
+require_once __DIR__ . '/../bootstrap.php';
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     error_response('仅支持 POST 请求', 405);

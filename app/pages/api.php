@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 if (!defined('APP_ROOT')) {
-    require_once dirname(__DIR__, 2) . '/app/core/bootstrap.php';
+    require_once dirname(__DIR__, 2) . '/app/Core/bootstrap.php';
 }
 
 $page_title = 'API 文档';
