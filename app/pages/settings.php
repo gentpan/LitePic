@@ -62,703 +62,67 @@ if (!empty($_COOKIE[SETTINGS_FLASH_COOKIE])) {
     ]);
 }
 
-function bool_from_post(string $key): bool {
-    return isset($_POST[$key]) && $_POST[$key] === '1';
-}
-
-function settings_compression_capability(): array {
-    return \LitePic\Service\Stats\ServerInfo::compressionCapability();
-}
-
-function env_encode_value(string $value): string {
-    return \LitePic\Core\Format::envQuote($value);
-}
-
-function write_env_values(string $env_path, array $updates): bool {
-    // The path is always APP_ROOT/.env in this app; Config::write is
-    // hard-wired to that single location, so $env_path is ignored here.
-    return \LitePic\Core\Config::write($updates);
-}
-
-function write_user_ini_values(string $ini_path, array $updates): bool {
-    $lines = [];
-    if (is_file($ini_path)) {
-        $existing = file($ini_path, FILE_IGNORE_NEW_LINES);
-        if ($existing !== false) {
-            $lines = $existing;
-        }
-    }
-
-    $remaining = $updates;
-    foreach ($lines as $index => $line) {
-        if (!is_string($line)) {
-            continue;
-        }
-        if (!preg_match('/^\s*([a-zA-Z0-9_.]+)\s*=/', $line, $matches)) {
-            continue;
-        }
-        $key = trim((string)$matches[1]);
-        if (!array_key_exists($key, $remaining)) {
-            continue;
-        }
-        $lines[$index] = $key . '=' . (string)$remaining[$key];
-        unset($remaining[$key]);
-    }
-
-    if (!empty($remaining)) {
-        if (!empty($lines) && trim((string)end($lines)) !== '') {
-            $lines[] = '';
-        }
-        foreach ($remaining as $key => $value) {
-            $lines[] = $key . '=' . (string)$value;
-        }
-    }
-
-    $content = implode(PHP_EOL, $lines);
-    if ($content !== '') {
-        $content .= PHP_EOL;
-    }
-
-    return file_put_contents($ini_path, $content, LOCK_EX) !== false;
-}
-
-function settings_store_watermark_upload(string $field, array $allowed_extensions, ?string &$error = null): ?string {
-    return \LitePic\Service\Image\WatermarkService::storeUploadedAsset($field, $allowed_extensions, $error);
-}
-
-function settings_home_background_url(string $web_path): string {
-    $path = parse_url($web_path, PHP_URL_PATH);
-    $file = is_string($path) && str_starts_with($path, '/') ? APP_ROOT . $path : '';
-    $version = $file !== '' && is_file($file) ? (string)filemtime($file) : (string)time();
-    return $web_path . (str_contains($web_path, '?') ? '&' : '?') . 'v=' . rawurlencode($version);
-}
-
-function settings_store_home_background_upload(string $field, ?string &$error = null): ?string {
-    if (empty($_FILES[$field]) || !is_array($_FILES[$field])) {
-        return null;
-    }
-
-    $file = $_FILES[$field];
-    $error_code = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
-    if ($error_code === UPLOAD_ERR_NO_FILE) {
-        return null;
-    }
-    if ($error_code !== UPLOAD_ERR_OK) {
-        $error = '上传文件失败，请检查 PHP 上传限制';
-        return null;
-    }
-
-    $tmp_name = (string)($file['tmp_name'] ?? '');
-    if ($tmp_name === '' || !is_uploaded_file($tmp_name)) {
-        $error = '上传临时文件无效';
-        return null;
-    }
-
-    $info = @getimagesize($tmp_name);
-    $mime = is_array($info) ? (string)($info['mime'] ?? '') : '';
-    if (!in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true)) {
-        $error = '首页背景图仅支持 JPG/JPEG/PNG/WebP';
-        return null;
-    }
-
-    $dir = APP_ROOT . '/static/images';
-    if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
-        $error = '背景图目录不可写';
-        return null;
-    }
-    if (!is_writable($dir)) {
-        $error = '背景图目录不可写';
-        return null;
-    }
-
-    $filename = 'background-' . date('YmdHis') . '-' . bin2hex(random_bytes(4)) . '.jpg';
-    $target = $dir . '/' . $filename;
-    $temp = $dir . '/.' . $filename . '.tmp';
-
-    if ($mime === 'image/jpeg') {
-        if (!move_uploaded_file($tmp_name, $temp)) {
-            $error = '写入首页背景失败';
-            return null;
-        }
-    } else {
-        if (!extension_loaded('gd')) {
-            $error = 'PNG/WebP 转 JPG 需要启用 GD；请改传 JPG/JPEG';
-            return null;
-        }
-        $create = $mime === 'image/png' ? 'imagecreatefrompng' : 'imagecreatefromwebp';
-        if (!function_exists($create)) {
-            $error = '当前 PHP GD 不支持该图片格式；请改传 JPG/JPEG';
-            return null;
-        }
-        $source = @$create($tmp_name);
-        if (!$source) {
-            $error = '读取背景图失败';
-            return null;
-        }
-        $width = imagesx($source);
-        $height = imagesy($source);
-        $canvas = imagecreatetruecolor($width, $height);
-        if (!$canvas) {
-            imagedestroy($source);
-            $error = '处理背景图失败';
-            return null;
-        }
-        $fill = imagecolorallocate($canvas, 12, 12, 12);
-        imagefill($canvas, 0, 0, $fill);
-        imagecopy($canvas, $source, 0, 0, 0, 0, $width, $height);
-        $saved = imagejpeg($canvas, $temp, 90);
-        imagedestroy($canvas);
-        imagedestroy($source);
-        if (!$saved) {
-            $error = '转换背景图失败';
-            return null;
-        }
-    }
-
-    if (!rename($temp, $target)) {
-        @unlink($temp);
-        $error = '写入首页背景失败';
-        return null;
-    }
-
-    @chmod($target, 0644);
-    clearstatcache(true, $target);
-    return '/static/images/' . $filename;
-}
-
-function settings_open_basedir_value(string $ini_path): string {
-    return \LitePic\Service\Stats\ServerInfo::openBasedirValue($ini_path);
-}
-
-function settings_normalize_domain(string $domain): string {
-    return \LitePic\Service\Hotlink\HotlinkProtection::normalizeDomain($domain);
-}
-
-function settings_hotlink_domains_from_input(string $domains): array {
-    return \LitePic\Service\Hotlink\HotlinkProtection::domainsFromInput($domains);
-}
-
-function settings_apache_hotlink_rules_block(string $domains, bool $allow_empty_referer): string {
-    return \LitePic\Service\Hotlink\HotlinkProtection::apacheRulesBlock($domains, $allow_empty_referer);
-}
-
-function settings_write_apache_hotlink_rules(string $htaccess_path, bool $enabled, string $domains, bool $allow_empty_referer): bool {
-    return \LitePic\Service\Hotlink\HotlinkProtection::writeApacheRules($htaccess_path, $enabled, $domains, $allow_empty_referer);
-}
-
-function settings_apache_hotlink_rules_enabled(string $htaccess_path): bool {
-    return \LitePic\Service\Hotlink\HotlinkProtection::apacheRulesEnabled($htaccess_path);
-}
-
-function settings_is_ajax_request(): bool {
-    $requested_with = strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
-    $accept = strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? ''));
-
-    return $requested_with === 'xmlhttprequest'
-        || str_contains($accept, 'application/json')
-        || (isset($_POST['ajax']) && (string)$_POST['ajax'] === '1');
-}
-
-function settings_json_response(array $payload, int $status_code = 200): void {
-    http_response_code($status_code);
-    header('Content-Type: application/json; charset=UTF-8');
-    echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    exit;
-}
-
-function settings_remote_storage_env_from_post(): array {
-    return \LitePic\Service\Storage\RemoteStorage::envFromPostedForm();
-}
-
-function settings_remote_storage_required_complete(): bool {
-    return \LitePic\Service\Storage\RemoteStorage::postedFormIsComplete();
-}
-
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-    // CSRF 校验
-    $csrf_token = (string)($_POST['csrf_token'] ?? '');
-    if (!\LitePic\Core\Csrf::verify($csrf_token)) {
+    $csrfToken = (string)($_POST['csrf_token'] ?? '');
+    if (!\LitePic\Core\Csrf::verify($csrfToken)) {
         $message = '安全令牌无效或已过期，请刷新页面后重试';
         $message_type = 'error';
-        // 阻止后续处理
-        $_SERVER['REQUEST_METHOD'] = 'GET';
-        $form_action = '';
     } else {
         $form_action = (string)($_POST['form_action'] ?? 'save_settings');
-    }
+        $result = (new \LitePic\Http\Controllers\SettingsController())->dispatch($form_action);
 
-    if ($form_action !== '') {
-
-    if ($form_action === 'create_token') {
-        $token_name = trim((string)($_POST['token_name'] ?? ''));
-        $created = (new \LitePic\Repository\ApiTokenRepository())->createSafely($token_name);
-        if ($created === null) {
-            $message = '创建 API Token 失败';
-            $message_type = 'error';
-        } else {
-            $message = 'API Token 已创建，请立即复制保存。';
-            $message_type = 'success';
-            $created_token = $created;
+        if (($result['message'] ?? '') !== '') {
+            $message = (string)$result['message'];
+            $message_type = (string)($result['type'] ?? 'success') === 'error' ? 'error' : 'success';
         }
-    } elseif ($form_action === 'revoke_token') {
-        $token_id = trim((string)($_POST['token_id'] ?? ''));
-        if ($token_id === '' || !(new \LitePic\Repository\ApiTokenRepository())->revoke($token_id)) {
-            $message = '撤销 Token 失败';
-            $message_type = 'error';
-        } else {
-            $message = 'Token 已撤销';
-            $message_type = 'success';
+        if (!empty($result['created_token'])) {
+            $created_token = (string)$result['created_token'];
         }
-    } elseif ($form_action === 'add_compression_api') {
-        $api_name = '';
-        $api_key = trim((string)($_POST['compression_api_key'] ?? ''));
-        if (!(new \LitePic\Repository\CompressionKeyRepository())->create($api_name, $api_key)) {
-            $message = '添加压缩 API Key 失败';
-            $message_type = 'error';
-        } else {
-            $message = '压缩 API Key 已添加';
-            $message_type = 'success';
+        if (isset($result['home_bg_url'])) {
+            $updated_home_background_url = (string)$result['home_bg_url'];
         }
-    } elseif ($form_action === 'toggle_compression_api') {
-        $api_id = trim((string)($_POST['compression_api_id'] ?? ''));
-        $enable = ((string)($_POST['enable'] ?? '0')) === '1';
-        if ($api_id === '' || !(new \LitePic\Repository\CompressionKeyRepository())->setEnabled($api_id, $enable)) {
-            $message = '更新压缩 API 状态失败';
-            $message_type = 'error';
-        } else {
-            $message = $enable ? '压缩 API 已启用' : '压缩 API 已禁用';
-            $message_type = 'success';
+        if (isset($result['home_bg_path'])) {
+            $updated_home_background_path = (string)$result['home_bg_path'];
         }
-    } elseif ($form_action === 'delete_compression_api') {
-        $api_id = trim((string)($_POST['compression_api_id'] ?? ''));
-        if ($api_id === '' || !(new \LitePic\Repository\CompressionKeyRepository())->delete($api_id)) {
-            $message = '删除压缩 API Key 失败';
-            $message_type = 'error';
-        } else {
-            $message = '压缩 API Key 已删除';
-            $message_type = 'success';
-        }
-    } elseif ($form_action === 'save_remote_storage') {
-        $usage = strtolower(trim((string)($_POST['remote_storage_usage'] ?? REMOTE_STORAGE_USAGE)));
-        if (!in_array($usage, ['backup', 'storage'], true)) {
-            $usage = 'backup';
-        }
-        $updated = write_env_values(APP_ROOT . '/.env', settings_remote_storage_env_from_post());
-        if (!$updated) {
-            $message = '保存 R2/S3 设置失败，请检查 .env 写入权限';
-            $message_type = 'error';
-        } else {
-            $message = settings_remote_storage_required_complete()
-                ? ($usage === 'storage'
-                    ? 'R2/S3 设置已保存，云端存储已启用'
-                    : 'R2/S3 设置已保存，远程备份已启用')
-                : ($usage === 'storage'
-                    ? 'R2/S3 设置已保存；云端存储需要填写公网访问域名和所有必填项'
-                    : 'R2/S3 设置已保存；必填项未完整，远程备份已停用');
-            $message_type = 'success';
-        }
-        $saved_settings = ['remote_storage_usage' => $usage];
-    } elseif ($form_action === 'test_remote_storage') {
-        $test = (new \LitePic\Service\Storage\RemoteStorage())->testConnection();
-        if (!empty($test['success'])) {
-            $message = '测试成功';
-            $message_type = 'success';
-        } else {
-            $message = '测试失败';
-            $message_type = 'error';
-        }
-    } elseif ($form_action === 'scan_import_uploads') {
-        $scan_source_path = trim((string)($_POST['scan_source_path'] ?? ''));
-        $scan_create_thumbnail = bool_from_post('scan_create_thumbnail');
-        $scan_auto_compress = bool_from_post('scan_auto_compress');
-        $scan_convert_format = strtolower(trim((string)($_POST['scan_convert_format'] ?? 'webp')));
-        if (!in_array($scan_convert_format, ['webp', 'avif'], true)) {
-            $scan_convert_format = 'webp';
-        }
-        $has_combined_scan_convert = array_key_exists('scan_auto_convert', $_POST);
-        $scan_auto_convert = $has_combined_scan_convert
-            ? bool_from_post('scan_auto_convert')
-            : (bool_from_post('scan_auto_webp') || bool_from_post('scan_auto_avif'));
-        if (!$has_combined_scan_convert) {
-            if (bool_from_post('scan_auto_avif')) {
-                $scan_convert_format = 'avif';
-            } elseif (bool_from_post('scan_auto_webp')) {
-                $scan_convert_format = 'webp';
-            }
-        }
-        $scan_auto_webp = $scan_auto_convert && $scan_convert_format === 'webp';
-        $scan_auto_avif = $scan_auto_convert && $scan_convert_format === 'avif';
-        $scan_warnings = [];
-        $runtime_capability = settings_compression_capability();
-        if ($scan_auto_webp && empty($runtime_capability['webp'])) {
-            $scan_auto_webp = false;
-            $scan_warnings[] = 'WebP 支持未启用，已跳过导入时自动转 WebP';
-        }
-        if ($scan_auto_avif && empty($runtime_capability['avif'])) {
-            $scan_auto_avif = false;
-            $scan_warnings[] = 'AVIF 支持未启用，已跳过导入时自动转 AVIF';
-        }
-        $report = (new \LitePic\Service\Importer\Importer())->scanAndImport([
-            'create_thumbnail' => $scan_create_thumbnail,
-            'auto_compress' => $scan_auto_compress,
-            'auto_webp' => $scan_auto_webp,
-            'auto_avif' => $scan_auto_avif,
-            'source_path' => $scan_source_path,
-        ]);
-        $message = sprintf(
-            '扫描完成：扫描 %d，导入 %d，重复 %d，失败 %d，导入任务 %d',
-            (int)($report['scanned'] ?? 0),
-            (int)($report['imported'] ?? 0),
-            (int)($report['duplicates'] ?? 0),
-            (int)($report['failed'] ?? 0),
-            (int)($report['tasks_queued'] ?? 0)
-        );
-        if ((int)($report['tasks_queued'] ?? 0) > 0) {
-            $message .= '；缩略图、压缩、转换等后处理已进入任务队列，请分批处理';
-        }
-        if (!empty($report['errors']) && is_array($report['errors'])) {
-            $message .= '；错误：' . implode(' | ', array_slice($report['errors'], 0, 3));
-        }
-        if (!empty($scan_warnings)) {
-            $message .= '；提示：' . implode('；', $scan_warnings);
-        }
-        $message_type = ((int)($report['failed'] ?? 0) > 0 || !empty($scan_warnings)) ? 'error' : 'success';
-    } elseif ($form_action === 'process_import_tasks') {
-        $report = (new \LitePic\Service\Importer\Importer())->processQueue(8);
-        $message = sprintf(
-            '导入任务处理完成：处理 %d，成功 %d，失败 %d，剩余 %d，缩略图 %d，压缩 %d，转 WebP %d，转 AVIF %d，水印 %d',
-            (int)($report['processed'] ?? 0),
-            (int)($report['succeeded'] ?? 0),
-            (int)($report['failed'] ?? 0),
-            (int)($report['pending'] ?? 0),
-            (int)($report['thumb_created'] ?? 0),
-            (int)($report['compressed'] ?? 0),
-            (int)($report['webp_created'] ?? 0),
-            (int)($report['avif_created'] ?? 0),
-            (int)($report['watermark_applied'] ?? 0)
-        );
-        if (!empty($report['errors']) && is_array($report['errors'])) {
-            $message .= '；错误：' . implode(' | ', array_slice($report['errors'], 0, 3));
-        }
-        $message_type = ((int)($report['failed'] ?? 0) > 0) ? 'error' : 'success';
-    } elseif ($form_action === 'generate_all_thumbnails') {
-        $report = (new \LitePic\Service\Image\ThumbnailService())->generateAll(true);
-        $message = sprintf(
-            '缩略图生成完成：总计 %d，成功 %d，跳过 %d，失败 %d',
-            (int)($report['total'] ?? 0),
-            (int)($report['created'] ?? 0),
-            (int)($report['skipped'] ?? 0),
-            (int)($report['failed'] ?? 0)
-        );
-        $message_type = ((int)($report['failed'] ?? 0) > 0) ? 'error' : 'success';
-    } elseif ($form_action === 'sync_remote_storage_all') {
-        $report = (new \LitePic\Service\Storage\RemoteStorage())->syncAllLocalImages();
-        $message = (string)($report['message'] ?? '远程同步失败');
-        $message_type = !empty($report['success']) ? 'success' : 'error';
-    } elseif ($form_action === 'restore_remote_storage_all') {
-        $report = (new \LitePic\Service\Storage\RemoteStorage())->restoreAllToLocal();
-        $message = (string)($report['message'] ?? '远程恢复失败');
-        $message_type = !empty($report['success']) ? 'success' : 'error';
-    } elseif ($form_action === 'purge_remote_storage') {
-        $result = (new \LitePic\Service\Storage\RemoteStorage())->deleteAllObjects();
-        $message = (string)($result['message'] ?? '远程清理失败');
-        $message_type = !empty($result['success']) ? 'success' : 'error';
-    }
-    }
-
-    if ($form_action === 'save_settings') {
-        $site_name = trim((string)($_POST['site_name'] ?? SITE_NAME));
-        $site_description = trim((string)($_POST['site_description'] ?? SITE_DESCRIPTION));
-        $max_file_size_mb = max(1, min(50, (int)($_POST['max_file_size_mb'] ?? (int)round(MAX_FILE_SIZE / 1024 / 1024))));
-        $upload_allowed_types_raw = $_POST['upload_allowed_types'] ?? ALLOWED_UPLOAD_TYPES;
-        if (!is_array($upload_allowed_types_raw)) {
-            $upload_allowed_types_raw = explode(',', (string)$upload_allowed_types_raw);
-        }
-        $upload_allowed_types = [];
-        foreach ($upload_allowed_types_raw as $type) {
-            $type = strtolower(ltrim(trim((string)$type), '.'));
-            if ($type !== '' && in_array($type, SUPPORTED_IMAGE_TYPES, true) && !in_array($type, $upload_allowed_types, true)) {
-                $upload_allowed_types[] = $type;
-            }
-        }
-        $is_https = (
-            (!empty($_SERVER['HTTPS']) && (string)$_SERVER['HTTPS'] !== 'off') ||
-            (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443)
-        );
-        $admin_api_key = trim((string)($_POST['admin_api_key'] ?? ADMIN_API_KEY));
-        $auto_compress_on_upload = bool_from_post('auto_compress_on_upload');
-        $home_background_image = HOME_BACKGROUND_IMAGE;
-        $home_background_reset = bool_from_post('home_background_reset');
-        $settings_warnings = [];
-        $settings_notes = [];
-        $background_upload_error = null;
-        if (empty($upload_allowed_types)) {
-            $upload_allowed_types = ALLOWED_UPLOAD_TYPES;
-            if (empty($upload_allowed_types)) {
-                $upload_allowed_types = SUPPORTED_IMAGE_TYPES;
-            }
-            $settings_warnings[] = '至少需要保留一种允许上传格式，已保留原配置';
-        }
-        if ($home_background_reset) {
-            $home_background_image = SETTINGS_DEFAULT_HOME_BACKGROUND;
-            $updated_home_background_url = settings_home_background_url($home_background_image);
-            $updated_home_background_path = ltrim($home_background_image, '/');
-            $settings_notes[] = '首页背景图已恢复默认';
-        } else {
-            $uploaded_home_background = settings_store_home_background_upload('home_background_upload', $background_upload_error);
-            if ($uploaded_home_background !== null) {
-                $home_background_image = $uploaded_home_background;
-                $updated_home_background_url = settings_home_background_url($home_background_image);
-                $updated_home_background_path = ltrim($home_background_image, '/');
-                $settings_notes[] = '首页背景图已更新';
-            } elseif ($background_upload_error !== null) {
-                $settings_warnings[] = '首页背景图上传失败：' . $background_upload_error;
-            }
-        }
-        $runtime_capability = settings_compression_capability();
-        $convert_preferred_format = trim((string)($_POST['convert_preferred_format'] ?? CONVERT_PREFERRED_FORMAT));
-        if (!in_array($convert_preferred_format, ['webp', 'avif'], true)) {
-            $convert_preferred_format = 'webp';
-        }
-        $has_combined_convert_input = array_key_exists('auto_convert_on_upload', $_POST);
-        $auto_convert_on_upload = $has_combined_convert_input
-            ? bool_from_post('auto_convert_on_upload')
-            : (bool_from_post('auto_convert_webp_on_upload') || bool_from_post('auto_convert_avif_on_upload'));
-        if (!$has_combined_convert_input) {
-            if (bool_from_post('auto_convert_avif_on_upload')) {
-                $convert_preferred_format = 'avif';
-            } elseif (bool_from_post('auto_convert_webp_on_upload')) {
-                $convert_preferred_format = 'webp';
-            }
-        }
-        $auto_convert_webp_on_upload = $auto_convert_on_upload && $convert_preferred_format === 'webp';
-        $auto_convert_avif_on_upload = $auto_convert_on_upload && $convert_preferred_format === 'avif';
-        if ($auto_convert_webp_on_upload && empty($runtime_capability['webp'])) {
-            $auto_convert_webp_on_upload = false;
-            $settings_warnings[] = 'WebP 支持未启用，已关闭上传后自动转换 WebP';
-        }
-        if ($auto_convert_avif_on_upload && empty($runtime_capability['avif'])) {
-            $auto_convert_avif_on_upload = false;
-            $settings_warnings[] = 'AVIF 支持未启用，已关闭上传后自动转换 AVIF';
-        }
-        $keep_original_after_process = bool_from_post('keep_original_after_process');
-        $watermark_enabled = bool_from_post('watermark_enabled');
-        $watermark_type = strtolower(trim((string)($_POST['watermark_type'] ?? WATERMARK_TYPE)));
-        if (!in_array($watermark_type, ['text', 'image'], true)) {
-            $watermark_type = 'text';
-        }
-        $watermark_text = trim((string)($_POST['watermark_text'] ?? WATERMARK_TEXT));
-        $watermark_position = trim((string)($_POST['watermark_position'] ?? WATERMARK_POSITION));
-        if (!in_array($watermark_position, ['bottom-right', 'bottom-left', 'top-right', 'top-left', 'center'], true)) {
-            $watermark_position = 'bottom-right';
-        }
-        $watermark_opacity = max(1, min(100, (int)($_POST['watermark_opacity'] ?? WATERMARK_OPACITY)));
-        $watermark_font_size = max(8, min(72, (int)($_POST['watermark_font_size'] ?? WATERMARK_FONT_SIZE)));
-        $watermark_margin = max(0, min(240, (int)($_POST['watermark_margin'] ?? WATERMARK_MARGIN)));
-        $watermark_color = trim((string)($_POST['watermark_color'] ?? WATERMARK_COLOR));
-        if (!preg_match('/^#[0-9a-fA-F]{6}$/', $watermark_color)) {
-            $watermark_color = '#ffffff';
-        }
-        $watermark_font_path = trim((string)($_POST['watermark_font_path'] ?? WATERMARK_FONT_PATH));
-        $watermark_image_path = trim((string)($_POST['watermark_image_path'] ?? WATERMARK_IMAGE_PATH));
-        $watermark_image_width = max(24, min(800, (int)($_POST['watermark_image_width'] ?? WATERMARK_IMAGE_WIDTH)));
-        $watermark_panel_enabled = bool_from_post('watermark_panel_enabled');
-        $watermark_panel_opacity = max(1, min(100, (int)($_POST['watermark_panel_opacity'] ?? WATERMARK_PANEL_OPACITY)));
-        $watermark_panel_padding = max(0, min(80, (int)($_POST['watermark_panel_padding'] ?? WATERMARK_PANEL_PADDING)));
-        $watermark_panel_radius = max(0, min(80, (int)($_POST['watermark_panel_radius'] ?? WATERMARK_PANEL_RADIUS)));
-        $upload_error = null;
-        $uploaded_font_path = settings_store_watermark_upload('watermark_font_upload', ['ttf', 'otf'], $upload_error);
-        if ($uploaded_font_path !== null) {
-            $watermark_font_path = $uploaded_font_path;
-        } elseif ($upload_error !== null) {
-            $settings_warnings[] = '字体上传失败：' . $upload_error;
-        }
-        $upload_error = null;
-        $uploaded_image_path = settings_store_watermark_upload('watermark_image_upload', ['png'], $upload_error);
-        if ($uploaded_image_path !== null) {
-            $watermark_image_path = $uploaded_image_path;
-        } elseif ($upload_error !== null) {
-            $settings_warnings[] = 'PNG 水印上传失败：' . $upload_error;
-        }
-        if (bool_from_post('watermark_image_clear')) {
-            $watermark_image_path = '';
-        }
-        $hotlink_protection_enabled = false;
-        $apache_hotlink_protection_enabled = bool_from_post('apache_hotlink_protection_enabled');
-        $hotlink_allowed_domains = trim((string)($_POST['hotlink_allowed_domains'] ?? implode(',', HOTLINK_ALLOWED_DOMAINS)));
-        $hotlink_allow_empty_referer = bool_from_post('hotlink_allow_empty_referer');
-        $access_log_stats_enabled = bool_from_post('access_log_stats_enabled');
-        $access_log_paths = trim((string)($_POST['access_log_paths'] ?? implode(',', ACCESS_LOG_PATHS)));
-        $access_log_cache_ttl = max(30, min(86400, (int)($_POST['access_log_cache_ttl'] ?? ACCESS_LOG_CACHE_TTL)));
-        $access_log_max_mb = max(1, min(500, (int)($_POST['access_log_max_mb'] ?? (int)ceil(ACCESS_LOG_MAX_BYTES / 1024 / 1024))));
-        $access_log_max_bytes = $access_log_max_mb * 1024 * 1024;
-        $remote_storage_usage = strtolower(trim((string)($_POST['remote_storage_usage'] ?? REMOTE_STORAGE_USAGE)));
-        if (!in_array($remote_storage_usage, ['backup', 'storage'], true)) {
-            $remote_storage_usage = 'backup';
-        }
-        if (
-            $remote_storage_usage === 'storage'
-            && trim((string)($_POST['s3_public_base_url'] ?? S3_PUBLIC_BASE_URL)) === ''
-        ) {
-            $settings_warnings[] = '云端存储模式需要填写公网访问域名，否则图片链接会回退为本站本地地址';
+        if (isset($result['saved_settings']) && is_array($result['saved_settings'])) {
+            $saved_settings = $result['saved_settings'];
         }
 
-        if ($watermark_enabled && $watermark_type === 'text' && $watermark_text === '') {
-            $watermark_enabled = false;
-            $settings_warnings[] = '水印文字为空，已关闭自动水印';
-        }
-        if ($watermark_enabled && $watermark_type === 'text' && preg_match('/[^\x20-\x7E]/', $watermark_text) && $watermark_font_path === '') {
-            $settings_warnings[] = '水印包含中文或其他非 ASCII 字符，建议配置字体文件路径，否则会跳过写入';
-        }
-        if ($watermark_image_path !== '' && (!is_file($watermark_image_path) || strtolower((string)pathinfo($watermark_image_path, PATHINFO_EXTENSION)) !== 'png')) {
-            $watermark_image_path = '';
-            $settings_warnings[] = 'PNG 水印路径无效，已清空图片水印';
-        }
-        if ($watermark_enabled && $watermark_type === 'image' && $watermark_image_path === '') {
-            $watermark_enabled = false;
-            $settings_warnings[] = '图片水印未配置 PNG 路径，已关闭自动水印';
-        }
-        // 互斥策略：开启自动转换时，自动压缩强制关闭，避免流程冲突
-        if (($auto_convert_webp_on_upload || $auto_convert_avif_on_upload) && $auto_compress_on_upload) {
-            $auto_compress_on_upload = false;
-        }
-        $compression_mode = trim((string)($_POST['compression_mode'] ?? COMPRESSION_MODE));
-        $allowed_modes = ['tinypng', 'gd', 'imagemagick'];
-        if (!in_array($compression_mode, $allowed_modes, true)) {
-            $compression_mode = 'imagemagick';
-        }
-        $env_path = APP_ROOT . '/.env';
-        $updated = write_env_values($env_path, array_merge([
-            'SITE_NAME' => env_encode_value($site_name),
-            'SITE_DESCRIPTION' => env_encode_value($site_description),
-            'MAX_FILE_SIZE_MB' => (string)$max_file_size_mb,
-            'UPLOAD_ALLOWED_TYPES' => implode(',', $upload_allowed_types),
-            'COOKIE_SECURE' => $is_https ? 'true' : 'false',
-            'ADMIN_API_KEY' => env_encode_value($admin_api_key),
-            'HOME_BACKGROUND_IMAGE' => env_encode_value($home_background_image),
-            'AUTO_COMPRESS_ON_UPLOAD' => $auto_compress_on_upload ? 'true' : 'false',
-            'AUTO_CONVERT_WEBP_ON_UPLOAD' => $auto_convert_webp_on_upload ? 'true' : 'false',
-            'AUTO_CONVERT_AVIF_ON_UPLOAD' => $auto_convert_avif_on_upload ? 'true' : 'false',
-            'CONVERT_PREFERRED_FORMAT' => $convert_preferred_format,
-            'KEEP_ORIGINAL_AFTER_PROCESS' => $keep_original_after_process ? 'true' : 'false',
-            'COMPRESSION_MODE' => $compression_mode,
-            'WATERMARK_ENABLED' => $watermark_enabled ? 'true' : 'false',
-            'WATERMARK_TYPE' => $watermark_type,
-            'WATERMARK_TEXT' => env_encode_value($watermark_text),
-            'WATERMARK_POSITION' => $watermark_position,
-            'WATERMARK_OPACITY' => (string)$watermark_opacity,
-            'WATERMARK_FONT_SIZE' => (string)$watermark_font_size,
-            'WATERMARK_MARGIN' => (string)$watermark_margin,
-            'WATERMARK_COLOR' => env_encode_value($watermark_color),
-            'WATERMARK_FONT_PATH' => env_encode_value($watermark_font_path),
-            'WATERMARK_IMAGE_PATH' => env_encode_value($watermark_image_path),
-            'WATERMARK_IMAGE_WIDTH' => (string)$watermark_image_width,
-            'WATERMARK_PANEL_ENABLED' => $watermark_panel_enabled ? 'true' : 'false',
-            'WATERMARK_PANEL_OPACITY' => (string)$watermark_panel_opacity,
-            'WATERMARK_PANEL_PADDING' => (string)$watermark_panel_padding,
-            'WATERMARK_PANEL_RADIUS' => (string)$watermark_panel_radius,
-            'HOTLINK_PROTECTION_ENABLED' => $hotlink_protection_enabled ? 'true' : 'false',
-            'HOTLINK_ALLOWED_DOMAINS' => env_encode_value($hotlink_allowed_domains),
-            'HOTLINK_ALLOW_EMPTY_REFERER' => $hotlink_allow_empty_referer ? 'true' : 'false',
-            'ACCESS_LOG_STATS_ENABLED' => $access_log_stats_enabled ? 'true' : 'false',
-            'ACCESS_LOG_PATHS' => env_encode_value($access_log_paths),
-            'ACCESS_LOG_CACHE_TTL' => (string)$access_log_cache_ttl,
-            'ACCESS_LOG_MAX_BYTES' => (string)$access_log_max_bytes,
-        ], settings_remote_storage_env_from_post()));
-
-        $ini_path = APP_ROOT . '/.user.ini';
-        // post_max_size 稍大于 upload_max_filesize，避免 multipart 头导致被 post_max_size 拒绝
-        $post_max_size_mb = min(52, $max_file_size_mb + 2);
-        $ini_updated = write_user_ini_values($ini_path, [
-            'open_basedir' => settings_open_basedir_value($ini_path),
-            'upload_max_filesize' => $max_file_size_mb . 'M',
-            'post_max_size' => $post_max_size_mb . 'M',
-            'max_file_uploads' => '50',
-            'memory_limit' => '256M',
-        ]);
-
-        $htaccess_path = APP_ROOT . '/.htaccess';
-        $htaccess_updated = settings_write_apache_hotlink_rules(
-            $htaccess_path,
-            $apache_hotlink_protection_enabled,
-            $hotlink_allowed_domains,
-            $hotlink_allow_empty_referer
-        );
-        if (!$htaccess_updated) {
-            $settings_warnings[] = $apache_hotlink_protection_enabled
-                ? '防盗链规则写入 .htaccess 失败，请检查站点根目录写入权限'
-                : '防盗链规则从 .htaccess 移除失败，请检查站点根目录写入权限';
-        } elseif ($apache_hotlink_protection_enabled) {
-            $web_server = (new \LitePic\Service\Stats\ServerInfo())->webServer();
-            if (empty($web_server['uses_htaccess'])) {
-                $settings_warnings[] = sprintf(
-                    '当前检测为 %s，.htaccess 通常不会生效，请按使用说明添加对应服务器规则',
-                    (string)$web_server['label']
-                );
-            }
+        // AJAX clients (settings JS) take JSON; everyone else gets a PRG redirect.
+        if (\LitePic\Http\Controllers\SettingsController::isAjaxRequest()) {
+            \LitePic\Core\Response::json([
+                'status' => $message_type === 'success' ? 'success' : 'error',
+                'type' => $message_type === 'success' ? 'success' : 'error',
+                'message' => $message,
+                'action' => $form_action,
+                'created_token' => $created_token,
+                'home_background_url' => $updated_home_background_url,
+                'home_background_path' => $updated_home_background_path,
+                'saved_settings' => $saved_settings,
+                'import_task_status' => (new \LitePic\Service\Importer\Importer())->queueStatus(),
+            ]);
         }
 
-        if (!$updated) {
-            $message = '写入 .env 失败，请检查文件权限';
-            $message_type = 'error';
-        } elseif (!$ini_updated) {
-            $message = '设置已写入 .env，但写入 .user.ini 失败，请检查文件权限';
-            $message_type = 'error';
-        } else {
-            $settings_details = array_merge($settings_notes, $settings_warnings);
-            $message = empty($settings_details) ? '保存成功' : '保存成功；' . implode('；', $settings_details);
-            $message_type = empty($settings_warnings) ? 'success' : 'error';
-        }
-
-        $saved_settings = [
-            'auto_compress_on_upload' => $auto_compress_on_upload,
-            'auto_convert_on_upload' => $auto_convert_webp_on_upload || $auto_convert_avif_on_upload,
-            'convert_preferred_format' => $convert_preferred_format,
-            'upload_allowed_types' => $upload_allowed_types,
-            'remote_storage_usage' => $remote_storage_usage,
-            'keep_original_after_process' => $keep_original_after_process,
-            'watermark_enabled' => $watermark_enabled,
-            'watermark_type' => $watermark_type,
-            'apache_hotlink_protection_enabled' => settings_apache_hotlink_rules_enabled($htaccess_path),
-            'hotlink_allow_empty_referer' => $hotlink_allow_empty_referer,
-            'watermark_panel_enabled' => $watermark_panel_enabled,
-            'access_log_stats_enabled' => $access_log_stats_enabled,
-        ];
-    }
-
-    if (settings_is_ajax_request()) {
-        settings_json_response([
-            'status' => $message_type === 'success' ? 'success' : 'error',
-            'type' => $message_type === 'success' ? 'success' : 'error',
+        // PRG: cookie-flash + 303 to the same tab so refresh doesn't repost.
+        $flashPayload = base64_encode((string)json_encode([
             'message' => $message,
-            'action' => $form_action,
+            'type' => $message_type,
             'created_token' => $created_token,
-            'home_background_url' => $updated_home_background_url,
-            'home_background_path' => $updated_home_background_path,
-            'saved_settings' => $saved_settings,
-            'import_task_status' => (new \LitePic\Service\Importer\Importer())->queueStatus(),
+        ], JSON_UNESCAPED_UNICODE));
+        setcookie(SETTINGS_FLASH_COOKIE, $flashPayload, [
+            'expires' => time() + SETTINGS_FLASH_TTL,
+            'path' => '/',
+            'secure' => (!empty($_SERVER['HTTPS']) && (string)$_SERVER['HTTPS'] !== 'off'),
+            'httponly' => true,
+            'samesite' => 'Lax',
         ]);
+        $redirect = '/settings';
+        if ($posted_settings_tab !== '' && $posted_settings_tab !== 'general') {
+            $redirect .= '?tab=' . rawurlencode($posted_settings_tab);
+        }
+        header('Location: ' . $redirect);
+        exit;
     }
-
-    // PRG: 非 AJAX 提交后重定向为 GET，避免浏览器刷新时重复提交表单
-    $flash_payload = base64_encode((string)json_encode([
-        'message' => $message,
-        'type' => $message_type,
-        'created_token' => $created_token,
-    ], JSON_UNESCAPED_UNICODE));
-    setcookie(SETTINGS_FLASH_COOKIE, $flash_payload, [
-        'expires' => time() + SETTINGS_FLASH_TTL,
-        'path' => '/',
-        'secure' => (!empty($_SERVER['HTTPS']) && (string)$_SERVER['HTTPS'] !== 'off'),
-        'httponly' => true,
-        'samesite' => 'Lax',
-    ]);
-    $redirect = '/settings';
-    if ($posted_settings_tab !== '' && $posted_settings_tab !== 'general') {
-        $redirect .= '?tab=' . rawurlencode($posted_settings_tab);
-    }
-    header('Location: ' . $redirect);
-    exit;
 }
 
 $managed_tokens = (new \LitePic\Repository\ApiTokenRepository())->allForDisplay();
@@ -830,7 +194,7 @@ if ($cpu_load_1 !== null && $cpu_cores_num > 0) {
 }
 $disk_usage_percent = max(0.0, min(100.0, (float)($metrics['disk']['usage_percent'] ?? 0)));
 $htaccess_path = APP_ROOT . '/.htaccess';
-$apache_hotlink_rules_enabled = settings_apache_hotlink_rules_enabled($htaccess_path);
+$apache_hotlink_rules_enabled = \LitePic\Service\Hotlink\HotlinkProtection::apacheRulesEnabled($htaccess_path);
 $htaccess_writable = is_file($htaccess_path) ? is_writable($htaccess_path) : is_writable(APP_ROOT);
 $web_server = (new \LitePic\Service\Stats\ServerInfo())->webServer();
 $server_software = (string)$web_server['raw'];
@@ -847,9 +211,9 @@ if (!is_file($home_background_file)) {
     $home_background_path = SETTINGS_DEFAULT_HOME_BACKGROUND;
     $home_background_file = APP_ROOT . $home_background_path;
 }
-$home_background_url = settings_home_background_url($home_background_path);
+$home_background_url = \LitePic\Http\Controllers\SettingsController::homeBackgroundUrl($home_background_path);
 $home_background_label = ltrim($home_background_path, '/');
-$default_home_background_url = settings_home_background_url(SETTINGS_DEFAULT_HOME_BACKGROUND);
+$default_home_background_url = \LitePic\Http\Controllers\SettingsController::homeBackgroundUrl(SETTINGS_DEFAULT_HOME_BACKGROUND);
 $default_home_background_label = ltrim(SETTINGS_DEFAULT_HOME_BACKGROUND, '/');
 
 require_once APP_ROOT . '/header.php';
