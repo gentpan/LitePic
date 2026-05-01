@@ -77,44 +77,9 @@ function write_env_kv(array $updates): bool {
  */
 function get_uploaded_images() {
     try {
-        $files = collect_importable_images_from_dir(rtrim(UPLOAD_PATH_LOCAL, DIRECTORY_SEPARATOR));
-
-        if (empty($files)) {
-            return [];
-        }
-        
-        $files = array_values(array_filter($files, static function (string $path): bool {
-            $normalized = str_replace('\\', '/', $path);
-            if (str_contains($normalized, '/.thumbs/')) {
-                return false;
-            }
-            $base = basename($normalized);
-            return !preg_match('/\\.thumb\\.[a-z0-9]+$/i', $base);
-        }));
-
-        $images = array_map(static function (string $path): string {
-            $relative = get_image_identifier_from_path($path);
-            return $relative ?? get_image_display_name($path);
-        }, $files);
-        $images = array_values(array_unique($images));
-
-        // 若同名 WebP 存在，隐藏对应的原图（jpg/jpeg/png/gif），避免图库重复显示
-        $image_set = array_fill_keys($images, true);
-        $images = array_values(array_filter($images, static function (string $name) use ($image_set): bool {
-            $ext = strtolower((string)pathinfo($name, PATHINFO_EXTENSION));
-            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'gif'], true)) {
-                return true;
-            }
-            $dir = (string)pathinfo($name, PATHINFO_DIRNAME);
-            $stem = (string)pathinfo($name, PATHINFO_FILENAME);
-            $webp_name = ($dir !== '.' ? $dir . '/' : '') . $stem . '.webp';
-            return !isset($image_set[$webp_name]);
-        }));
-
-        rsort($images); // 最新在前
-        return $images;
-    } catch (Exception $e) {
-        debug_log("Error getting uploaded images", ['error' => $e->getMessage()], 'error');
+        return (new \LitePic\Repository\ImageRepository())->listIdentifiers('date-desc');
+    } catch (\Throwable $e) {
+        debug_log('Error getting uploaded images', ['error' => $e->getMessage()], 'error');
         return [];
     }
 }
@@ -2215,44 +2180,30 @@ function get_image_info($filename) {
  * @return array<int, string>
  */
 function sort_uploaded_images(array $images, string $sort = 'date-desc'): array {
-    switch ($sort) {
-        case 'name-asc':
-            usort($images, static fn (string $a, string $b): int => strcmp($a, $b));
-            break;
-        case 'name-desc':
-            usort($images, static fn (string $a, string $b): int => strcmp($b, $a));
-            break;
-        case 'size-asc':
-            usort($images, static function (string $a, string $b): int {
-                $sa = (int)@filesize(get_file_path($a));
-                $sb = (int)@filesize(get_file_path($b));
-                return $sa <=> $sb;
-            });
-            break;
-        case 'size-desc':
-            usort($images, static function (string $a, string $b): int {
-                $sa = (int)@filesize(get_file_path($a));
-                $sb = (int)@filesize(get_file_path($b));
-                return $sb <=> $sa;
-            });
-            break;
-        case 'date-asc':
-            usort($images, static function (string $a, string $b): int {
-                $ta = (int)@filemtime(get_file_path($a));
-                $tb = (int)@filemtime(get_file_path($b));
-                return $ta <=> $tb;
-            });
-            break;
-        case 'date-desc':
-        default:
-            usort($images, static function (string $a, string $b): int {
-                $ta = (int)@filemtime(get_file_path($a));
-                $tb = (int)@filemtime(get_file_path($b));
-                return $tb <=> $ta;
-            });
-            break;
+    if ($images === []) return [];
+
+    // Pull the metadata we need for sorting in one round-trip.
+    $repo = new \LitePic\Repository\ImageRepository();
+    $byName = [];
+    foreach ($images as $name) {
+        $byName[(string)$name] = ['size' => 0, 'created_at' => 0];
+    }
+    foreach ($repo->listAll($sort) as $row) {
+        $name = (string)$row['filename'];
+        if (isset($byName[$name])) {
+            $byName[$name] = ['size' => (int)$row['size'], 'created_at' => (int)$row['created_at']];
+        }
     }
 
+    $cmp = match ($sort) {
+        'name-asc' => static fn ($a, $b) => strcmp((string)$a, (string)$b),
+        'name-desc' => static fn ($a, $b) => strcmp((string)$b, (string)$a),
+        'size-asc' => static fn ($a, $b) => $byName[(string)$a]['size'] <=> $byName[(string)$b]['size'],
+        'size-desc' => static fn ($a, $b) => $byName[(string)$b]['size'] <=> $byName[(string)$a]['size'],
+        'date-asc' => static fn ($a, $b) => $byName[(string)$a]['created_at'] <=> $byName[(string)$b]['created_at'],
+        default => static fn ($a, $b) => $byName[(string)$b]['created_at'] <=> $byName[(string)$a]['created_at'],
+    };
+    usort($images, $cmp);
     return array_values($images);
 }
 
@@ -2303,21 +2254,14 @@ function query_uploaded_images_for_api(
     string $sort = 'date-desc',
     bool $all = false
 ): array {
-    $images = get_uploaded_images();
-    $query = trim($query);
+    $repo = new \LitePic\Repository\ImageRepository();
 
-    if ($query !== '') {
-        $images = array_values(array_filter($images, static function (string $filename) use ($query): bool {
-            return mb_stripos($filename, $query) !== false;
-        }));
-    }
-
-    $images = sort_uploaded_images($images, $sort);
-
-    $total = count($images);
     if ($all) {
+        $rows = $repo->listAll($sort, $query);
+        $names = array_map(static fn ($r) => (string)$r['filename'], $rows);
+        $total = count($names);
         return [
-            'items' => build_uploaded_image_api_items($images),
+            'items' => build_uploaded_image_api_items($names),
             'pagination' => [
                 'page' => 1,
                 'per_page' => $total > 0 ? $total : 0,
@@ -2327,19 +2271,16 @@ function query_uploaded_images_for_api(
         ];
     }
 
-    $per_page = max(1, min(500, $per_page));
-    $total_pages = max(1, (int)ceil($total / $per_page));
-    $page = max(1, min($page, $total_pages));
-    $offset = ($page - 1) * $per_page;
-    $paged = array_slice($images, $offset, $per_page);
+    $page_data = $repo->paginate($page, $per_page, $sort, $query);
+    $names = array_map(static fn ($r) => (string)$r['filename'], $page_data['items']);
 
     return [
-        'items' => build_uploaded_image_api_items($paged),
+        'items' => build_uploaded_image_api_items($names),
         'pagination' => [
-            'page' => $page,
-            'per_page' => $per_page,
-            'total' => $total,
-            'total_pages' => $total_pages,
+            'page' => $page_data['page'],
+            'per_page' => $page_data['per_page'],
+            'total' => $page_data['total'],
+            'total_pages' => $page_data['total_pages'],
         ],
     ];
 }
@@ -2350,17 +2291,29 @@ function query_uploaded_images_for_api(
  * @param string $original_name 原始上传的文件名
  */
 function save_original_filename($system_name, $original_name) {
-    $map_file = UPLOAD_PATH_LOCAL . 'filename_map.json';
-    $map = [];
-    $normalized_system_name = normalize_image_identifier((string)$system_name);
-    $system_name = $normalized_system_name !== '' ? $normalized_system_name : basename((string)$system_name);
-    
-    if (file_exists($map_file)) {
-        $map = json_decode(file_get_contents($map_file), true) ?? [];
+    $normalized = normalize_image_identifier((string)$system_name);
+    $filename = $normalized !== '' ? $normalized : basename((string)$system_name);
+    if ($filename === '') {
+        return;
     }
-    
-    $map[$system_name] = $original_name;
-    file_put_contents($map_file, json_encode($map, JSON_PRETTY_PRINT), LOCK_EX);
+
+    $repo = new \LitePic\Repository\ImageRepository();
+    if ($repo->exists($filename)) {
+        $repo->update($filename, ['original_name' => (string)$original_name]);
+        return;
+    }
+
+    $absolute = get_file_path($filename);
+    $size = is_file($absolute) ? (int)@filesize($absolute) : 0;
+    $mtime = is_file($absolute) ? (int)@filemtime($absolute) : time();
+
+    $repo->insert([
+        'filename' => $filename,
+        'original_name' => (string)$original_name,
+        'ext' => strtolower((string)pathinfo($filename, PATHINFO_EXTENSION)),
+        'size' => $size,
+        'created_at' => $mtime,
+    ]);
 }
 
 /**
@@ -2369,15 +2322,15 @@ function save_original_filename($system_name, $original_name) {
  * @return string|null 原始文件名，如果不存在返回 null
  */
 function get_original_filename($system_name) {
-    $map_file = UPLOAD_PATH_LOCAL . 'filename_map.json';
-    $normalized_system_name = normalize_image_identifier((string)$system_name);
-    $system_name = $normalized_system_name !== '' ? $normalized_system_name : basename((string)$system_name);
-    if (!file_exists($map_file)) {
+    $normalized = normalize_image_identifier((string)$system_name);
+    $filename = $normalized !== '' ? $normalized : basename((string)$system_name);
+    if ($filename === '') {
         return null;
     }
-    
-    $map = json_decode(file_get_contents($map_file), true) ?? [];
-    return $map[$system_name] ?? null;
+    $row = (new \LitePic\Repository\ImageRepository())->find($filename);
+    if ($row === null) return null;
+    $original = $row['original_name'] ?? null;
+    return ($original === null || $original === '') ? null : (string)$original;
 }
 
 /**
