@@ -33,6 +33,6 @@ final class Response
         if (Config::bool('DEBUG', false)) {
             return $e->getMessage();
         }
-        return '操作失败，请稍后重试';
+        return '服务器内部错误，请稍后重试';
     }
 }
