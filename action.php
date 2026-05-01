@@ -440,6 +440,8 @@ switch ($action) {
                 @unlink($avif);
                 delete_thumbnail((string)(get_image_identifier_from_path($avif) ?? basename($avif)));
             }
+            $imageRepo = new \LitePic\Repository\ImageRepository();
+            $imageRepo->delete($file);
             $message = remote_storage_credentials_valid() ? '删除成功，远程对象将在 24 小时后删除' : '删除成功';
             success_response(['message' => $message]);
         } else {
