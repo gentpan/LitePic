@@ -12,8 +12,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     exit;
 }
 
-require_once '../config.php';
-require_once '../functions.php';
+require_once __DIR__ . '/../bootstrap.php';
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
     error_response('仅支持 GET 请求', 405);

@@ -6,8 +6,7 @@ declare(strict_types=1);
  * 处理登录、退出等认证相关的请求
  */
 
-require_once '../config.php';
-require_once '../functions.php';
+require_once __DIR__ . '/../bootstrap.php';
 
 // 设置返回的内容类型为 JSON
 header('Content-Type: application/json');
