@@ -59,7 +59,7 @@ return function (PDO $pdo): void {
                 if ($key === '') continue;
                 $stmt->execute([
                     ':k' => $key,
-                    ':a' => (int)($item['available_at'] ?? $now),
+                    ':a' => (int)($item['due_at'] ?? $item['available_at'] ?? $now),
                     ':t' => (int)($item['attempts'] ?? 0),
                     ':e' => isset($item['last_error']) ? (string)$item['last_error'] : null,
                     ':c' => (int)($item['created_at'] ?? $now),
