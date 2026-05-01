@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 if (!defined('APP_ROOT')) {
-    require_once dirname(__DIR__, 2) . '/app/Core/bootstrap.php';
+    require_once dirname(__DIR__, 2) . '/bootstrap.php';
 }
 
 // 检查登录状态

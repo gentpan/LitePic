@@ -16,6 +16,71 @@ namespace LitePic\Service\Stats;
 final class ServerInfo
 {
     /**
+     * Pull just the imagick/gd/avif/webp capability flags off the
+     * runtime metrics. Settings tabs use this for "should I show the
+     * AVIF toggle?" gating.
+     *
+     * @return array{gd:bool,imagick:bool,avif:bool,webp:bool}
+     */
+    public static function compressionCapability(): array
+    {
+        $metrics = (new self())->runtimeMetrics();
+        $cap = is_array($metrics['capability'] ?? null) ? $metrics['capability'] : [];
+        return [
+            'gd' => !empty($cap['gd']),
+            'imagick' => !empty($cap['imagick']),
+            'avif' => !empty($cap['avif']),
+            'webp' => !empty($cap['webp']),
+        ];
+    }
+
+    /**
+     * Build the open_basedir value that should appear in php.ini
+     * to make the runtime-metrics paths readable on sandboxed hosts.
+     * Reads any existing open_basedir from `$iniPath` (so we don't
+     * shrink the user's allowlist) and unions with our minimum set.
+     */
+    public static function openBasedirValue(string $iniPath): string
+    {
+        $appRoot = defined('APP_ROOT') ? APP_ROOT : dirname(__DIR__, 3);
+        $paths = [
+            rtrim($appRoot, '/') . '/',
+            '/tmp/',
+            '/proc/cpuinfo',
+            '/proc/meminfo',
+            '/proc/uptime',
+            '/etc/os-release',
+        ];
+
+        if (is_file($iniPath)) {
+            $lines = file($iniPath, FILE_IGNORE_NEW_LINES);
+            if ($lines !== false) {
+                foreach ($lines as $line) {
+                    if (!is_string($line) || !preg_match('/^\s*open_basedir\s*=\s*(.+)\s*$/', $line, $m)) {
+                        continue;
+                    }
+                    foreach (explode(PATH_SEPARATOR, trim((string)$m[1])) as $path) {
+                        $path = trim($path);
+                        if ($path !== '') $paths[] = $path;
+                    }
+                    break;
+                }
+            }
+        }
+
+        $normalized = [];
+        foreach ($paths as $path) {
+            $path = trim($path);
+            if ($path === '') continue;
+            if ($path === $appRoot) {
+                $path = rtrim($appRoot, '/') . '/';
+            }
+            $normalized[$path] = true;
+        }
+        return implode(PATH_SEPARATOR, array_keys($normalized));
+    }
+
+    /**
      * @return array{id:string,name:string,version:string,pretty:string}
      */
     public function distro(): array
