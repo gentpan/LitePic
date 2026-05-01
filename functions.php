@@ -1371,143 +1371,15 @@ function build_uploaded_hash_index(): array {
     return $index;
 }
 
-function import_task_queue_file(): string {
-    return __DIR__ . '/data/import_tasks_queue.json';
-}
-
 function import_task_has_work(array $options): bool {
-    return !empty($options['create_thumbnail'])
-        || !empty($options['auto_compress'])
-        || !empty($options['auto_webp'])
-        || !empty($options['auto_avif'])
-        || !empty($options['watermark'])
-        || !empty($options['remote_sync']);
-}
-
-function import_task_normalize(array $item): ?array {
-    $filename = normalize_image_identifier((string)($item['filename'] ?? $item['image'] ?? ''));
-    if ($filename === '') {
-        return null;
-    }
-
-    $task = [
-        'id' => sha1($filename),
-        'filename' => $filename,
-        'create_thumbnail' => !empty($item['create_thumbnail']),
-        'auto_compress' => !empty($item['auto_compress']),
-        'auto_webp' => !empty($item['auto_webp']),
-        'auto_avif' => !empty($item['auto_avif']),
-        'watermark' => !empty($item['watermark']),
-        'remote_sync' => !empty($item['remote_sync']),
-        'created_at' => max(0, (int)($item['created_at'] ?? time())),
-        'updated_at' => max(0, (int)($item['updated_at'] ?? time())),
-        'attempts' => max(0, (int)($item['attempts'] ?? 0)),
-        'last_error' => isset($item['last_error']) ? (string)$item['last_error'] : null,
-    ];
-
-    return import_task_has_work($task) ? $task : null;
-}
-
-function import_task_read_queue(): array {
-    $path = import_task_queue_file();
-    if (!is_file($path)) {
-        return [];
-    }
-
-    $raw = file_get_contents($path);
-    if (!is_string($raw) || trim($raw) === '') {
-        return [];
-    }
-
-    $decoded = json_decode($raw, true);
-    if (!is_array($decoded)) {
-        return [];
-    }
-
-    $indexed = [];
-    foreach ($decoded as $item) {
-        if (!is_array($item)) {
-            continue;
-        }
-        $task = import_task_normalize($item);
-        if ($task !== null) {
-            $indexed[$task['id']] = $task;
-        }
-    }
-
-    return array_values($indexed);
-}
-
-function import_task_write_queue(array $queue): bool {
-    $path = import_task_queue_file();
-    $dir = dirname($path);
-    if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
-        return false;
-    }
-
-    $indexed = [];
-    foreach ($queue as $item) {
-        if (!is_array($item)) {
-            continue;
-        }
-        $task = import_task_normalize($item);
-        if ($task !== null) {
-            $indexed[$task['id']] = $task;
-        }
-    }
-
-    return file_put_contents($path, json_encode(array_values($indexed), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX) !== false;
+    return \LitePic\Repository\ImportQueueRepository::hasWork($options);
 }
 
 function import_task_enqueue(string $filename, array $options): bool {
     $filename = normalize_image_identifier($filename);
-    if ($filename === '') {
-        return false;
-    }
-
-    $task = import_task_normalize([
-        'filename' => $filename,
-        'create_thumbnail' => !empty($options['create_thumbnail']),
-        'auto_compress' => !empty($options['auto_compress']),
-        'auto_webp' => !empty($options['auto_webp']),
-        'auto_avif' => !empty($options['auto_avif']),
-        'watermark' => !empty($options['watermark']),
-        'remote_sync' => !empty($options['remote_sync']),
-        'created_at' => time(),
-        'updated_at' => time(),
-    ]);
-    if ($task === null) {
-        return false;
-    }
-
-    $queue = import_task_read_queue();
-    $indexed = [];
-    foreach ($queue as $item) {
-        if (!is_array($item)) {
-            continue;
-        }
-        $existing = import_task_normalize($item);
-        if ($existing !== null) {
-            $indexed[$existing['id']] = $existing;
-        }
-    }
-
-    if (isset($indexed[$task['id']])) {
-        $existing = $indexed[$task['id']];
-        foreach (['create_thumbnail', 'auto_compress', 'watermark', 'remote_sync'] as $key) {
-            $task[$key] = !empty($task[$key]) || !empty($existing[$key]);
-        }
-        if (empty($task['auto_webp']) && empty($task['auto_avif'])) {
-            $task['auto_webp'] = !empty($existing['auto_webp']);
-            $task['auto_avif'] = !empty($existing['auto_avif']);
-        }
-        $task['created_at'] = (int)($existing['created_at'] ?? $task['created_at']);
-        $task['attempts'] = (int)($existing['attempts'] ?? 0);
-        $task['last_error'] = $existing['last_error'] ?? null;
-    }
-
-    $indexed[$task['id']] = $task;
-    return import_task_write_queue(array_values($indexed));
+    if ($filename === '') return false;
+    if (!import_task_has_work($options)) return false;
+    return (new \LitePic\Repository\ImportQueueRepository())->enqueue($filename, $options);
 }
 
 function import_task_process_image(array $task): array {
@@ -1630,75 +1502,46 @@ function import_task_process_image(array $task): array {
 }
 
 function import_task_process_queue(int $limit = 8): array {
-    $limit = max(1, min(50, $limit));
-    $queue = import_task_read_queue();
+    $repo = new \LitePic\Repository\ImportQueueRepository();
     $result = [
-        'processed' => 0,
-        'succeeded' => 0,
-        'failed' => 0,
-        'pending' => 0,
-        'thumb_created' => 0,
-        'compressed' => 0,
-        'webp_created' => 0,
-        'avif_created' => 0,
-        'watermark_applied' => 0,
-        'skip_compress' => 0,
-        'skip_webp' => 0,
-        'skip_avif' => 0,
-        'skip_watermark' => 0,
-        'errors' => [],
+        'processed' => 0, 'succeeded' => 0, 'failed' => 0, 'pending' => 0,
+        'thumb_created' => 0, 'compressed' => 0, 'webp_created' => 0, 'avif_created' => 0,
+        'watermark_applied' => 0, 'skip_compress' => 0, 'skip_webp' => 0,
+        'skip_avif' => 0, 'skip_watermark' => 0, 'errors' => [],
     ];
 
-    if (empty($queue)) {
-        return $result;
-    }
-
-    $remaining = [];
-    foreach ($queue as $task) {
-        if ($result['processed'] >= $limit) {
-            $remaining[] = $task;
-            continue;
-        }
-
+    foreach ($repo->nextBatch($limit) as $row) {
         $result['processed']++;
-        $task_report = import_task_process_image($task);
-        foreach (['thumb_created', 'compressed', 'webp_created', 'avif_created', 'watermark_applied', 'skip_compress', 'skip_webp', 'skip_avif', 'skip_watermark'] as $key) {
-            $result[$key] += (int)($task_report[$key] ?? 0);
+        // import_task_process_image still expects a flat shape; spread options.
+        $task = ['id' => $row['id'], 'filename' => $row['filename'], 'attempts' => $row['attempts']]
+              + $row['options'];
+        $report = import_task_process_image($task);
+
+        foreach (['thumb_created', 'compressed', 'webp_created', 'avif_created', 'watermark_applied',
+                  'skip_compress', 'skip_webp', 'skip_avif', 'skip_watermark'] as $key) {
+            $result[$key] += (int)($report[$key] ?? 0);
         }
 
-        if (!empty($task_report['success'])) {
+        if (!empty($report['success'])) {
+            $repo->markDone($row['id']);
             $result['succeeded']++;
             continue;
         }
-
+        $errors = is_array($report['errors'] ?? null) ? $report['errors'] : ['任务处理失败'];
         $result['failed']++;
-        $errors = is_array($task_report['errors'] ?? null) ? $task_report['errors'] : ['任务处理失败'];
         $result['errors'] = array_merge($result['errors'], $errors);
-        $task['attempts'] = (int)($task['attempts'] ?? 0) + 1;
-        $task['updated_at'] = time();
-        $task['last_error'] = (string)($errors[0] ?? '任务处理失败');
-        if ($task['attempts'] < 3) {
-            $remaining[] = $task;
-        }
+        $repo->markFailure($row['id'], (string)($errors[0] ?? '任务处理失败'));
     }
 
-    $result['pending'] = count($remaining);
-    import_task_write_queue($remaining);
+    $result['pending'] = $repo->pendingCount();
     return $result;
 }
 
 function import_task_queue_status(): array {
-    $queue = import_task_read_queue();
-    $failed = 0;
-    foreach ($queue as $task) {
-        if ((int)($task['attempts'] ?? 0) > 0) {
-            $failed++;
-        }
-    }
-
+    $repo = new \LitePic\Repository\ImportQueueRepository();
     return [
-        'pending' => count($queue),
-        'failed' => $failed,
+        'pending' => $repo->pendingCount(),
+        'failed' => $repo->failedCount(),
     ];
 }
 
