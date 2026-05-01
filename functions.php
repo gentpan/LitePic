@@ -1613,251 +1613,47 @@ function debug_log($message, $data = null, $type = 'info') {
  * @param int $quality JPEG 质量 0-100（默认85）
  * @return bool
  */
+
 function compress_with_imagemagick($filepath, $quality = 85) {
-    try {
-        if (!file_exists($filepath) || !is_readable($filepath)) {
-            error_log("ImageMagick: file not readable: {$filepath}");
-            return false;
-        }
-
-        if (!function_exists('exec') && !function_exists('shell_exec')) {
-            error_log("ImageMagick: exec/shell_exec not available");
-            return false;
-        }
-
-        // 尝试查找可用二进制：优先 magick，其次 convert
-        $bin = null;
-        // 支持 Windows 和 *nix 的查找方法
-        $probeCmds = ['magick -version', 'convert -version', 'where magick', 'where convert'];
-        foreach ($probeCmds as $pcmd) {
-            $out = null;
-            $rc = null;
-            @exec($pcmd . ' 2>&1', $out, $rc);
-            if ($rc === 0 && !empty($out)) {
-                // 从命令字符串判断使用 magick 还是 convert
-                $bin = strpos($pcmd, 'magick') !== false ? 'magick' : 'convert';
-                break;
-            }
-        }
-
-        if (!$bin) {
-            error_log("ImageMagick: binary not found in PATH");
-            return false;
-        }
-
-        $ext = strtolower(pathinfo($filepath, PATHINFO_EXTENSION));
-        $tmp = $filepath . '.imtmp';
-        $quality = max(10, min(100, (int)$quality));
-
-        // 构建针对不同类型的命令
-        if (in_array($ext, ['jpg','jpeg'])) {
-            $cmd = "{$bin} " . escapeshellarg($filepath) . " -strip -interlace Plane -quality {$quality} " . escapeshellarg($tmp);
-        } elseif ($ext === 'png') {
-            // 针对 png 使用 compression-level 定义（0-9），根据质量做简单映射
-            $png_level = max(0, min(9, (int)round((100 - $quality) / 11)));
-            $cmd = "{$bin} " . escapeshellarg($filepath) . " -strip -define png:compression-level={$png_level} -quality {$quality} " . escapeshellarg($tmp);
-        } else {
-            // 其它格式尝试通用命令
-            $cmd = "{$bin} " . escapeshellarg($filepath) . " -strip -quality {$quality} " . escapeshellarg($tmp);
-        }
-
-        @exec($cmd . ' 2>&1', $execOut, $execRc);
-        if ($execRc !== 0) {
-            error_log("ImageMagick command failed ({$cmd}): " . implode("\n", $execOut));
-            @unlink($tmp);
-            return false;
-        }
-
-        if (!file_exists($tmp) || filesize($tmp) === 0) {
-            error_log("ImageMagick produced no output for {$filepath}");
-            @unlink($tmp);
-            return false;
-        }
-
-        $origSize = filesize($filepath);
-        $newSize = filesize($tmp);
-
-        // 仅当结果更小才替换
-        if ($newSize > 0 && $newSize <= $origSize) {
-            if (!@rename($tmp, $filepath)) {
-                // 在 Windows 上 rename 可能失败，尝试 copy + unlink
-                if (@copy($tmp, $filepath)) {
-                    @unlink($tmp);
-                } else {
-                    error_log("ImageMagick: failed to replace original file for {$filepath}");
-                    @unlink($tmp);
-                    return false;
-                }
-            }
-            clearstatcache(true, $filepath);
-            return true;
-        }
-
-        // 未变小则丢弃临时文件
-        @unlink($tmp);
-        error_log("ImageMagick: output not smaller (orig={$origSize}, new={$newSize}) for {$filepath}");
-        return false;
-    } catch (Exception $e) {
-        error_log("ImageMagick compression error: " . $e->getMessage());
-        return false;
-    }
+    return \LitePic\Service\Image\CompressionService::compressWithImagick((string)$filepath, (int)$quality);
 }
 
-/**
- * 压缩图片（使用 TinyPNG）
- */
 function compress_with_tinypng($filepath) {
-    try {
-        if (!file_exists($filepath) || !is_readable($filepath)) {
-            throw new Exception('文件不可读');
-        }
-
-        $ext = strtolower(pathinfo($filepath, PATHINFO_EXTENSION));
-        if (!in_array($ext, ['jpg','jpeg','png'])) {
-            error_log("TinyPNG skip: unsupported type .$ext for $filepath");
-            return false;
-        }
-
-        if (!function_exists('curl_init')) {
-            throw new Exception('服务器未启用 cURL 扩展');
-        }
-
-        $api_records = get_active_compression_api_keys();
-        if (empty($api_records) && defined('TINIFY_API_KEYS') && is_array(TINIFY_API_KEYS)) {
-            foreach (TINIFY_API_KEYS as $legacy_key) {
-                if (is_string($legacy_key) && $legacy_key !== '') {
-                    $api_records[] = [
-                        'id' => null,
-                        'name' => 'legacy',
-                        'api_key' => $legacy_key,
-                    ];
-                }
-            }
-        }
-
-        if (empty($api_records)) {
-            throw new Exception('未配置可用的 TinyPNG API Key');
-        }
-
-        usort($api_records, static function (array $a, array $b): int {
-            $a_used = (int)($a['used_count'] ?? 0);
-            $b_used = (int)($b['used_count'] ?? 0);
-            if ($a_used === $b_used) {
-                return 0;
-            }
-            return $a_used < $b_used ? -1 : 1;
-        });
-
-        foreach ($api_records as $api) {
-            $key = (string)($api['api_key'] ?? '');
-            $api_id = isset($api['id']) ? (string)$api['id'] : null;
-            if ($key === '') {
-                continue;
-            }
-
-            $ch = curl_init();
-            curl_setopt_array($ch, [
-                CURLOPT_URL => "https://api.tinify.com/shrink",
-                CURLOPT_USERPWD => "api:$key",
-                CURLOPT_POST => true,
-                CURLOPT_POSTFIELDS => file_get_contents($filepath),
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_HEADER => true,
-                CURLOPT_SSL_VERIFYPEER => true,
-                CURLOPT_USERAGENT => 'LitePic/2.2.0',
-                CURLOPT_CONNECTTIMEOUT => 5,
-                CURLOPT_TIMEOUT => 20,
-                CURLOPT_HTTPHEADER => ['Accept: application/json'],
-            ]);
-
-            $response = curl_exec($ch);
-            if ($response === false) {
-                $err = curl_error($ch);
-                error_log("TinyPNG cURL error with key {$key}: {$err}");
-                if (PHP_VERSION_ID < 80500) {
-                    curl_close($ch);
-                }
-                if ($api_id !== null) {
-                    record_compression_api_usage($api_id, false, 0, 'cURL: ' . $err);
-                }
-                continue;
-            }
-
-            $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-            $body = substr($response, (int)$header_size);
-            if (PHP_VERSION_ID < 80500) {
-                curl_close($ch);
-            }
-
-            if ($status === 429) {
-                error_log("TinyPNG API key limit reached for key {$key}");
-                if ($api_id !== null) {
-                    record_compression_api_usage($api_id, false, 429, 'rate_limited');
-                }
-                continue;
-            }
-            if ($status >= 400) {
-                $snippet = substr($body ?? '', 0, 200);
-                error_log("TinyPNG HTTP {$status} with key {$key}. Body: {$snippet}");
-                if ($api_id !== null) {
-                    record_compression_api_usage($api_id, false, $status, 'http_error');
-                }
-                continue;
-            }
-
-            // 成功：下载压缩后的图片
-            $data = json_decode($body, true);
-            $downloadUrl = $data['output']['url'] ?? null;
-            if (!$downloadUrl) {
-                error_log("TinyPNG: missing output url. Body snippet: " . substr($body ?? '', 0, 200));
-                if ($api_id !== null) {
-                    record_compression_api_usage($api_id, false, $status, 'missing_output_url');
-                }
-                continue;
-            }
-
-            $download_ch = curl_init($downloadUrl);
-            curl_setopt($download_ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($download_ch, CURLOPT_CONNECTTIMEOUT, 5);
-            curl_setopt($download_ch, CURLOPT_TIMEOUT, 20);
-            $compressed_image = curl_exec($download_ch);
-            if ($compressed_image === false) {
-                error_log("TinyPNG download error: " . curl_error($download_ch));
-                if (PHP_VERSION_ID < 80500) {
-                    curl_close($download_ch);
-                }
-                if ($api_id !== null) {
-                    record_compression_api_usage($api_id, false, $status, 'download_failed');
-                }
-                continue;
-            }
-            if (PHP_VERSION_ID < 80500) {
-                curl_close($download_ch);
-            }
-
-            if (file_put_contents($filepath, $compressed_image) !== false) {
-                if ($api_id !== null) {
-                    record_compression_api_usage($api_id, true, $status, null);
-                }
-                return true;
-            } else {
-                error_log("TinyPNG: failed to write compressed file to $filepath");
-                if ($api_id !== null) {
-                    record_compression_api_usage($api_id, false, $status, 'write_failed');
-                }
-            }
-        }
-        throw new Exception('所有 API key 均尝试失败或超时');
-    } catch (Exception $e) {
-        error_log("Compression failed: " . $e->getMessage());
-        return false;
-    }
+    return \LitePic\Service\Image\CompressionService::compressWithTinyPng((string)$filepath);
 }
 
-/**
- * 压缩 API Key 存储文件路径
- */
+function compress_with_gd(string $filepath, int $quality = 85): bool {
+    return \LitePic\Service\Image\CompressionService::compressWithGd($filepath, $quality);
+}
+
+function compress_image_by_mode(string $path, int $quality = 85): array {
+    return (new \LitePic\Service\Image\CompressionService())->compress($path, $quality);
+}
+
+function auto_compress_uploaded_image(string $filename): array {
+    return (new \LitePic\Service\Image\CompressionService())->autoCompressAfterUpload($filename);
+}
+
+function can_compress_extension(string $ext): bool {
+    return \LitePic\Service\Image\ImageFormat::canCompress($ext);
+}
+
+function can_convert_webp_extension(string $ext): bool {
+    return \LitePic\Service\Image\ImageFormat::canConvertWebp($ext);
+}
+
+function can_convert_avif_extension(string $ext): bool {
+    return \LitePic\Service\Image\ImageFormat::canConvertAvif($ext);
+}
+
+function can_convert_preferred_extension(string $ext): bool {
+    return \LitePic\Service\Image\ImageFormat::canConvertPreferred($ext);
+}
+
+function get_compression_mode(): string {
+    return \LitePic\Service\Image\ImageFormat::compressionMode();
+}
+
 function get_compression_api_keys(): array {
     return (new \LitePic\Repository\CompressionKeyRepository())->all();
 }
@@ -1882,243 +1678,6 @@ function record_compression_api_usage(string $id, bool $success, int $status_cod
     (new \LitePic\Repository\CompressionKeyRepository())->recordUsage($id, $success, $status_code, $error);
 }
 
-/**
- * 使用 GD 扩展压缩图片（本地兜底）
- */
-function compress_with_gd(string $filepath, int $quality = 85): bool {
-    if (!extension_loaded('gd')) {
-        return false;
-    }
-    if (!file_exists($filepath) || !is_readable($filepath)) {
-        return false;
-    }
-
-    $ext = strtolower((string)pathinfo($filepath, PATHINFO_EXTENSION));
-    if (!in_array($ext, ['jpg', 'jpeg', 'png'], true)) {
-        return false;
-    }
-
-    $original_size = filesize($filepath);
-    if ($original_size === false || $original_size <= 0) {
-        return false;
-    }
-
-    $quality = max(10, min(100, $quality));
-
-    $tmp_path = $filepath . '.gdtmp';
-    @unlink($tmp_path);
-
-    if (in_array($ext, ['jpg', 'jpeg'], true)) {
-        if (!function_exists('imagecreatefromjpeg')) {
-            return false;
-        }
-        $img = @imagecreatefromjpeg($filepath);
-        if ($img === false) {
-            return false;
-        }
-        $ok = @imagejpeg($img, $tmp_path, $quality);
-        if ($ok !== true) {
-            @unlink($tmp_path);
-            return false;
-        }
-    } else {
-        if (!function_exists('imagecreatefrompng')) {
-            return false;
-        }
-        $img = @imagecreatefrompng($filepath);
-        if ($img === false) {
-            return false;
-        }
-        imagepalettetotruecolor($img);
-        imagealphablending($img, false);
-        imagesavealpha($img, true);
-        $png_level = max(0, min(9, (int)round((100 - $quality) / 11)));
-        $ok = @imagepng($img, $tmp_path, $png_level);
-        if ($ok !== true) {
-            @unlink($tmp_path);
-            return false;
-        }
-    }
-
-    if (!file_exists($tmp_path)) {
-        return false;
-    }
-
-    clearstatcache(true, $tmp_path);
-    $new_size = filesize($tmp_path);
-    if ($new_size === false || $new_size <= 0) {
-        @unlink($tmp_path);
-        return false;
-    }
-
-    if ($new_size > $original_size) {
-        @unlink($tmp_path);
-        return false;
-    }
-
-    if (!@rename($tmp_path, $filepath)) {
-        if (@copy($tmp_path, $filepath)) {
-            @unlink($tmp_path);
-        } else {
-            @unlink($tmp_path);
-            return false;
-        }
-    }
-
-    clearstatcache(true, $filepath);
-    return true;
-}
-
-/**
- * 是否支持压缩
- */
-function can_compress_extension(string $ext): bool {
-    return \LitePic\Service\Image\ImageFormat::canCompress($ext);
-}
-
-function can_convert_webp_extension(string $ext): bool {
-    return \LitePic\Service\Image\ImageFormat::canConvertWebp($ext);
-}
-
-function can_convert_avif_extension(string $ext): bool {
-    return \LitePic\Service\Image\ImageFormat::canConvertAvif($ext);
-}
-
-function can_convert_preferred_extension(string $ext): bool {
-    return \LitePic\Service\Image\ImageFormat::canConvertPreferred($ext);
-}
-
-function get_compression_mode(): string {
-    return \LitePic\Service\Image\ImageFormat::compressionMode();
-}
-
-/**
- * 按配置模式执行压缩
- */
-function compress_image_by_mode(string $path, int $quality = 85): array {
-    $mode = get_compression_mode();
-    switch ($mode) {
-        case 'imagemagick':
-            $order = ['imagemagick'];
-            break;
-        case 'gd':
-            $order = ['gd'];
-            break;
-        case 'tinypng':
-            $order = ['tinypng'];
-            break;
-        default:
-            $order = ['imagemagick'];
-            break;
-    }
-
-    foreach ($order as $method) {
-        if ($method === 'imagemagick' && function_exists('compress_with_imagemagick') && compress_with_imagemagick($path, $quality)) {
-            return ['success' => true, 'method' => 'imagemagick', 'mode' => $mode];
-        }
-        if ($method === 'gd' && function_exists('compress_with_gd') && compress_with_gd($path, $quality)) {
-            return ['success' => true, 'method' => 'gd', 'mode' => $mode];
-        }
-        if ($method === 'tinypng' && defined('ENABLE_COMPRESSION') && ENABLE_COMPRESSION && function_exists('compress_with_tinypng') && compress_with_tinypng($path)) {
-            return ['success' => true, 'method' => 'tinypng', 'mode' => $mode];
-        }
-    }
-
-    return ['success' => false, 'method' => null, 'mode' => $mode];
-}
-
-/**
- * 上传后自动压缩（不中断上传流程）
- */
-function auto_compress_uploaded_image(string $filename): array {
-    $result = [
-        'enabled' => AUTO_COMPRESS_ON_UPLOAD,
-        'attempted' => false,
-        'compressed' => false,
-        'method' => null,
-        'skip_reason' => null,
-        'before_size' => 0,
-        'after_size' => 0,
-        'saved_bytes' => 0,
-        'saved_percent' => 0.0,
-        'before_size_text' => '0 B',
-        'after_size_text' => '0 B',
-        'saved_size_text' => '0 B',
-    ];
-
-    if (!AUTO_COMPRESS_ON_UPLOAD) {
-        $result['skip_reason'] = 'disabled';
-        return $result;
-    }
-
-    // 互斥策略：开启自动格式转换时，自动压缩跳过
-    if (
-        (defined('AUTO_CONVERT_WEBP_ON_UPLOAD') && AUTO_CONVERT_WEBP_ON_UPLOAD) ||
-        (defined('AUTO_CONVERT_AVIF_ON_UPLOAD') && AUTO_CONVERT_AVIF_ON_UPLOAD)
-    ) {
-        $result['skip_reason'] = 'conversion_enabled';
-        return $result;
-    }
-
-    $ext = strtolower((string)pathinfo($filename, PATHINFO_EXTENSION));
-    if (!can_compress_extension($ext)) {
-        $result['skip_reason'] = 'unsupported_format';
-        return $result;
-    }
-
-    $path = get_file_path($filename);
-    if (!file_exists($path)) {
-        $result['skip_reason'] = 'missing_file';
-        return $result;
-    }
-
-    $before = filesize($path);
-    if ($before === false || $before <= 0) {
-        $result['skip_reason'] = 'size_unavailable';
-        return $result;
-    }
-
-    $result['attempted'] = true;
-    $result['before_size'] = $before;
-    $result['before_size_text'] = format_filesize($before);
-
-    $compress_result = compress_image_by_mode($path, 85);
-    $method = $compress_result['method'];
-
-    clearstatcache(true, $path);
-    $after = filesize($path);
-    if ($after === false || $after <= 0) {
-        $result['skip_reason'] = 'size_unavailable_after';
-        return $result;
-    }
-
-    $result['after_size'] = $after;
-    $result['after_size_text'] = format_filesize($after);
-
-    if ($method === null) {
-        $result['skip_reason'] = 'compress_failed';
-        return $result;
-    }
-
-    $saved = max(0, $before - $after);
-    $result['saved_bytes'] = $saved;
-    $result['saved_size_text'] = format_filesize($saved);
-    $result['saved_percent'] = $before > 0 ? round(($saved / $before) * 100, 2) : 0;
-    $result['method'] = $method;
-
-    if ($saved <= 0) {
-        $result['skip_reason'] = 'not_reduced';
-        return $result;
-    }
-
-    $result['compressed'] = true;
-    create_thumbnail($filename, true);
-    return $result;
-}
-
-/**
- * 上传后自动转换 WebP（不中断上传流程）
- */
 function auto_convert_uploaded_to_webp(string $filename): array {
     $result = [
         'enabled' => AUTO_CONVERT_WEBP_ON_UPLOAD,
