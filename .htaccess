@@ -1,6 +1,15 @@
 RewriteEngine On
 DirectorySlash Off
 
+# Modern image MIME types — Apache's default mime.types doesn't ship
+# WebP/AVIF on every distro, so static delivery falls back to
+# application/octet-stream which breaks <img> rendering and downloads.
+<IfModule mod_mime.c>
+    AddType image/webp .webp
+    AddType image/avif .avif
+    AddType image/apng .apng
+</IfModule>
+
 # 优先拦截 /api 路径（避免与 api/ 真实目录冲突）
 RewriteRule ^api/?$ index.php [QSA,L]
 RewriteRule ^api/v1(/.*)?$ index.php [QSA,L]

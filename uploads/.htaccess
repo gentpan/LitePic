@@ -15,7 +15,21 @@
     RewriteRule \.(php|php3|php4|php5|phtml|pl|py|jsp|asp|aspx|cgi|sh|bash)$ - [F,L]
 </IfModule>
 
-# 设置上传文件的 MIME 类型（安全相关）
+# Send the right Content-Type for the formats we actually serve.
+# Apache's default mime.types is missing webp / avif on most distros,
+# and a blanket `ForceType application/octet-stream` (which used to be
+# here) breaks <img> rendering and treats every download as binary.
+# Script extensions (.php / .pl / .py / etc.) are already 403'd by the
+# RewriteRule above, so we don't need ForceType as a backstop.
 <IfModule mod_mime.c>
-    ForceType application/octet-stream
+    AddType image/jpeg  .jpg .jpeg
+    AddType image/png   .png
+    AddType image/gif   .gif
+    AddType image/webp  .webp
+    AddType image/avif  .avif
+    AddType image/apng  .apng
+    AddType image/svg+xml .svg
+    AddType image/bmp   .bmp
+    AddType image/tiff  .tif .tiff
+    AddType image/x-icon .ico
 </IfModule>
