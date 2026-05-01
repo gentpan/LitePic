@@ -1066,3 +1066,82 @@ html[data-theme="dark"] .settings-block-runtime .runtime-meta-label > i {
   margin-top: 4px;
   border-top: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
 }
+
+/* =============================================================
+ * Semantic helpers — used to be inline Tailwind utility soups
+ * sprinkled across the page. Centralised here so every section
+ * actually looks the same instead of competing with the existing
+ * `.settings-page input { ... }` rules.
+ * ============================================================= */
+
+/* Section header: title on the left, optional description on the right,
+ * thin underline rule below */
+.settings-page .settings-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+}
+
+/* 2-column form-field grid */
+.settings-page .settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 720px) {
+  .settings-page .settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Single-row labelled toggle (Auto-compress / Auto-convert / etc.) */
+.settings-page .settings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface) 96%, var(--light) 4%);
+}
+
+.settings-page .settings-toggle-row > .settings-toggle-row__label {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* All form inputs in the page get one consistent treatment.
+ * The existing `.settings-page input { ... }` rule already sets
+ * min-height:50px, but it had border-radius:0; bring it in line with
+ * the rest of the page (rounded 6px) and pin paddings. */
+.settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.settings-page select,
+.settings-page textarea {
+  width: 100%;
+  min-height: var(--settings-control-height);
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface) 96%, var(--light) 4%);
+  color: var(--dark);
+  box-sizing: border-box;
+}
+
+/* Field label + control stack */
+.settings-page .settings-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.settings-page .settings-field--full {
+  grid-column: 1 / -1;
+}
