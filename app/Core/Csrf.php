@@ -5,7 +5,9 @@ namespace LitePic\Core;
 
 final class Csrf
 {
-    private const SESSION_KEY = '_csrf_token';
+    // Matches the legacy procedural code's session key so existing
+    // sessions don't lose their token when this class first runs.
+    private const SESSION_KEY = 'csrf_token';
 
     public static function token(): string
     {

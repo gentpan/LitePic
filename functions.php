@@ -19,57 +19,12 @@ if (!function_exists('imagewebp')) {
 
 require_once 'config.php';
 
-/**
- * ENV 持久化辅助：将值编码为 .env 可写格式
- */
 function env_quote_for_file(string $value): string {
-    return '"' . str_replace(['\\', '"', "\n", "\r"], ['\\\\', '\\"', '\\n', '\\r'], $value) . '"';
+    return \LitePic\Core\Format::envQuote($value);
 }
 
-/**
- * ENV 持久化辅助：批量写入 .env（覆盖同名键，不影响其他行）
- */
 function write_env_kv(array $updates): bool {
-    $env_path = __DIR__ . '/.env';
-    $lines = [];
-    if (is_file($env_path)) {
-        $existing = file($env_path, FILE_IGNORE_NEW_LINES);
-        if (is_array($existing)) {
-            $lines = $existing;
-        }
-    }
-
-    $remaining = $updates;
-    foreach ($lines as $index => $line) {
-        if (!is_string($line)) {
-            continue;
-        }
-        if (!preg_match('/^\s*([A-Z0-9_]+)\s*=/', $line, $matches)) {
-            continue;
-        }
-        $key = $matches[1];
-        if (!array_key_exists($key, $remaining)) {
-            continue;
-        }
-        $lines[$index] = $key . '=' . (string)$remaining[$key];
-        unset($remaining[$key]);
-    }
-
-    if (!empty($remaining)) {
-        if (!empty($lines) && trim((string)end($lines)) !== '') {
-            $lines[] = '';
-        }
-        foreach ($remaining as $key => $value) {
-            $lines[] = $key . '=' . (string)$value;
-        }
-    }
-
-    $content = implode(PHP_EOL, $lines);
-    if ($content !== '') {
-        $content .= PHP_EOL;
-    }
-
-    return file_put_contents($env_path, $content, LOCK_EX) !== false;
+    return \LitePic\Core\Config::write($updates);
 }
 
 /**
@@ -715,22 +670,7 @@ function validate_upload_mime(string $tmp_name, string $ext): bool {
 }
 
 function format_filesize($bytes) {
-    $size = (float)$bytes;
-    if (!is_finite($size) || $size <= 0) {
-        return '0 B';
-    }
-
-    $units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
-    $base = 1024;
-    $i = (int)floor(log($size, $base));
-    $i = max(0, min($i, count($units) - 1));
-
-    $value = $size / pow($base, $i);
-    // 整数不显示小数，有小数保留一位
-    $formatted = number_format($value, 1);
-    $formatted = rtrim(rtrim($formatted, '0'), '.');
-
-    return $formatted . ' ' . $units[$i];
+    return \LitePic\Core\Format::filesize($bytes);
 }
 
 /**
@@ -835,47 +775,19 @@ function verify_managed_api_token(string $plain_token): bool {
  * 初始化 Session（用于 CSRF Token 和登录速率限制）
  */
 function session_init_safe(): void {
-    if (session_status() === PHP_SESSION_ACTIVE) {
-        return;
-    }
-    // 如果 headers 已发送，使用输出缓冲避免崩溃（同时记录日志）
-    if (headers_sent($file, $line)) {
-        error_log("[LitePic] Session start delayed: headers already sent at {$file}:{$line}");
-        if (!ob_get_level()) {
-            ob_start();
-        }
-    }
-    session_start();
+    \LitePic\Core\Session::start();
 }
 
-/**
- * 获取或生成 CSRF Token
- */
 function csrf_token_get(): string {
-    session_init_safe();
-    if (empty($_SESSION['csrf_token'])) {
-        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-    }
-    return (string)$_SESSION['csrf_token'];
+    return \LitePic\Core\Csrf::token();
 }
 
-/**
- * 验证 CSRF Token
- */
 function csrf_token_verify(?string $token): bool {
-    session_init_safe();
-    if (empty($token) || empty($_SESSION['csrf_token'])) {
-        return false;
-    }
-    return hash_equals((string)$_SESSION['csrf_token'], $token);
+    return \LitePic\Core\Csrf::verify($token);
 }
 
-/**
- * 输出 CSRF Token 隐藏字段（用于表单）
- */
 function csrf_token_input(): string {
-    $token = csrf_token_get();
-    return '<input type="hidden" name="csrf_token" value="' . htmlspecialchars($token, ENT_QUOTES, 'UTF-8') . '">';
+    return \LitePic\Core\Csrf::inputField();
 }
 
 /**
@@ -893,32 +805,14 @@ function record_login_failure(): void {
 }
 
 
-/**
- * 生产环境安全的错误信息输出
- * 调试模式下返回原始信息，生产环境返回通用提示
- */
 function safe_error_message(Throwable $e): string {
-    if (DEBUG) {
-        return $e->getMessage();
-    }
-    return '服务器内部错误，请稍后重试';
+    return \LitePic\Core\Response::safeMessage($e);
 }
 
-/**
- * 处理错误响应
- */
 function error_response(string $message, int $errorCode = 400): void {
-    http_response_code($errorCode);
-    echo json_encode(['status' => 'error', 'message' => $message]);
-    exit;
+    \LitePic\Core\Response::error($message, $errorCode);
 }
 
-/**
- * 处理成功响应
- */
 function success_response(array $data): void {
-    http_response_code(200);
-    // 确保所有成功响应都包含 status 字段
-    echo json_encode(array_merge(['status' => 'success'], $data));
-    exit;
+    \LitePic\Core\Response::success($data);
 }
