@@ -310,131 +310,38 @@ function remote_storage_public_url_for_local_path(string $local_path): ?string {
     return remote_storage_public_url_for_object_key($object_key);
 }
 
-function remote_storage_delete_queue_file(): string {
-    return __DIR__ . '/data/remote_delete_queue.json';
-}
-
-function remote_storage_read_delete_queue(): array {
-    $path = remote_storage_delete_queue_file();
-    if (!is_file($path)) {
-        return [];
-    }
-
-    $raw = file_get_contents($path);
-    if (!is_string($raw) || trim($raw) === '') {
-        return [];
-    }
-
-    $decoded = json_decode($raw, true);
-    return is_array($decoded) ? $decoded : [];
-}
-
-function remote_storage_write_delete_queue(array $queue): bool {
-    $path = remote_storage_delete_queue_file();
-    $dir = dirname($path);
-    if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
-        return false;
-    }
-
-    $normalized = [];
-    foreach ($queue as $item) {
-        if (!is_array($item)) {
-            continue;
-        }
-        $key = trim((string)($item['object_key'] ?? ''));
-        if ($key === '') {
-            continue;
-        }
-        $item['object_key'] = $key;
-        $item['due_at'] = max(0, (int)($item['due_at'] ?? time()));
-        $item['created_at'] = max(0, (int)($item['created_at'] ?? time()));
-        $item['attempts'] = max(0, (int)($item['attempts'] ?? 0));
-        $normalized[$key] = $item;
-    }
-
-    return file_put_contents($path, json_encode(array_values($normalized), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX) !== false;
-}
-
 function remote_storage_queue_delete_object(string $object_key, ?int $delay_seconds = null): void {
-    $object_key = trim($object_key);
-    if ($object_key === '') {
-        return;
-    }
-
     $delay_seconds = $delay_seconds ?? (defined('REMOTE_STORAGE_DELETE_DELAY_SECONDS') ? (int)REMOTE_STORAGE_DELETE_DELAY_SECONDS : 86400);
-    $due_at = time() + max(0, $delay_seconds);
-    $queue = remote_storage_read_delete_queue();
-    $indexed = [];
-    foreach ($queue as $item) {
-        if (!is_array($item)) {
-            continue;
-        }
-        $key = trim((string)($item['object_key'] ?? ''));
-        if ($key !== '') {
-            $indexed[$key] = $item;
-        }
-    }
-
-    $existing = is_array($indexed[$object_key] ?? null) ? $indexed[$object_key] : [];
-    $indexed[$object_key] = [
-        'object_key' => $object_key,
-        'created_at' => (int)($existing['created_at'] ?? time()),
-        'due_at' => min($due_at, (int)($existing['due_at'] ?? $due_at)),
-        'attempts' => (int)($existing['attempts'] ?? 0),
-        'last_error' => $existing['last_error'] ?? null,
-    ];
-
-    remote_storage_write_delete_queue(array_values($indexed));
+    (new \LitePic\Repository\RemoteDeleteQueueRepository())->enqueue($object_key, $delay_seconds);
 }
 
 function remote_storage_process_delete_queue(int $limit = 25): array {
-    $result = [
-        'processed' => 0,
-        'deleted' => 0,
-        'failed' => 0,
-        'pending' => 0,
-    ];
+    $repo = new \LitePic\Repository\RemoteDeleteQueueRepository();
+    $result = ['processed' => 0, 'deleted' => 0, 'failed' => 0, 'pending' => 0];
 
-    $queue = remote_storage_read_delete_queue();
-    if (empty($queue)) {
+    $total = $repo->totalCount();
+    if ($total === 0) {
         return $result;
     }
     if (!remote_storage_credentials_valid()) {
-        $result['pending'] = count($queue);
+        $result['pending'] = $total;
         return $result;
     }
 
-    $now = time();
-    $remaining = [];
-    foreach ($queue as $item) {
-        if (!is_array($item)) {
-            continue;
-        }
-        $key = trim((string)($item['object_key'] ?? ''));
-        if ($key === '') {
-            continue;
-        }
-        $due_at = (int)($item['due_at'] ?? 0);
-        if ($due_at > $now || $result['processed'] >= $limit) {
-            $remaining[] = $item;
-            continue;
-        }
-
+    foreach ($repo->dueNow($limit) as $item) {
         $result['processed']++;
-        if (remote_storage_delete_object($key)) {
+        if (remote_storage_delete_object($item['object_key'])) {
+            $repo->delete($item['id']);
             $result['deleted']++;
             continue;
         }
-
-        $item['attempts'] = (int)($item['attempts'] ?? 0) + 1;
-        $item['last_error'] = 'delete_failed';
-        $item['due_at'] = $now + min(3600 * max(1, (int)$item['attempts']), 86400);
-        $remaining[] = $item;
+        $attempts = $item['attempts'] + 1;
+        $backoff = min(3600 * $attempts, 86400);
+        $repo->recordFailure($item['id'], 'delete_failed', time() + $backoff);
         $result['failed']++;
     }
 
-    $result['pending'] = count($remaining);
-    remote_storage_write_delete_queue($remaining);
+    $result['pending'] = $repo->totalCount();
     return $result;
 }
 
@@ -916,7 +823,7 @@ function remote_storage_delete_all_objects(): array {
     $scope = $prefix !== '' ? ('前缀 ' . $prefix) : '整个 Bucket';
     $msg = sprintf('远程清理完成（%s）：成功 %d，失败 %d', $scope, $deleted, $failed);
     if ($failed === 0) {
-        remote_storage_write_delete_queue([]);
+        \LitePic\Core\Database::connection()->exec('DELETE FROM remote_delete_queue');
     }
     return [
         'success' => $failed === 0,
