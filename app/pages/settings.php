@@ -16,6 +16,26 @@ const SETTINGS_FLASH_TTL = 120;
 const SETTINGS_DEFAULT_HOME_BACKGROUND = '/static/images/background.jpg';
 
 $page_title = '系统设置';
+
+// Tab definitions for the split settings page. Each section in the page
+// is tagged with one of these keys so we can show only the active tab's
+// content. The save_settings handler uses `?? CURRENT_VALUE` defaults so
+// fields that aren't part of the active tab keep their existing values.
+$settings_tabs = [
+    'general' => ['icon' => 'fa-sliders', 'label' => '基础'],
+    'storage' => ['icon' => 'fa-cloud-arrow-up', 'label' => '远程存储'],
+    'import' => ['icon' => 'fa-folder-open', 'label' => '扫描导入'],
+    'auth' => ['icon' => 'fa-shield-halved', 'label' => '账号与凭据'],
+    'compression' => ['icon' => 'fa-image', 'label' => '压缩 API'],
+    'watermark' => ['icon' => 'fa-stamp', 'label' => '水印与防盗链'],
+    'system' => ['icon' => 'fa-server', 'label' => '系统信息'],
+];
+$active_settings_tab = isset($_GET['tab']) && isset($settings_tabs[$_GET['tab']])
+    ? (string)$_GET['tab']
+    : 'general';
+$posted_settings_tab = isset($_POST['active_tab']) && isset($settings_tabs[$_POST['active_tab']])
+    ? (string)$_POST['active_tab']
+    : $active_settings_tab;
 $message = '';
 $message_type = 'success';
 $created_token = '';
@@ -969,7 +989,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         'httponly' => true,
         'samesite' => 'Lax',
     ]);
-    header('Location: /settings');
+    $redirect = '/settings';
+    if ($posted_settings_tab !== '' && $posted_settings_tab !== 'general') {
+        $redirect .= '?tab=' . rawurlencode($posted_settings_tab);
+    }
+    header('Location: ' . $redirect);
     exit;
 }
 
@@ -1067,11 +1091,30 @@ $default_home_background_label = ltrim(SETTINGS_DEFAULT_HOME_BACKGROUND, '/');
 require_once APP_ROOT . '/header.php';
 ?>
 
-<main class="page-container page-main settings-page settings-layout">
+<main class="page-container page-main settings-page settings-layout" data-active-settings-tab="<?= htmlspecialchars($active_settings_tab, ENT_QUOTES, 'UTF-8') ?>">
+    <nav class="settings-tab-nav flex flex-wrap gap-2 border-b border-border pb-3 mb-4" aria-label="设置分类">
+        <?php foreach ($settings_tabs as $tab_key => $tab_meta): ?>
+            <?php
+            $is_active = $tab_key === $active_settings_tab;
+            $href = '/settings' . ($tab_key === 'general' ? '' : '?tab=' . rawurlencode($tab_key));
+            $base_classes = 'inline-flex items-center gap-2 px-3 py-2 text-sm rounded-md border transition-colors';
+            $active_classes = 'bg-primary text-white border-primary';
+            $idle_classes = 'border-border bg-light text-dark hover:bg-gray/10';
+            ?>
+            <a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>"
+               class="<?= $base_classes ?> <?= $is_active ? $active_classes : $idle_classes ?>"
+               <?= $is_active ? 'aria-current="page"' : '' ?>>
+                <i class="fa-light <?= htmlspecialchars((string)$tab_meta['icon'], ENT_QUOTES, 'UTF-8') ?>" aria-hidden="true"></i>
+                <span><?= htmlspecialchars((string)$tab_meta['label']) ?></span>
+            </a>
+        <?php endforeach; ?>
+    </nav>
                 <form method="post" enctype="multipart/form-data" class="settings-panel" id="settingsForm">
                     <?= csrf_token_input() ?>
                     <input type="hidden" name="form_action" value="save_settings">
+                    <input type="hidden" name="active_tab" value="<?= htmlspecialchars($active_settings_tab, ENT_QUOTES, 'UTF-8') ?>">
 
+<?php if (in_array($active_settings_tab, ['system'], true)): ?>
                     <section class="settings-block-runtime">
                         <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
                             <h3 class="settings-card-title">
@@ -1202,7 +1245,9 @@ require_once APP_ROOT . '/header.php';
                             </div>
                         </div>
                     </section>
+<?php endif; // tab: system ?>
 
+<?php if (in_array($active_settings_tab, ['general'], true)): ?>
                     <section>
                         <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
                             <h3 class="settings-card-title">
@@ -1326,7 +1371,9 @@ require_once APP_ROOT . '/header.php';
                             </label>
                         </div>
                     </section>
+<?php endif; // tab: general ?>
 
+<?php if (in_array($active_settings_tab, ['storage'], true)): ?>
                     <section>
                         <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
                             <h3 class="settings-card-title">
@@ -1437,7 +1484,9 @@ require_once APP_ROOT . '/header.php';
                             </button>
                         </div>
                     </section>
+<?php endif; // tab: storage ?>
 
+<?php if (in_array($active_settings_tab, ['import'], true)): ?>
                     <section>
                         <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
                             <h3 class="settings-card-title">
@@ -1510,7 +1559,9 @@ require_once APP_ROOT . '/header.php';
                             </button>
                         </div>
                     </section>
+<?php endif; // tab: import ?>
 
+<?php if (in_array($active_settings_tab, ['auth'], true)): ?>
                     <section>
                         <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
                             <h3 class="settings-card-title">
@@ -1536,9 +1587,11 @@ require_once APP_ROOT . '/header.php';
                         </div>
 
                     </section>
+<?php endif; // tab: auth (in-form section) ?>
 
                 </form>
 
+<?php if (in_array($active_settings_tab, ['auth'], true)): ?>
                 <section>
                     <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
                         <h3 class="settings-card-title">
@@ -1551,6 +1604,7 @@ require_once APP_ROOT . '/header.php';
                     <form method="post" class="settings-inline-form settings-token-form">
                         <?= csrf_token_input() ?>
                         <input type="hidden" name="form_action" value="create_token">
+                        <input type="hidden" name="active_tab" value="auth">
                         <input class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="token_name" placeholder="Token 名称（如：wordpress-prod）">
                         <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-primary text-white hover:bg-primary/90 transition-colors">
                             <i class="fa-light fa-key"></i>
@@ -1597,6 +1651,7 @@ require_once APP_ROOT . '/header.php';
                                             <form method="post" data-confirm="确定要撤销此 API Token 吗？使用此 Token 的应用将立即失效。" data-confirm-title="撤销 Token 确认">
                                                 <?= csrf_token_input() ?>
                                                 <input type="hidden" name="form_action" value="revoke_token">
+                                                <input type="hidden" name="active_tab" value="auth">
                                                 <input type="hidden" name="token_id" value="<?= htmlspecialchars((string)$token['id']) ?>">
                                                 <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-danger text-white hover:bg-danger/90 transition-colors">撤销</button>
                                             </form>
@@ -1653,7 +1708,9 @@ require_once APP_ROOT . '/header.php';
                         </table>
                     </div>
                 </section>
+<?php endif; // tab: auth (out-of-form sections) ?>
 
+<?php if (in_array($active_settings_tab, ['compression'], true)): ?>
                 <section>
                     <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
                         <h3 class="settings-card-title">
@@ -1666,6 +1723,7 @@ require_once APP_ROOT . '/header.php';
                     <form method="post" class="settings-inline-form settings-compression-form">
                         <?= csrf_token_input() ?>
                         <input type="hidden" name="form_action" value="add_compression_api">
+                        <input type="hidden" name="active_tab" value="compression">
                         <input class="w-full min-h-[50px] px-3 py-2.5 border border-border bg-surface text-dark rounded-md text-base leading-snug box-border" type="text" name="compression_api_key" placeholder="输入 TinyPNG API Key">
                         <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-primary text-white hover:bg-primary/90 transition-colors">
                             <i class="fa-light fa-plus"></i>
@@ -1722,6 +1780,7 @@ require_once APP_ROOT . '/header.php';
                                                 <form method="post">
                                                     <?= csrf_token_input() ?>
                                                     <input type="hidden" name="form_action" value="toggle_compression_api">
+                                                    <input type="hidden" name="active_tab" value="compression">
                                                     <input type="hidden" name="compression_api_id" value="<?= htmlspecialchars($id) ?>">
                                                     <input type="hidden" name="enable" value="<?= $enabled ? '0' : '1' ?>">
                                                     <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border border-border bg-light text-dark hover:bg-gray/10 transition-colors"><?= $enabled ? '禁用' : '启用' ?></button>
@@ -1729,6 +1788,7 @@ require_once APP_ROOT . '/header.php';
                                                 <form method="post" data-confirm="确定要删除此压缩 API Key 吗？" data-confirm-title="删除 TinyPNG Key 确认">
                                                     <?= csrf_token_input() ?>
                                                     <input type="hidden" name="form_action" value="delete_compression_api">
+                                                    <input type="hidden" name="active_tab" value="compression">
                                                     <input type="hidden" name="compression_api_id" value="<?= htmlspecialchars($id) ?>">
                                                     <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-danger text-white hover:bg-danger/90 transition-colors">删除</button>
                                                 </form>
@@ -1751,6 +1811,9 @@ require_once APP_ROOT . '/header.php';
                         </table>
                     </div>
                 </section>
+<?php endif; // tab: compression ?>
+
+<?php if (in_array($active_settings_tab, ['watermark'], true)): ?>
                 <section>
                     <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
                         <h3 class="settings-card-title">
@@ -1918,6 +1981,9 @@ require_once APP_ROOT . '/header.php';
 
                     <p class="m-0 text-xs text-gray">说明：开启后保存设置会自动写入 .htaccess；关闭后保存设置会自动移除规则。允许无来源请求表示直接打开图片、浏览器隐藏 Referer 或部分隐私浏览器访问时不拦截；关闭后这类请求也会被拒绝。</p>
                 </section>
+<?php endif; // tab: watermark ?>
+
+<?php if (in_array($active_settings_tab, ['system'], true)): ?>
                 <section>
                     <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-border">
                         <h3 class="settings-card-title">
@@ -1952,12 +2018,17 @@ require_once APP_ROOT . '/header.php';
 
                     <p class="m-0 text-sm text-gray">说明：统计值来自当前可读取的 access.log；如果服务器做了日志轮转、CDN 缓存或浏览器缓存，数字只代表日志里记录到的请求次数。</p>
                 </section>
+<?php endif; // tab: system (access log section) ?>
+
+<?php $tab_uses_main_form = in_array($active_settings_tab, ['general', 'storage', 'import', 'auth', 'watermark'], true); ?>
+<?php if ($tab_uses_main_form): ?>
                 <div class="settings-save-actions">
                     <button type="submit" form="settingsForm" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium cursor-pointer border-0 bg-primary text-white hover:bg-primary/90 transition-colors">
                         <i class="fa-light fa-floppy-disk"></i>
                         保存设置
                     </button>
                 </div>
+<?php endif; ?>
 </main>
 
 <script>
