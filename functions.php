@@ -4974,170 +4974,37 @@ function is_api_request_authorized(): bool {
 }
 
 /**
- * 管理型 API Token 存储文件路径
- */
-function get_api_tokens_file(): string {
-    return __DIR__ . '/data/api_tokens.json';
-}
-
-/**
- * 管理型 API Token 在 .env 的存储键名
- */
-function get_managed_api_tokens_env_key(): string {
-    return 'MANAGED_API_TOKENS_JSON';
-}
-
-/**
  * 读取管理型 API Token 列表
  */
 function get_managed_api_tokens(): array {
-    $tokens = [];
-    $raw_env = trim((string)env_value(get_managed_api_tokens_env_key(), ''));
-    if ($raw_env !== '') {
-        $decoded = json_decode($raw_env, true);
-        if (is_array($decoded)) {
-            $tokens = $decoded;
-        }
-    }
-
-    // 兼容旧 JSON 文件：若 .env 未配置则回退读取，并自动迁移到 .env
-    if (empty($tokens)) {
-        $file = get_api_tokens_file();
-        if (is_file($file)) {
-            $content = file_get_contents($file);
-            if ($content !== false && trim($content) !== '') {
-                $decoded = json_decode($content, true);
-                if (is_array($decoded)) {
-                    $tokens = $decoded;
-                    write_env_kv([
-                        get_managed_api_tokens_env_key() => env_quote_for_file(
-                            json_encode(array_values($tokens), JSON_UNESCAPED_UNICODE)
-                        ),
-                    ]);
-                }
-            }
-        }
-    }
-
-    $migrated = false;
-    $tokens = array_map(static function ($item) use (&$migrated) {
-        if (!is_array($item)) {
-            return $item;
-        }
-        if (array_key_exists('token_plain', $item)) {
-            unset($item['token_plain']);
-            $migrated = true;
-        }
-        return $item;
-    }, $tokens);
-
-    $tokens = array_values(array_filter($tokens, static function ($item) {
-        return is_array($item) && isset($item['id'], $item['token_hash']);
-    }));
-
-    if ($migrated) {
-        save_managed_api_tokens($tokens);
-    }
-
-    return $tokens;
+    $rows = (new \LitePic\Repository\ApiTokenRepository())->all();
+    return array_map(static function (array $row): array {
+        return [
+            'id' => $row['id'],
+            'name' => $row['name'],
+            'token_hash' => '',
+            'created_at' => $row['created_at'] > 0 ? date('c', $row['created_at']) : '-',
+            'last_used_at' => $row['last_used_at'] !== null ? date('c', $row['last_used_at']) : null,
+            'revoked_at' => null,
+        ];
+    }, $rows);
 }
 
-/**
- * 保存管理型 API Token 列表
- */
-function save_managed_api_tokens(array $tokens): bool {
-    $payload = json_encode(array_values($tokens), JSON_UNESCAPED_UNICODE);
-    if (!is_string($payload)) {
-        return false;
-    }
-    return write_env_kv([
-        get_managed_api_tokens_env_key() => env_quote_for_file($payload),
-    ]);
-}
-
-/**
- * 创建管理型 API Token
- */
 function create_managed_api_token(string $name = 'token'): ?string {
-    $name = trim($name);
-    if ($name === '') {
-        $name = 'token';
-    }
-
     try {
-        $plain = 'ltp_' . bin2hex(random_bytes(24));
-    } catch (Exception $e) {
+        return (new \LitePic\Repository\ApiTokenRepository())->create($name);
+    } catch (\Throwable $e) {
+        error_log('create_managed_api_token failed: ' . $e->getMessage());
         return null;
     }
-
-    $tokens = get_managed_api_tokens();
-    $tokens[] = [
-        'id' => uniqid('tok_', true),
-        'name' => $name,
-        'token_hash' => hash('sha256', $plain),
-        'created_at' => date('c'),
-        'last_used_at' => null,
-        'revoked_at' => null,
-    ];
-
-    if (!save_managed_api_tokens($tokens)) {
-        return null;
-    }
-
-    return $plain;
 }
 
-/**
- * 撤销管理型 API Token
- */
 function revoke_managed_api_token(string $token_id): bool {
-    $tokens = get_managed_api_tokens();
-    $updated = false;
-
-    foreach ($tokens as &$token) {
-        if (($token['id'] ?? '') === $token_id) {
-            $token['revoked_at'] = date('c');
-            $updated = true;
-            break;
-        }
-    }
-    unset($token);
-
-    return $updated ? save_managed_api_tokens($tokens) : false;
+    return (new \LitePic\Repository\ApiTokenRepository())->revoke($token_id);
 }
 
-/**
- * 验证管理型 API Token
- */
 function verify_managed_api_token(string $plain_token): bool {
-    if ($plain_token === '') {
-        return false;
-    }
-
-    $tokens = get_managed_api_tokens();
-    $hash = hash('sha256', $plain_token);
-    $matched = false;
-
-    foreach ($tokens as &$token) {
-        $revoked_at = $token['revoked_at'] ?? null;
-        $token_hash = $token['token_hash'] ?? '';
-        if (!empty($revoked_at) || !is_string($token_hash) || $token_hash === '') {
-            continue;
-        }
-
-        if (hash_equals($token_hash, $hash)) {
-            $token['last_used_at'] = date('c');
-            $matched = true;
-            break;
-        }
-    }
-    unset($token);
-
-    if ($matched) {
-        save_managed_api_tokens($tokens);
-    }
-
-    return $matched;
+    return (new \LitePic\Repository\ApiTokenRepository())->verify($plain_token);
 }
 
 /**
