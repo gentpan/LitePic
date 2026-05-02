@@ -243,9 +243,7 @@
   }
 
   .nav-cta-btn.active {
-    box-shadow:
-      0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent),
-      0 8px 18px color-mix(in srgb, var(--primary) 18%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 24%, transparent);
   }
 
   .nav-cta-btn.is-uploading {

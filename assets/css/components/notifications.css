@@ -29,15 +29,15 @@
   .process-toast-container {
     position: fixed;
     z-index: 9999;
-    top: 18vh;
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
+    top: calc(var(--header-offset) + 12px);
+    left: auto;
+    right: 20px;
+    transform: none;
     display: flex;
     flex-direction: column;
     gap: 8px;
     pointer-events: none;
-    align-items: center;
+    align-items: flex-end;
     width: min(440px, calc(100vw - 40px));
   }
 
@@ -66,8 +66,8 @@
   }
 
   .process-toast-container .notification-item {
-    --tw-translate-x: 0;
-    --tw-translate-y: -10px;
+    --tw-translate-x: 100%;
+    --tw-translate-y: 0;
   }
 
   .process-toast-container .notification-item.show {

@@ -49,6 +49,29 @@ final class ImageRepository
         return $row === false ? null : self::cast($row);
     }
 
+    public function findByHashWithBackfill(string $hash): ?array
+    {
+        if ($hash === '') return null;
+        $row = $this->findByHash($hash);
+        if ($row !== null) return $row;
+
+        foreach ($this->listAll() as $candidate) {
+            if ((string)($candidate['hash'] ?? '') !== '') continue;
+            $filename = (string)($candidate['filename'] ?? '');
+            if ($filename === '') continue;
+            $path = \LitePic\Service\Image\PathService::resolveFilePath($filename);
+            if (!is_file($path) || !is_readable($path)) continue;
+            $actual = @sha1_file($path);
+            if (!is_string($actual) || $actual === '') continue;
+            $this->update($filename, ['hash' => $actual]);
+            if (hash_equals($actual, $hash)) {
+                return $this->find($filename) ?? self::cast(array_merge($candidate, ['hash' => $actual]));
+            }
+        }
+
+        return null;
+    }
+
     public function exists(string $filename): bool
     {
         $stmt = Database::connection()->prepare('SELECT 1 FROM images WHERE filename = :f');

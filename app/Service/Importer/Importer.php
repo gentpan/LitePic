@@ -124,8 +124,10 @@ final class Importer
 
                 $finalHash = @sha1_file(PathService::resolveFilePath($finalFilename));
                 if (is_string($finalHash) && $finalHash !== '') {
+                    $this->images->update($finalFilename, ['hash' => $finalHash]);
                     $existingHashes[$finalHash] = $finalFilename;
                 } elseif (is_string($hash) && $hash !== '') {
+                    $this->images->update($finalFilename, ['hash' => $hash]);
                     $existingHashes[$hash] = $finalFilename;
                 }
                 $report['imported']++;
