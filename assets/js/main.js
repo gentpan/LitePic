@@ -1648,6 +1648,10 @@ window.ApiManager = {
                 throw new Error(data?.message || `请求失败 (${response.status})`);
             }
 
+            if (!data) {
+                throw new Error('服务器返回了无效的响应');
+            }
+
             // 修正：检查 data.status 是否为 'success'，而不是 data.success
             if (data.status === 'success') {
                 if (data.must_change_password) {

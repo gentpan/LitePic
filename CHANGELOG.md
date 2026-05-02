@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.1] - 2026-05-02
+
+### Fixed
+- 登录接口返回非 JSON 响应时前端 `data.status` 空值崩溃 — 增加 `data` 空值检查，显示明确错误提示。
+- Docker 环境 SQLite 数据库文件权限为 `root:root` 导致上传 500 错误 — 新增 `docker-entrypoint.sh` 启动时自动修复 `data/`、`uploads/`、`logs/` 目录权限。
+
 ## [3.1.0] - 2026-05-01
 
 ### Added
