@@ -812,6 +812,14 @@
     background: var(--success);
   }
 
+  .upload-queue-item.is-duplicate .upload-queue-state {
+    color: var(--warning);
+  }
+
+  .upload-queue-item.is-duplicate .upload-queue-progress > span {
+    background: var(--warning);
+  }
+
   .upload-queue-item.is-failed .upload-queue-state {
     color: var(--danger);
   }

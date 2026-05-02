@@ -202,6 +202,26 @@ final class UploadService
             return ['status' => 'error', 'message' => "文件 {$originalName} 上传源无效"];
         }
 
+        $hash = @sha1_file($tmpName);
+        $hash = is_string($hash) ? $hash : '';
+        $imageRepo = new ImageRepository();
+        if ($hash !== '') {
+            $duplicate = $imageRepo->findByHashWithBackfill($hash);
+            if ($duplicate !== null) {
+                $existing = (string)($duplicate['filename'] ?? '');
+                return [
+                    'status' => 'duplicate',
+                    'message' => '图片已存在，已跳过',
+                    'duplicate' => true,
+                    'filename' => $existing,
+                    'original_name' => (string)($duplicate['original_name'] ?? $existing),
+                    'url' => ImageUrl::forIdentifier($existing),
+                    'thumbnail_url' => ImageUrl::forIdentifier($existing),
+                    'hash' => $hash,
+                ];
+            }
+        }
+
         $filename = PathService::generateFilename($ext);
         $storagePath = PathService::todaysStoragePath();
         $target = $storagePath . $filename;
@@ -219,8 +239,19 @@ final class UploadService
         // 或 /i/<id> 路由 serve），并把"重活"任务（缩略图、压缩、格式转换、
         // 水印、远程同步）入队 import_queue 等异步 worker 处理。
         // 上传请求只做这两件事 + 返回，~100ms 就能完成。
-        $imageRepo = new \LitePic\Repository\ImageRepository();
         $imageRepo->recordOriginalName($identifier, $originalName);
+        $imageMeta = [
+            'hash' => $hash !== '' ? $hash : null,
+            'mime' => self::detectMime($target),
+            'size' => is_file($target) ? (int)@filesize($target) : (int)($file['size'] ?? 0),
+            'ext' => $ext,
+        ];
+        $dimensions = @getimagesize($target);
+        if (is_array($dimensions)) {
+            $imageMeta['width'] = (int)($dimensions[0] ?? 0);
+            $imageMeta['height'] = (int)($dimensions[1] ?? 0);
+        }
+        $imageRepo->update($identifier, $imageMeta);
 
         // 根据全局设置决定要做哪些重活（沿用之前同步流程的开关含义）
         $queueOptions = [

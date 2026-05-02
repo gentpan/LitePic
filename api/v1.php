@@ -6,6 +6,7 @@ declare(strict_types=1);
  *
  * Public routes:
  * - POST /api/v1                Upload images
+ * - POST /api/v1/duplicate-check Check content hashes before upload
  * - GET  /api/v1/list           List images
  * - GET  /api/v1/export         Export image list
  * - POST /api/v1/action         Admin image operations
@@ -55,6 +56,10 @@ switch ($route) {
 
     case '/image-status':
         require __DIR__ . '/image-status.php';
+        break;
+
+    case '/duplicate-check':
+        require __DIR__ . '/duplicate-check.php';
         break;
 
     case '/queue/drain':

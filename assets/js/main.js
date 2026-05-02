@@ -340,16 +340,20 @@ window.ImgEt.Utils = {
             
             // 自动关闭
             const duration = Number.isFinite(normalizedOptions.duration) ? normalizedOptions.duration : 3000;
-            const hideTimeout = setTimeout(() => this.hide(item), duration);
+            let hideTimeout = null;
+            if (duration > 0) {
+                hideTimeout = setTimeout(() => this.hide(item), duration);
+            }
             
             // 手动关闭
             const closeBtn = item.querySelector('.notification-close');
             if (closeBtn) {
                 closeBtn.onclick = () => {
-                    clearTimeout(hideTimeout);
+                    if (hideTimeout) clearTimeout(hideTimeout);
                     this.hide(item);
                 };
             }
+            return item;
         } catch (error) {
             console.error('Failed to show notification:', error);
         }
@@ -375,11 +379,11 @@ window.ImgEt.Utils = {
      * @private
      */
     getProcessNotificationContainer() {
-        let notification = document.getElementById('processNotification');
+        let notification = document.getElementById('notification');
         if (!notification) {
             notification = document.createElement('div');
-            notification.id = 'processNotification';
-            notification.className = 'process-toast-container';
+            notification.id = 'notification';
+            notification.className = 'notification-container';
             document.body.appendChild(notification);
         }
         return notification;
@@ -2058,9 +2062,7 @@ class DeleteManager extends BaseProcessor {
         const shouldNotifySuccess = notifyOptions.notifySuccess !== false;
         const shouldNotifyError = notifyOptions.notifyError !== false;
         try {
-            // 1. 获取原始文件名（从元素属性中获取）
             const imgCard = document.querySelector(getImageCardSelector(filename));
-            const displayName = imgCard?.querySelector('.img-name')?.textContent?.trim() || filename;
 
             // 2. 执行删除请求
             await ApiService.request('/api/v1/action', {
@@ -2081,9 +2083,8 @@ class DeleteManager extends BaseProcessor {
             // 4. 移除当前卡片
             imgCard.classList.add('deleting');
             
-            // 5. 使用原始文件名显示通知
             if (shouldNotifySuccess) {
-                ImgEt.Utils.showNotification(`已删除: ${displayName}`, 'success');
+                ImgEt.Utils.showNotification('删除成功', 'success');
             }
             
             // 6. 加载新图片补位
@@ -3100,6 +3101,7 @@ class UploadManager {
         this.batchTotal = 0;
         this.batchCompleted = 0;
         this.batchSucceeded = 0;
+        this.batchSkipped = 0;
         this.batchFailed = 0;
         this.batchNotified = false;
         this.activeUploads = 0;
@@ -3110,6 +3112,9 @@ class UploadManager {
         this.batchRunId = 0;
         this.progressItem = null;
         this.batchProgressVisible = false;
+        this.queueToastItem = null;
+        this.batchUploadToastItem = null;
+        this.batchUploadToastTimer = 0;
         this.completedUploads = [];
         this.headerUploadButton = document.querySelector('.nav-cta-btn[href="/upload"]');
         this.headerUploadIcon = this.headerUploadButton?.querySelector('i') || null;
@@ -3393,18 +3398,252 @@ class UploadManager {
     /**
      * 处理文件上传
      */
-    handleFiles(files) {
+    async handleFiles(files) {
         if (!this.validateEnvironment() || !this.validateFiles(files)) return;
 
         const validFiles = this.filterValidFiles(files);
         if (validFiles.length === 0) return;
 
-        validFiles.forEach(file => this.createUploadRecord(file));
+        const uploadableFiles = await this.filterDuplicateFiles(validFiles);
+        if (uploadableFiles.length === 0) return;
+
+        uploadableFiles.forEach(file => this.createUploadRecord(file));
         if (this.elements.imageInput) {
             this.elements.imageInput.value = '';
         }
         this.renderUploadQueue();
-        ImgEt.Utils.showNotification(`已加入队列 ${validFiles.length} 个文件`, 'success');
+        this.showQueueToast(this.getPendingQueueCount());
+    }
+
+    async filterDuplicateFiles(files) {
+        if (!window.crypto?.subtle || typeof File.prototype.arrayBuffer !== 'function') {
+            return files;
+        }
+
+        const candidates = [];
+        const localHashes = new Set();
+        let skipped = 0;
+
+        for (const file of files) {
+            const hash = await this.computeFileHash(file);
+            if (!hash) {
+                candidates.push({ file, hash: '' });
+                continue;
+            }
+            if (localHashes.has(hash)) {
+                skipped++;
+                continue;
+            }
+            localHashes.add(hash);
+            candidates.push({ file, hash });
+        }
+
+        const hashes = candidates
+            .filter(item => item.hash)
+            .map(item => ({ hash: item.hash, name: item.file.name || '', size: item.file.size || 0 }));
+        const duplicates = hashes.length > 0 ? await this.checkDuplicateHashes(hashes) : new Set();
+        const uploadable = [];
+
+        candidates.forEach(item => {
+            if (item.hash && duplicates.has(item.hash)) {
+                skipped++;
+                return;
+            }
+            if (item.hash) {
+                item.file.__litepicHash = item.hash;
+            }
+            uploadable.push(item.file);
+        });
+
+        if (skipped > 0) {
+            const message = skipped === 1 ? '图片已存在，已跳过' : `已跳过 ${skipped} 个重复文件`;
+            ImgEt.Utils.showNotification(message, 'warning', {
+                variant: 'upload',
+                title: message
+            });
+        }
+
+        if (uploadable.length === 0) {
+            this.hideQueueToast();
+        }
+
+        return uploadable;
+    }
+
+    async computeFileHash(file) {
+        try {
+            const buffer = await file.arrayBuffer();
+            const digest = await crypto.subtle.digest('SHA-1', buffer);
+            return Array.from(new Uint8Array(digest))
+                .map(byte => byte.toString(16).padStart(2, '0'))
+                .join('');
+        } catch (error) {
+            console.warn('[upload] hash failed:', error);
+            return '';
+        }
+    }
+
+    async checkDuplicateHashes(hashes) {
+        try {
+            const response = await fetch('/api/v1/duplicate-check', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify({ hashes }),
+            });
+            if (!response.ok) return new Set();
+            const data = await response.json().catch(() => null);
+            const duplicates = data?.duplicates && typeof data.duplicates === 'object'
+                ? Object.keys(data.duplicates)
+                : [];
+            return new Set(duplicates);
+        } catch (error) {
+            console.warn('[upload] duplicate check failed:', error);
+            return new Set();
+        }
+    }
+
+    getPendingQueueCount() {
+        return this.getQueueRecords().filter(record => ['queued', 'failed'].includes(record.state)).length;
+    }
+
+    getNotificationHost() {
+        let host = document.getElementById('notification');
+        if (!host) {
+            host = document.createElement('div');
+            host.id = 'notification';
+            host.className = 'notification-container';
+            document.body.appendChild(host);
+        }
+        return host;
+    }
+
+    removeToastItem(item) {
+        if (!item) return null;
+        if (window.ImgEt?.Utils?.hide) {
+            window.ImgEt.Utils.hide(item);
+        } else {
+            item.remove();
+        }
+        return null;
+    }
+
+    bindPersistentToastClose(item, callback) {
+        const closeBtn = item?.querySelector('.notification-close');
+        if (!closeBtn) return;
+        closeBtn.onclick = () => {
+            if (typeof callback === 'function') callback();
+            else this.removeToastItem(item);
+        };
+    }
+
+    showQueueToast(count) {
+        if (this.batchUploadToastTimer) {
+            window.clearTimeout(this.batchUploadToastTimer);
+            this.batchUploadToastTimer = 0;
+        }
+
+        if (!this.queueToastItem || !this.queueToastItem.isConnected) {
+            this.queueToastItem = ImgEt.Utils.showNotification('', 'success', {
+                variant: 'upload',
+                title: `已加入队列 ${count} 个文件`,
+                icon: 'fa-list-check',
+                duration: 0
+            });
+            this.queueToastItem?.classList.add('upload-queue-toast');
+            this.bindPersistentToastClose(this.queueToastItem, () => {
+                this.queueToastItem = this.removeToastItem(this.queueToastItem);
+            });
+            return;
+        }
+
+        const title = this.queueToastItem.querySelector('.notification-copy strong');
+        if (title) title.textContent = `已加入队列 ${count} 个文件`;
+    }
+
+    hideQueueToast() {
+        this.queueToastItem = this.removeToastItem(this.queueToastItem);
+    }
+
+    showOrUpdateBatchUploadToast(done = 0, total = 0, state = 'running') {
+        if (total <= 1) return;
+        const host = this.getNotificationHost();
+        if (!host) return;
+
+        if (this.batchUploadToastTimer) {
+            window.clearTimeout(this.batchUploadToastTimer);
+            this.batchUploadToastTimer = 0;
+        }
+
+        if (!this.batchUploadToastItem || !this.batchUploadToastItem.isConnected) {
+            this.batchUploadToastItem = document.createElement('div');
+            this.batchUploadToastItem.className = 'notification-item info notification-upload upload-batch-toast';
+            this.batchUploadToastItem.setAttribute('role', 'status');
+            this.batchUploadToastItem.innerHTML = `
+                <i class="fa-light fa-spinner-third fa-spin" aria-hidden="true"></i>
+                <div class="notification-copy">
+                    <strong class="upload-batch-toast-title"></strong>
+                    <span class="upload-batch-toast-detail"></span>
+                </div>
+                <button class="notification-close" aria-label="关闭通知">
+                    <i class="fa-light fa-times"></i>
+                </button>
+            `;
+            host.appendChild(this.batchUploadToastItem);
+            this.bindPersistentToastClose(this.batchUploadToastItem, () => {
+                if (this.batchUploadToastTimer) {
+                    window.clearTimeout(this.batchUploadToastTimer);
+                    this.batchUploadToastTimer = 0;
+                }
+                this.batchUploadToastItem = this.removeToastItem(this.batchUploadToastItem);
+            });
+            requestAnimationFrame(() => this.batchUploadToastItem?.classList.add('show'));
+        }
+
+        const item = this.batchUploadToastItem;
+        const icon = item.querySelector(':scope > i');
+        const title = item.querySelector('.upload-batch-toast-title');
+        const detail = item.querySelector('.upload-batch-toast-detail');
+        item.classList.remove('success', 'warning', 'error', 'info');
+
+        if (state === 'complete') {
+            item.classList.add(this.batchFailed > 0 ? 'warning' : 'success');
+            if (icon) {
+                icon.className = this.batchFailed > 0
+                    ? 'fa-light fa-triangle-exclamation'
+                    : 'fa-light fa-check-circle';
+            }
+            if (title) title.textContent = (this.batchFailed > 0 || this.batchSkipped > 0) ? '上传完成' : '全部上传成功';
+            if (detail) {
+                detail.textContent = this.batchFailed > 0
+                    ? `成功 ${this.batchSucceeded} 个，失败 ${this.batchFailed} 个`
+                    : this.batchSkipped > 0
+                        ? `成功 ${this.batchSucceeded} 个，跳过 ${this.batchSkipped} 个`
+                        : '';
+            }
+            this.batchUploadToastTimer = window.setTimeout(() => {
+                this.batchUploadToastItem = this.removeToastItem(this.batchUploadToastItem);
+                this.batchUploadToastTimer = 0;
+            }, 3000);
+            return;
+        }
+
+        item.classList.add('info');
+        if (icon) icon.className = 'fa-light fa-spinner-third fa-spin';
+        if (title) title.textContent = done > 0 ? `${done}/${total} 成功` : `0/${total} 上传中`;
+        if (detail) detail.textContent = this.batchFailed > 0 ? `失败 ${this.batchFailed} 个` : '';
+    }
+
+    hideBatchUploadToast() {
+        if (this.batchUploadToastTimer) {
+            window.clearTimeout(this.batchUploadToastTimer);
+            this.batchUploadToastTimer = 0;
+        }
+        this.batchUploadToastItem = this.removeToastItem(this.batchUploadToastItem);
     }
 
     startUploadRun(records, showBatchProgress = false) {
@@ -3418,6 +3657,7 @@ class UploadManager {
             return;
         }
 
+        this.hideQueueToast();
         this.batchRunId += 1;
         this.batchProgressVisible = !!showBatchProgress;
         if (this.batchProgressVisible) {
@@ -3436,6 +3676,7 @@ class UploadManager {
         this.batchTotal = pendingRecords.length;
         this.batchCompleted = 0;
         this.batchSucceeded = 0;
+        this.batchSkipped = 0;
         this.batchFailed = 0;
         this.batchNotified = false;
         this.activeUploads = 0;
@@ -3479,6 +3720,8 @@ class UploadManager {
         this.uploadQueue = [];
         this.activeRunIds.clear();
         this.renderUploadQueue();
+        this.hideQueueToast();
+        this.hideBatchUploadToast();
     }
 
     removeQueuedRecord(id) {
@@ -3495,6 +3738,12 @@ class UploadManager {
         this.uploadQueue = this.uploadQueue.filter(item => item.id !== record.id);
         this.activeRunIds.delete(record.id);
         this.renderUploadQueue();
+        const count = this.getPendingQueueCount();
+        if (count > 0) {
+            this.showQueueToast(count);
+        } else {
+            this.hideQueueToast();
+        }
     }
 
     handleQueueAction(event) {
@@ -3588,6 +3837,7 @@ class UploadManager {
             name: file.name || `image-${id}`,
             extension: this.getFileExtension(file.name),
             previewUrl: '',                 // 异步生成 128px 缩略图填上（见 generateThumbnail）
+            hash: file.__litepicHash || '',
             loaded: 0,
             total: Number.isFinite(file.size) && file.size > 0 ? file.size : 1,
             state: 'queued',
@@ -3674,6 +3924,7 @@ class UploadManager {
             uploading: ['上传中', 'is-uploading', 'fa-spinner fa-spin'],
             processing: ['处理中', 'is-processing', 'fa-gear fa-spin'],
             done: ['已完成', 'is-done', 'fa-check'],
+            duplicate: ['已跳过重复', 'is-duplicate', 'fa-copy'],
             failed: [record.error || '失败', 'is-failed', 'fa-triangle-exclamation']
         }[record.state] || ['等待上传', 'is-queued', 'fa-clock'];
 
@@ -3832,12 +4083,17 @@ class UploadManager {
         this.activeUploads += 1;
         this.updateBatchProgressUI();
 
-        const settle = (success = false) => {
+        const settle = (outcome = false) => {
+            const success = outcome === true || outcome === 'success';
+            const duplicate = outcome === 'duplicate';
             this.activeUploads = Math.max(0, this.activeUploads - 1);
             this.batchCompleted += 1;
             if (success) {
                 this.batchSucceeded += 1;
                 record.state = 'done';
+            } else if (duplicate) {
+                this.batchSkipped += 1;
+                record.state = 'duplicate';
             } else {
                 this.batchFailed += 1;
                 record.state = 'failed';
@@ -3920,10 +4176,10 @@ class UploadManager {
      */
     bindUploadEvents(xhr, file, record, settle) {
         let settled = false;
-        const settleOnce = (success = false) => {
+        const settleOnce = (outcome = false) => {
             if (settled) return;
             settled = true;
-            settle(success);
+            settle(outcome);
         };
 
         // 错误处理
@@ -3998,7 +4254,7 @@ class UploadManager {
 
     getRecordProgress(record) {
         if (!record) return 0;
-        if (record.state === 'done' || record.state === 'failed') return 1;
+        if (record.state === 'done' || record.state === 'failed' || record.state === 'duplicate') return 1;
         if (record.state === 'processing') return 0.95;
         if (record.state === 'uploading') {
             const total = record.total > 0 ? record.total : 1;
@@ -4059,6 +4315,10 @@ class UploadManager {
                 icon = 'fa-triangle-exclamation text-danger';
                 textClass = 'text-danger';
                 message = `完成 ${this.batchSucceeded} 个，失败 ${this.batchFailed} 个`;
+            } else if (this.batchSkipped > 0) {
+                icon = 'fa-copy text-warning';
+                textClass = 'text-warning';
+                message = `完成 ${this.batchSucceeded} 个，跳过 ${this.batchSkipped} 个`;
             } else {
                 icon = 'fa-check-circle text-success';
                 textClass = 'text-success';
@@ -4077,6 +4337,10 @@ class UploadManager {
                 <i class="fa-light ${icon}"></i>
                 <span class="${textClass}">${escapeHtml(message)}</span>
             `;
+        }
+
+        if (this.batchTotal > 1 && !this.batchNotified) {
+            this.showOrUpdateBatchUploadToast(this.batchSucceeded, this.batchTotal, 'running');
         }
 
         this.updateHeaderUploadProgress(percent, this.batchCompleted < this.batchTotal);
@@ -4157,6 +4421,10 @@ class UploadManager {
             }
 
             const result = response.results[0] || null;
+            if (result && result.status === 'duplicate') {
+                this.handleUploadDuplicate(record, result);
+                return 'duplicate';
+            }
             if (!result || result.status !== 'success') {
                 throw new Error((result && result.message) || response.message || '上传失败');
             }
@@ -4328,18 +4596,12 @@ class UploadManager {
             record.state = 'done';
             record.loaded = record.total;
         }
-        const reportLines = this.buildProcessingReport(result);
-        const hasReport = Array.isArray(reportLines) && reportLines.length > 0;
-        const hasSkip = hasReport && reportLines.some(line => line.includes('未压缩') || line.includes('未转 WebP'));
-
         // 单文件上传时显示成功通知，批量上传时只在全部完成后统一通知
         if (this.batchTotal <= 1) {
-            const detail = hasReport ? `上传成功：${reportLines.join('；')}` : '上传成功';
-            ImgEt.Utils.showNotification('', hasSkip ? 'warning' : 'success', {
+            ImgEt.Utils.showNotification('上传成功', 'success', {
                 variant: 'upload',
-                title: filename,
-                detail,
-                icon: hasSkip ? 'fa-triangle-exclamation' : 'fa-check-circle'
+                title: '上传成功',
+                icon: 'fa-check-circle'
             });
         }
 
@@ -4349,6 +4611,21 @@ class UploadManager {
     /**
      * 处理上传错误
      */
+    handleUploadDuplicate(record, result = null) {
+        if (record) {
+            record.state = 'duplicate';
+            record.loaded = record.total;
+            record.error = '已跳过重复';
+            record.duplicateFilename = result?.filename || '';
+        }
+        ImgEt.Utils.showNotification('图片已存在，已跳过', 'warning', {
+            variant: 'upload',
+            title: '图片已存在，已跳过',
+            icon: 'fa-copy'
+        });
+        this.updateBatchProgressUI();
+    }
+
     handleUploadError(record, message) {
         if (record) {
             record.state = 'failed';
@@ -4382,10 +4659,7 @@ class UploadManager {
         if (this.batchTotal > 0 && this.batchCompleted >= this.batchTotal && this.activeUploads === 0 && !this.batchNotified) {
             this.batchNotified = true;
             if (this.batchTotal > 1) {
-                const message = this.batchFailed > 0
-                    ? `上传完成：成功 ${this.batchSucceeded} 个，失败 ${this.batchFailed} 个`
-                    : `所有文件上传完成，共 ${this.batchSucceeded} 个`;
-                ImgEt.Utils.showNotification(message, this.batchFailed > 0 ? 'warning' : 'success');
+                this.showOrUpdateBatchUploadToast(this.batchSucceeded, this.batchTotal, 'complete');
             }
             const finishedRunId = this.batchRunId;
             if (this.batchProgressVisible && this.progressItem) {
