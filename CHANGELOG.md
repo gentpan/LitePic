@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 ## [3.2.0] - 2026-05-03
 
 ### Changed
+- README.md 完全重写，精简结构，聚焦核心特性与快速开始流程
+- 配置文件清理：移除冗余的 .htaccess、Caddyfile.example、Dockerfile、docker-compose.yml 等旧版文件
+- nginx-litepic.conf 更名为 nginx-litepic.conf（新文件替代旧文件）
 - 版本号升至 3.2.0
 
 ## [3.1.1] - 2026-05-02
