@@ -1987,7 +1987,7 @@ html[data-theme="dark"] .settings-page .settings-tab-title {
 }
 
 .settings-page .settings-section-header > p {
-  font-size: 0.76rem;                 /* 比 section 标题再小一档，弱化为辅助说明 */
+  font-size: 0.7rem;                 /* 比 section 标题再小一档，弱化为辅助说明 */
   color: var(--gray);
   margin: 0;
 }
