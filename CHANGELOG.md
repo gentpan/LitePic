@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.0] - 2026-05-03
+
+### Changed
+- 版本号升至 3.2.0
+
 ## [3.1.1] - 2026-05-02
 
 ### Fixed

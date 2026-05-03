@@ -4,7 +4,7 @@ LitePic V3.0.0 是一个面向自托管场景的 PHP 图床系统。它把图片
 
 LitePic 的核心设计是“先入库，再处理”。上传只负责把图片安全保存下来，缩略图、压缩、转换、水印和远程同步可以进入队列分批执行。即使某一步处理失败，原图也不会丢失，后台会给出明确结果，后续可以重新处理。
 
-[![Version](https://img.shields.io/badge/version-3.0.0-blue?style=flat-square)](https://github.com/gentpan/LitePic)
+[![Version](https://img.shields.io/badge/version-3.2.0-blue?style=flat-square)](https://github.com/gentpan/LitePic)
 [![PHP](https://img.shields.io/badge/PHP-8.0%2B-777bb4?style=flat-square)](https://www.php.net/)
 [![Database](https://img.shields.io/badge/database-none-22c55e?style=flat-square)](https://github.com/gentpan/LitePic)
 [![License](https://img.shields.io/badge/license-MIT-111827?style=flat-square)](LICENSE)
