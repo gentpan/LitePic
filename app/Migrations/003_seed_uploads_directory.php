@@ -9,6 +9,21 @@ declare(strict_types=1);
  * Companion variants (.thumb.*, .webp, .avif) are detected per-file and
  * recorded as flags on the parent row rather than as separate entries.
  */
+
+if (!function_exists('litepic_migration_has_original_sibling')) {
+    function litepic_migration_has_original_sibling(string $path): bool
+    {
+        $base = preg_replace('/\.(webp|avif)$/i', '', $path);
+        if (!is_string($base)) return false;
+        foreach (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'tif'] as $candidate) {
+            if (is_file($base . '.' . $candidate)) {
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
 return function (PDO $pdo): void {
     $appRoot = defined('APP_ROOT') ? APP_ROOT : dirname(__DIR__, 2);
     $uploadsDir = $appRoot . '/uploads';
@@ -62,17 +77,3 @@ return function (PDO $pdo): void {
         ]);
     }
 };
-
-if (!function_exists('litepic_migration_has_original_sibling')) {
-    function litepic_migration_has_original_sibling(string $path): bool
-    {
-        $base = preg_replace('/\.(webp|avif)$/i', '', $path);
-        if (!is_string($base)) return false;
-        foreach (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'tif'] as $candidate) {
-            if (is_file($base . '.' . $candidate)) {
-                return true;
-            }
-        }
-        return false;
-    }
-}
