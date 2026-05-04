@@ -66,8 +66,8 @@ $document_title = isset($html_title) && trim((string)$html_title) !== ''
             }
         })();
     </script>
-    <link rel="stylesheet" href="https://static.utterlog.com/fonts/noto-sans-sc/result.css">
-    <link rel="stylesheet" href="https://static.utterlog.com/libs/fontawesome/7.2.0/css/all.min.css">
+    <link rel="stylesheet" href="https://static.litepic.io/fonts/noto-sans-sc/result.css">
+    <link rel="stylesheet" href="https://static.litepic.io/libs/fontawesome/7.2.0/css/all.min.css">
     <?php if ($force_dark_theme): ?>
         <style>
             :root {

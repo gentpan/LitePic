@@ -3,31 +3,31 @@
 /* Ubuntu font for logo */
 @font-face {
   font-family: "Ubuntu";
-  src: url("https://static.utterlog.com/fonts/ubuntu-400.woff2") format("woff2");
+  src: url("https://static.litepic.io/fonts/ubuntu-400.woff2") format("woff2");
   font-weight: 400;
   font-display: swap;
 }
 @font-face {
   font-family: "Ubuntu";
-  src: url("https://static.utterlog.com/fonts/ubuntu-500.woff2") format("woff2");
+  src: url("https://static.litepic.io/fonts/ubuntu-500.woff2") format("woff2");
   font-weight: 500;
   font-display: swap;
 }
 @font-face {
   font-family: "Ubuntu";
-  src: url("https://static.utterlog.com/fonts/ubuntu-700.woff2") format("woff2");
+  src: url("https://static.litepic.io/fonts/ubuntu-700.woff2") format("woff2");
   font-weight: 700;
   font-display: swap;
 }
 @font-face {
   font-family: "Google Sans Code";
-  src: url("https://static.utterlog.com/fonts/google-sans-code-400.woff2") format("woff2");
+  src: url("https://static.litepic.io/fonts/google-sans-code-400.woff2") format("woff2");
   font-weight: 400;
   font-display: swap;
 }
 @font-face {
   font-family: "Google Sans Code";
-  src: url("https://static.utterlog.com/fonts/google-sans-code-700.woff2") format("woff2");
+  src: url("https://static.litepic.io/fonts/google-sans-code-700.woff2") format("woff2");
   font-weight: 700;
   font-display: swap;
 }
