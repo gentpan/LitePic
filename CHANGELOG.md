@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.0] - 2026-05-04
+
+### Added
+- **队列心跳兜底（HeartbeatScheduler）** — 自托管常常遇到面板各异（BT / 1Panel / aaPanel / cPanel / …）配 cron 麻烦的问题。新增 `app/Service/Queue/HeartbeatScheduler.php`，每个 web 请求结束时检查"距上次 drain 超过 N 小时"，是则通过 `ResponseDetacher` 在响应发出后跑一次 drain，跨所有面板/无面板/Docker/Shared Hosting 通用。和真 cron 不冲突，flock 互斥。默认 24 小时间隔，可通过 `LITEPIC_HEARTBEAT_INTERVAL_HOURS` 调整或 `LITEPIC_HEARTBEAT_DISABLED=true` 完全关闭。
+- 页脚新增 API 文档图标链接，与使用说明并列。
+
+### Changed
+- 版本号升至 3.3.0；版权对话框版本号同步至 v3.3.0。
+
 ## [3.2.0] - 2026-05-03
 
 ### Changed
