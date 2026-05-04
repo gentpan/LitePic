@@ -753,7 +753,7 @@ function initLicenseDialog() {
                     <div class="license-hero-text">
                         <h3 class="license-hero-title">
                             LitePic
-                            <span class="license-hero-version">v3.0.0</span>
+                            <span class="license-hero-version">v3.2.0</span>
                         </h3>
                         <p class="license-hero-tagline">轻量级自托管 PHP 图床，零依赖、单目录部署</p>
                     </div>
