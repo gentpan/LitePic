@@ -56,3 +56,8 @@ try {
 // helpers consult the settings cache first, so define() effectively
 // loads from SQLite without any caller changes.
 require_once APP_ROOT . '/config.php';
+
+// Idle-site safety net for the worker queue. Arms a shutdown hook on
+// every web request that fires a drain at most once per 24h (default)
+// when no real cron is configured. No-op on CLI.
+\LitePic\Service\Queue\HeartbeatScheduler::arm();
