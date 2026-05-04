@@ -28,6 +28,9 @@ $footer_is_home_guest = isset($body_class)
                 <a href="https://litepic.io/docs" class="footer-link footer-icon-link" title="使用说明" aria-label="使用说明" target="_blank" rel="noopener noreferrer">
                     <i class="fa-light fa-book" aria-hidden="true"></i>
                 </a>
+                <a href="https://litepic.io/api" class="footer-link footer-icon-link" title="API 文档" aria-label="API 文档" target="_blank" rel="noopener noreferrer">
+                    <i class="fa-light fa-code" aria-hidden="true"></i>
+                </a>
                 <button type="button" class="footer-link footer-icon-link" title="版权说明" aria-label="版权说明" data-license-dialog>
                     <i class="fa-light fa-copyright" aria-hidden="true"></i>
                 </button>
