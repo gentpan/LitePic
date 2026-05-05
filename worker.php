@@ -17,10 +17,6 @@ declare(strict_types=1);
  *   Cron (preferred):
  *     * * * * * cd /var/www/html && /usr/bin/php worker.php >> logs/worker.log 2>&1
  *
- *   Docker compose: add a sidecar service or use the existing
- *   `litepic` container with `docker exec litepic php /var/www/html/worker.php`
- *   from a host cron.
- *
  *   Without cron: the in-request drain that runs after every upload
  *   already covers the common case. Stuck items get picked up the
  *   next time anyone uploads anything. Cron is for the "no upload

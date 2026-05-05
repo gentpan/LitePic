@@ -11,6 +11,7 @@ declare(strict_types=1);
  * - GET  /api/v1/export         Export image list
  * - POST /api/v1/action         Admin image operations
  * - GET  /api/v1/image-status   Poll async-processing state for given ids
+ * - GET  /api/v1/system/status  Runtime server metrics
  * - POST /api/v1/queue/drain               Manually trigger the worker
  * - GET  /api/v1/queue/failed              List failed tasks
  * - POST /api/v1/queue/retry?id=N          Retry one failed task
@@ -24,6 +25,8 @@ declare(strict_types=1);
  * - POST /api/v1/backup/delete?file=        Delete one local backup
  * - POST /api/v1/backup/restore?file=       Restore live DB from a backup
  * - POST /api/v1/backup/config              Update schedule (json body)
+ * - GET  /api/v1/update/check               Check latest GitHub Release
+ * - POST /api/v1/update/install             Download and install latest Release ZIP
  */
 
 define('LITEPIC_API_V1_DISPATCH', true);
@@ -62,6 +65,10 @@ switch ($route) {
         require __DIR__ . '/duplicate-check.php';
         break;
 
+    case '/system/status':
+        require __DIR__ . '/system_status.php';
+        break;
+
     case '/queue/drain':
         require __DIR__ . '/queue-drain.php';
         break;
@@ -81,6 +88,10 @@ switch ($route) {
     case '/backup/delete':  $_GET['action'] = 'delete';  require __DIR__ . '/backup.php'; break;
     case '/backup/restore': $_GET['action'] = 'restore'; require __DIR__ . '/backup.php'; break;
     case '/backup/config':  $_GET['action'] = 'config';  require __DIR__ . '/backup.php'; break;
+
+    // Application updater (admin) — WordPress-style ZIP replacement, user data protected.
+    case '/update/check':   $_GET['action'] = 'check';   require __DIR__ . '/update.php'; break;
+    case '/update/install': $_GET['action'] = 'install'; require __DIR__ . '/update.php'; break;
 
     // Residual data cleanup (admin) — conservative, opt-in by category.
     case '/cleanup/scan':   $_GET['action'] = 'scan';    require __DIR__ . '/cleanup.php'; break;

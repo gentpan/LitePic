@@ -1,6 +1,16 @@
 <?php
 declare(strict_types=1);
 
+if (!defined('LITEPIC_API_V1_DISPATCH')) {
+    header('Content-Type: application/json; charset=utf-8');
+    http_response_code(404);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'API route not found',
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Vary: Origin');
@@ -24,4 +34,3 @@ if (!(new \LitePic\Service\Auth\AuthService())->isApiRequestAuthorized()) {
 
 $metrics = (new \LitePic\Service\Stats\ServerInfo())->runtimeMetrics();
 \LitePic\Core\Response::success(['data' => $metrics]);
-
