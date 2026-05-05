@@ -22,8 +22,6 @@ use LitePic\Service\Storage\RemoteStorage;
  *     'message'        => string  // human-readable result for the flash banner
  *     'type'           => 'success' | 'error'
  *     'created_token'  => string   // optional — only when create_token returned
- *     'home_bg_url'    => string   // optional — only when background changed
- *     'home_bg_path'   => string   // optional — same
  *     'saved_settings' => array    // optional — current values for the JS to apply
  *   ]
  *
@@ -41,7 +39,7 @@ final class SettingsController
     private const SUPPORTED_CONVERT_FORMATS = ['webp', 'avif'];
 
     /**
-     * @return array{message:string,type:string,created_token?:string,home_bg_url?:string,home_bg_path?:string,saved_settings?:array}
+     * @return array{message:string,type:string,created_token?:string,saved_settings?:array}
      */
     public function dispatch(string $formAction): array
     {

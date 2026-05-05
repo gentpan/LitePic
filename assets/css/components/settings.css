@@ -151,57 +151,6 @@
   color: #ffffff;
 }
 
-.settings-background-control {
-  display: grid;
-  grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
-  gap: 14px;
-  align-items: stretch;
-}
-
-.settings-background-preview {
-  position: relative;
-  min-height: 128px;
-  border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
-  border-radius: 0;
-  background-position: center;
-  background-size: cover;
-  overflow: hidden;
-}
-
-.settings-background-preview::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(4, 8, 14, 0.08), rgba(4, 8, 14, 0.48));
-}
-
-.settings-background-preview > span {
-  position: absolute;
-  left: 10px;
-  bottom: 10px;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
-  background: rgba(0, 0, 0, 0.45);
-  color: #fff;
-  font-size: 0.78rem;
-  line-height: 1;
-}
-
-.settings-background-file-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: stretch;
-}
-
-.settings-background-reset {
-  min-width: 132px;
-  white-space: nowrap;
-}
-
 /* Settings buttons use .btn family below. Loading state still works
  * as a generic addon since it just toggles opacity / pointer-events. */
 .settings-page button.is-loading {
@@ -797,14 +746,6 @@ html[data-theme="dark"] .settings-block-runtime .runtime-meta-label > i {
   }
 
   .settings-remote-usage-group {
-    grid-template-columns: 1fr;
-  }
-
-  .settings-background-control {
-    grid-template-columns: 1fr;
-  }
-
-  .settings-background-file-row {
     grid-template-columns: 1fr;
   }
 
@@ -1616,8 +1557,7 @@ html[data-theme="dark"] .settings-page .settings-callout {
 .settings-page .runtime-gauge-card,
 .settings-page .compression-key-row,
 .settings-page .api-token-row,
-.settings-page .passkey-credential-row,
-.settings-page .settings-background-preview {
+.settings-page .passkey-credential-row {
   border-radius: 0;
 }
 

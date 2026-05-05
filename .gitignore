@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+.maintenance
 .user.ini.bak.*
 *.log
 tmp/
@@ -16,6 +17,8 @@ Thumbs.db
 data/*.json
 data/*.txt
 data/watermarks/
+data/update-cache/
+data/update-backups/
 data/litepic.sqlite
 data/litepic.sqlite-wal
 data/litepic.sqlite-shm

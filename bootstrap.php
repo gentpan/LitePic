@@ -20,6 +20,24 @@ if (!defined('APP_ROOT')) {
     define('APP_ROOT', __DIR__);
 }
 
+if (PHP_SAPI !== 'cli' && is_file(APP_ROOT . '/.maintenance')) {
+    $uriPath = parse_url((string)($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
+    $path = is_string($uriPath) ? $uriPath : '/';
+    $isUpdater = str_starts_with($path, '/api/v1/update');
+    if (!$isUpdater) {
+        http_response_code(503);
+        header('Retry-After: 120');
+        if (str_starts_with($path, '/api/')) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['status' => 'error', 'message' => 'LitePic 正在更新，请稍后再试'], JSON_UNESCAPED_UNICODE);
+        } else {
+            header('Content-Type: text/html; charset=utf-8');
+            echo '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LitePic 正在更新</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0f1116;color:#e6eef8;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans SC",sans-serif}.box{border:1px solid #ffffff14;padding:28px 34px;background:#151a24}h1{margin:0 0 8px;font-size:22px}p{margin:0;color:#9aa0a6}</style><div class="box"><h1>LitePic 正在更新</h1><p>程序文件正在替换，请稍后刷新页面。</p></div>';
+        }
+        exit;
+    }
+}
+
 require_once APP_ROOT . '/app/Core/Autoloader.php';
 \LitePic\Core\Autoloader::register('LitePic\\', APP_ROOT . '/app');
 

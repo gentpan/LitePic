@@ -162,27 +162,33 @@ LitePic/
 
 ```
 .env
+.user.ini
 data/
 uploads/
-static/images/background-*   # 如果你换过首页背景
+logs/
+static/images/   # 首页背景、水印图片等自定义资源
 ```
 
 `data/` 包含图库索引、任务队列、Token、Passkey 注册数据等运行状态。即使启用了远程存储仍建议本地保留 `data/`。
 
-升级流程：
+推荐使用后台一键更新：
+
+```
+设置 → 系统 → 程序更新 → 检查更新 → 立即更新
+```
+
+在线更新会从 GitHub Release 下载新版 ZIP，只覆盖 LitePic 程序文件，并跳过 `.env`、`.user.ini`、`data/`、`uploads/`、`logs/` 和 `static/images/`。
+
+无法在线更新时，可以手动升级：
 
 ```bash
 # 1. 备份
-tar czf backup-$(date +%F).tar.gz .env data/ uploads/
+tar czf backup-$(date +%F).tar.gz .env .user.ini data/ uploads/ logs/ static/images/
 
-# 2. 拉取新代码（保留 .env / data / uploads）
-git fetch && git reset --hard origin/main
-# 或 rsync / 解压新版 tarball
+# 2. 下载新版 LitePic ZIP，解压后覆盖程序文件
+#    不要覆盖 .env / .user.ini / data / uploads / logs / static/images
 
-# 3. 重建 CSS（仅当本地构建）
-npm run build:css
-
-# 4. 设置页打开一次，迁移自动执行
+# 3. 打开后台设置页，数据库迁移会自动执行
 ```
 
 ## 文档

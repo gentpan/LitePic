@@ -15,7 +15,7 @@ use Throwable;
  *
  * Two execution paths:
  *
- *   • PHP-FPM (most modern setups including this Docker image):
+ *   • PHP-FPM (most modern shared-hosting and server-panel setups):
  *     `fastcgi_finish_request()` is the official, clean way to detach.
  *     The TCP / unix socket to the FPM worker is closed; PHP keeps
  *     running until the script ends.

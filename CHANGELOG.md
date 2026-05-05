@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.1] - 2026-05-05
+
+### Added
+- **程序自动更新** — 设置页新增 WordPress 风格更新入口，从 GitHub Release 下载 ZIP，只替换程序文件，并保护 `.env`、`.user.ini`、`.htaccess`、`data/`、`uploads/`、`logs/` 与 `static/images/`。
+- 新增 `/api/v1/update/check` 与 `/api/v1/update/install`，供后台更新面板使用。
+
+### Changed
+- 版本号统一升至 3.3.1，页脚、版权说明和后台更新面板全部读取同一个 `LITEPIC_VERSION`。
+- 清理废弃的首页背景上传样式、access.log 旧配置和 Docker 调度文案。
+- 系统状态接口统一到 `/api/v1/system/status`，旧直连入口不再公开。
+
 ## [3.3.0] - 2026-05-04
 
 ### Added

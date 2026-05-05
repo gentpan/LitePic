@@ -79,6 +79,7 @@ $document_title = isset($html_title) && trim((string)$html_title) !== ''
     <script>
         // 全局 CSRF Token（用于前端 AJAX 请求）
         window.CSRF_TOKEN = <?= json_encode(\LitePic\Core\Csrf::token(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        window.LITEPIC_VERSION = <?= json_encode(SITE_VERSION, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
     </script>
 </head>
 

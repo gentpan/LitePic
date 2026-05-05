@@ -48,8 +48,8 @@ $settings_tabs = [
     ],
     'system' => [
         'icon' => 'fa-database',
-        'label' => '数据库',
-        'description' => 'SQLite 文件状态、备份管理（手动 / 定时 / R2 同步）',
+        'label' => '系统',
+        'description' => 'SQLite 数据库、备份、清理与程序更新',
     ],
 ];
 
@@ -564,6 +564,133 @@ require_once APP_ROOT . '/header.php';
 <?php endif; // tab: basic (上传限制) ?>
 
 <?php if (in_array($active_settings_tab, ['system'], true)): ?>
+                    <section>
+                        <div class="settings-section-header">
+                            <h3 class="settings-card-title">
+                                <i class="fa-light fa-rotate" aria-hidden="true"></i>
+                                <span>程序更新</span>
+                            </h3>
+                            <p>从 GitHub Release 下载新版 ZIP，只替换程序文件，保留数据库、图片、配置和用户上传内容</p>
+                        </div>
+
+                        <div class="db-meta-badges">
+                            <span class="db-badge">
+                                <i class="fa-light fa-code-branch" aria-hidden="true"></i>
+                                <span class="db-badge__label">当前版本</span>
+                                <code class="db-badge__value">v<?= htmlspecialchars(SITE_VERSION, ENT_QUOTES, 'UTF-8') ?></code>
+                            </span>
+                            <span class="db-badge" data-update-latest-badge>
+                                <i class="fa-light fa-cloud-arrow-down" aria-hidden="true"></i>
+                                <span class="db-badge__label">最新版本</span>
+                                <code class="db-badge__value" data-update-latest>未检查</code>
+                            </span>
+                            <span class="db-badge">
+                                <i class="fa-light fa-shield-check" aria-hidden="true"></i>
+                                <span class="db-badge__label">保护数据</span>
+                                <code class="db-badge__value">data / uploads / .env</code>
+                            </span>
+                            <span class="db-badge">
+                                <i class="fa-light fa-box-archive" aria-hidden="true"></i>
+                                <span class="db-badge__label">更新备份</span>
+                                <code class="db-badge__value">data/update-backups</code>
+                            </span>
+                        </div>
+
+                        <p class="cleanup-note">
+                            <i class="fa-light fa-circle-info" aria-hidden="true"></i>
+                            <span>更新前会生成程序文件快照；更新过程不会覆盖 <code>.env</code>、<code>.user.ini</code>、<code>data/</code>、<code>uploads/</code>、<code>logs/</code> 和 <code>static/images/</code>。如服务器未启用 ZipArchive 或站点根目录不可写，会自动停止。</span>
+                        </p>
+
+                        <div class="cleanup-toolbar" data-update-panel>
+                            <button type="button" class="btn btn--secondary" data-update-check>
+                                <i class="fa-light fa-magnifying-glass" aria-hidden="true"></i>
+                                <span>检查更新</span>
+                            </button>
+                            <button type="button" class="btn btn--primary" data-update-install disabled>
+                                <i class="fa-light fa-cloud-arrow-down" aria-hidden="true"></i>
+                                <span>立即更新</span>
+                            </button>
+                            <span class="cleanup-status" data-update-status>尚未检查更新</span>
+                        </div>
+
+                        <script>
+                        (function() {
+                            const root = document.currentScript.closest('section');
+                            const checkBtn = root?.querySelector('[data-update-check]');
+                            const installBtn = root?.querySelector('[data-update-install]');
+                            const statusEl = root?.querySelector('[data-update-status]');
+                            const latestEl = root?.querySelector('[data-update-latest]');
+                            const csrf = window.CSRF_TOKEN || '';
+
+                            const setStatus = (text, kind) => {
+                                if (!statusEl) return;
+                                statusEl.textContent = text;
+                                statusEl.classList.remove('is-on', 'is-off', 'is-warn');
+                                if (kind) statusEl.classList.add(kind);
+                            };
+
+                            const parseJson = async (resp) => {
+                                const data = await resp.json().catch(() => ({}));
+                                if (!resp.ok || data.status !== 'success') {
+                                    throw new Error(data.message || `HTTP ${resp.status}`);
+                                }
+                                return data;
+                            };
+
+                            checkBtn?.addEventListener('click', async () => {
+                                checkBtn.disabled = true;
+                                installBtn.disabled = true;
+                                setStatus('正在检查 GitHub Release...');
+                                try {
+                                    const data = await fetch('/api/v1/update/check', {
+                                        credentials: 'same-origin',
+                                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                                    }).then(parseJson);
+                                    latestEl.textContent = data.latest ? `v${data.latest}` : '未发现';
+                                    if (data.has_update) {
+                                        installBtn.disabled = false;
+                                        setStatus(`发现新版本 v${data.latest}`, 'is-warn');
+                                    } else if (data.current_ahead) {
+                                        setStatus(`当前版本 v${data.current} 高于最新 Release v${data.latest}`, 'is-warn');
+                                    } else {
+                                        setStatus('当前已经是最新版本', 'is-on');
+                                    }
+                                } catch (e) {
+                                    setStatus('检查失败：' + (e.message || '未知错误'), 'is-off');
+                                } finally {
+                                    checkBtn.disabled = false;
+                                }
+                            });
+
+                            installBtn?.addEventListener('click', async () => {
+                                if (!confirm('确定立即更新 LitePic？更新时会短暂进入维护模式，并自动保护数据库、图片和配置文件。')) return;
+                                checkBtn.disabled = true;
+                                installBtn.disabled = true;
+                                installBtn.innerHTML = '<i class="fa-light fa-spinner fa-spin" aria-hidden="true"></i><span>更新中...</span>';
+                                setStatus('正在下载并替换程序文件，请勿关闭页面...');
+                                try {
+                                    const data = await fetch('/api/v1/update/install', {
+                                        method: 'POST',
+                                        credentials: 'same-origin',
+                                        headers: {
+                                            'X-Requested-With': 'XMLHttpRequest',
+                                            'X-CSRF-Token': csrf,
+                                        },
+                                    }).then(parseJson);
+                                    latestEl.textContent = data.latest ? `v${data.latest}` : '已更新';
+                                    setStatus(data.message || '更新完成，正在刷新页面...', 'is-on');
+                                    setTimeout(() => window.location.reload(), 1200);
+                                } catch (e) {
+                                    setStatus('更新失败：' + (e.message || '未知错误'), 'is-off');
+                                    checkBtn.disabled = false;
+                                    installBtn.disabled = false;
+                                    installBtn.innerHTML = '<i class="fa-light fa-cloud-arrow-down" aria-hidden="true"></i><span>立即更新</span>';
+                                }
+                            });
+                        })();
+                        </script>
+                    </section>
+
                     <?php
                     // Database summary — list every SQLite table + row count, file size, schema version
                     $db_summary = (new \LitePic\Service\Stats\ServerInfo())->databaseSummary();
@@ -3226,7 +3353,7 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
 
         const updateSystemStatus = async () => {
             try {
-                const resp = await fetch('/api/system_status.php', {
+                const resp = await fetch('/api/v1/system/status', {
                     method: 'GET',
                     credentials: 'same-origin',
                     headers: { 'Accept': 'application/json' },
