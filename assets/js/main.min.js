@@ -769,7 +769,7 @@ function initLicenseDialog() {
                             <span class="license-card-value">gentpan/LitePic</span>
                         </div>
                     </a>
-                    <a class="license-card" href="https://github.com/gentpan" target="_blank" rel="noopener noreferrer">
+                    <a class="license-card" href="https://xifeng.net" target="_blank" rel="noopener noreferrer">
                         <i class="fa-light fa-user-pen" aria-hidden="true"></i>
                         <div class="license-card-body">
                             <span class="license-card-label">作者</span>
