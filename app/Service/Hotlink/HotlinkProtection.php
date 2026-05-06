@@ -172,7 +172,7 @@ final class HotlinkProtection
             $lines[] = '    RewriteCond %{HTTP_REFERER} !^$';
         }
         $lines[] = '    RewriteCond %{HTTP_REFERER} !^https?://([^/]+\.)?(' . $pattern . ')(:[0-9]+)?(/|$) [NC]';
-        $lines[] = '    RewriteRule ^uploads/.*\.(jpg|jpeg|png|gif|webp|avif|svg|ico|bmp|tiff|tif)$ - [F,L]';
+        $lines[] = '    RewriteRule ^uploads/.*\.(jpg|jpeg|png|gif|webp|avif|heic|heif|svg|ico|bmp|tiff|tif)$ - [F,L]';
         $lines[] = '</IfModule>';
         $lines[] = '# END LitePic Hotlink Protection';
         return implode(PHP_EOL, $lines);

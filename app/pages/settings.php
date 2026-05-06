@@ -170,6 +170,8 @@ $upload_format_labels = [
     'gif' => 'GIF',
     'webp' => 'WebP',
     'avif' => 'AVIF',
+    'heic' => 'HEIC',
+    'heif' => 'HEIF',
     'ico' => 'ICO',
     'svg' => 'SVG',
     'bmp' => 'BMP',
@@ -207,6 +209,7 @@ $compression_capability = is_array($metrics['capability'] ?? null) ? $metrics['c
     'imagick' => false,
     'avif' => false,
     'webp' => false,
+    'heic' => false,
 ];
 $memory_text = (string)($metrics['memory']['text'] ?? '-');
 $memory_peak_text = (string)($metrics['memory']['peak_text'] ?? '-');
@@ -432,7 +435,7 @@ require_once APP_ROOT . '/header.php';
                             // ml-2 留 8px 间距，再加自身约 16px 宽就紧贴右侧。
                             $cap_badge_help = 'absolute top-1/2 -translate-y-1/2 left-[80%] ml-2 capability-help-icon inline-flex items-center justify-center text-primary no-underline hover:opacity-70 transition-opacity';
                             ?>
-                            <div class="grid grid-cols-5 gap-3.5 runtime-capability-grid">
+                            <div class="grid grid-cols-6 gap-3.5 runtime-capability-grid">
                                 <article class="border border-border p-4 grid gap-2">
                                     <span class="text-sm text-gray">上传上限</span>
                                     <div class="relative w-full">
@@ -491,6 +494,19 @@ require_once APP_ROOT . '/header.php';
                                         </span>
                                         <?php if (!$compression_capability['webp']): ?>
                                             <a href="https://litepic.io/docs#webp" target="_blank" rel="noopener noreferrer" class="<?= $cap_badge_help ?>" title="查看启用方法" aria-label="查看启用方法">
+                                                <i class="fa-light fa-circle-question text-base" aria-hidden="true"></i>
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
+                                </article>
+                                <article class="border border-border p-4 grid gap-2">
+                                    <span class="text-sm text-gray">HEIC 支持</span>
+                                    <div class="relative w-full">
+                                        <span class="<?= $cap_badge_cls ?> <?= $compression_capability['heic'] ? 'is-on' : 'is-off' ?>" id="metricCapHeic">
+                                            <?= $compression_capability['heic'] ? '已启用' : '未启用' ?>
+                                        </span>
+                                        <?php if (!$compression_capability['heic']): ?>
+                                            <a href="https://litepic.io/docs#heic" target="_blank" rel="noopener noreferrer" class="<?= $cap_badge_help ?>" title="查看启用方法" aria-label="查看 HEIC 启用方法">
                                                 <i class="fa-light fa-circle-question text-base" aria-hidden="true"></i>
                                             </a>
                                         <?php endif; ?>
@@ -570,7 +586,7 @@ require_once APP_ROOT . '/header.php';
                                 <i class="fa-light fa-rotate" aria-hidden="true"></i>
                                 <span>程序更新</span>
                             </h3>
-                            <p>从 GitHub Release 下载新版 ZIP，只替换程序文件，保留数据库、图片、配置和用户上传内容</p>
+                            <p>连接版本服务器获取新版安装包，只替换程序文件，保留数据库、图片、配置和用户上传内容</p>
                         </div>
 
                         <div class="db-meta-badges">
@@ -640,7 +656,7 @@ require_once APP_ROOT . '/header.php';
                             checkBtn?.addEventListener('click', async () => {
                                 checkBtn.disabled = true;
                                 installBtn.disabled = true;
-                                setStatus('正在检查 GitHub Release...');
+                                setStatus('正在连接版本服务器...');
                                 try {
                                     const data = await fetch('/api/v1/update/check', {
                                         credentials: 'same-origin',
@@ -651,7 +667,7 @@ require_once APP_ROOT . '/header.php';
                                         installBtn.disabled = false;
                                         setStatus(`发现新版本 v${data.latest}`, 'is-warn');
                                     } else if (data.current_ahead) {
-                                        setStatus(`当前版本 v${data.current} 高于最新 Release v${data.latest}`, 'is-warn');
+                                        setStatus(`当前版本 v${data.current} 高于服务器最新版本 v${data.latest}`, 'is-warn');
                                     } else {
                                         setStatus('当前已经是最新版本', 'is-on');
                                     }
@@ -663,7 +679,10 @@ require_once APP_ROOT . '/header.php';
                             });
 
                             installBtn?.addEventListener('click', async () => {
-                                if (!confirm('确定立即更新 LitePic？更新时会短暂进入维护模式，并自动保护数据库、图片和配置文件。')) return;
+                                const ok = window.ImgEt?.DialogManager?.confirm
+                                    ? await window.ImgEt.DialogManager.confirm('立即更新 LitePic', '更新时会短暂进入维护模式，并自动保护数据库、图片和配置文件。确认继续吗？')
+                                    : confirm('确定立即更新 LitePic？更新时会短暂进入维护模式，并自动保护数据库、图片和配置文件。');
+                                if (!ok) return;
                                 checkBtn.disabled = true;
                                 installBtn.disabled = true;
                                 installBtn.innerHTML = '<i class="fa-light fa-spinner fa-spin" aria-hidden="true"></i><span>更新中...</span>';
@@ -964,7 +983,10 @@ require_once APP_ROOT . '/header.php';
                                 document.querySelectorAll('[data-backup-restore]').forEach((btn) => {
                                     btn.addEventListener('click', async () => {
                                         const name = btn.getAttribute('data-backup-restore');
-                                        if (!confirm(`确定从 ${name} 恢复数据库？\n\n这会**覆盖**当前的所有设置 / 图片元数据 / Token / Passkey 等。\n\n恢复前建议先点「立即备份」保留当前状态。`)) return;
+                                        const ok = window.ImgEt?.DialogManager?.confirm
+                                            ? await window.ImgEt.DialogManager.confirm('恢复数据库备份', `确定从 ${name} 恢复数据库？这会覆盖当前的所有设置、图片元数据、Token 和 Passkey 等。恢复前建议先点「立即备份」保留当前状态。`)
+                                            : confirm(`确定从 ${name} 恢复数据库？\n\n这会**覆盖**当前的所有设置 / 图片元数据 / Token / Passkey 等。\n\n恢复前建议先点「立即备份」保留当前状态。`);
+                                        if (!ok) return;
                                         btn.disabled = true;
                                         try {
                                             const resp = await fetch('/api/v1/backup/restore?file=' + encodeURIComponent(name), {
@@ -974,7 +996,11 @@ require_once APP_ROOT . '/header.php';
                                             });
                                             const data = await resp.json();
                                             if (data.status !== 'success') throw new Error(data.message || '失败');
-                                            alert('恢复成功 — 页面将刷新以使用新数据');
+                                            if (window.ImgEt?.DialogManager?.alert) {
+                                                await window.ImgEt.DialogManager.alert('恢复成功', '页面将刷新以使用新数据');
+                                            } else {
+                                                alert('恢复成功 — 页面将刷新以使用新数据');
+                                            }
                                             window.location.reload();
                                         } catch (e) {
                                             setStatus('恢复失败：' + e.message, true);
@@ -987,7 +1013,10 @@ require_once APP_ROOT . '/header.php';
                                 document.querySelectorAll('[data-backup-delete]').forEach((btn) => {
                                     btn.addEventListener('click', async () => {
                                         const name = btn.getAttribute('data-backup-delete');
-                                        if (!confirm(`删除备份 ${name}？此操作不可撤销。`)) return;
+                                        const ok = window.ImgEt?.DialogManager?.confirm
+                                            ? await window.ImgEt.DialogManager.confirm('删除数据库备份', `删除备份 ${name}？此操作不可撤销。`, { danger: true, confirmText: '删除' })
+                                            : confirm(`删除备份 ${name}？此操作不可撤销。`);
+                                        if (!ok) return;
                                         btn.disabled = true;
                                         try {
                                             const resp = await fetch('/api/v1/backup/delete?file=' + encodeURIComponent(name), {
@@ -1605,7 +1634,10 @@ require_once APP_ROOT . '/header.php';
                                             retryOne.disabled = false;
                                         }
                                     } else if (discardOne) {
-                                        if (!confirm('确认丢弃此失败任务？')) return;
+                                        const ok = window.ImgEt?.DialogManager?.confirm
+                                            ? await window.ImgEt.DialogManager.confirm('丢弃失败任务', '确认丢弃此失败任务？', { danger: true, confirmText: '丢弃' })
+                                            : confirm('确认丢弃此失败任务？');
+                                        if (!ok) return;
                                         const id = discardOne.getAttribute('data-queue-discard-one');
                                         discardOne.disabled = true;
                                         try {
@@ -1628,7 +1660,10 @@ require_once APP_ROOT . '/header.php';
                                         }
                                     } else if (discardAll) {
                                         const msg = discardAll.getAttribute('data-confirm') || '确认丢弃？';
-                                        if (!confirm(msg)) return;
+                                        const ok = window.ImgEt?.DialogManager?.confirm
+                                            ? await window.ImgEt.DialogManager.confirm('丢弃失败任务', msg, { danger: true, confirmText: '丢弃' })
+                                            : confirm(msg);
+                                        if (!ok) return;
                                         discardAll.disabled = true;
                                         try {
                                             const data = await postQueue('/api/v1/queue/discard-all-failed');
@@ -1697,7 +1732,7 @@ require_once APP_ROOT . '/header.php';
                             <div class="grid gap-2">
                                 <div class="flex items-center justify-between gap-2">
                                     <label for="conversionEngine">转换引擎</label>
-                                    <span class="text-xs text-gray">用于 WebP / AVIF 转换</span>
+                                    <span class="text-xs text-gray">用于 WebP / AVIF / JPG / PNG 转换，HEIC 需 Imagick 支持</span>
                                 </div>
                                 <select id="conversionEngine" name="conversion_engine">
                                     <option value="auto"    <?= $_engine === 'auto'    ? 'selected' : '' ?>>自动（推荐 — Imagick 优先，回退 GD）</option>
@@ -1714,7 +1749,7 @@ require_once APP_ROOT . '/header.php';
                                 <span class="settings-switch" aria-hidden="true"><span></span></span>
                             </label>
                             <div class="settings-toggle-row settings-toggle-row-control">
-                                <span class="settings-toggle-copy">上传后自动转换（支持 JPG/JPEG/PNG/GIF）</span>
+                                <span class="settings-toggle-copy">上传后自动转换（支持 JPG/JPEG/PNG/GIF/HEIC/HEIF）</span>
                                 <div class="settings-toggle-controls">
                                     <div class="settings-radio-group" role="radiogroup" aria-label="上传转换格式">
                                         <label class="settings-radio-option">
@@ -1725,9 +1760,17 @@ require_once APP_ROOT . '/header.php';
                                             <input type="radio" name="convert_preferred_format" value="avif" <?= CONVERT_PREFERRED_FORMAT === 'avif' ? 'checked' : '' ?>>
                                             <span>AVIF</span>
                                         </label>
+                                        <label class="settings-radio-option">
+                                            <input type="radio" name="convert_preferred_format" value="jpg" <?= CONVERT_PREFERRED_FORMAT === 'jpg' ? 'checked' : '' ?>>
+                                            <span>JPG</span>
+                                        </label>
+                                        <label class="settings-radio-option">
+                                            <input type="radio" name="convert_preferred_format" value="png" <?= CONVERT_PREFERRED_FORMAT === 'png' ? 'checked' : '' ?>>
+                                            <span>PNG</span>
+                                        </label>
                                     </div>
                                     <label class="settings-switch-label" for="autoConvertOnUpload">
-                                        <input id="autoConvertOnUpload" class="settings-switch-input" type="checkbox" name="auto_convert_on_upload" value="1" <?= (AUTO_CONVERT_WEBP_ON_UPLOAD || AUTO_CONVERT_AVIF_ON_UPLOAD) ? 'checked' : '' ?>>
+                                        <input id="autoConvertOnUpload" class="settings-switch-input" type="checkbox" name="auto_convert_on_upload" value="1" <?= (defined('AUTO_CONVERT_ON_UPLOAD') && AUTO_CONVERT_ON_UPLOAD) ? 'checked' : '' ?>>
                                         <span class="settings-switch" aria-hidden="true"><span></span></span>
                                     </label>
                                 </div>
@@ -1886,7 +1929,7 @@ require_once APP_ROOT . '/header.php';
                                 <span class="settings-switch" aria-hidden="true"><span></span></span>
                             </label>
                             <div class="settings-toggle-row settings-toggle-row-control scan-option">
-                                <span class="settings-toggle-copy">导入时自动转换（JPG/JPEG/PNG/GIF）</span>
+                                <span class="settings-toggle-copy">导入时自动转换（JPG/JPEG/PNG/GIF/HEIC/HEIF）</span>
                                 <div class="settings-toggle-controls">
                                     <div class="settings-radio-group" role="radiogroup" aria-label="导入转换格式">
                                         <label class="settings-radio-option">
@@ -1896,6 +1939,14 @@ require_once APP_ROOT . '/header.php';
                                         <label class="settings-radio-option">
                                             <input type="radio" name="scan_convert_format" value="avif">
                                             <span>AVIF</span>
+                                        </label>
+                                        <label class="settings-radio-option">
+                                            <input type="radio" name="scan_convert_format" value="jpg">
+                                            <span>JPG</span>
+                                        </label>
+                                        <label class="settings-radio-option">
+                                            <input type="radio" name="scan_convert_format" value="png">
+                                            <span>PNG</span>
                                         </label>
                                     </div>
                                     <label class="settings-switch-label" for="scanAutoConvert">
@@ -3033,6 +3084,9 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
         const runtimeCapability = {
             webp: <?= !empty($compression_capability['webp']) ? 'true' : 'false' ?>,
             avif: <?= !empty($compression_capability['avif']) ? 'true' : 'false' ?>,
+            heic: <?= !empty($compression_capability['heic']) ? 'true' : 'false' ?>,
+            jpg: <?= (!empty($compression_capability['gd']) || !empty($compression_capability['imagick'])) ? 'true' : 'false' ?>,
+            png: <?= (!empty($compression_capability['gd']) || !empty($compression_capability['imagick'])) ? 'true' : 'false' ?>,
         };
         const capabilityInputs = Array.from(document.querySelectorAll('[data-requires-capability]'));
         const validateCapabilityToggle = (input, silent = false) => {
@@ -3062,7 +3116,7 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
         const convertPreferredFormatInputs = Array.from(document.querySelectorAll('input[name="convert_preferred_format"]'));
         const getConvertPreferredFormat = () => {
             const checked = convertPreferredFormatInputs.find((input) => input.checked);
-            return checked?.value === 'avif' ? 'avif' : 'webp';
+            return ['webp', 'avif', 'jpg', 'png'].includes(checked?.value) ? checked.value : 'webp';
         };
         const validateAutoConvertToggle = (silent = false) => {
             if (!autoConvertInput || !autoConvertInput.checked) return true;
@@ -3104,7 +3158,7 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
         const scanConvertFormatInputs = Array.from(document.querySelectorAll('input[name="scan_convert_format"]'));
         const getScanConvertFormat = () => {
             const checked = scanConvertFormatInputs.find((input) => input.checked);
-            return checked?.value === 'avif' ? 'avif' : 'webp';
+            return ['webp', 'avif', 'jpg', 'png'].includes(checked?.value) ? checked.value : 'webp';
         };
         const validateScanConvertToggle = (silent = false) => {
             if (!scanConvertInput || !scanConvertInput.checked) return true;
@@ -3415,10 +3469,14 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
                 const cap = s.capability || {};
                 runtimeCapability.webp = !!cap.webp;
                 runtimeCapability.avif = !!cap.avif;
+                runtimeCapability.heic = !!cap.heic;
+                runtimeCapability.jpg = !!cap.gd || !!cap.imagick;
+                runtimeCapability.png = !!cap.gd || !!cap.imagick;
                 setCapability('metricCapGd', !!cap.gd);
                 setCapability('metricCapImagick', !!cap.imagick);
                 setCapability('metricCapAvif', !!cap.avif);
                 setCapability('metricCapWebp', !!cap.webp);
+                setCapability('metricCapHeic', !!cap.heic);
                 capabilityInputs.forEach((input) => validateCapabilityToggle(input, true));
                 validateAutoConvertToggle(true);
                 validateScanConvertToggle(true);
@@ -3459,7 +3517,11 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
                     tbody.querySelectorAll('.passkey-delete-btn').forEach(btn => {
                         btn.addEventListener('click', async () => {
                             const id = btn.getAttribute('data-id');
-                            if (!id || !confirm('确定要删除此 Passkey 吗？')) return;
+                            if (!id) return;
+                            const ok = window.ImgEt?.DialogManager?.confirm
+                                ? await window.ImgEt.DialogManager.confirm('删除 Passkey', '确定要删除此 Passkey 吗？', { danger: true, confirmText: '删除' })
+                                : confirm('确定要删除此 Passkey 吗？');
+                            if (!ok) return;
                             try {
                                 const delRes = await fetch('/api/passkey.php?action=delete', {
                                     method: 'POST',

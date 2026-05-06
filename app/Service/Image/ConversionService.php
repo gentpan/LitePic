@@ -22,7 +22,6 @@ final class ConversionService
         return self::convert(
             $filepath,
             'webp',
-            'imagewebp',
             (int)(defined('WEBP_QUALITY') ? WEBP_QUALITY : 80),
             'WebP'
         );
@@ -33,10 +32,30 @@ final class ConversionService
         return self::convert(
             $filepath,
             'avif',
-            'imageavif',
             (int)(defined('AVIF_QUALITY') ? AVIF_QUALITY : 80),
             'AVIF'
         );
+    }
+
+    public function toJpeg(string $filepath): bool
+    {
+        return self::convert($filepath, 'jpg', 90, 'JPG');
+    }
+
+    public function toPng(string $filepath): bool
+    {
+        return self::convert($filepath, 'png', 90, 'PNG');
+    }
+
+    public function toFormat(string $filepath, string $targetExt): bool
+    {
+        return match (ImageFormat::normalizeTarget($targetExt)) {
+            'webp' => $this->toWebp($filepath),
+            'avif' => $this->toAvif($filepath),
+            'jpg' => $this->toJpeg($filepath),
+            'png' => $this->toPng($filepath),
+            default => false,
+        };
     }
 
     /**
@@ -56,20 +75,33 @@ final class ConversionService
     }
 
     /**
+     * @return array<string,mixed>
+     */
+    public function autoConvertPreferredAfterUpload(string $filename, ?string $target = null, ?bool $enabled = null): array
+    {
+        $target = $target !== null ? $target : (defined('CONVERT_PREFERRED_FORMAT') ? (string)CONVERT_PREFERRED_FORMAT : 'webp');
+        $enabled = $enabled ?? (defined('AUTO_CONVERT_ON_UPLOAD') && AUTO_CONVERT_ON_UPLOAD);
+        return self::autoConvert($filename, $target, $enabled);
+    }
+
+    /**
      * Compress + convert + thumbnail in one pass. Used immediately
      * after an upload. Mutually-exclusive logic (compress vs convert)
      * lives in the inner services.
      *
-     * @return array{auto_compress:array,auto_webp:array,auto_avif:array}
+     * @return array{auto_compress:array,auto_convert:array,auto_webp:array,auto_avif:array}
      */
-    public function runUploadPostProcess(string $filename): array
+    public function runUploadPostProcess(string $filename, ?string $target = null, ?bool $convertEnabled = null): array
     {
         $compress = (new CompressionService())->autoCompressAfterUpload($filename);
-        $webp = $this->autoConvertWebpAfterUpload($filename);
-        $avif = $this->autoConvertAvifAfterUpload($filename);
+        $target = ImageFormat::normalizeTarget((string)($target ?? (defined('CONVERT_PREFERRED_FORMAT') ? CONVERT_PREFERRED_FORMAT : 'webp'))) ?: 'webp';
+        $convert = $this->autoConvertPreferredAfterUpload($filename, $target, $convertEnabled);
+        $webp = $target === 'webp' ? $convert : ['enabled' => false];
+        $avif = $target === 'avif' ? $convert : ['enabled' => false];
         self::logDebug($filename, $compress, $webp, $avif);
         return [
             'auto_compress' => $compress,
+            'auto_convert' => $convert,
             'auto_webp' => $webp,
             'auto_avif' => $avif,
         ];
@@ -159,7 +191,7 @@ final class ConversionService
         }
     }
 
-    private static function convert(string $filepath, string $targetExt, string $gdFn, int $quality, string $label): bool
+    private static function convert(string $filepath, string $targetExt, int $quality, string $label): bool
     {
         if (!file_exists($filepath)) {
             error_log("Conversion error: 原始文件不存在 ({$filepath})");
@@ -186,8 +218,8 @@ final class ConversionService
             return false;
         }
 
-        $targetPath = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.' . $targetExt, $filepath);
-        if (!is_string($targetPath) || $targetPath === '') {
+        $targetPath = preg_replace('/\.(jpg|jpeg|png|gif|webp|avif|heic|heif|bmp|tiff|tif|ico)$/i', '.' . $targetExt, $filepath);
+        if (!is_string($targetPath) || $targetPath === '' || $targetPath === $filepath) {
             error_log("Conversion error: 无法确定 {$label} 输出路径");
             return false;
         }
@@ -216,7 +248,7 @@ final class ConversionService
             error_log("Conversion error: 当前 CONVERSION_ENGINE={$engine} 但 GD 路径已禁用");
             return false;
         }
-        if (!function_exists($gdFn)) {
+        if (!self::gdSupports($targetExt)) {
             error_log("Conversion error: 当前环境不支持 {$label}（Imagick 路径也不可用）");
             return false;
         }
@@ -226,7 +258,7 @@ final class ConversionService
             return false;
         }
 
-        $ok = $gdFn($source, $targetPath, $quality);
+        $ok = self::writeGdImage($source, $targetPath, $targetExt, $quality);
         imagedestroy($source);
         if (!$ok) {
             error_log("{$label} generation failed via GD for {$filepath}");
@@ -248,7 +280,47 @@ final class ConversionService
         $original = $repo->originalNameFor($originalIdentifier) ?? basename($filepath);
         $variantIdentifier = PathService::identifierFromPath($targetPath) ?? basename($targetPath);
         $repo->recordOriginalName($variantIdentifier, $original);
-        $repo->setFlags($originalIdentifier, [$targetExt === 'webp' ? 'has_webp' : 'has_avif' => true]);
+        if ($targetExt === 'webp' || $targetExt === 'avif') {
+            $repo->setFlags($originalIdentifier, [$targetExt === 'webp' ? 'has_webp' : 'has_avif' => true]);
+        }
+    }
+
+    private static function gdSupports(string $targetExt): bool
+    {
+        return match ($targetExt) {
+            'webp' => function_exists('imagewebp'),
+            'avif' => function_exists('imageavif'),
+            'jpg' => function_exists('imagejpeg'),
+            'png' => function_exists('imagepng'),
+            default => false,
+        };
+    }
+
+    private static function writeGdImage($source, string $targetPath, string $targetExt, int $quality): bool
+    {
+        switch ($targetExt) {
+            case 'webp':
+                return imagewebp($source, $targetPath, max(1, min(100, $quality)));
+            case 'avif':
+                return imageavif($source, $targetPath, max(1, min(100, $quality)));
+            case 'jpg':
+                $w = imagesx($source);
+                $h = imagesy($source);
+                $canvas = imagecreatetruecolor($w, $h);
+                if (!$canvas) return false;
+                $white = imagecolorallocate($canvas, 255, 255, 255);
+                imagefill($canvas, 0, 0, $white);
+                imagecopy($canvas, $source, 0, 0, 0, 0, $w, $h);
+                $ok = imagejpeg($canvas, $targetPath, max(1, min(100, $quality)));
+                imagedestroy($canvas);
+                return $ok;
+            case 'png':
+                imagealphablending($source, false);
+                imagesavealpha($source, true);
+                return imagepng($source, $targetPath, 6);
+            default:
+                return false;
+        }
     }
 
     /**
@@ -295,14 +367,17 @@ final class ConversionService
             // 多帧（GIF / 多页 TIFF）只取第一帧 — webp/avif 静态变体没必要多帧
             $image->setFirstIterator();
 
-            // 透明像素处理：webp 支持 alpha，avif 也支持，但很多源 PNG 用了
-            // palette 透明，coalesce 一下保险
-            if ($image->getImageAlphaChannel()) {
-                // 保留 alpha — webp/avif 都支持
+            if ($targetExt === 'jpg') {
+                $image->setImageBackgroundColor('white');
+                if (defined('Imagick::ALPHACHANNEL_REMOVE')) {
+                    $image->setImageAlphaChannel(\Imagick::ALPHACHANNEL_REMOVE);
+                }
+                $image = $image->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
+            } elseif ($image->getImageAlphaChannel()) {
                 $image->setImageBackgroundColor('transparent');
             }
 
-            $image->setImageFormat(strtoupper($targetExt));
+            $image->setImageFormat($targetExt === 'jpg' ? 'JPEG' : strtoupper($targetExt));
             $image->setImageCompressionQuality(max(1, min(100, $quality)));
 
             // libwebp 特定参数 — method 4 是 quality / speed 的合理折中
@@ -363,9 +438,7 @@ final class ConversionService
         }
 
         $ext = strtolower((string)pathinfo($filename, PATHINFO_EXTENSION));
-        $supported = $targetExt === 'webp'
-            ? ImageFormat::canConvertWebp($ext)
-            : ImageFormat::canConvertAvif($ext);
+        $supported = ImageFormat::canConvertTo($ext, $targetExt);
         if (!$supported) {
             $result['skip_reason'] = 'unsupported_format';
             return $result;
@@ -378,15 +451,13 @@ final class ConversionService
         }
 
         $result['attempted'] = true;
-        $ok = $targetExt === 'webp'
-            ? (new self())->toWebp($path)
-            : (new self())->toAvif($path);
+        $ok = (new self())->toFormat($path, $targetExt);
         if (!$ok) {
             $result['skip_reason'] = 'convert_failed';
             return $result;
         }
 
-        $variantPath = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.' . $targetExt, $path);
+        $variantPath = preg_replace('/\.(jpg|jpeg|png|gif|webp|avif|heic|heif|bmp|tiff|tif|ico)$/i', '.' . $targetExt, $path);
         if (!is_string($variantPath) || !file_exists($variantPath)) {
             $result['skip_reason'] = 'output_missing';
             return $result;

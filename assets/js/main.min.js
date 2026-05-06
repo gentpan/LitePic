@@ -3,6 +3,23 @@
 /* ===== script.js ===== */
 window.ImgEt = window.ImgEt || {};
 
+window.LitePicLoader = window.LitePicLoader || {
+    show() {
+        document.documentElement.classList.add('is-global-loading');
+    },
+    hide() {
+        document.documentElement.classList.remove('is-global-loading');
+    },
+};
+
+window.addEventListener('beforeunload', () => {
+    if (window.LitePicLoader) window.LitePicLoader.show();
+});
+
+window.addEventListener('pageshow', () => {
+    if (window.LitePicLoader) window.LitePicLoader.hide();
+});
+
 /* =============================================================
  * Pjax — drop-in HTML-fragment navigation for tabbed pages
  *
@@ -90,6 +107,10 @@ window.Pjax = {
 
         this.isNavigating = true;
         container.classList.add(this.loadingClass);
+        if (window.LitePicLoader) window.LitePicLoader.show();
+        document.dispatchEvent(new CustomEvent('pjax:loading', {
+            detail: { url, container },
+        }));
 
         try {
             const resp = await fetch(url, {
@@ -146,6 +167,7 @@ window.Pjax = {
             window.location.href = url;
         } finally {
             this.isNavigating = false;
+            if (window.LitePicLoader) window.LitePicLoader.hide();
             // (loading class removed during swap; if swap failed and we
             //  fell back to window.location.href, the page is reloading
             //  anyway so cleanup doesn't matter)
@@ -178,85 +200,6 @@ window.Pjax = {
 document.addEventListener('DOMContentLoaded', () => {
     if (window.Pjax) window.Pjax.init();
 });
-
-/* ===== nav-indicator.js ===== */
-(function () {
-    function initNavIndicator() {
-        const nav = document.querySelector('.main-nav');
-        if (!nav) return;
-
-        const indicator = nav.querySelector('.nav-indicator');
-        const links = Array.from(nav.querySelectorAll('.nav-link'));
-        if (!indicator || links.length === 0) return;
-
-        const activeLink = () => nav.querySelector('.nav-link.active');
-        let resizeTimer = null;
-
-        const moveTo = (target) => {
-            if (!target || !nav.contains(target)) return;
-
-            const navRect = nav.getBoundingClientRect();
-            const targetRect = target.getBoundingClientRect();
-
-            nav.style.setProperty('--nav-indicator-x', `${targetRect.left - navRect.left}px`);
-            nav.style.setProperty('--nav-indicator-y', `${targetRect.top - navRect.top}px`);
-            nav.style.setProperty('--nav-indicator-w', `${targetRect.width}px`);
-            nav.style.setProperty('--nav-indicator-h', `${targetRect.height}px`);
-            nav.classList.add('is-indicator-ready');
-        };
-
-        const restore = () => {
-            nav.classList.remove('is-indicator-hovering');
-            const active = activeLink();
-            if (active) {
-                moveTo(active);
-            } else {
-                nav.classList.remove('is-indicator-ready');
-            }
-        };
-
-        links.forEach((link) => {
-            link.addEventListener('pointerenter', () => {
-                nav.classList.add('is-indicator-hovering');
-                moveTo(link);
-            });
-            link.addEventListener('focus', () => {
-                nav.classList.add('is-indicator-hovering');
-                moveTo(link);
-            });
-        });
-
-        nav.addEventListener('pointerleave', restore);
-        nav.addEventListener('focusout', () => {
-            if (!nav.contains(document.activeElement)) {
-                restore();
-            }
-        });
-
-        window.addEventListener('resize', () => {
-            window.clearTimeout(resizeTimer);
-            resizeTimer = window.setTimeout(restore, 80);
-        });
-
-        if ('ResizeObserver' in window) {
-            const observer = new ResizeObserver(restore);
-            observer.observe(nav);
-            links.forEach((link) => observer.observe(link));
-        }
-
-        if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === 'function') {
-            document.fonts.ready.then(restore).catch(() => {});
-        }
-
-        requestAnimationFrame(restore);
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initNavIndicator);
-    } else {
-        initNavIndicator();
-    }
-})();
 
 /**
  * HTML 转义辅助函数（防止 XSS）
@@ -664,9 +607,12 @@ if (!window.ImgEt.DialogManager) {
             this.activeDialogs.push(dialog);
 
             // 改进关闭处理：防止重复关闭，清理所有监听器
-            const closeDialog = () => {
+            const closeDialog = (confirmed = false) => {
                 if (dialog.isClosing) return;
                 dialog.isClosing = true;
+                if (!confirmed && typeof normalizedOptions.onCancel === 'function') {
+                    normalizedOptions.onCancel();
+                }
                 dialog.classList.remove('active');
                 setTimeout(() => {
                     dialog.removeEventListener('click', clickOutsideHandler);
@@ -678,28 +624,51 @@ if (!window.ImgEt.DialogManager) {
 
             dialog.closeHandler = closeDialog; // 挂载关闭句柄
 
-            dialog.querySelector('.confirm-dialog-cancel').addEventListener('click', closeDialog);
+            dialog.querySelector('.confirm-dialog-cancel').addEventListener('click', () => closeDialog(false));
             dialog.querySelector('.confirm-dialog-submit').addEventListener('click', () => {
                 if (typeof onConfirm === 'function' && !dialog.confirmed) {
                     dialog.confirmed = true;
                     onConfirm();
                 }
-                closeDialog();
+                closeDialog(true);
             });
 
             const clickOutsideHandler = e => {
-                if (e.target === dialog) closeDialog();
+                if (e.target === dialog) closeDialog(false);
             };
             dialog.addEventListener('click', clickOutsideHandler);
 
             const escHandler = e => {
                 if (e.key === 'Escape') {
-                    closeDialog();
+                    closeDialog(false);
                 }
             };
             document.addEventListener('keydown', escHandler);
 
             requestAnimationFrame(() => dialog.classList.add('active'));
+        },
+
+        confirm(title, message, options = {}) {
+            return new Promise(resolve => {
+                this.showConfirmDialog(title, message, () => resolve(true), {
+                    ...options,
+                    onCancel: () => resolve(false),
+                });
+            });
+        },
+
+        alert(title, message, options = {}) {
+            return new Promise(resolve => {
+                this.showConfirmDialog(title, message, () => resolve(true), {
+                    ...options,
+                    confirmText: options.confirmText || '知道了',
+                    cancelText: options.cancelText || '',
+                    onCancel: () => resolve(false),
+                });
+                const dialogs = Array.from(document.querySelectorAll('.confirm-dialog'));
+                const dialog = dialogs[dialogs.length - 1];
+                dialog?.querySelector('.confirm-dialog-cancel')?.remove();
+            });
         },
     };
 }
@@ -736,7 +705,7 @@ function initLicenseDialog() {
     trigger.dataset.licenseBound = '1';
     trigger.addEventListener('click', () => {
         if (!window.ImgEt?.DialogManager) return;
-        const version = String(window.LITEPIC_VERSION || '3.3.1');
+        const version = String(window.LITEPIC_VERSION || '3.3.2');
 
         const content = `
             <div class="litepic-license-dialog">
@@ -889,10 +858,10 @@ document.addEventListener('DOMContentLoaded', initLicenseDialog);
         }
     }
 
-    // 通用 action 调用 — 用于 webp / avif 转换
+    // 通用 action 调用 — 用于格式转换
     async function runAction(action, filename) {
         const csrf = window.CSRF_TOKEN || '';
-        const labelMap = { webp: '转换 WebP', avif: '转换 AVIF' };
+        const labelMap = { webp: '转换 WebP', avif: '转换 AVIF', jpg: '转换 JPG', png: '转换 PNG' };
         const label = labelMap[action] || action;
         try {
             const res = await fetch('/api/v1/action', {
@@ -969,6 +938,7 @@ document.addEventListener('DOMContentLoaded', initLicenseDialog);
         const hasThumb = ds.hasThumb === '1';
         const canConvert = ds.canConvert === '1';
         const preferred = (ds.preferredFormat || 'webp').toLowerCase();
+        const sourceExt = (filename.split('.').pop() || '').toLowerCase();
 
         const items = [
             { icon: 'fa-image', label: '重新生成缩略图', onClick: () => regenerateThumbnail(filename, card) },
@@ -986,15 +956,26 @@ document.addEventListener('DOMContentLoaded', initLicenseDialog);
         if (hasThumb && thumbUrl) {
             items.push({ icon: 'fa-download', label: '下载缩略图', onClick: () => download(thumbUrl, 'thumb_' + filename) });
         }
-        // 提供"非默认偏好格式"的转换入口 — 默认按钮已经显示偏好格式那个，
-        // 右键补一个反方向，方便用户偶尔切到另一种格式。
+        // 提供非默认偏好格式的转换入口。
         if (canConvert) {
             items.push({ separator: true });
-            if (preferred === 'avif') {
-                items.push({ icon: 'fa-file-code', label: '转换 WebP', onClick: () => runAction('webp', filename) });
-            } else {
-                items.push({ icon: 'fa-file-code', label: '转换 AVIF', onClick: () => runAction('avif', filename) });
-            }
+            const labels = { webp: 'WebP', avif: 'AVIF', jpg: 'JPG', png: 'PNG' };
+            const convertMap = {
+                jpg: ['webp', 'avif', 'png'],
+                jpeg: ['webp', 'avif', 'png'],
+                png: ['webp', 'avif', 'jpg'],
+                gif: ['webp', 'avif', 'jpg', 'png'],
+                webp: ['jpg', 'png'],
+                avif: ['jpg', 'png'],
+                heic: ['webp', 'avif', 'jpg', 'png'],
+                heif: ['webp', 'avif', 'jpg', 'png'],
+            };
+            const canTarget = (target) => (convertMap[sourceExt] || []).includes(target);
+            ['webp', 'avif', 'jpg', 'png'].forEach((target) => {
+                if (target !== preferred && canTarget(target)) {
+                    items.push({ icon: 'fa-file-code', label: `转换 ${labels[target]}`, onClick: () => runAction(target, filename) });
+                }
+            });
         }
 
         build(items, e.clientX, e.clientY);
@@ -2068,6 +2049,8 @@ class DeleteManager extends BaseProcessor {
         const shouldNotifyError = notifyOptions.notifyError !== false;
         try {
             const imgCard = document.querySelector(getImageCardSelector(filename));
+            const isGalleryPage = !!document.querySelector('.gallery-shell');
+            const isUploadPage = !!document.querySelector('.upload-grid') && !isGalleryPage;
 
             // 2. 执行删除请求
             await ApiService.request('/api/v1/action', {
@@ -2075,6 +2058,32 @@ class DeleteManager extends BaseProcessor {
                 file: filename,
                 csrf_token: window.CSRF_TOKEN || ''
             }, { method: 'POST' });
+
+            if (isGalleryPage && !suppressLoad) {
+                if (shouldNotifySuccess) {
+                    ImgEt.Utils.showNotification('删除成功', 'success');
+                }
+                try {
+                    await GalleryManager.refreshCurrentPage();
+                } catch (refreshError) {
+                    console.warn('刷新图库失败:', refreshError);
+                    ImgEt.Utils.showNotification('图片已删除，刷新图库失败，请手动刷新页面', 'warning');
+                }
+                return;
+            }
+
+            if (isUploadPage && !suppressLoad) {
+                if (shouldNotifySuccess) {
+                    ImgEt.Utils.showNotification('删除成功', 'success');
+                }
+                try {
+                    await GalleryManager.refreshRecentUploads();
+                } catch (refreshError) {
+                    console.warn('刷新最近上传失败:', refreshError);
+                    ImgEt.Utils.showNotification('图片已删除，最近上传刷新失败，请手动刷新页面', 'warning');
+                }
+                return;
+            }
             
             // 3. 更新总数显示
             const totalCountEl = document.querySelector('.total-count');
@@ -2092,9 +2101,10 @@ class DeleteManager extends BaseProcessor {
                 ImgEt.Utils.showNotification('删除成功', 'success');
             }
             
-            // 6. 加载新图片补位
+            // 6. 非图库/最近上传区域才走轻量 DOM 移除；需要排序窗口的页面
+            // 会在前面直接重拉服务端片段，避免 DOM 数量推断导致错位。
             setTimeout(async () => {
-                this.#removeImageElement(filename, suppressLoad);
+                this.#removeImageElement(filename, true);
             }, 300);
 
         } catch (error) {
@@ -2236,6 +2246,9 @@ class ImageProcessor extends BaseProcessor {
             const data = await ApiService.request('/api/v1/action', { action: 'compress', file: filename, csrf_token: window.CSRF_TOKEN || '' }, { method: 'POST' });
             const sizeText = imgCard.querySelector('.img-size-value') || imgCard.querySelector('.img-size');
             if (sizeText && data?.size_text) sizeText.textContent = data.size_text;
+            if (options.dialog !== false) {
+                this.#showCompressResult(data, imgCard);
+            }
             if (options.notify !== false) {
                 this.#showCompressToast(data);
             }
@@ -2311,57 +2324,119 @@ class ImageProcessor extends BaseProcessor {
         }
     }
 
+    static async processSingleConvert(filename, imgCard, target, options = {}) {
+        target = ['jpg', 'png', 'webp', 'avif'].includes(String(target).toLowerCase()) ? String(target).toLowerCase() : 'webp';
+        if (target === 'webp') return this.processSingleWebP(filename, imgCard, options);
+        if (target === 'avif') return this.processSingleAvif(filename, imgCard, options);
+        if (this.isProcessing()) {
+            ImgEt.Utils.showNotification('有操作正在进行中', 'warning');
+            return;
+        }
+        this.startProcessing();
+        const btn = imgCard?.querySelector?.(`.convert-btn[data-convert-target="${target}"]`) || null;
+        const label = target === 'png' ? 'PNG' : 'JPG';
+        GalleryManager.setButtonLoadingState(btn, true, target);
+
+        try {
+            const data = await ApiService.request('/api/v1/action', { action: target, file: filename, csrf_token: window.CSRF_TOKEN || '' }, { method: 'POST' });
+            if (options.dialog !== false) {
+                this.#showConvertResult(data, label);
+            }
+            await this.#addConvertedCard(data, imgCard);
+            if (options.notify !== false) {
+                this.#showConvertToast(data, label);
+            }
+            return data;
+        } catch (error) {
+            if (options.notifyError !== false) {
+                ImgEt.Utils.showNotification(`转换失败: ${error.message}`, 'error');
+            }
+            throw error;
+        } finally {
+            GalleryManager.setButtonLoadingState(btn, false, target);
+            this.endProcessing();
+        }
+    }
+
     static #showCompressToast(data) {
-        const originalSize = data.original_size || '0 B';
-        const compressedSize = data.compressed_size || data.size_text || '0 B';
-        const savedSize = data.saved_size || '0 B';
-        const savedPercent = Number.isFinite(Number(data.saved_percent))
-            ? Number(data.saved_percent).toFixed(1).replace(/\.0$/, '')
-            : '0';
-        // 把后端实际调用的压缩引擎在 toast 标题里标出来 — 用户可以
-        // 一眼看到压缩方式设置是否生效（method 由 CompressionService
-        // 按 COMPRESSION_MODE 设置 dispatch 到 GD / TinyPNG / ImageMagick）
-        const engineLabels = {
-            gd:          'GD',
-            tinypng:     'TinyPNG',
-            imagemagick: 'ImageMagick',
-        };
-        const method = (data.method || data.mode || '').toLowerCase();
-        const engineName = engineLabels[method] || method || '';
-        const title = engineName ? `压缩完成 · ${engineName}` : '压缩完成';
+        const title = '压缩完成';
         ImgEt.Utils.showNotification(
             title,
             'success',
             {
                 variant: ['process', 'compress'],
                 title,
-                detail: `${originalSize} → ${compressedSize}`,
-                meta: `节省 ${savedSize} (${savedPercent}%)`,
                 icon: 'fa-arrows-minimize',
-                duration: 4800
+                duration: 3000
             }
         );
     }
 
     static #showConvertToast(data, format) {
-        const beforeSize = data.before_size_text || data.original_size || '0 B';
-        const afterSize = data.after_size_text || data.size_text || '0 B';
-        const savedSize = data.saved_size_text || data.saved_size || '0 B';
-        const savedPercent = Number.isFinite(Number(data.saved_percent))
-            ? Number(data.saved_percent).toFixed(1).replace(/\.0$/, '')
-            : '0';
+        const title = `${format} 转换完成`;
         ImgEt.Utils.showNotification(
-            `${format} 转换完成`,
+            title,
             'success',
             {
                 variant: ['process', 'convert'],
-                title: `${format} 转换完成`,
-                detail: `${beforeSize} → ${afterSize}`,
-                meta: `节省 ${savedSize} (${savedPercent}%)`,
+                title,
                 icon: 'fa-wand-magic-sparkles',
-                duration: 4800
+                duration: 3000
             }
         );
+    }
+
+    static #showCompressResult(data, imgCard) {
+        const originalSize = escapeHtml(data.original_size || data.before_size_text || '0 B');
+        const compressedSize = escapeHtml(data.compressed_size || data.after_size_text || data.size_text || '0 B');
+        const savedSize = escapeHtml(data.saved_size_text || data.saved_size || '0 B');
+        const savedPercent = Number.isFinite(Number(data.saved_percent))
+            ? Number(data.saved_percent).toFixed(1).replace(/\.0$/, '')
+            : '0';
+        const filename = imgCard?.dataset?.filename || imgCard?.querySelector?.('img')?.alt || '';
+        const previewRaw = imgCard?.dataset?.thumbUrl
+            || imgCard?.querySelector?.('img')?.getAttribute('src')
+            || imgCard?.dataset?.url
+            || '';
+        const separator = previewRaw.includes('?') ? '&' : '?';
+        const previewUrl = previewRaw ? `${previewRaw}${separator}t=${Date.now()}` : '';
+        const engineLabels = {
+            gd: 'GD',
+            tinypng: 'TinyPNG',
+            imagemagick: 'ImageMagick',
+        };
+        const method = String(data.method || data.mode || '').toLowerCase();
+        const engineName = engineLabels[method] || method || '';
+        const content = `
+            <div class="convert-result compress-result-panel">
+                ${previewUrl ? `
+                    <div class="convert-result-preview">
+                        <img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(filename)}" loading="lazy">
+                        <span class="convert-result-format">${escapeHtml(engineName || 'COMPRESS')}</span>
+                    </div>
+                ` : ''}
+                <div class="convert-result-stats" aria-label="压缩结果">
+                    <div class="convert-stat">
+                        <span>压缩前</span>
+                        <strong>${originalSize}</strong>
+                    </div>
+                    <div class="convert-stat is-current">
+                        <span>压缩后</span>
+                        <strong>${compressedSize}</strong>
+                    </div>
+                    <div class="convert-stat is-saved">
+                        <span>节省</span>
+                        <strong class="convert-saved-value">
+                            <span>${savedSize}</span>
+                            <em>${escapeHtml(savedPercent)}%</em>
+                        </strong>
+                    </div>
+                </div>
+            </div>`;
+        ImgEt.DialogManager.showCustomDialog('压缩完成', content);
+        const dialogs = Array.from(document.querySelectorAll('.custom-dialog'));
+        const dialog = dialogs[dialogs.length - 1];
+        dialog?.querySelector('.custom-dialog-content')?.classList.add('process-result-dialog-content', 'compress-dialog-content');
     }
 
     static #showConvertResult(data, format) {
@@ -2413,7 +2488,7 @@ class ImageProcessor extends BaseProcessor {
         ImgEt.DialogManager.showCustomDialog(`${format} 转换完成`, content);
         const dialogs = Array.from(document.querySelectorAll('.custom-dialog'));
         const dialog = dialogs[dialogs.length - 1];
-        dialog?.querySelector('.custom-dialog-content')?.classList.add('convert-dialog-content');
+        dialog?.querySelector('.custom-dialog-content')?.classList.add('process-result-dialog-content', 'convert-dialog-content');
         dialog?.querySelector('.convert-copy-btn')?.addEventListener('click', (event) => {
             const button = event.currentTarget;
             if (button instanceof HTMLElement && button.dataset.copy) {
@@ -2469,7 +2544,7 @@ class BatchProcessor extends BaseProcessor {
         if (action === 'compress') {
             return { text: '压缩', variant: 'compress', icon: 'fa-arrows-minimize' };
         }
-        if (action === 'webp' || action === 'avif') {
+        if (action === 'webp' || action === 'avif' || action === 'jpg' || action === 'png') {
             return { text: '转换', variant: 'convert', icon: 'fa-wand-magic-sparkles' };
         }
         return { text: '删除', variant: 'delete', icon: 'fa-trash' };
@@ -2481,11 +2556,14 @@ class BatchProcessor extends BaseProcessor {
         let item = host.querySelector('.notification-item.batch-delete-progress');
         if (!item) {
             item = document.createElement('div');
-            item.className = 'notification-item info batch-delete-progress show';
+            item.className = 'notification-item info notification-process notification-batch batch-delete-progress show';
             item.setAttribute('role', 'status');
             item.innerHTML = `
-                <i class="fa-light fa-spinner-third fa-spin text-info" aria-hidden="true"></i>
-                <span class="batch-delete-text flex-1 text-sm"></span>
+                <i class="fa-light fa-spinner-third fa-spin" aria-hidden="true"></i>
+                <div class="notification-copy">
+                    <strong class="batch-delete-text"></strong>
+                    <span>批量删除处理中</span>
+                </div>
             `;
             host.appendChild(item);
         }
@@ -2639,13 +2717,17 @@ class BatchProcessor extends BaseProcessor {
             try {
                 switch (action) {
                     case 'compress':
-                        await ImageProcessor.processSingleCompress(filename, imgCard, { notify: false, notifyError: false });
+                        await ImageProcessor.processSingleCompress(filename, imgCard, { notify: false, notifyError: false, dialog: false });
                         break;
                     case 'webp':
                         await ImageProcessor.processSingleWebP(filename, imgCard, { notify: false, notifyError: false, dialog: false });
                         break;
                     case 'avif':
                         await ImageProcessor.processSingleAvif(filename, imgCard, { notify: false, notifyError: false, dialog: false });
+                        break;
+                    case 'jpg':
+                    case 'png':
+                        await ImageProcessor.processSingleConvert(filename, imgCard, action, { notify: false, notifyError: false, dialog: false });
                         break;
                     case 'delete':
                         await DeleteManager.processSingle(filename, true, {
@@ -2739,6 +2821,83 @@ class GalleryManager {
             if (!filename) return;
             this.handleImageAction(btn, card, filename);
         });
+    }
+
+    static async refreshRecentUploads(limit = 5) {
+        const uploadGrid = document.querySelector('.upload-grid');
+        if (!uploadGrid) return false;
+
+        const response = await ApiService.request('/api/v1/action', {
+            action: 'get_next_image',
+            current_count: 0,
+            count: limit
+        });
+
+        if (response?.status !== 'success') {
+            throw new Error(response?.message || '最近上传刷新失败');
+        }
+
+        const images = Array.isArray(response.images) ? response.images.slice(0, limit) : [];
+        this.updateRecentUploadTime(images);
+        if (images.length === 0) {
+            uploadGrid.innerHTML = `
+                <div class="recent-empty">
+                    <i class="fa-light fa-image"></i>
+                    <span>暂无最近上传图片</span>
+                </div>
+            `;
+            return true;
+        }
+
+        const fragments = [];
+        for (const image of images) {
+            try {
+                fragments.push(await ApiService.getCardTemplate(image, 'recent'));
+            } catch (error) {
+                console.error('刷新最近上传卡片失败:', error);
+            }
+        }
+
+        uploadGrid.innerHTML = fragments.join('');
+        uploadGrid.querySelectorAll('.img-box').forEach(card => {
+            GalleryManager.initNewCard(card);
+            card.classList.add('appearing');
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => card.classList.remove('appearing'));
+            });
+        });
+        return true;
+    }
+
+    static updateRecentUploadTime(images = []) {
+        const tag = document.querySelector('[data-recent-time]');
+        if (!tag) return;
+
+        if (!Array.isArray(images) || images.length === 0) {
+            tag.textContent = '暂无上传';
+            return;
+        }
+
+        const lastImage = images[images.length - 1] || {};
+        const timestamp = Number(lastImage.time || lastImage.created_at || 0);
+        const date = GalleryManager.formatRecentUploadTime(timestamp);
+        tag.textContent = date ? `最后一张 ${date}` : '最后一张 时间未知';
+    }
+
+    static formatRecentUploadTime(timestamp) {
+        if (!Number.isFinite(timestamp) || timestamp <= 0) return '';
+        const milliseconds = timestamp > 1000000000000 ? timestamp : timestamp * 1000;
+        const date = new Date(milliseconds);
+        if (Number.isNaN(date.getTime())) return '';
+
+        const pad = value => String(value).padStart(2, '0');
+        const day = [
+            date.getFullYear(),
+            pad(date.getMonth() + 1),
+            pad(date.getDate())
+        ].join('-');
+        const time = [pad(date.getHours()), pad(date.getMinutes())].join(':');
+        return `${day} ${time}`;
     }
 
     static initDOMElements() {
@@ -2893,6 +3052,8 @@ class GalleryManager {
             ImageProcessor.processSingleWebP(filename, card);
         } else if (btn.classList.contains('avif-btn')) {
             ImageProcessor.processSingleAvif(filename, card);
+        } else if (btn.classList.contains('convert-btn')) {
+            ImageProcessor.processSingleConvert(filename, card, btn.dataset.convertTarget || 'webp');
         } else if (btn.classList.contains('delete-btn')) {
             DeleteManager.handleDelete(filename);
         }
@@ -2905,7 +3066,11 @@ class GalleryManager {
      */
     static async handleReprocess(filename, card, btn) {
         if (!filename) return;
-        if (!confirm(`将 ${filename} 扔回处理队列？\n\n后台会按当前设置重新生成缩略图 / WebP / AVIF / 水印（不会动原图）。`)) {
+        const confirmed = await ImgEt.DialogManager.confirm(
+            '重新处理图片',
+            `将 ${filename} 扔回处理队列？后台会按当前设置重新生成缩略图、格式转换、水印，不会动原图。`
+        );
+        if (!confirmed) {
             return;
         }
         const originalHTML = btn?.innerHTML;
@@ -3046,7 +3211,7 @@ class GalleryManager {
         if (isLoading) {
             btn.innerHTML = '<i class="fa-light fa-spinner-third fa-spin"></i>';
         } else {
-            const iconClass = { compress: 'fa-compress', webp: 'fa-image', avif: 'fa-image', delete: 'fa-trash' }[action] || 'fa-check';
+            const iconClass = { compress: 'fa-compress', webp: 'fa-image', avif: 'fa-image', jpg: 'fa-image', png: 'fa-image', delete: 'fa-trash' }[action] || 'fa-check';
             btn.innerHTML = `<i class="fa-light ${iconClass}"></i>`;
         }
     }
@@ -3123,12 +3288,15 @@ class UploadManager {
         this.completedUploads = [];
         this.headerUploadButton = document.querySelector('.nav-cta-btn[href="/upload"]');
         this.headerUploadIcon = this.headerUploadButton?.querySelector('i') || null;
+        this.headerUploadLoader = this.headerUploadButton?.querySelector('.nav-upload-loader') || null;
         this.headerUploadLabel = this.headerUploadButton?.querySelector('span') || null;
         this.headerUploadDefaultIcon = this.headerUploadIcon ? this.headerUploadIcon.className : '';
         this.headerUploadDefaultText = this.headerUploadLabel ? this.headerUploadLabel.textContent : '上传';
         this.lastNavigationNoticeAt = 0;
         this.maxSize = UploadManager.CONFIG.MAX_SIZE;
         this.autoCompressEnabled = false;
+        this.autoConvertEnabled = false;
+        this.autoConvertFormat = 'webp';
         this.autoWebpEnabled = false;
         this.autoAvifEnabled = false;
         this.allowedExtensions = new Set();
@@ -3142,6 +3310,8 @@ class UploadManager {
             this.autoCompressEnabled = this.elements.imageInput.dataset.autoCompress === '1';
             this.autoWebpEnabled = this.elements.imageInput.dataset.autoWebp === '1';
             this.autoAvifEnabled = this.elements.imageInput.dataset.autoAvif === '1';
+            this.autoConvertEnabled = this.elements.imageInput.dataset.autoConvert === '1' || this.autoWebpEnabled || this.autoAvifEnabled;
+            this.autoConvertFormat = String(this.elements.imageInput.dataset.convertFormat || this.elements.processingControls?.dataset.convertFormat || (this.autoAvifEnabled ? 'avif' : 'webp')).toLowerCase();
             const allowedTypes = String(this.elements.imageInput.dataset.allowedTypes || '')
                 .split(',')
                 .map(type => type.trim().replace(/^\./, '').toLowerCase())
@@ -3229,7 +3399,7 @@ class UploadManager {
 
         const before = {
             compress: this.autoCompressEnabled,
-            convert: this.autoWebpEnabled || this.autoAvifEnabled,
+            convert: this.autoConvertEnabled,
             webp: this.autoWebpEnabled,
             avif: this.autoAvifEnabled,
             format: String(controls.dataset.convertFormat || 'webp').toLowerCase()
@@ -3250,7 +3420,7 @@ class UploadManager {
             formData.append('changed', changed || '');
             formData.append('auto_compress_on_upload', state.compress ? '1' : '0');
             formData.append('auto_convert_on_upload', state.convert ? '1' : '0');
-            formData.append('convert_preferred_format', state.format === 'avif' ? 'avif' : 'webp');
+            formData.append('convert_preferred_format', ['webp', 'avif', 'jpg', 'png'].includes(state.format) ? state.format : 'webp');
 
             const response = await fetch('/upload', {
                 method: 'POST',
@@ -3295,15 +3465,20 @@ class UploadManager {
         const autoWebp = !!settings.auto_convert_webp_on_upload;
         const autoAvif = !!settings.auto_convert_avif_on_upload;
         const autoConvert = autoWebp || autoAvif || !!settings.auto_convert_on_upload;
-        const format = String(settings.convert_preferred_format || controls.dataset.convertFormat || 'webp').toLowerCase();
+        const rawFormat = String(settings.convert_preferred_format || controls.dataset.convertFormat || 'webp').toLowerCase();
+        const format = ['webp', 'avif', 'jpg', 'png'].includes(rawFormat) ? rawFormat : 'webp';
 
         this.autoCompressEnabled = autoCompress;
+        this.autoConvertEnabled = autoConvert;
+        this.autoConvertFormat = format;
         this.autoWebpEnabled = autoConvert && format === 'webp';
         this.autoAvifEnabled = autoConvert && format === 'avif';
         imageInput.dataset.autoCompress = this.autoCompressEnabled ? '1' : '0';
+        imageInput.dataset.autoConvert = this.autoConvertEnabled ? '1' : '0';
+        imageInput.dataset.convertFormat = format;
         imageInput.dataset.autoWebp = this.autoWebpEnabled ? '1' : '0';
         imageInput.dataset.autoAvif = this.autoAvifEnabled ? '1' : '0';
-        controls.dataset.convertFormat = format === 'avif' ? 'avif' : 'webp';
+        controls.dataset.convertFormat = format;
 
         const compressToggle = controls.querySelector('[data-upload-setting-toggle="compress"]');
         const convertToggle = controls.querySelector('[data-upload-setting-toggle="convert"]');
@@ -3312,8 +3487,8 @@ class UploadManager {
             compressToggle.closest('.upload-setting-toggle')?.classList.toggle('is-active', this.autoCompressEnabled);
         }
         if (convertToggle) {
-            convertToggle.checked = this.autoWebpEnabled || this.autoAvifEnabled;
-            convertToggle.closest('.upload-setting-toggle')?.classList.toggle('is-active', this.autoWebpEnabled || this.autoAvifEnabled);
+            convertToggle.checked = this.autoConvertEnabled;
+            convertToggle.closest('.upload-setting-toggle')?.classList.toggle('is-active', this.autoConvertEnabled);
         }
 
         const compressValue = controls.querySelector('[data-upload-compress-value]');
@@ -3322,8 +3497,9 @@ class UploadManager {
             compressValue.textContent = this.autoCompressEnabled ? (settings.compression_label || '开启') : '关闭';
         }
         if (convertValue) {
-            convertValue.textContent = (this.autoWebpEnabled || this.autoAvifEnabled)
-                ? (settings.conversion_label || (format === 'avif' ? 'AVIF' : 'WebP'))
+            const formatLabel = { webp: 'WebP', avif: 'AVIF', jpg: 'JPG', png: 'PNG' }[format] || format.toUpperCase();
+            convertValue.textContent = this.autoConvertEnabled
+                ? (settings.conversion_label || formatLabel)
                 : '关闭';
         }
     }
@@ -4248,8 +4424,10 @@ class UploadManager {
         record.loaded = record.total;
         const tasks = [];
         if (this.autoCompressEnabled) tasks.push('开始压缩');
-        if (this.autoWebpEnabled) tasks.push('开始转换 WebP');
-        if (this.autoAvifEnabled) tasks.push('开始转换 AVIF');
+        if (this.autoConvertEnabled) {
+            const formatLabel = { webp: 'WebP', avif: 'AVIF', jpg: 'JPG', png: 'PNG' }[this.autoConvertFormat] || this.autoConvertFormat.toUpperCase();
+            tasks.push(`开始转换 ${formatLabel}`);
+        }
         record.processingText = tasks.length > 0
             ? `服务器处理中：${tasks.join('，')}`
             : '服务器处理中';
@@ -4362,7 +4540,12 @@ class UploadManager {
             button.classList.add('is-uploading');
             button.classList.remove('is-upload-complete', 'is-upload-error');
             if (this.headerUploadIcon) {
-                this.headerUploadIcon.className = 'fa-light fa-spinner fa-spin';
+                this.headerUploadIcon.className = this.headerUploadDefaultIcon;
+                this.headerUploadIcon.hidden = true;
+                this.headerUploadIcon.setAttribute('aria-hidden', 'true');
+            }
+            if (this.headerUploadLoader) {
+                this.headerUploadLoader.hidden = false;
             }
             if (this.headerUploadLabel) {
                 this.headerUploadLabel.textContent = `${safePercent}%`;
@@ -4375,9 +4558,14 @@ class UploadManager {
         button.classList.toggle('is-upload-complete', this.batchFailed === 0 && this.batchTotal > 0);
         button.style.setProperty('--upload-progress', '100%');
         if (this.headerUploadIcon) {
+            this.headerUploadIcon.hidden = false;
+            this.headerUploadIcon.setAttribute('aria-hidden', 'true');
             this.headerUploadIcon.className = this.batchFailed > 0
                 ? 'fa-light fa-triangle-exclamation'
                 : 'fa-light fa-check';
+        }
+        if (this.headerUploadLoader) {
+            this.headerUploadLoader.hidden = true;
         }
         if (this.headerUploadLabel) {
             this.headerUploadLabel.textContent = this.batchFailed > 0 ? '失败' : '完成';
@@ -4390,6 +4578,11 @@ class UploadManager {
             button.style.removeProperty('--upload-progress');
             if (this.headerUploadIcon) {
                 this.headerUploadIcon.className = this.headerUploadDefaultIcon;
+                this.headerUploadIcon.hidden = false;
+                this.headerUploadIcon.setAttribute('aria-hidden', 'true');
+            }
+            if (this.headerUploadLoader) {
+                this.headerUploadLoader.hidden = true;
             }
             if (this.headerUploadLabel) {
                 this.headerUploadLabel.textContent = this.headerUploadDefaultText;
@@ -4671,27 +4864,14 @@ class UploadManager {
                 window.setTimeout(() => this.hideProgressArea(finishedRunId), 2600);
             }
 
-            // 动态插入新上传的卡片（替代刷新页面），最多保留 5 个
-            const uploadGrid = document.querySelector('.upload-grid');
-            if (uploadGrid && this.completedUploads.length > 0) {
-                for (const result of this.completedUploads) {
-                    try {
-                        const cardHtml = await ApiService.getCardTemplate(result, 'recent');
-                        uploadGrid.insertAdjacentHTML('afterbegin', cardHtml);
-                        const newCard = uploadGrid.firstElementChild;
-                        if (newCard) {
-                            GalleryManager.initNewCard(newCard);
-                        }
-                    } catch (err) {
-                        console.error('插入新卡片失败:', err);
-                    }
+            // 最近上传是“最新 5 张”的排序窗口，上传完成后直接重拉服务端
+            // Top 5，避免并发完成顺序和前端插入顺序造成错位。
+            if (this.completedUploads.length > 0) {
+                try {
+                    await GalleryManager.refreshRecentUploads();
+                } catch (error) {
+                    console.error('刷新最近上传失败:', error);
                 }
-                // 超出 5 个时移除末尾多余的卡片
-                while (uploadGrid.children.length > 5) {
-                    const last = uploadGrid.lastElementChild;
-                    if (last) last.remove();
-                }
-                GalleryManager.updateImageCount();
             }
             this.completedUploads = [];
             this.activeRunIds.clear();

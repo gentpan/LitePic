@@ -83,7 +83,7 @@ final class ImageServeService
             // so the number reflects actual image displays, not cache pings.
         } elseif (self::isViewCounterEnabled()) {
             try {
-                $this->repo->incrementViews($identifier);
+                $this->repo->recordViewRequest($identifier, (string)($_SERVER['HTTP_REFERER'] ?? ''));
             } catch (\Throwable $e) {
                 // Counter is best-effort — don't fail the image serve.
                 error_log('ImageServeService: view increment failed for ' . $identifier . ': ' . $e->getMessage());

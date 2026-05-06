@@ -120,7 +120,7 @@ $default_host = $_SERVER['HTTP_HOST'] ?? 'localhost:8080';
 $default_scheme = $is_https ? 'https' : 'http';
 
 // 基础配置
-define('LITEPIC_VERSION', '3.3.1');
+define('LITEPIC_VERSION', '3.3.2');
 define('SITE_NAME', env_value('SITE_NAME', 'LitePic'));
 define('SITE_DESCRIPTION', env_value('SITE_DESCRIPTION', '轻量级图床程序'));
 define('SITE_VERSION', LITEPIC_VERSION);
@@ -137,7 +137,7 @@ define('STATIC_PATH', '/static/');
 
 // 图片相关配置
 $supported_image_types = [
-    'jpg', 'jpeg', 'png', 'gif', 'webp', 'avif',
+    'jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'heic', 'heif',
     'ico', 'svg', 'bmp', 'tiff', 'tif'
 ];
 define('SUPPORTED_IMAGE_TYPES', $supported_image_types);
@@ -219,9 +219,18 @@ if (!defined('ENABLE_EXIF_CLEAN')) {
     define('ENABLE_EXIF_CLEAN', true);
 }
 define('AUTO_COMPRESS_ON_UPLOAD', env_bool('AUTO_COMPRESS_ON_UPLOAD', false));
-define('AUTO_CONVERT_WEBP_ON_UPLOAD', env_bool('AUTO_CONVERT_WEBP_ON_UPLOAD', false));
-define('AUTO_CONVERT_AVIF_ON_UPLOAD', env_bool('AUTO_CONVERT_AVIF_ON_UPLOAD', false));
-define('CONVERT_PREFERRED_FORMAT', in_array(strtolower((string)env_value('CONVERT_PREFERRED_FORMAT', 'webp')), ['webp', 'avif'], true) ? strtolower((string)env_value('CONVERT_PREFERRED_FORMAT', 'webp')) : 'webp');
+$convert_preferred_format = strtolower((string)env_value('CONVERT_PREFERRED_FORMAT', 'webp'));
+if (!in_array($convert_preferred_format, ['webp', 'avif', 'jpg', 'png'], true)) {
+    $convert_preferred_format = 'webp';
+}
+$auto_convert_on_upload = env_bool(
+    'AUTO_CONVERT_ON_UPLOAD',
+    env_bool('AUTO_CONVERT_WEBP_ON_UPLOAD', false) || env_bool('AUTO_CONVERT_AVIF_ON_UPLOAD', false)
+);
+define('AUTO_CONVERT_ON_UPLOAD', $auto_convert_on_upload);
+define('AUTO_CONVERT_WEBP_ON_UPLOAD', $auto_convert_on_upload && $convert_preferred_format === 'webp');
+define('AUTO_CONVERT_AVIF_ON_UPLOAD', $auto_convert_on_upload && $convert_preferred_format === 'avif');
+define('CONVERT_PREFERRED_FORMAT', $convert_preferred_format);
 define('KEEP_ORIGINAL_AFTER_PROCESS', env_bool('KEEP_ORIGINAL_AFTER_PROCESS', false));
 define('COMPRESSION_MODE', (string)env_value('COMPRESSION_MODE', 'imagemagick'));
 

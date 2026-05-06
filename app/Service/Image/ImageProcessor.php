@@ -105,7 +105,7 @@ final class ImageProcessor
     /**
      * Run all post-processing steps for one queue task.
      * Same logic as the old synchronous block in UploadService::handleSingle:
-     *   thumbnail → compress → webp → avif → settle (move/delete variants)
+     *   thumbnail → compress → convert → settle (move/delete variants)
      *   → final thumbnail → watermark → remote sync.
      *
      * @return bool true if any actual work happened (not just options.* all false)
@@ -126,9 +126,11 @@ final class ImageProcessor
             $thumbnails->create($filename);
         }
 
-        $processing = ['auto_compress' => [], 'auto_webp' => [], 'auto_avif' => []];
-        if (!empty($opts['auto_compress']) || !empty($opts['auto_webp']) || !empty($opts['auto_avif'])) {
-            $processing = (new ConversionService())->runUploadPostProcess($filename);
+        $processing = ['auto_compress' => [], 'auto_convert' => [], 'auto_webp' => [], 'auto_avif' => []];
+        if (!empty($opts['auto_compress']) || !empty($opts['auto_convert']) || !empty($opts['auto_webp']) || !empty($opts['auto_avif'])) {
+            $target = ImageFormat::normalizeTarget((string)($opts['auto_convert_target'] ?? (defined('CONVERT_PREFERRED_FORMAT') ? CONVERT_PREFERRED_FORMAT : 'webp'))) ?: 'webp';
+            $convertEnabled = !empty($opts['auto_convert']) || !empty($opts['auto_webp']) || !empty($opts['auto_avif']);
+            $processing = (new ConversionService())->runUploadPostProcess($filename, $target, $convertEnabled);
         }
 
         // Decide which file is "final" (avif > webp > original) and
@@ -136,7 +138,15 @@ final class ImageProcessor
         [$finalFilename] = self::settleVariants($filename, $processing, $thumbnails);
 
         if (!empty($opts['watermark'])) {
-            (new WatermarkService())->apply($finalFilename);
+            $watermark = (new WatermarkService())->apply($finalFilename);
+            if (!empty($watermark['applied'])) {
+                $this->images->setFlags($finalFilename, ['watermarked' => true]);
+            } elseif (!empty($watermark['enabled'])) {
+                Logger::warning('Watermark skipped', [
+                    'filename' => $finalFilename,
+                    'reason' => $watermark['skip_reason'] ?? 'unknown',
+                ]);
+            }
         }
 
         // Always (re)create thumbnail for the final variant so the gallery
@@ -200,6 +210,24 @@ final class ImageProcessor
                 }
                 $finalFilename = $avifFilename;
                 $finalUrl = ImageUrl::forIdentifier($avifFilename);
+            }
+        }
+
+        if (!empty($processing['auto_convert']['created']) && !empty($processing['auto_convert']['filename'])) {
+            $convertedFilename = PathService::normalizeIdentifier((string)$processing['auto_convert']['filename']);
+            $convertedPath = PathService::resolveFilePath($convertedFilename);
+            if (file_exists($convertedPath) && $convertedFilename !== $finalFilename) {
+                $prevPath = PathService::resolveFilePath($finalFilename);
+                if (file_exists($prevPath) && basename($prevPath) !== PathService::displayName($convertedFilename)) {
+                    if (!$keepOriginal) {
+                        @unlink($prevPath);
+                        $thumbnails->delete($finalFilename);
+                        (new ImageRepository())->delete($finalFilename);
+                        $originalDeleted = true;
+                    }
+                }
+                $finalFilename = $convertedFilename;
+                $finalUrl = ImageUrl::forIdentifier($convertedFilename);
             }
         }
 

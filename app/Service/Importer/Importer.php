@@ -49,6 +49,8 @@ final class Importer
     public function scanAndImport(array $options = []): array
     {
         $createThumb = !array_key_exists('create_thumbnail', $options) || (bool)$options['create_thumbnail'];
+        $autoConvert = !empty($options['auto_convert']);
+        $autoConvertTarget = ImageFormat::normalizeTarget((string)($options['auto_convert_target'] ?? (defined('CONVERT_PREFERRED_FORMAT') ? CONVERT_PREFERRED_FORMAT : 'webp'))) ?: 'webp';
         $autoWebp = !empty($options['auto_webp']);
         $autoAvif = !empty($options['auto_avif']);
         $autoCompress = !empty($options['auto_compress']);
@@ -107,6 +109,8 @@ final class Importer
                     $taskOptions = [
                         'create_thumbnail' => $createThumb,
                         'auto_compress' => $autoCompress,
+                        'auto_convert' => $autoConvert,
+                        'auto_convert_target' => $autoConvertTarget,
                         'auto_webp' => $autoWebp,
                         'auto_avif' => $autoAvif,
                         'watermark' => defined('WATERMARK_ENABLED') && WATERMARK_ENABLED,
@@ -227,7 +231,10 @@ final class Importer
             }
         }
 
-        if (!empty($task['auto_webp'])) {
+        if (!empty($task['auto_convert'])) {
+            $finalFilename = self::tryConvert($finalFilename, (string)($task['auto_convert_target'] ?? 'webp'), $result);
+            $ext = strtolower((string)pathinfo($finalFilename, PATHINFO_EXTENSION));
+        } elseif (!empty($task['auto_webp'])) {
             $finalFilename = self::tryConvert($finalFilename, 'webp', $result);
             $ext = strtolower((string)pathinfo($finalFilename, PATHINFO_EXTENSION));
         } elseif (!empty($task['auto_avif'])) {
@@ -435,10 +442,12 @@ final class Importer
     private static function tryConvert(string $filename, string $targetExt, array &$result): string
     {
         $ext = strtolower((string)pathinfo($filename, PATHINFO_EXTENSION));
-        $convertible = $targetExt === 'webp'
-            ? ImageFormat::canConvertWebp($ext)
-            : ImageFormat::canConvertAvif($ext);
+        $targetExt = ImageFormat::normalizeTarget($targetExt) ?: 'webp';
+        $convertible = ImageFormat::canConvertTo($ext, $targetExt);
         $skipKey = 'skip_' . $targetExt;
+        $createdKey = $targetExt . '_created';
+        $result[$skipKey] = (int)($result[$skipKey] ?? 0);
+        $result[$createdKey] = (int)($result[$createdKey] ?? 0);
 
         if (!$convertible) {
             $result[$skipKey]++;
@@ -446,12 +455,12 @@ final class Importer
         }
         $service = new ConversionService();
         $originPath = PathService::resolveFilePath($filename);
-        $ok = $targetExt === 'webp' ? $service->toWebp($originPath) : $service->toAvif($originPath);
+        $ok = $service->toFormat($originPath, $targetExt);
         if (!$ok) {
             $result[$skipKey]++;
             return $filename;
         }
-        $variantPath = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.' . $targetExt, $originPath);
+        $variantPath = preg_replace('/\.(jpg|jpeg|png|gif|webp|avif|heic|heif|bmp|tiff|tif|ico)$/i', '.' . $targetExt, $originPath);
         if (!is_string($variantPath) || !is_file($variantPath)) {
             $result[$skipKey]++;
             return $filename;
@@ -464,7 +473,7 @@ final class Importer
                 (new ThumbnailService())->delete($filename);
             }
         }
-        $result[$targetExt . '_created']++;
+        $result[$createdKey]++;
         return $variantFilename;
     }
 }

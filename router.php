@@ -18,7 +18,7 @@ if ($normalizedPath === '/i' || str_starts_with($normalizedPath, '/i/')) {
 // Image URL prefix fallback — same as index.php branch, mirrored here for the
 // PHP built-in dev server (`php -S`) which uses this router instead of going
 // through Apache .htaccess. Catches /<prefix>/yyyy/mm/file → image.php.
-if (preg_match('#^/(?!uploads/|i/|api/|static/|assets/|data/|logs/)([a-z0-9][a-z0-9_-]*/)?([0-9]{4}/[0-9]{2}/[^/]+\.(?:jpg|jpeg|png|gif|webp|avif|svg|ico|bmp|tiff|tif|heic|jxl|raw|dng))$#i', $normalizedPath, $m)) {
+if (preg_match('#^/(?!uploads/|i/|api/|static/|assets/|data/|logs/)([a-z0-9][a-z0-9_-]*/)?([0-9]{4}/[0-9]{2}/[^/]+\.(?:jpg|jpeg|png|gif|webp|avif|svg|ico|bmp|tiff|tif|heic|heif|jxl|raw|dng))$#i', $normalizedPath, $m)) {
     $_GET['file'] = $m[2];
     require __DIR__ . '/image.php';
     return true;

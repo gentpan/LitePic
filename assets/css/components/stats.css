@@ -158,6 +158,71 @@
     background: rgba(0,0,0,0.015);
   }
 
+  .stats-table-wide table {
+    table-layout: fixed;
+  }
+
+  .stats-table-wide th:nth-child(1),
+  .stats-table-wide td:nth-child(1) {
+    width: 30%;
+  }
+
+  .stats-table-wide th:nth-child(2),
+  .stats-table-wide td:nth-child(2) {
+    width: 30%;
+  }
+
+  .stats-table-wide th:nth-child(3),
+  .stats-table-wide td:nth-child(3) {
+    width: 10%;
+    text-align: right;
+  }
+
+  .stats-table-wide th:nth-child(4),
+  .stats-table-wide td:nth-child(4) {
+    width: 30%;
+  }
+
+  .stats-image-title,
+  .stats-image-name a,
+  .stats-source-cell a,
+  .stats-source-muted {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+  }
+
+  .stats-image-name a,
+  .stats-source-cell a {
+    color: var(--primary);
+  }
+
+  .stats-count-cell {
+    color: var(--dark);
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stats-source-cell {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .stats-source-cell small {
+    color: var(--gray);
+    font-size: 0.72rem;
+    line-height: 1.2;
+  }
+
+  .stats-source-muted {
+    color: var(--gray);
+  }
+
   /* ===== 响应式 ===== */
   @media (max-width: 992px) {
     .stats-charts,
@@ -212,6 +277,11 @@
   html[data-theme="dark"] .stats-table tbody td {
     color: #bdbdbd;
     border-color: rgba(255,255,255,0.04);
+  }
+
+  html[data-theme="dark"] .stats-image-name a,
+  html[data-theme="dark"] .stats-source-cell a {
+    color: #8ab8ff;
   }
 
   /* ===== 打印优化 ===== */

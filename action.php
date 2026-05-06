@@ -96,15 +96,23 @@ if ($action === 'get_next_image') {
     if ($current_count < 0) $current_count = 0;
     if ($count <= 0) $count = 1;
 
-    // 获取图片列表（确保 (new \LitePic\Repository\ImageRepository())->listIdentifiersSafe() 可用并返回正确排序）
-    $all_images = (new \LitePic\Repository\ImageRepository())->listIdentifiersSafe();
+    // 获取可渲染图片列表。数据库可能存在文件已丢失的孤儿记录，
+    // 这里必须先用 ImageInfo 过滤，否则最近上传会显示图库已经跳过的坏记录。
+    $repo = new \LitePic\Repository\ImageRepository();
+    $infoService = new \LitePic\Service\Image\ImageInfo($repo);
+    $all_images = [];
+    foreach ($repo->listIdentifiersSafe() as $identifier) {
+        if ($infoService->getSafe((string)$identifier)) {
+            $all_images[] = (string)$identifier;
+        }
+    }
     $total = count($all_images);
 
     $images = [];
     if ($current_count < $total) {
         $slice = array_slice($all_images, $current_count, $count);
         foreach ($slice as $img) {
-            $info = (new \LitePic\Service\Image\ImageInfo())->getSafe($img);
+            $info = $infoService->getSafe($img);
             if ($info) {
                 $images[] = [
                     'filename'   => $img,
@@ -240,9 +248,77 @@ if ($file === '') {
 $path = \LitePic\Service\Image\PathService::resolveFilePath($file);
 
 if (!file_exists($path)) {
-    // 改进: 使用 404 状态码
-    \LitePic\Core\Response::error('文件不存在', 404);
+    // 删除允许清理数据库中的孤儿记录；其他动作仍然需要真实文件。
+    if ($action !== 'delete') {
+        \LitePic\Core\Response::error('文件不存在', 404);
+    }
 }
+
+$handle_convert_action = static function (string $targetExt) use ($file, $path): void {
+    try {
+        $targetExt = \LitePic\Service\Image\ImageFormat::normalizeTarget($targetExt);
+        if ($targetExt === '') {
+            \LitePic\Core\Response::error('不支持的转换目标格式', 400);
+        }
+
+        $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+        if (!\LitePic\Service\Image\ImageFormat::canConvertTo($ext, $targetExt)) {
+            \LitePic\Core\Response::error('该文件类型不支持转换为 ' . \LitePic\Service\Image\ImageFormat::targetLabel($targetExt), 400);
+        }
+
+        $targetPath = preg_replace('/\.(jpg|jpeg|png|gif|webp|avif|heic|heif|bmp|tiff|tif|ico)$/i', '.' . $targetExt, $path);
+        if (!is_string($targetPath) || $targetPath === '' || $targetPath === $path) {
+            throw new Exception('输出路径无效');
+        }
+        $beforeSize = filesize($path);
+        if ($beforeSize === false || $beforeSize <= 0) {
+            throw new Exception('原文件大小不可读');
+        }
+
+        if (!(new \LitePic\Service\Image\ConversionService())->toFormat($path, $targetExt)) {
+            throw new Exception(\LitePic\Service\Image\ImageFormat::targetLabel($targetExt) . ' 转换失败');
+        }
+        if (!is_file($targetPath)) {
+            throw new Exception(\LitePic\Service\Image\ImageFormat::targetLabel($targetExt) . ' 文件生成失败');
+        }
+
+        $targetFilename = \LitePic\Service\Image\PathService::identifierFromPath($targetPath) ?? basename($targetPath);
+        $watermark = (new \LitePic\Service\Image\WatermarkService())->apply($targetFilename);
+        clearstatcache(true, $targetPath);
+        $afterSize = filesize($targetPath);
+        if ($afterSize === false || $afterSize <= 0) {
+            throw new Exception('转换后文件大小不可读');
+        }
+        $savedSize = max(0, $beforeSize - $afterSize);
+        $savedPercent = $beforeSize > 0 ? round(($savedSize / $beforeSize) * 100, 1) : 0;
+
+        $thumbnailUrl = \LitePic\Service\Image\ImageUrl::forIdentifier($targetFilename);
+        if ((new \LitePic\Service\Image\ThumbnailService())->create($targetFilename, true)) {
+            $thumbnailUrl = \LitePic\Service\Image\ImageUrl::thumbnailUrl($targetFilename);
+        }
+        $remoteSync = (new \LitePic\Service\Storage\RemoteStorage())->syncFileAndThumbnail($targetFilename);
+        \LitePic\Core\Response::success([
+            'message' => \LitePic\Service\Image\ImageFormat::targetLabel($targetExt) . ' 转换成功',
+            'filename' => $targetFilename,
+            'url' => \LitePic\Service\Image\ImageUrl::forIdentifier($targetFilename),
+            'size' => $afterSize,
+            'size_text' => \LitePic\Core\Format::filesize($afterSize),
+            'before_size' => $beforeSize,
+            'after_size' => $afterSize,
+            'before_size_text' => \LitePic\Core\Format::filesize($beforeSize),
+            'after_size_text' => \LitePic\Core\Format::filesize($afterSize),
+            'saved_size' => $savedSize,
+            'saved_size_text' => \LitePic\Core\Format::filesize($savedSize),
+            'saved_percent' => $savedPercent,
+            'thumbnail_url' => $thumbnailUrl,
+            'watermark' => $watermark,
+            'remote_storage' => $remoteSync,
+        ]);
+    } catch (Exception $e) {
+        error_log(strtoupper($targetExt) . " conversion failed for {$file}: " . $e->getMessage());
+        \LitePic\Core\Response::error(\LitePic\Core\Response::safeMessage($e), 500);
+    }
+};
 
 switch ($action) {
     case 'compress':
@@ -291,11 +367,11 @@ switch ($action) {
     case 'webp':
         try {
             $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'gif'], true)) {
-                \LitePic\Core\Response::error('该文件类型不支持转换 WebP（仅支持 JPG/JPEG/PNG/GIF）', 400);
+            if (!\LitePic\Service\Image\ImageFormat::canConvertTo($ext, 'webp')) {
+                \LitePic\Core\Response::error('该文件类型不支持转换 WebP', 400);
             }
 
-            $webp_path = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.webp', $path);
+            $webp_path = preg_replace('/\.(jpg|jpeg|png|gif|heic|heif)$/i', '.webp', $path);
             if (!is_string($webp_path) || $webp_path === '') {
                 throw new Exception('WebP 输出路径无效');
             }
@@ -353,11 +429,11 @@ switch ($action) {
     case 'avif':
         try {
             $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'gif'], true)) {
-                \LitePic\Core\Response::error('该文件类型不支持转换 AVIF（仅支持 JPG/JPEG/PNG/GIF）', 400);
+            if (!\LitePic\Service\Image\ImageFormat::canConvertTo($ext, 'avif')) {
+                \LitePic\Core\Response::error('该文件类型不支持转换 AVIF', 400);
             }
 
-            $avif_path = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.avif', $path);
+            $avif_path = preg_replace('/\.(jpg|jpeg|png|gif|heic|heif)$/i', '.avif', $path);
             if (!is_string($avif_path) || $avif_path === '') {
                 throw new Exception('AVIF 输出路径无效');
             }
@@ -412,6 +488,11 @@ switch ($action) {
         }
         break;
 
+    case 'jpg':
+    case 'png':
+        $handle_convert_action($action);
+        break;
+
     case 'regenerate_thumbnail':
         // 从图库卡片右键菜单触发：强制重新生成缩略图（覆盖旧的）。
         // 同步执行，立即返回新缩略图 URL 供前端 cache-bust 刷新。
@@ -453,24 +534,23 @@ switch ($action) {
 
         // 无论原图删除是否成功，都尝试清理缩略图，避免残留
         (new \LitePic\Service\Image\ThumbnailService())->delete($file);
-        if (@unlink($path)) {
-            // 删除对应的 WebP / AVIF 文件（如果存在）
-            if (is_string($webp) && file_exists($webp)) {
-                @unlink($webp);
-                (new \LitePic\Service\Image\ThumbnailService())->delete((string)(\LitePic\Service\Image\PathService::identifierFromPath($webp) ?? basename($webp)));
-            }
-            if (is_string($avif) && file_exists($avif)) {
-                @unlink($avif);
-                (new \LitePic\Service\Image\ThumbnailService())->delete((string)(\LitePic\Service\Image\PathService::identifierFromPath($avif) ?? basename($avif)));
-            }
-            $imageRepo = new \LitePic\Repository\ImageRepository();
-            $imageRepo->delete($file);
-            $message = (new \LitePic\Service\Storage\RemoteStorage())->credentialsValid() ? '删除成功，远程对象将在 24 小时后删除' : '删除成功';
-            \LitePic\Core\Response::success(['message' => $message]);
-        } else {
-            // 改进: 使用 500 状态码
+        if (file_exists($path) && !@unlink($path)) {
             \LitePic\Core\Response::error('删除失败', 500);
         }
+
+        // 删除对应的 WebP / AVIF 文件（如果存在）
+        if (is_string($webp) && file_exists($webp)) {
+            @unlink($webp);
+            (new \LitePic\Service\Image\ThumbnailService())->delete((string)(\LitePic\Service\Image\PathService::identifierFromPath($webp) ?? basename($webp)));
+        }
+        if (is_string($avif) && file_exists($avif)) {
+            @unlink($avif);
+            (new \LitePic\Service\Image\ThumbnailService())->delete((string)(\LitePic\Service\Image\PathService::identifierFromPath($avif) ?? basename($avif)));
+        }
+        $imageRepo = new \LitePic\Repository\ImageRepository();
+        $imageRepo->delete($file);
+        $message = (new \LitePic\Service\Storage\RemoteStorage())->credentialsValid() ? '删除成功，远程对象将在 24 小时后删除' : '删除成功';
+        \LitePic\Core\Response::success(['message' => $message]);
         break;
 
     default:

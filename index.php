@@ -29,7 +29,7 @@ if ($normalizedPath === '/i' || str_starts_with($normalizedPath, '/i/')) {
  * 排除前缀：uploads（直连）、i（已上面拦截）、api / static / assets /
  * data / logs（框架路径）。
  */
-if (preg_match('#^/(?!uploads/|i/|api/|static/|assets/|data/|logs/)([a-z0-9][a-z0-9_-]*/)?([0-9]{4}/[0-9]{2}/[^/]+\.(?:jpg|jpeg|png|gif|webp|avif|svg|ico|bmp|tiff|tif|heic|jxl|raw|dng))$#i', $requestPath, $m)) {
+if (preg_match('#^/(?!uploads/|i/|api/|static/|assets/|data/|logs/)([a-z0-9][a-z0-9_-]*/)?([0-9]{4}/[0-9]{2}/[^/]+\.(?:jpg|jpeg|png|gif|webp|avif|svg|ico|bmp|tiff|tif|heic|heif|jxl|raw|dng))$#i', $requestPath, $m)) {
     $_GET['file'] = $m[2];
     require __DIR__ . '/image.php';
     exit;

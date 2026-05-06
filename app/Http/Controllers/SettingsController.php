@@ -36,7 +36,7 @@ final class SettingsController
     private const SUPPORTED_WATERMARK_POSITIONS = ['bottom-right', 'bottom-left', 'top-right', 'top-left', 'center'];
     private const SUPPORTED_COMPRESSION_MODES = ['tinypng', 'gd', 'imagemagick'];
     private const SUPPORTED_CONVERSION_ENGINES = ['auto', 'imagick', 'gd'];
-    private const SUPPORTED_CONVERT_FORMATS = ['webp', 'avif'];
+    private const SUPPORTED_CONVERT_FORMATS = ['webp', 'avif', 'jpg', 'png'];
 
     /**
      * @return array{message:string,type:string,created_token?:string,saved_settings?:array}
@@ -180,16 +180,24 @@ final class SettingsController
         $cap = ServerInfo::compressionCapability();
         if ($autoWebp && empty($cap['webp'])) {
             $autoWebp = false;
+            $autoConvert = false;
             $warnings[] = 'WebP 支持未启用，已跳过导入时自动转 WebP';
         }
         if ($autoAvif && empty($cap['avif'])) {
             $autoAvif = false;
+            $autoConvert = false;
             $warnings[] = 'AVIF 支持未启用，已跳过导入时自动转 AVIF';
+        }
+        if ($autoConvert && in_array($convertFormat, ['jpg', 'png'], true) && empty($cap['gd']) && empty($cap['imagick'])) {
+            $autoConvert = false;
+            $warnings[] = strtoupper($convertFormat) . ' 转换需要 GD 或 ImageMagick，已跳过导入时自动转换';
         }
 
         $report = (new Importer())->scanAndImport([
             'create_thumbnail' => $createThumbnail,
             'auto_compress' => $autoCompress,
+            'auto_convert' => $autoConvert,
+            'auto_convert_target' => $convertFormat,
             'auto_webp' => $autoWebp,
             'auto_avif' => $autoAvif,
             'source_path' => $sourcePath,
@@ -310,7 +318,7 @@ final class SettingsController
         $autoCompressOnUpload = self::boolFromPost('auto_compress_on_upload');
 
         // Format conversion: combined or split radio + checkbox
-        [$autoConvertWebp, $autoConvertAvif, $convertPreferredFormat] = $this->resolveConvertSettings($warnings);
+        [$autoConvertOnUpload, $autoConvertWebp, $autoConvertAvif, $convertPreferredFormat] = $this->resolveConvertSettings($warnings);
 
         $keepOriginalAfterProcess = self::boolFromPost('keep_original_after_process');
 
@@ -338,7 +346,7 @@ final class SettingsController
         }
 
         // Mutual exclusion: convert wins over compress
-        if (($autoConvertWebp || $autoConvertAvif) && $autoCompressOnUpload) {
+        if ($autoConvertOnUpload && $autoCompressOnUpload) {
             $autoCompressOnUpload = false;
         }
 
@@ -368,6 +376,7 @@ final class SettingsController
             'COOKIE_SECURE' => $isHttps ? 'true' : 'false',
             'ADMIN_API_KEY' => Format::envQuote($adminApiKey),
             'AUTO_COMPRESS_ON_UPLOAD' => $autoCompressOnUpload ? 'true' : 'false',
+            'AUTO_CONVERT_ON_UPLOAD' => $autoConvertOnUpload ? 'true' : 'false',
             'AUTO_CONVERT_WEBP_ON_UPLOAD' => $autoConvertWebp ? 'true' : 'false',
             'AUTO_CONVERT_AVIF_ON_UPLOAD' => $autoConvertAvif ? 'true' : 'false',
             'CONVERT_PREFERRED_FORMAT' => $convertPreferredFormat,
@@ -454,7 +463,7 @@ final class SettingsController
 
         $extras['saved_settings'] = [
             'auto_compress_on_upload' => $autoCompressOnUpload,
-            'auto_convert_on_upload' => $autoConvertWebp || $autoConvertAvif,
+            'auto_convert_on_upload' => $autoConvertOnUpload,
             'convert_preferred_format' => $convertPreferredFormat,
             'upload_allowed_types' => $allowedTypes,
             'remote_storage_usage' => $remoteStorageUsage,
@@ -529,7 +538,7 @@ final class SettingsController
     }
 
     /**
-     * @return array{0:bool,1:bool,2:string} [autoWebp, autoAvif, preferredFormat]
+     * @return array{0:bool,1:bool,2:bool,3:string} [autoConvert, autoWebp, autoAvif, preferredFormat]
      */
     private function resolveConvertSettings(array &$warnings): array
     {
@@ -553,13 +562,19 @@ final class SettingsController
         $autoAvif = $autoConvert && $preferred === 'avif';
         if ($autoWebp && empty($cap['webp'])) {
             $autoWebp = false;
+            $autoConvert = false;
             $warnings[] = 'WebP 支持未启用，已关闭上传后自动转换 WebP';
         }
         if ($autoAvif && empty($cap['avif'])) {
             $autoAvif = false;
+            $autoConvert = false;
             $warnings[] = 'AVIF 支持未启用，已关闭上传后自动转换 AVIF';
         }
-        return [$autoWebp, $autoAvif, $preferred];
+        if ($autoConvert && in_array($preferred, ['jpg', 'png'], true) && empty($cap['gd']) && empty($cap['imagick'])) {
+            $autoConvert = false;
+            $warnings[] = strtoupper($preferred) . ' 转换需要 GD 或 ImageMagick，已关闭上传后自动转换';
+        }
+        return [$autoConvert, $autoWebp, $autoAvif, $preferred];
     }
 
     /**

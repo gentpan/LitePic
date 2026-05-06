@@ -10,8 +10,12 @@ namespace LitePic\Service\Image;
 final class ImageFormat
 {
     private const COMPRESSIBLE = ['jpg', 'jpeg', 'png'];
-    private const WEBP_CONVERTIBLE = ['jpg', 'jpeg', 'png', 'gif'];
-    private const AVIF_CONVERTIBLE = ['jpg', 'jpeg', 'png', 'gif'];
+    private const RASTER_CONVERTIBLE = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'heic', 'heif'];
+    private const WEBP_CONVERTIBLE = ['jpg', 'jpeg', 'png', 'gif', 'heic', 'heif'];
+    private const AVIF_CONVERTIBLE = ['jpg', 'jpeg', 'png', 'gif', 'heic', 'heif'];
+    private const JPEG_CONVERTIBLE = ['png', 'gif', 'webp', 'avif', 'heic', 'heif'];
+    private const PNG_CONVERTIBLE = ['jpg', 'jpeg', 'gif', 'webp', 'avif', 'heic', 'heif'];
+    private const CONVERT_TARGETS = ['webp', 'avif', 'jpg', 'png'];
     private const COMPRESSION_MODES = ['tinypng', 'gd', 'imagemagick'];
 
     private const MIME_TO_LABEL = [
@@ -20,6 +24,10 @@ final class ImageFormat
         'image/png' => 'PNG',
         'image/webp' => 'WEBP',
         'image/avif' => 'AVIF',
+        'image/heic' => 'HEIC',
+        'image/heif' => 'HEIF',
+        'image/heic-sequence' => 'HEIC',
+        'image/heif-sequence' => 'HEIF',
         'image/gif' => 'GIF',
         'image/svg+xml' => 'SVG',
         'image/x-icon' => 'ICO',
@@ -43,11 +51,52 @@ final class ImageFormat
         return in_array(strtolower($ext), self::AVIF_CONVERTIBLE, true);
     }
 
+    public static function canConvertJpeg(string $ext): bool
+    {
+        return in_array(strtolower($ext), self::JPEG_CONVERTIBLE, true);
+    }
+
+    public static function canConvertPng(string $ext): bool
+    {
+        return in_array(strtolower($ext), self::PNG_CONVERTIBLE, true);
+    }
+
+    public static function canConvertTo(string $ext, string $targetExt): bool
+    {
+        $ext = strtolower($ext);
+        $targetExt = self::normalizeTarget($targetExt);
+        if ($targetExt === '' || $ext === $targetExt || ($targetExt === 'jpg' && $ext === 'jpeg')) {
+            return false;
+        }
+        return match ($targetExt) {
+            'webp' => self::canConvertWebp($ext),
+            'avif' => self::canConvertAvif($ext),
+            'jpg' => self::canConvertJpeg($ext),
+            'png' => self::canConvertPng($ext),
+            default => false,
+        };
+    }
+
     public static function canConvertPreferred(string $ext): bool
     {
-        return defined('CONVERT_PREFERRED_FORMAT') && CONVERT_PREFERRED_FORMAT === 'avif'
-            ? self::canConvertAvif($ext)
-            : self::canConvertWebp($ext);
+        return self::canConvertTo($ext, defined('CONVERT_PREFERRED_FORMAT') ? (string)CONVERT_PREFERRED_FORMAT : 'webp');
+    }
+
+    public static function normalizeTarget(string $targetExt): string
+    {
+        $targetExt = strtolower(trim($targetExt));
+        if ($targetExt === 'jpeg') $targetExt = 'jpg';
+        return in_array($targetExt, self::CONVERT_TARGETS, true) ? $targetExt : '';
+    }
+
+    public static function targetLabel(string $targetExt): string
+    {
+        return match (self::normalizeTarget($targetExt)) {
+            'jpg' => 'JPG',
+            'png' => 'PNG',
+            'avif' => 'AVIF',
+            default => 'WebP',
+        };
     }
 
     public static function compressionMode(): string

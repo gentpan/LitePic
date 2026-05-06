@@ -152,6 +152,39 @@ final class ImageRepository
         $stmt->execute([':n' => $by, ':f' => $filename]);
     }
 
+    public function recordViewRequest(string $filename, string $referer = '', int $by = 1): void
+    {
+        $by = max(1, $by);
+        [$sourceKey, $sourceUrl, $sourceHost] = self::normalizeRequestSource($referer);
+        $now = time();
+
+        Database::transaction(static function (PDO $pdo) use ($filename, $by, $sourceKey, $sourceUrl, $sourceHost, $now): void {
+            $stmt = $pdo->prepare('UPDATE images SET view_count = view_count + :n WHERE filename = :f');
+            $stmt->execute([':n' => $by, ':f' => $filename]);
+            if ($stmt->rowCount() < 1) {
+                return;
+            }
+
+            $source = $pdo->prepare(
+                'INSERT INTO image_request_sources
+                    (filename, source_key, source_url, source_host, request_count, last_requested_at)
+                 VALUES
+                    (:filename, :source_key, :source_url, :source_host, :count, :last_requested_at)
+                 ON CONFLICT(filename, source_key) DO UPDATE SET
+                    request_count = request_count + :count,
+                    last_requested_at = :last_requested_at'
+            );
+            $source->execute([
+                ':filename' => $filename,
+                ':source_key' => $sourceKey,
+                ':source_url' => $sourceUrl,
+                ':source_host' => $sourceHost,
+                ':count' => $by,
+                ':last_requested_at' => $now,
+            ]);
+        });
+    }
+
     /**
      * Sum of view_count across the whole library — used by the stats page
      * "图片请求" total. Cheap (full scan of one column).
@@ -168,14 +201,29 @@ final class ImageRepository
      * with `filename`, `original_name`, and `view_count` only — callers
      * that need URLs/sizes should hydrate via ImageInfo.
      *
-     * @return array<int, array{filename:string, original_name:string, view_count:int}>
+     * @return array<int, array{filename:string, original_name:string, view_count:int, source_url:string, source_host:string, source_count:int}>
      */
     public function topByViews(int $limit = 20): array
     {
         $limit = max(1, min(200, $limit));
-        $sql = 'SELECT filename, original_name, view_count FROM images
-                WHERE view_count > 0
-                ORDER BY view_count DESC, created_at DESC
+        $sql = 'SELECT
+                    i.filename,
+                    i.original_name,
+                    i.view_count,
+                    COALESCE(src.source_url, \'\') AS source_url,
+                    COALESCE(src.source_host, \'\') AS source_host,
+                    COALESCE(src.request_count, 0) AS source_count
+                FROM images i
+                LEFT JOIN image_request_sources src
+                  ON src.id = (
+                      SELECT s.id
+                      FROM image_request_sources s
+                      WHERE s.filename = i.filename
+                      ORDER BY s.request_count DESC, s.last_requested_at DESC
+                      LIMIT 1
+                  )
+                WHERE i.view_count > 0
+                ORDER BY i.view_count DESC, i.created_at DESC
                 LIMIT ' . $limit;
         $rows = Database::connection()->query($sql)->fetchAll() ?: [];
         $out = [];
@@ -184,6 +232,9 @@ final class ImageRepository
                 'filename' => (string)$r['filename'],
                 'original_name' => (string)($r['original_name'] ?? $r['filename']),
                 'view_count' => (int)$r['view_count'],
+                'source_url' => (string)($r['source_url'] ?? ''),
+                'source_host' => (string)($r['source_host'] ?? ''),
+                'source_count' => (int)($r['source_count'] ?? 0),
             ];
         }
         return $out;
@@ -191,8 +242,38 @@ final class ImageRepository
 
     public function delete(string $filename): void
     {
+        Database::connection()
+            ->prepare('DELETE FROM image_request_sources WHERE filename = :f')
+            ->execute([':f' => $filename]);
         $stmt = Database::connection()->prepare('DELETE FROM images WHERE filename = :f');
         $stmt->execute([':f' => $filename]);
+    }
+
+    /**
+     * @return array{0:string,1:string,2:string} [sourceKey, sourceUrl, sourceHost]
+     */
+    private static function normalizeRequestSource(string $referer): array
+    {
+        $referer = trim($referer);
+        if ($referer === '') {
+            return [sha1('direct'), '', ''];
+        }
+
+        $referer = substr($referer, 0, 2048);
+        $parts = @parse_url($referer);
+        if (is_array($parts) && !empty($parts['host'])) {
+            $scheme = strtolower((string)($parts['scheme'] ?? 'https'));
+            if (!in_array($scheme, ['http', 'https'], true)) {
+                $scheme = 'https';
+            }
+            $host = strtolower((string)$parts['host']);
+            $path = (string)($parts['path'] ?? '');
+            $url = $scheme . '://' . $host . $path;
+            return [sha1($url), $url, $host];
+        }
+
+        $fallback = substr(preg_replace('/\s+/', ' ', $referer) ?? $referer, 0, 512);
+        return [sha1($fallback), $fallback, ''];
     }
 
     public function totalCount(string $query = ''): int

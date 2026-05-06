@@ -21,6 +21,9 @@ foreach ($top_image_rows as $row) {
         'original_name' => $row['original_name'] !== '' ? $row['original_name'] : $row['filename'],
         'view_count' => $row['view_count'],
         'url' => \LitePic\Service\Image\ImageUrl::forIdentifier($row['filename']),
+        'source_url' => (string)($row['source_url'] ?? ''),
+        'source_host' => (string)($row['source_host'] ?? ''),
+        'source_count' => (int)($row['source_count'] ?? 0),
     ];
 }
 
@@ -262,24 +265,40 @@ require_once APP_ROOT . '/header.php';
                 <div class="table-wrap">
                     <table>
                         <thead>
-                            <tr><th>图片</th><th>请求次数</th><th>访问地址</th></tr>
+                            <tr><th>图片名字</th><th>图片地址</th><th>请求次数</th><th>请求来源</th></tr>
                         </thead>
                         <tbody>
                         <?php if (empty($top_images)): ?>
                             <tr>
-                                <td colspan="3">暂无图片请求记录</td>
+                                <td colspan="4">暂无图片请求记录</td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($top_images as $item): ?>
                                 <tr>
-                                    <td title="<?= htmlspecialchars((string)$item['filename']) ?>">
+                                    <td class="stats-image-title" title="<?= htmlspecialchars((string)$item['original_name']) ?>">
                                         <?= htmlspecialchars((string)$item['original_name']) ?>
                                     </td>
-                                    <td><?= number_format((int)$item['view_count']) ?></td>
-                                    <td>
+                                    <td class="stats-image-name" title="<?= htmlspecialchars((string)$item['filename']) ?>">
                                         <a href="<?= htmlspecialchars((string)$item['url']) ?>" target="_blank" rel="noopener">
-                                            <?= htmlspecialchars((string)$item['url']) ?>
+                                            <?= htmlspecialchars((string)$item['filename']) ?>
                                         </a>
+                                    </td>
+                                    <td class="stats-count-cell">
+                                        <?= number_format((int)$item['view_count']) ?>
+                                    </td>
+                                    <td class="stats-source-cell">
+                                        <?php if ((string)$item['source_url'] === ''): ?>
+                                            <span class="stats-source-muted">
+                                                <?= ((int)$item['source_count'] > 0) ? '直接访问 / 无来源' : '未记录来源' ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <a href="<?= htmlspecialchars((string)$item['source_url']) ?>" target="_blank" rel="noopener" title="<?= htmlspecialchars((string)$item['source_url']) ?>">
+                                                <?= htmlspecialchars((string)$item['source_url']) ?>
+                                            </a>
+                                            <?php if ((int)$item['source_count'] > 0): ?>
+                                                <small>来源 <?= number_format((int)$item['source_count']) ?> 次</small>
+                                            <?php endif; ?>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

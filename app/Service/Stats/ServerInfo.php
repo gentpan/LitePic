@@ -16,11 +16,11 @@ namespace LitePic\Service\Stats;
 final class ServerInfo
 {
     /**
-     * Pull just the imagick/gd/avif/webp capability flags off the
+     * Pull just the imagick/gd/avif/webp/heic capability flags off the
      * runtime metrics. Settings tabs use this for "should I show the
      * AVIF toggle?" gating.
      *
-     * @return array{gd:bool,imagick:bool,avif:bool,webp:bool}
+     * @return array{gd:bool,imagick:bool,avif:bool,webp:bool,heic:bool}
      */
     public static function compressionCapability(): array
     {
@@ -31,6 +31,7 @@ final class ServerInfo
             'imagick' => !empty($cap['imagick']),
             'avif' => !empty($cap['avif']),
             'webp' => !empty($cap['webp']),
+            'heic' => !empty($cap['heic']),
         ];
     }
 
@@ -264,8 +265,27 @@ final class ServerInfo
                 'imagick' => extension_loaded('imagick'),
                 'avif' => function_exists('imagecreatefromavif') && function_exists('imageavif'),
                 'webp' => function_exists('imagewebp'),
+                'heic' => self::imagickFormatSupported(['HEIC', 'HEIF']),
             ],
         ];
+    }
+
+    private static function imagickFormatSupported(array $formats): bool
+    {
+        if (!class_exists(\Imagick::class)) return false;
+        try {
+            $im = new \Imagick();
+            foreach ($formats as $format) {
+                if (!empty($im->queryFormats((string)$format))) {
+                    $im->clear();
+                    return true;
+                }
+            }
+            $im->clear();
+        } catch (\Throwable) {
+            return false;
+        }
+        return false;
     }
 
     /**

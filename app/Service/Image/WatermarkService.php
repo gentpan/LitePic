@@ -128,10 +128,6 @@ final class WatermarkService
             return $result;
         }
 
-        if (!function_exists('create_image_resource')) {
-            $result['skip_reason'] = 'resource_failed';
-            return $result;
-        }
         $image = \LitePic\Service\Image\ConversionService::createImageResource($path, $mime);
         if (!$image) {
             $result['skip_reason'] = 'resource_failed';
@@ -147,7 +143,7 @@ final class WatermarkService
         $color = self::allocateAlpha($image, $r, $g, $b, $opacity);
         $shadow = self::allocateAlpha($image, 0, 0, 0, max(1, min(76, $opacity - 16)));
         if ($color === false || $shadow === false) {
-            imagedestroy($image);
+            self::destroyImage($image);
             $result['skip_reason'] = 'color_failed';
             return $result;
         }
@@ -161,13 +157,13 @@ final class WatermarkService
             : self::applyTextOverlay($image, $width, $height, $color, $shadow, $margin, $padding);
 
         if ($skipReason !== null) {
-            imagedestroy($image);
+            self::destroyImage($image);
             $result['skip_reason'] = $skipReason;
             return $result;
         }
 
         $saved = self::saveImage($image, $path, $mime);
-        imagedestroy($image);
+        self::destroyImage($image);
 
         if (!$saved) {
             $result['skip_reason'] = 'save_failed';
@@ -207,7 +203,7 @@ final class WatermarkService
             $boxX + $padding, $boxY + $padding,
             $targetW, $targetH, $opacity
         );
-        imagedestroy($watermark);
+        self::destroyImage($watermark);
         return $copied ? null : 'watermark_image_copy_failed';
     }
 
@@ -399,7 +395,7 @@ final class WatermarkService
                 }
             }
             imagecopy($image, $patch, $x, $y, 0, 0, $w, $h);
-            imagedestroy($patch);
+            self::destroyImage($patch);
         }
         $overlay = self::allocateAlpha($image, 12, 18, 28, (int)WATERMARK_PANEL_OPACITY);
         if ($overlay !== false) {
@@ -436,7 +432,14 @@ final class WatermarkService
         }
 
         imagecopy($dst, $tmp, $dstX, $dstY, 0, 0, $dstW, $dstH);
-        imagedestroy($tmp);
+        self::destroyImage($tmp);
         return true;
+    }
+
+    private static function destroyImage($image): void
+    {
+        if (PHP_VERSION_ID < 80500 && is_resource($image)) {
+            imagedestroy($image);
+        }
     }
 }

@@ -40,8 +40,16 @@ class GalleryManager {
     }
 
     private function loadImages(): void {
-        // 先获取所有图片总数（使用完整的 get_uploaded_images 结果）
-        $all_images = (new \LitePic\Repository\ImageRepository())->listIdentifiersSafe();
+        // 只统计可渲染的图片。数据库可能残留文件已丢失的孤儿记录，
+        // 这类记录不能参与图库总数和分页，否则会出现“有总数但无卡片”。
+        $repo = new \LitePic\Repository\ImageRepository();
+        $info = new \LitePic\Service\Image\ImageInfo($repo);
+        $all_images = [];
+        foreach ($repo->listIdentifiersSafe() as $image) {
+            if ($info->getSafe((string)$image)) {
+                $all_images[] = (string)$image;
+            }
+        }
         $this->all_images_count = count($all_images);
         
         // 存储全部图片用于分页
@@ -178,7 +186,8 @@ class GalleryManager {
             'imagemagick' => 'ImageMagick',
         ];
         $compression_label = $compression_labels[strtolower((string)COMPRESSION_MODE)] ?? (string)COMPRESSION_MODE;
-        $conversion_label = CONVERT_PREFERRED_FORMAT === 'avif' ? 'AVIF' : 'WebP';
+        $conversion_label = \LitePic\Service\Image\ImageFormat::targetLabel((string)CONVERT_PREFERRED_FORMAT);
+        $conversion_action = \LitePic\Service\Image\ImageFormat::normalizeTarget((string)CONVERT_PREFERRED_FORMAT) ?: 'webp';
         ob_start();
         ?>
         <div class="batch-controls">
@@ -194,7 +203,7 @@ class GalleryManager {
                     <i class="fa-light fa-compress"></i>
                     <span>批量压缩</span>
                 </button>
-                <button type="button" class="batch-btn" data-action="<?= CONVERT_PREFERRED_FORMAT === 'avif' ? 'avif' : 'webp' ?>" title="按后台默认转换格式：<?= htmlspecialchars($conversion_label) ?>" disabled>
+                <button type="button" class="batch-btn" data-action="<?= htmlspecialchars($conversion_action) ?>" title="按后台默认转换格式：<?= htmlspecialchars($conversion_label) ?>" disabled>
                     <i class="fa-light fa-image"></i>
                     <span>批量转换</span>
                 </button>

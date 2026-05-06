@@ -6,7 +6,7 @@
 
   .confirm-dialog {
     @apply fixed top-0 left-0 w-screen h-screen items-center justify-center z-[9999];
-    background: rgba(0, 0, 0, 0.34);
+    background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(6px);
     display: none;
     opacity: 0;
@@ -20,11 +20,12 @@
 
   .confirm-dialog-content {
     width: min(88vw, 460px);
-    border-radius: 22px;
+    border-radius: 4px;
     background: var(--surface);
-    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18);
-    transform: translateY(18px) scale(0.98);
-    transition: transform 0.24s ease;
+    border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-20px);
+    transition: transform 0.3s ease;
     overflow: hidden;
   }
 
@@ -34,14 +35,14 @@
 
   .confirm-dialog-body {
     display: grid;
-    gap: 18px;
-    padding: 30px 34px 28px;
+    gap: 14px;
+    padding: 24px;
   }
 
   .confirm-dialog-title {
     margin: 0;
     color: var(--dark);
-    font-size: 1.08rem;
+    font-size: 1.1rem;
     font-weight: 700;
     line-height: 1.28;
   }
@@ -56,7 +57,7 @@
   .confirm-dialog-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 16px;
+    gap: 8px;
     padding-top: 2px;
   }
 
@@ -68,7 +69,7 @@
     justify-content: center;
     gap: 8px;
     border: 1px solid color-mix(in srgb, var(--border-color) 74%, transparent);
-    border-radius: 999px;
+    border-radius: 0;
     background: var(--surface);
     color: var(--dark);
     font-size: 0.9rem;
@@ -78,33 +79,33 @@
     transition:
       color 160ms ease,
       background 160ms ease,
-      border-color 160ms ease,
-      transform 160ms ease;
+      border-color 160ms ease;
   }
 
   .confirm-dialog-btn:hover {
-    transform: translateY(-1px);
     background: color-mix(in srgb, var(--light) 74%, var(--surface) 26%);
     border-color: color-mix(in srgb, var(--gray) 30%, var(--border-color) 70%);
   }
 
   .confirm-dialog-submit {
     border-color: var(--primary);
-    color: var(--primary);
+    background: var(--primary);
+    color: #fff;
   }
 
   .confirm-dialog-submit:hover {
-    background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
+    background: color-mix(in srgb, var(--primary) 86%, #000 14%);
     border-color: var(--primary);
   }
 
   .confirm-dialog-danger .confirm-dialog-submit {
     border-color: var(--danger);
-    color: var(--danger);
+    background: var(--danger);
+    color: #fff;
   }
 
   .confirm-dialog-danger .confirm-dialog-submit:hover {
-    background: color-mix(in srgb, var(--danger) 7%, var(--surface) 93%);
+    background: color-mix(in srgb, var(--danger) 86%, #000 14%);
     border-color: var(--danger);
   }
 
@@ -131,8 +132,10 @@
   }
 
   .custom-dialog-content {
-    @apply bg-surface w-[90%] rounded-md;
+    @apply bg-surface w-[90%];
     max-width: 500px;
+    border-radius: 4px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
     box-shadow: var(--shadow-lg);
     transform: translateY(-20px);
     transition: transform 0.3s ease;
@@ -147,7 +150,9 @@
      ========================================================================== */
 
   .dialog-header {
-    @apply flex items-center justify-between p-4;
+    @apply flex items-center justify-between;
+    min-height: 58px;
+    padding: 14px 18px;
     border-bottom: 1px solid var(--border-color);
   }
 
@@ -163,16 +168,16 @@
 
   /* 关闭按钮 */
   .dialog-close {
-    @apply flex items-center justify-center border-0 bg-transparent rounded-sm cursor-pointer text-gray;
+    @apply flex items-center justify-center border-0 bg-transparent cursor-pointer text-gray;
     width: 32px;
     height: 32px;
+    border-radius: 0;
     transition: all 0.3s ease;
   }
 
   .dialog-close:hover {
     @apply text-dark;
     background: var(--light);
-    transform: rotate(90deg);
   }
 
   /* ==========================================================================
@@ -181,7 +186,7 @@
 
   .dialog-body {
     @apply text-dark;
-    padding: var(--spacing-lg);
+    padding: 24px;
   }
 
   .dialog-footer {
@@ -393,23 +398,31 @@
     @apply max-w-full rounded-md;
   }
 
-  .convert-dialog-content {
+  .process-result-dialog-content,
+  .convert-dialog-content,
+  .compress-dialog-content {
     max-width: 680px;
   }
 
-  .convert-dialog-content .dialog-header {
+  .process-result-dialog-content .dialog-header,
+  .convert-dialog-content .dialog-header,
+  .compress-dialog-content .dialog-header {
     display: grid;
     grid-template-columns: 32px minmax(0, 1fr) 32px;
     align-items: center;
   }
 
-  .convert-dialog-content .dialog-header::before {
+  .process-result-dialog-content .dialog-header::before,
+  .convert-dialog-content .dialog-header::before,
+  .compress-dialog-content .dialog-header::before {
     content: "";
     width: 32px;
     height: 32px;
   }
 
-  .convert-dialog-content .dialog-header h3 {
+  .process-result-dialog-content .dialog-header h3,
+  .convert-dialog-content .dialog-header h3,
+  .compress-dialog-content .dialog-header h3 {
     justify-content: center;
     min-width: 0;
     text-align: center;
@@ -647,12 +660,14 @@
 
   html[data-theme="dark"] .confirm-dialog-submit {
     border-color: var(--primary);
-    color: #9cc7ff;
+    background: var(--primary);
+    color: #fff;
   }
 
   html[data-theme="dark"] .confirm-dialog-danger .confirm-dialog-submit {
     border-color: var(--danger);
-    color: var(--danger);
+    background: var(--danger);
+    color: #fff;
   }
 
   html[data-theme="dark"] .dialog-header {
@@ -714,11 +729,11 @@
 
     .confirm-dialog-content {
       width: min(92vw, 460px);
-      border-radius: 18px;
+      border-radius: 4px;
     }
 
     .confirm-dialog-body {
-      padding: 26px 22px 24px;
+      padding: 22px;
       gap: 16px;
     }
 
@@ -794,7 +809,7 @@
   background: var(--surface);
   color: var(--dark);
   border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-  border-radius: var(--radius-md, 12px);
+  border-radius: 4px;
   box-shadow: 0 24px 64px rgba(15, 23, 42, 0.28);
   padding: 22px 24px 18px;
   display: grid;
@@ -820,7 +835,7 @@
   padding: 10px 12px;
   background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
   border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border-color) 75%);
-  border-radius: 8px;
+  border-radius: 4px;
   font-size: 0.85rem;
   line-height: 1.55;
   color: var(--dark);
@@ -850,7 +865,7 @@
   height: 38px;
   padding: 0 12px;
   border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-  border-radius: 8px;
+  border-radius: 0;
   background: var(--surface);
   color: var(--dark);
   font-size: 0.95rem;
@@ -883,7 +898,7 @@
   gap: 6px;
   height: 38px;
   padding: 0 16px;
-  border-radius: 8px;
+  border-radius: 0;
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;

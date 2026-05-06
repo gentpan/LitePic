@@ -20,7 +20,7 @@ final class ImportQueueRepository
     public const STATUS_DONE = 'done';
     public const STATUS_FAILED = 'failed';
 
-    private const FLAG_KEYS = ['create_thumbnail', 'auto_compress', 'auto_webp', 'auto_avif', 'watermark', 'remote_sync'];
+    private const FLAG_KEYS = ['create_thumbnail', 'auto_compress', 'auto_convert', 'auto_webp', 'auto_avif', 'watermark', 'remote_sync'];
 
     /**
      * Enqueue (or merge) a task for `$filename`. If an entry already exists,
@@ -230,6 +230,8 @@ final class ImportQueueRepository
             $payload = [
                 'create_thumbnail' => true,
                 'auto_compress'    => defined('AUTO_COMPRESS_ON_UPLOAD') && AUTO_COMPRESS_ON_UPLOAD,
+                'auto_convert'     => defined('AUTO_CONVERT_ON_UPLOAD') && AUTO_CONVERT_ON_UPLOAD,
+                'auto_convert_target' => defined('CONVERT_PREFERRED_FORMAT') ? CONVERT_PREFERRED_FORMAT : 'webp',
                 'auto_webp'        => defined('AUTO_CONVERT_WEBP_ON_UPLOAD') && AUTO_CONVERT_WEBP_ON_UPLOAD,
                 'auto_avif'        => defined('AUTO_CONVERT_AVIF_ON_UPLOAD') && AUTO_CONVERT_AVIF_ON_UPLOAD,
                 'watermark'        => defined('WATERMARK_ENABLED') && WATERMARK_ENABLED,
@@ -282,13 +284,15 @@ final class ImportQueueRepository
     }
 
     /**
-     * @return array{create_thumbnail:bool,auto_compress:bool,auto_webp:bool,auto_avif:bool,watermark:bool,remote_sync:bool}
+     * @return array{create_thumbnail:bool,auto_compress:bool,auto_convert:bool,auto_convert_target:string,auto_webp:bool,auto_avif:bool,watermark:bool,remote_sync:bool}
      */
     public static function normalizeOptions(array $options): array
     {
         return [
             'create_thumbnail' => !empty($options['create_thumbnail']),
             'auto_compress' => !empty($options['auto_compress']),
+            'auto_convert' => !empty($options['auto_convert']) || !empty($options['auto_webp']) || !empty($options['auto_avif']),
+            'auto_convert_target' => \LitePic\Service\Image\ImageFormat::normalizeTarget((string)($options['auto_convert_target'] ?? (defined('CONVERT_PREFERRED_FORMAT') ? CONVERT_PREFERRED_FORMAT : 'webp'))) ?: 'webp',
             'auto_webp' => !empty($options['auto_webp']),
             'auto_avif' => !empty($options['auto_avif']),
             'watermark' => !empty($options['watermark']),

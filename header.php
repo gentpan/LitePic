@@ -96,6 +96,12 @@ $document_title = isset($html_title) && trim((string)$html_title) !== ''
                     <span class="logo-icon w-7 h-7 inline-flex items-center justify-center leading-none" aria-hidden="true">
                         <img src="/static/logo.png" alt="" class="logo-img-light w-full h-full" />
                         <img src="/static/logo-dark.png" alt="" class="logo-img-dark w-full h-full" />
+                        <svg class="logo-loading-spinner" fill="hsl(228, 97%, 42%)" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12,1A11,11,0,1,0,23,12,11,11,0,0,0,12,1Zm0,19a8,8,0,1,1,8-8A8,8,0,0,1,12,20Z" opacity=".25"/>
+                            <path d="M12,4a8,8,0,0,1,7.89,6.7A1.53,1.53,0,0,0,21.38,12h0a1.5,1.5,0,0,0,1.48-1.75,11,11,0,0,0-21.72,0A1.5,1.5,0,0,0,2.62,12h0a1.53,1.53,0,0,0,1.49-1.3A8,8,0,0,1,12,4Z">
+                                <animateTransform attributeName="transform" type="rotate" dur="0.75s" values="0 12 12;360 12 12" repeatCount="indefinite"/>
+                            </path>
+                        </svg>
                     </span>
                     <span class="logo-divider w-px h-5 opacity-20"></span>
                     <span class="logo-text font-logo font-bold text-lg"><?= htmlspecialchars(SITE_NAME) ?></span>
@@ -104,7 +110,6 @@ $document_title = isset($html_title) && trim((string)$html_title) !== ''
 
             <!-- 中间导航 -->
             <nav class="main-nav flex items-center gap-1">
-                <span class="nav-indicator" aria-hidden="true"></span>
                 <?php
                 // 定义导航项（使用无后缀路由）
                 $uriPath = parse_url((string)($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
@@ -143,6 +148,11 @@ $document_title = isset($html_title) && trim((string)$html_title) !== ''
                 <?php $upload_active = $current_path === '/upload'; ?>
                 <a href="/upload" class="nav-cta-btn <?= $upload_active ? 'active' : '' ?> inline-flex items-center gap-2 px-5 py-2 text-sm font-medium no-underline transition-colors duration-200 rounded-full">
                     <i class="fa-light fa-cloud-arrow-up"></i>
+                    <svg class="nav-upload-loader" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M10.72,19.9a8,8,0,0,1-6.5-9.79A7.77,7.77,0,0,1,10.4,4.16a8,8,0,0,1,9.49,6.52A1.54,1.54,0,0,0,21.38,12h.13a1.37,1.37,0,0,0,1.38-1.54,11,11,0,1,0-12.7,12.39A1.54,1.54,0,0,0,12,21.34h0A1.47,1.47,0,0,0,10.72,19.9Z">
+                            <animateTransform attributeName="transform" type="rotate" dur="0.75s" values="0 12 12;360 12 12" repeatCount="indefinite"/>
+                        </path>
+                    </svg>
                     <span>上传</span>
                 </a>
             </div>

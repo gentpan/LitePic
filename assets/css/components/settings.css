@@ -1281,24 +1281,6 @@ html[data-theme="dark"] .settings-page .settings-tab-title__icon {
   pointer-events: none;
 }
 
-.settings-page.is-pjax-loading .settings-tab-nav a[aria-current="page"] {
-  position: relative;
-}
-
-.settings-page.is-pjax-loading .settings-tab-nav a[aria-current="page"]::after {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: 999px;
-  border: 2px solid color-mix(in srgb, var(--primary) 80%, transparent);
-  border-top-color: transparent;
-  animation: settingsPjaxSpin 0.6s linear infinite;
-}
-
-@keyframes settingsPjaxSpin {
-  to { transform: rotate(1turn); }
-}
-
 /* =============================================================
  * Input focus — 必须放在文件末尾，以胜过中间任何可能稀释 border
  * 颜色的旧规则。规范：
@@ -2073,19 +2055,38 @@ html[data-theme="dark"] .settings-page .queue-stat__icon {
 }
 
 .settings-page .cleanup-status {
-  flex: 1;
-  min-width: 0;
-  padding: 6px 10px;
+  flex: 0 1 auto;
+  min-width: 190px;
+  max-width: 100%;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
   border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  border-radius: 0;
   background: color-mix(in srgb, var(--surface) 92%, var(--light) 8%);
   color: var(--gray);
-  font-size: 0.82rem;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.settings-page .cleanup-status.is-on    { color: var(--success); border-color: color-mix(in srgb, var(--success) 38%, var(--border-color) 62%); background: color-mix(in srgb, var(--success) 6%, var(--surface) 94%); }
-.settings-page .cleanup-status.is-warn  { color: #92400e; border-color: #fde68a; background: #fef3c7; }
-.settings-page .cleanup-status.is-off   { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--border-color) 65%); background: color-mix(in srgb, var(--danger) 6%, var(--surface) 94%); }
+
+.settings-page .cleanup-status::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.75;
+}
+.settings-page .cleanup-status.is-on    { color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, var(--border-color) 65%); background: color-mix(in srgb, var(--success) 5%, var(--surface) 95%); }
+.settings-page .cleanup-status.is-warn  { color: #b45309; border-color: color-mix(in srgb, #f59e0b 38%, var(--border-color) 62%); background: color-mix(in srgb, #f59e0b 7%, var(--surface) 93%); }
+.settings-page .cleanup-status.is-off   { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--border-color) 65%); background: color-mix(in srgb, var(--danger) 5%, var(--surface) 95%); }
 
 .settings-page .cleanup-table {
   width: 100%;
@@ -2235,8 +2236,56 @@ html[data-theme="dark"] .settings-page .queue-stat__icon {
   margin-top: 4px;
 }
 
+.cleanup-confirm-actions .btn {
+  min-width: 92px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 18px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 74%, transparent);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--dark);
+  font-size: 0.9rem;
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease,
+    filter 160ms ease;
+}
+
+.cleanup-confirm-actions .btn > i {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 18px;
+  font-size: 0.92rem;
+  line-height: 1;
+}
+
+.cleanup-confirm-actions .btn > span {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  line-height: 1;
+}
+
+.cleanup-confirm-actions .btn--secondary:hover {
+  border-color: color-mix(in srgb, var(--gray) 30%, var(--border-color) 70%);
+  background: color-mix(in srgb, var(--light) 74%, var(--surface) 26%);
+}
+
 /* 「确认清理」按钮 — 用危险红，强化「不可撤销」感知 */
 .cleanup-confirm-submit {
+  min-width: 118px;
   background: var(--danger) !important;
   border-color: var(--danger) !important;
   color: #fff !important;

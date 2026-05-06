@@ -29,6 +29,7 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    min-width: 0;
     margin: 0;
     color: var(--dark);
     font-size: 1rem;
@@ -48,6 +49,27 @@
     color: var(--gray);
     font-size: 0.86rem;
     font-weight: 500;
+  }
+
+  .recent-time-tag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 24px;
+    min-width: 0;
+    max-width: min(260px, 42vw);
+    padding: 0 8px;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border-color) 82%);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--primary) 6%, var(--surface) 94%);
+    color: color-mix(in srgb, var(--primary) 84%, var(--dark) 16%);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 650;
+    line-height: 1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .view-all {
@@ -178,6 +200,12 @@
     border-bottom-color: rgba(255,255,255,0.12);
   }
 
+  html[data-theme="dark"] .recent-time-tag {
+    background: rgba(22, 119, 255, 0.14);
+    border-color: rgba(22, 119, 255, 0.34);
+    color: #9cc7ff;
+  }
+
   html[data-theme="dark"] .img-box,
   html[data-theme="dark"] .recent-empty {
     background: rgba(255,255,255,0.04);
@@ -226,6 +254,14 @@
     .recent-header {
       align-items: flex-start;
       flex-direction: column;
+    }
+
+    .recent-header h3 {
+      flex-wrap: wrap;
+    }
+
+    .recent-time-tag {
+      max-width: 100%;
     }
 
     .upload-grid {

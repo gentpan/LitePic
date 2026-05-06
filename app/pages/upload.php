@@ -28,7 +28,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && (string)($_POST['form_actio
     $auto_compress = (string)($_POST['auto_compress_on_upload'] ?? '0') === '1';
     $auto_convert = (string)($_POST['auto_convert_on_upload'] ?? '0') === '1';
     $convert_format = strtolower(trim((string)($_POST['convert_preferred_format'] ?? CONVERT_PREFERRED_FORMAT)));
-    if (!in_array($convert_format, ['webp', 'avif'], true)) {
+    if (!in_array($convert_format, ['webp', 'avif', 'jpg', 'png'], true)) {
         $convert_format = 'webp';
     }
 
@@ -50,6 +50,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && (string)($_POST['form_actio
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
     }
+    if ($auto_convert && in_array($convert_format, ['jpg', 'png'], true) && empty($capability['gd']) && empty($capability['imagick'])) {
+        http_response_code(422);
+        echo json_encode([
+            'success' => false,
+            'message' => strtoupper($convert_format) . ' 转换需要 GD 或 ImageMagick',
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
 
     if ($changed === 'compress' && $auto_compress) {
         $auto_convert = false;
@@ -63,6 +71,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && (string)($_POST['form_actio
     $auto_avif = $auto_convert && $convert_format === 'avif';
     $updated = \LitePic\Core\Config::write([
         'AUTO_COMPRESS_ON_UPLOAD' => $auto_compress ? 'true' : 'false',
+        'AUTO_CONVERT_ON_UPLOAD' => $auto_convert ? 'true' : 'false',
         'AUTO_CONVERT_WEBP_ON_UPLOAD' => $auto_webp ? 'true' : 'false',
         'AUTO_CONVERT_AVIF_ON_UPLOAD' => $auto_avif ? 'true' : 'false',
         'CONVERT_PREFERRED_FORMAT' => $convert_format,
@@ -117,7 +126,8 @@ $compression_mode_labels = [
 $compression_label = $compression_mode_labels[$compression_mode] ?? 'ImageMagick';
 $compression_enabled = AUTO_COMPRESS_ON_UPLOAD;
 $conversion_enabled = AUTO_CONVERT_WEBP_ON_UPLOAD || AUTO_CONVERT_AVIF_ON_UPLOAD;
-$conversion_format = AUTO_CONVERT_AVIF_ON_UPLOAD ? 'AVIF' : 'WebP';
+$conversion_enabled = defined('AUTO_CONVERT_ON_UPLOAD') ? AUTO_CONVERT_ON_UPLOAD : $conversion_enabled;
+$conversion_format = \LitePic\Service\Image\ImageFormat::targetLabel((string)CONVERT_PREFERRED_FORMAT);
 $tinypng_active_count = count((new \LitePic\Repository\CompressionKeyRepository())->active());
 $tinypng_mode_enabled = $compression_enabled && $compression_mode === 'tinypng';
 $upload_mime_map = [
@@ -127,6 +137,8 @@ $upload_mime_map = [
     'gif' => 'image/gif',
     'webp' => 'image/webp',
     'avif' => 'image/avif',
+    'heic' => 'image/heic',
+    'heif' => 'image/heif',
     'ico' => 'image/x-icon',
     'svg' => 'image/svg+xml',
     'bmp' => 'image/bmp',
@@ -203,6 +215,8 @@ require_once APP_ROOT . '/header.php';
                         id="imageInput"
                         data-max-size="<?= (int)$effective_max_upload_bytes ?>"
                         data-auto-compress="<?= AUTO_COMPRESS_ON_UPLOAD ? '1' : '0' ?>"
+                        data-auto-convert="<?= $conversion_enabled ? '1' : '0' ?>"
+                        data-convert-format="<?= htmlspecialchars(strtolower($conversion_format)) ?>"
                         data-auto-webp="<?= AUTO_CONVERT_WEBP_ON_UPLOAD ? '1' : '0' ?>"
                         data-auto-avif="<?= AUTO_CONVERT_AVIF_ON_UPLOAD ? '1' : '0' ?>"
                         data-allowed-types="<?= htmlspecialchars(implode(',', ALLOWED_UPLOAD_TYPES)) ?>"
@@ -253,12 +267,36 @@ require_once APP_ROOT . '/header.php';
         </div>
     </section>
 
+    <?php
+    $recent_repo = new \LitePic\Repository\ImageRepository();
+    $recent_info = new \LitePic\Service\Image\ImageInfo($recent_repo);
+    $recent_rows = [];
+    foreach ($recent_repo->listIdentifiersSafe() as $image) {
+        $row = $recent_info->getSafe((string)$image);
+        if ($row) {
+            $recent_rows[] = $row;
+        }
+        if (count($recent_rows) >= 5) {
+            break;
+        }
+    }
+
+    $recent_last_label = '暂无上传';
+    if (!empty($recent_rows)) {
+        $recent_last = $recent_rows[count($recent_rows) - 1];
+        $recent_last_ts = (int)($recent_last['time'] ?? 0);
+        if ($recent_last_ts > 0) {
+            $recent_last_label = '最后一张 ' . date('Y-m-d H:i', $recent_last_ts);
+        }
+    }
+    ?>
     <!-- 最近上传预览 -->
     <section class="recent-uploads">
         <div class="recent-header">
             <h3>
                 <i class="fa-light fa-clock-rotate-left"></i>
                 <span>最近上传</span>
+                <small class="recent-time-tag" data-recent-time><?= htmlspecialchars($recent_last_label, ENT_QUOTES, 'UTF-8') ?></small>
             </h3>
             <a href="/gallery" class="view-all">
                 <span>查看全部</span>
@@ -267,38 +305,11 @@ require_once APP_ROOT . '/header.php';
         </div>
         <div class="upload-grid">
             <?php
-            $recent_images = array_slice((new \LitePic\Repository\ImageRepository())->listIdentifiersSafe(), 0, 5);
-            foreach ($recent_images as $image):
-                $img_url = \LitePic\Service\Image\ImageUrl::forIdentifier($image);
-                $preview_url = $img_url;
-                if (\LitePic\Service\Image\ThumbnailService::canGenerate($image) && (new \LitePic\Service\Image\ThumbnailService())->create((string)$image)) {
-                    $preview_url = \LitePic\Service\Image\ImageUrl::thumbnailUrl((string)$image);
-                }
+            foreach ($recent_rows as $row):
+                echo (new \LitePic\View\ImageCard($row, false, false, false))->render();
+            endforeach;
             ?>
-                <div class="img-box"
-                    data-filename="<?= htmlspecialchars($image) ?>"
-                    data-date="<?= filemtime(\LitePic\Service\Image\PathService::resolveFilePath($image)) ?>"
-                    data-size="<?= filesize(\LitePic\Service\Image\PathService::resolveFilePath($image)) ?>"
-                    data-url="<?= htmlspecialchars($img_url) ?>">
-                    <img src="<?= htmlspecialchars($preview_url) ?>"
-                         data-original-url="<?= htmlspecialchars($img_url) ?>"
-                         alt="<?= htmlspecialchars($image) ?>"
-                         loading="lazy">
-                    <div class="img-overlay">
-                        <button class="action-btn copy-btn"
-                                title="复制图片链接"
-                                type="button">
-                            <i class="fa-light fa-copy"></i>
-                        </button>
-                        <button class="action-btn delete-btn"
-                                type="button"
-                                title="删除图片">
-                            <i class="fa-light fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            <?php endforeach; ?>
-            <?php if (empty($recent_images)): ?>
+            <?php if (empty($recent_rows)): ?>
                 <div class="recent-empty">
                     <i class="fa-light fa-image"></i>
                     <span>暂无最近上传图片</span>

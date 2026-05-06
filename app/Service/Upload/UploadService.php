@@ -18,20 +18,26 @@ use LitePic\Service\Storage\RemoteStorage;
  * watermark + remote sync), and returns the result array the upload
  * UI / API renders.
  *
- * MIME validation rejects extension-spoofed uploads using `finfo` (or
- * `mime_content_type` / `getimagesize` fallbacks), and special-cases
- * SVG to scan for `<script>` / event handlers / foreignObject before
- * accepting.
+ * MIME validation reads the real file type using `finfo` (or
+ * `mime_content_type` / `getimagesize` fallbacks). If a safe raster image
+ * has the wrong suffix (for example JPEG bytes named `.png`), it is saved
+ * with the extension that matches the detected MIME. SVG is still
+ * special-cased and scanned for `<script>` / event handlers /
+ * foreignObject before accepting.
  */
 final class UploadService
 {
-    /** @var array<int,array<string,string[]>> */
+    /** @var array<string,string[]> */
     private const ALLOWED_MIMES = [
         'image/jpeg' => ['jpg', 'jpeg'],
         'image/png' => ['png'],
         'image/gif' => ['gif'],
         'image/webp' => ['webp'],
         'image/avif' => ['avif'],
+        'image/heic' => ['heic'],
+        'image/heif' => ['heif'],
+        'image/heic-sequence' => ['heic'],
+        'image/heif-sequence' => ['heif'],
         'image/x-icon' => ['ico'],
         'image/vnd.microsoft.icon' => ['ico'],
         'image/bmp' => ['bmp'],
@@ -87,25 +93,8 @@ final class UploadService
 
     public function validateMime(string $tmpPath, string $ext): bool
     {
-        if (!is_file($tmpPath) || !is_readable($tmpPath)) return false;
-
-        if ($ext === 'svg') {
-            return self::validateSvg($tmpPath);
-        }
-
-        $mime = self::detectMime($tmpPath);
-        if ($mime === null) return false;
-
-        // 严格匹配：经典图像扩展名（jpg/png/gif/webp/avif/ico/bmp/tiff）的 MIME
-        // 必须 1:1 对得上预设映射 — 防止「.jpg 文件实际是 .gif」这种 spoof。
-        if (isset(self::ALLOWED_MIMES[$mime])) {
-            return in_array($ext, self::ALLOWED_MIMES[$mime], true);
-        }
-
-        // 用户自添的扩展名（如 heic / jxl / raw / dng），不在预设 MIME 表里。
-        // 仍要确保文件**内容**是图片：MIME 必须以 image/ 开头。这样 .php / .html /
-        // 任何可执行文件都会被拒，但合法的扩展（哪怕罕见）能放行。
-        return str_starts_with($mime, 'image/');
+        $allowedExts = defined('ALLOWED_UPLOAD_TYPES') ? ALLOWED_UPLOAD_TYPES : [];
+        return $this->resolveUploadType($tmpPath, $ext, $allowedExts) !== null;
     }
 
     /**
@@ -184,22 +173,22 @@ final class UploadService
         }
 
         $ext = strtolower((string)pathinfo($originalName, PATHINFO_EXTENSION));
-        $allowedExts = defined('ALLOWED_UPLOAD_TYPES') ? ALLOWED_UPLOAD_TYPES : [];
-        if (!in_array($ext, $allowedExts, true)) {
-            return ['status' => 'error', 'message' => "文件 {$originalName} 类型不支持"];
+        $tmpName = (string)($file['tmp_name'] ?? '');
+        if ($tmpName === '') {
+            return ['status' => 'error', 'message' => "文件 {$originalName} 上传源无效"];
         }
 
-        $tmpName = (string)($file['tmp_name'] ?? '');
-        if ($tmpName !== '' && !$this->validateMime($tmpName, $ext)) {
-            return ['status' => 'error', 'message' => "文件 {$originalName} 内容与实际类型不符或包含危险内容"];
+        $allowedExts = defined('ALLOWED_UPLOAD_TYPES') ? ALLOWED_UPLOAD_TYPES : [];
+        $uploadType = $this->resolveUploadType($tmpName, $ext, $allowedExts);
+        if ($uploadType === null) {
+            return ['status' => 'error', 'message' => "文件 {$originalName} 内容与实际类型不符、格式未启用或包含危险内容"];
         }
+        $ext = (string)$uploadType['ext'];
+        $detectedMime = (string)$uploadType['mime'];
 
         $maxBytes = $this->maxBytes();
         if ((int)($file['size'] ?? 0) > $maxBytes) {
             return ['status' => 'error', 'message' => "文件 {$originalName} 超过大小限制（当前上限 " . self::fmt($maxBytes) . '）'];
-        }
-        if ($tmpName === '') {
-            return ['status' => 'error', 'message' => "文件 {$originalName} 上传源无效"];
         }
 
         $hash = @sha1_file($tmpName);
@@ -242,7 +231,7 @@ final class UploadService
         $imageRepo->recordOriginalName($identifier, $originalName);
         $imageMeta = [
             'hash' => $hash !== '' ? $hash : null,
-            'mime' => self::detectMime($target),
+            'mime' => $detectedMime !== '' ? $detectedMime : self::detectMime($target),
             'size' => is_file($target) ? (int)@filesize($target) : (int)($file['size'] ?? 0),
             'ext' => $ext,
         ];
@@ -257,6 +246,8 @@ final class UploadService
         $queueOptions = [
             'create_thumbnail' => true,                         // 总是生成
             'auto_compress'    => defined('AUTO_COMPRESS_ON_UPLOAD') && AUTO_COMPRESS_ON_UPLOAD,
+            'auto_convert'     => defined('AUTO_CONVERT_ON_UPLOAD') && AUTO_CONVERT_ON_UPLOAD,
+            'auto_convert_target' => defined('CONVERT_PREFERRED_FORMAT') ? CONVERT_PREFERRED_FORMAT : 'webp',
             'auto_webp'        => defined('AUTO_CONVERT_WEBP_ON_UPLOAD') && AUTO_CONVERT_WEBP_ON_UPLOAD,
             'auto_avif'        => defined('AUTO_CONVERT_AVIF_ON_UPLOAD') && AUTO_CONVERT_AVIF_ON_UPLOAD,
             'watermark'        => defined('WATERMARK_ENABLED') && WATERMARK_ENABLED,
@@ -304,13 +295,67 @@ final class UploadService
         return \LitePic\Service\Image\ImageProcessor::settleVariants($identifier, $processing, $thumbnails);
     }
 
+    /**
+     * Resolve the final stored extension from detected MIME.
+     *
+     * For known raster formats we trust the file content over the original
+     * suffix. This keeps uploads safe while fixing common cases where a JPEG
+     * or WebP is downloaded with a `.png` filename.
+     *
+     * @param string[] $allowedExts
+     * @return array{ext:string,mime:string,normalized:bool}|null
+     */
+    private function resolveUploadType(string $tmpPath, string $ext, array $allowedExts): ?array
+    {
+        if (!is_file($tmpPath) || !is_readable($tmpPath)) return null;
+
+        $ext = strtolower(ltrim(trim($ext), '.'));
+        $allowedExts = array_values(array_unique(array_map(
+            static fn($item) => strtolower(ltrim(trim((string)$item), '.')),
+            $allowedExts
+        )));
+
+        if ($ext === 'svg') {
+            if (!in_array('svg', $allowedExts, true)) return null;
+            return self::validateSvg($tmpPath)
+                ? ['ext' => 'svg', 'mime' => 'image/svg+xml', 'normalized' => false]
+                : null;
+        }
+
+        $mime = self::detectMime($tmpPath);
+        if ($mime === null || $mime === '') return null;
+        $mime = strtolower($mime);
+
+        if (isset(self::ALLOWED_MIMES[$mime])) {
+            $candidates = self::ALLOWED_MIMES[$mime];
+            if (in_array($ext, $candidates, true) && in_array($ext, $allowedExts, true)) {
+                return ['ext' => $ext, 'mime' => $mime, 'normalized' => false];
+            }
+
+            foreach ($candidates as $candidate) {
+                if (in_array($candidate, $allowedExts, true)) {
+                    return ['ext' => $candidate, 'mime' => $mime, 'normalized' => $candidate !== $ext];
+                }
+            }
+
+            return null;
+        }
+
+        // 用户自添的扩展名（如 heic / jxl / raw / dng），不在预设 MIME 表里。
+        // 仍要确保文件内容是 image/*，并且原扩展名在后台允许列表中。
+        if (str_starts_with($mime, 'image/') && $ext !== '' && in_array($ext, $allowedExts, true)) {
+            return ['ext' => $ext, 'mime' => $mime, 'normalized' => false];
+        }
+
+        return null;
+    }
+
     private static function detectMime(string $tmpPath): ?string
     {
         if (function_exists('finfo_open')) {
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
             if (!$finfo) return null;
             $mime = finfo_file($finfo, $tmpPath);
-            finfo_close($finfo);
             return $mime === false ? null : (string)$mime;
         }
         if (function_exists('mime_content_type')) {

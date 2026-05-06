@@ -17,7 +17,7 @@ use Throwable;
  */
 final class ThumbnailService
 {
-    private const SUPPORTED_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif'];
+    private const SUPPORTED_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'heic', 'heif', 'bmp', 'tiff', 'tif', 'ico'];
 
     private ImageRepository $images;
 

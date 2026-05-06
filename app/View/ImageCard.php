@@ -48,8 +48,14 @@ class ImageCard {
         $rc_webp_url = $rc_has_webp ? preg_replace('/\.[a-z0-9]+$/i', '.webp', $rc_url) : '';
         $rc_avif_url = $rc_has_avif ? preg_replace('/\.[a-z0-9]+$/i', '.avif', $rc_url) : '';
         $rc_ext = strtolower(pathinfo($rc_filename, PATHINFO_EXTENSION));
-        $rc_can_convert = in_array($rc_ext, ['jpg', 'jpeg', 'png', 'gif'], true);
-        $rc_preferred = defined('CONVERT_PREFERRED_FORMAT') ? (string)CONVERT_PREFERRED_FORMAT : 'webp';
+        $rc_preferred = \LitePic\Service\Image\ImageFormat::normalizeTarget(defined('CONVERT_PREFERRED_FORMAT') ? (string)CONVERT_PREFERRED_FORMAT : 'webp') ?: 'webp';
+        $rc_can_convert = false;
+        foreach (['webp', 'avif', 'jpg', 'png'] as $targetExt) {
+            if (\LitePic\Service\Image\ImageFormat::canConvertTo($rc_ext, $targetExt)) {
+                $rc_can_convert = true;
+                break;
+            }
+        }
         ?>
         <div class="<?= $card_class ?>"
              data-filename="<?= htmlspecialchars($rc_filename) ?>"
@@ -179,7 +185,9 @@ class ImageCard {
             <?php 
             $ext = strtolower(pathinfo($this->info['filename'], PATHINFO_EXTENSION));
             $canCompress = in_array($ext, ['jpg','jpeg','png']);
-            $canConvert = in_array($ext, ['jpg','jpeg','png','gif']);
+            $preferred = \LitePic\Service\Image\ImageFormat::normalizeTarget((string)$preferred) ?: 'webp';
+            $canConvert = \LitePic\Service\Image\ImageFormat::canConvertTo($ext, $preferred);
+            $preferredLabel = \LitePic\Service\Image\ImageFormat::targetLabel($preferred);
             ?>
 
             <?php if ($this->show_comp && $canCompress): ?>
@@ -194,6 +202,13 @@ class ImageCard {
             <?php if ($preferred === 'avif'): ?>
             <button class="action-btn avif-btn"
                     title="转换AVIF"
+                    type="button">
+                <i class="fa-light fa-image"></i>
+            </button>
+            <?php elseif ($preferred === 'jpg' || $preferred === 'png'): ?>
+            <button class="action-btn convert-btn"
+                    data-convert-target="<?= htmlspecialchars($preferred) ?>"
+                    title="转换<?= htmlspecialchars($preferredLabel) ?>"
                     type="button">
                 <i class="fa-light fa-image"></i>
             </button>

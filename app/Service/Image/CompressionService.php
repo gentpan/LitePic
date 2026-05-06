@@ -45,7 +45,7 @@ final class CompressionService
     /**
      * Auto-compress immediately after a successful upload. Skipped when
      * AUTO_COMPRESS_ON_UPLOAD is off, or when an automatic format
-     * conversion (WebP/AVIF) is also enabled — those handle their own
+     * conversion is also enabled — those handle their own
      * compression and we don't want to double-process.
      *
      * @return array<string,mixed>
@@ -71,10 +71,7 @@ final class CompressionService
             $result['skip_reason'] = 'disabled';
             return $result;
         }
-        if (
-            (defined('AUTO_CONVERT_WEBP_ON_UPLOAD') && AUTO_CONVERT_WEBP_ON_UPLOAD) ||
-            (defined('AUTO_CONVERT_AVIF_ON_UPLOAD') && AUTO_CONVERT_AVIF_ON_UPLOAD)
-        ) {
+        if (defined('AUTO_CONVERT_ON_UPLOAD') && AUTO_CONVERT_ON_UPLOAD) {
             $result['skip_reason'] = 'conversion_enabled';
             return $result;
         }

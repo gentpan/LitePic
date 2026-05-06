@@ -1,6 +1,6 @@
 {
   "name": "litepic",
-  "version": "3.3.1",
+  "version": "3.3.2",
   "description": "LitePic - 轻量级自托管图床系统",
   "scripts": {
     "build:css": "npx @tailwindcss/cli -i ./assets/css/tailwind.css -o ./assets/css/main.css --minify",
@@ -11,7 +11,11 @@
     "type": "git",
     "url": "git+https://github.com/gentpan/LitePic.git"
   },
-  "keywords": ["image-hosting", "php", "self-hosted"],
+  "keywords": [
+    "image-hosting",
+    "php",
+    "self-hosted"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
