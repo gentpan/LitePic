@@ -55,7 +55,12 @@ try {
         case 'auth_options':
             $options = $webauthn->getAuthenticationOptions();
             if (empty($options['allowCredentials'])) {
-                \LitePic\Core\Response::error('尚未注册 Passkey', 404);
+                // Use 400 (not 404) so the JSON body survives intact:
+                // many shared hosting nginx vhosts (e.g. BT panel) configure
+                // `error_page 404 /404.html` which intercepts our JSON 404
+                // and replaces it with an HTML page — frontend then chokes
+                // on "Unexpected token '<'". 400 is unaffected.
+                \LitePic\Core\Response::error('暂未配置 Passkey，请先在后台「设置 → 安全」中注册', 400);
             }
             \LitePic\Core\Response::success($options);
             break;

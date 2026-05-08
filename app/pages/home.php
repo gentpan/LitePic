@@ -13,6 +13,23 @@ $html_title = trim(SITE_DESCRIPTION) !== '' ? SITE_NAME . ' ｜ ' . SITE_DESCRIP
 $image_count = (new \LitePic\Service\Stats\FooterStats())->imageCount();
 $total_size = (new \LitePic\Service\Stats\FooterStats())->totalSize();
 
+// 仅当至少注册过一个 Passkey 时才显示 "使用 Passkey 登录" 按钮，
+// 否则点了也只能弹错（实际是后端 404 走 nginx error_page 被替换成 HTML 页）。
+// 渲染时一次轻量 COUNT 比让前端跑一次失败的 fetch 更友好。
+$passkey_available = false;
+if (!$is_logged_in) {
+    try {
+        $rpId = preg_replace('/:\d+$/', '', (string)($_SERVER['HTTP_HOST'] ?? 'localhost'));
+        if ($rpId === '127.0.0.1') $rpId = 'localhost';
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $passkey_available = (new \LitePic\Service\Auth\Passkey\WebAuthn(
+            SITE_NAME, $rpId, $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost')
+        ))->hasCredentials();
+    } catch (\Throwable $_) {
+        // Schema not yet migrated, table missing, etc — fail safe (hide button).
+    }
+}
+
 require_once APP_ROOT . '/header.php';
 ?>
 
@@ -73,10 +90,12 @@ require_once APP_ROOT . '/header.php';
                                         <i class="fa-light fa-arrow-right-to-bracket" aria-hidden="true"></i>
                                         <span>登录</span>
                                     </button>
+                                    <?php if ($passkey_available): ?>
                                     <button type="button" class="login-submit login-passkey-btn">
                                         <i class="fa-light fa-fingerprint" aria-hidden="true"></i>
                                         <span>使用 Passkey 登录</span>
                                     </button>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>

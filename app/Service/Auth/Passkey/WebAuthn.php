@@ -98,6 +98,18 @@ class WebAuthn {
         return $this->repo->findCredential($credentialId);
     }
 
+    /**
+     * Whether at least one Passkey credential is registered.
+     *
+     * Cheap (single COUNT) — safe to call at page render time so the
+     * frontend can hide the "Login with Passkey" button when nothing
+     * is configured yet, instead of triggering a runtime API call that
+     * fails with an opaque error.
+     */
+    public function hasCredentials(): bool {
+        return $this->repo->countCredentials() > 0;
+    }
+
     /** 删除凭证 */
     public function deleteCredential(string $credentialId): bool {
         return $this->repo->deleteCredential($credentialId);
