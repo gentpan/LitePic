@@ -23,6 +23,18 @@
     box-shadow: var(--header-shadow);
   }
 
+  /* Dark mode nav links — 去掉浅色模式那套白色 inset 高光,在深色面板上
+     白光看起来像渐变,清掉只留主色背景 */
+  html[data-theme="dark"] .nav-link.active {
+    background: color-mix(in srgb, var(--primary) 22%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 38%, transparent);
+    color: #ffffff;
+  }
+  html[data-theme="dark"] .nav-link:hover {
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    color: #ffffff;
+  }
+
   /* ===========================
      Logo / Brand
      =========================== */
@@ -138,16 +150,7 @@
     border-radius: 999px;
   }
 
-  .nav-indicator {
-    display: none;
-  }
-
-  .nav-auth {
-    @apply relative inline-flex items-center;
-  }
-
-  .nav-link,
-  .nav-btn {
+  .nav-link {
     @apply flex items-center gap-2 px-3 py-1.5 bg-transparent border-0 cursor-pointer text-gray text-sm font-medium no-underline transition-colors duration-200 rounded-full;
     position: relative;
     z-index: 1;
@@ -157,8 +160,7 @@
       box-shadow 180ms ease;
   }
 
-  .nav-link:hover,
-  .nav-btn:hover {
+  .nav-link:hover {
     @apply text-primary;
     background: color-mix(in srgb, var(--primary) 8%, transparent);
   }
@@ -169,14 +171,6 @@
     box-shadow:
       inset 0 0 0 1px color-mix(in srgb, var(--primary) 30%, transparent),
       0 1px 0 rgba(255, 255, 255, 0.58) inset;
-  }
-
-  .nav-btn.logout-btn {
-    @apply text-danger;
-  }
-
-  .nav-btn.logout-btn:hover {
-    @apply text-white bg-danger;
   }
 
   /* CTA button on the right */
@@ -339,17 +333,12 @@
   /* ===========================
      Gallery controls / header-right placeholders
      =========================== */
-  .gallery-controls,
   .header-right {
     @apply flex items-center gap-3 justify-end min-w-0;
   }
 
   .header-right > * {
     @apply shrink-0;
-  }
-
-  .page-size-form label {
-    @apply text-sm text-gray;
   }
 
   /* ===========================
@@ -374,25 +363,12 @@
     @apply text-dark;
   }
 
-  .footer-outside-divider {
-    @apply w-px h-4 opacity-20;
-    background: var(--text);
-  }
-
   .footer-content {
     @apply w-full max-w-[1280px] px-4 mx-auto flex gap-6 items-center justify-between box-border;
   }
 
-  .footer-center {
-    @apply flex flex-1 min-w-0 gap-6 items-center justify-center;
-  }
-
   .footer-copyright {
     @apply text-sm shrink-0;
-  }
-
-  .footer-stats {
-    @apply flex gap-6 items-center;
   }
 
   .stat-item {
@@ -494,51 +470,6 @@
   /* ===========================
      主题切换：Uiverse.io 开关
      =========================== */
-  .ui-switch {
-    --switch-bg: rgb(135, 150, 165);
-    --switch-width: 48px;
-    --switch-height: 20px;
-    --circle-diameter: 32px;
-    --circle-bg: rgb(0, 56, 146);
-    --circle-inset: calc((var(--circle-diameter) - var(--switch-height)) / 2);
-
-    @apply inline-flex items-center justify-center cursor-pointer;
-  }
-
-  .ui-switch input {
-    @apply hidden;
-  }
-
-  .ui-switch .slider {
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-    @apply relative cursor-pointer;
-    width: var(--switch-width);
-    height: var(--switch-height);
-    background: var(--switch-bg);
-    border-radius: 999px;
-  }
-
-  .ui-switch .slider .circle {
-    @apply absolute rounded-full;
-    top: calc(var(--circle-inset) * -1);
-    left: 0;
-    width: var(--circle-diameter);
-    height: var(--circle-diameter);
-    background: var(--circle-bg);
-    background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGhlaWdodD0iMjAiIHdpZHRoPSIyMCIgdmlld0JveD0iMCAwIDIwIDIwIj4KICAgIDxwYXRoIGZpbGw9IiNmZmYiCiAgICAgICAgZD0iTTkuMzA1IDEuNjY3VjMuNzVoMS4zODlWMS42NjdoLTEuMzl6bS00LjcwNyAxLjk1bC0uOTgyLjk4Mkw1LjA5IDYuMDcybC45ODItLjk4Mi0xLjQ3My0xLjQ3M3ptMTAuODAyIDBMMTMuOTI3IDUuMDlsLjk4Mi45ODIgMS40NzMtMS40NzMtLjk4Mi0uOTgyek0xMCA1LjEzOWE0Ljg3MiA0Ljg3MiAwIDAwLTQuODYyIDQuODZBNC44NzIgNC44NzIgMCAwMDEwIDE0Ljg2MiA0Ljg3MiA0Ljg3MiAwIDAwMTQuODYgMTAgNC44NzIgNC44NzIgMCAwMDEwIDUuMTM5em0wIDEuMzg5QTMuNDYyIDMuNDYyIDAgMDExMy40NzEgMTBhMy40NjIgMy40NjIgMCAwMS0zLjQ3MyAzLjQ3MkEzLjQ2MiAzLjQ2MiAwIDAxNi41MjcgMTAgMy40NjIgMy40NjIgMCAwMTEwIDYuNTI4ek0xLjY2NSA5LjMwNXYxLjM5aDIuMDgzdi0xLjM5SDEuNjY2em0xNC41ODMgMHYxLjM5aDIuMDg0di0xLjM5aC0yLjA4NHpNNS4wOSAxMy45MjhMMy42MTYgMTUuNGwuOTgyLjk4MiAxLjQ3My0xLjQ3My0uOTgyLS45ODJ6bTkuODIgMGwtLjk4Mi45ODIgMS40NzMgMS40NzMuOTgyLS45ODItMS40NzMtMS40NzN6TTkuMzA1IDE2LjI1djIuMDgzaDEuMzg5VjE2LjI1aC0xLjM5eiIgLz4KPC9zdmc+");
-    background-repeat: no-repeat;
-    background-position: center center;
-    transition: left 150ms cubic-bezier(0.4, 0, 0.2, 1) 0ms, transform 150ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
-    box-shadow: 0px 2px 1px -1px rgba(0,0,0,0.2), 0px 1px 1px 0px rgba(0,0,0,0.14), 0px 1px 3px 0px rgba(0,0,0,0.12);
-  }
-
-  .ui-switch input:checked + .slider .circle {
-    left: calc(100% - var(--circle-diameter));
-    background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGhlaWdodD0iMjAiIHdpZHRoPSIyMCIgdmlld0JveD0iMCAwIDIwIDIwIj4KICAgIDxwYXRoIGZpbGw9IiNmZmYiCiAgICAgICAgZD0iTTQuMiAyLjVsLS43IDEuOC0xLjguNyAxLjguNy43IDEuOC42LTEuOEw2LjcgNWwtMS45LS43LS42LTEuOHptMTUgOC4zYTYuNyA2LjcgMCAxMS02LjYtNi42IDUuOCA1LjggMCAwMDYuNiA2LjZ6IiAvPgo8L3N2Zz4=");
-  }
-
   /* ===========================
      页脚主题切换：单图标 + 上滑菜单
      =========================== */
@@ -767,9 +698,17 @@
     box-shadow: none;
   }
 
+  /* Upload 按钮深色下保持蓝底白字,hover 不再把 icon 染成 primary
+     (那会让 icon 跟背景同色看不见 — 之前是白底蓝字才合理) */
+  html[data-theme="dark"] .nav-cta-btn,
+  html[data-theme="dark"] .nav-cta-btn:hover {
+    color: #ffffff;
+  }
+  html[data-theme="dark"] .nav-cta-btn > i,
+  html[data-theme="dark"] .nav-cta-btn > .nav-upload-loader,
   html[data-theme="dark"] .nav-cta-btn:hover > i,
   html[data-theme="dark"] .nav-cta-btn:hover > .nav-upload-loader {
-    color: var(--primary);
+    color: #ffffff;
   }
 
   html[data-theme="dark"] .input-group input {
@@ -790,39 +729,6 @@
   html[data-theme="dark"] .site-footer {
     background: transparent;
     border-top-color: rgba(255, 255, 255, 0.04);
-  }
-
-  /* Footer LP badge — shallow debossed effect.
-     Sized at 85% of footer height so it scales with the bar instead of
-     looking like a small chip. aspect-ratio:1 keeps it square. Inset
-     shadows are intentionally subtle (low opacity / 1px blur) — the
-     visual cue is "pressed in", not "carved out hole". */
-  .footer-logo-deboss {
-    height: 85%;
-    aspect-ratio: 1;
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 6px;
-    background: color-mix(in srgb, var(--bg, #f8f9fa) 95%, var(--dark, #0f172a) 5%);
-    color: color-mix(in srgb, var(--gray, #94a3b8) 50%, var(--dark, #0f172a) 50%);
-    box-shadow:
-      inset 1px 1px 1px rgba(0, 0, 0, 0.10),
-      inset -1px -1px 1px rgba(255, 255, 255, 0.6);
-    transition: color 200ms ease;
-  }
-
-  .footer-logo-deboss:hover {
-    color: var(--primary);
-  }
-
-  html[data-theme="dark"] .footer-logo-deboss {
-    background: color-mix(in srgb, var(--bg, #0c0c0c) 88%, #fff 4%);
-    color: color-mix(in srgb, var(--gray, #94a3b8) 70%, #fff 30%);
-    box-shadow:
-      inset 1px 1px 1px rgba(0, 0, 0, 0.4),
-      inset -1px -1px 1px rgba(255, 255, 255, 0.04);
   }
 
   /* =====================================================================
@@ -865,16 +771,6 @@
     color: #fff;
     font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
     font-weight: 600;
-  }
-
-  html[data-theme="dark"] .wechat-popup {
-    background: var(--surface);
-    border-color: rgba(255, 255, 255, 0.04);
-  }
-
-  html[data-theme="dark"] .ui-switch {
-    --switch-bg: rgba(255, 255, 255, 0.1);
-    --circle-bg: rgb(30, 136, 229);
   }
 
   /* ===========================
@@ -974,13 +870,11 @@
   }
 
   body.home-guest .logo-text,
-  body.home-guest .nav-link,
-  body.home-guest .nav-btn {
+  body.home-guest .nav-link {
     color: #f6f9ff;
   }
 
   body.home-guest .nav-link:hover,
-  body.home-guest .nav-btn:hover,
   body.home-guest .nav-link.active {
     color: #f6f9ff;
   }
@@ -1024,11 +918,6 @@
     display: none;
   }
 
-  body.home-guest .ui-switch {
-    --switch-bg: rgba(255, 255, 255, 0.28);
-    --circle-bg: var(--primary);
-  }
-
   body.home-guest .home-hero {
     min-height: calc(100vh - var(--header-offset, 72px) - var(--footer-safe-space, 96px));
     @apply grid place-items-center px-5 py-12;
@@ -1044,11 +933,6 @@
     color: var(--hero-text);
   }
 
-  body.home-guest .home-hero-mark {
-    @apply leading-none text-primary;
-    font-size: clamp(3rem, 6vw, 4.5rem);
-  }
-
   body.home-guest .home-hero-title {
     @apply mt-[18px] mb-2.5 font-bold leading-tight text-[clamp(2rem,5vw,3rem)];
     color: var(--hero-text);
@@ -1057,20 +941,6 @@
   body.home-guest .home-hero-description {
     @apply m-0 text-base;
     color: var(--hero-muted);
-  }
-
-  body.home-guest .home-hero-formats {
-    @apply mt-[30px] mx-auto pt-6 flex flex-col items-center gap-3.5 border-t;
-    border-color: var(--hero-line);
-  }
-
-  body.home-guest .formats-label {
-    @apply inline-flex items-center gap-2 text-base;
-    color: var(--hero-muted);
-  }
-
-  body.home-guest .formats-list {
-    @apply flex flex-wrap justify-center gap-2;
   }
 
   body.home-guest .format-tag {
@@ -1373,13 +1243,11 @@
       border-radius: 0;
     }
 
-    .nav-link,
-    .nav-btn {
+    .nav-link {
       @apply flex-col p-2 text-xs;
     }
 
-    .nav-link span,
-    .nav-btn span {
+    .nav-link span {
       @apply block text-[0.625rem];
     }
 
@@ -1392,24 +1260,12 @@
       @apply px-4 flex-col gap-2 text-center items-center;
     }
 
-    .footer-center {
-      @apply flex-wrap gap-3;
-    }
-
-    .footer-stats {
-      @apply order-2 justify-center;
-    }
-
     .footer-links {
       @apply order-1;
     }
 
     .footer-right {
       @apply order-3;
-    }
-
-    .footer-icon {
-      @apply w-8 h-8;
     }
 
     body.home-guest .main-nav {
@@ -1453,21 +1309,12 @@
   }
 
   @media (max-width: 576px) {
-    .gallery-controls,
     .header-right {
       @apply justify-start;
     }
   }
 
   @media (max-width: 480px) {
-    .footer-icon {
-      @apply w-7 h-7 text-sm;
-    }
-
-    .footer-stats {
-      @apply flex-col gap-1.5;
-    }
-
     .stat-item {
       @apply justify-center;
     }

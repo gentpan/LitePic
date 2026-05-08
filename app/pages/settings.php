@@ -46,6 +46,11 @@ $settings_tabs = [
         'label' => '任务',
         'description' => '后台图片处理队列（缩略图 / 压缩 / WebP / AVIF / 水印 / 远程同步）的状态、失败重试、手动触发',
     ],
+    'telegram' => [
+        'icon' => 'fa-paper-plane',
+        'label' => 'Telegram',
+        'description' => '绑定 Telegram 机器人 — 直接在聊天里上传图片、管理相册、获取链接',
+    ],
     'system' => [
         'icon' => 'fa-database',
         'label' => '系统',
@@ -127,6 +132,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 'action' => $form_action,
                 'created_token' => $created_token,
                 'saved_settings' => $saved_settings,
+                'compression_key_added' => $result['compression_key_added'] ?? null,
                 'import_task_status' => (new \LitePic\Service\Importer\Importer())->queueStatus(),
             ]);
         }
@@ -225,9 +231,7 @@ if ($cpu_load_1 !== null && $cpu_cores_num > 0) {
     $cpu_load_percent = max(0.0, min(100.0, round(($cpu_load_1 / $cpu_cores_num) * 100, 2)));
 }
 $disk_usage_percent = max(0.0, min(100.0, (float)($metrics['disk']['usage_percent'] ?? 0)));
-$htaccess_path = APP_ROOT . '/.htaccess';
-$apache_hotlink_rules_enabled = \LitePic\Service\Hotlink\HotlinkProtection::apacheRulesEnabled($htaccess_path);
-$htaccess_writable = is_file($htaccess_path) ? is_writable($htaccess_path) : is_writable(APP_ROOT);
+$hotlink_enabled = defined('HOTLINK_PROTECTION_ENABLED') && HOTLINK_PROTECTION_ENABLED;
 $web_server = (new \LitePic\Service\Stats\ServerInfo())->webServer();
 $server_software = (string)$web_server['raw'];
 $server_label = (string)$web_server['label'];
@@ -346,6 +350,35 @@ require_once APP_ROOT . '/header.php';
                             </div>
                         </div>
 
+                        <!-- ====== 整行 UPTIME 条 ====== -->
+                        <div class="runtime-section runtime-uptime-section">
+                            <div class="runtime-uptime-strip" data-uptime-strip data-uptime-default="1d">
+                                <div class="runtime-uptime-head">
+                                    <span class="runtime-uptime-title">UPTIME</span>
+                                    <div class="runtime-uptime-ranges" role="tablist" aria-label="Uptime range">
+                                        <?php foreach (['90d' => '90D', '30d' => '30D', '1d' => '1D', '1h' => '1H'] as $rangeKey => $rangeLabel): ?>
+                                            <button type="button"
+                                                    class="runtime-uptime-range<?= $rangeKey === '1d' ? ' is-active' : '' ?>"
+                                                    data-uptime-range="<?= $rangeKey ?>"
+                                                    role="tab"
+                                                    aria-selected="<?= $rangeKey === '1d' ? 'true' : 'false' ?>">
+                                                <?= $rangeLabel ?>
+                                            </button>
+                                        <?php endforeach; ?>
+                                    </div>
+                                    <span class="runtime-uptime-percent" data-uptime-percent>—</span>
+                                </div>
+                                <div class="runtime-uptime-bar" data-uptime-bar role="img" aria-label="服务运行时间分段图">
+                                    <!-- segments injected by JS -->
+                                    <div class="runtime-uptime-loading">载入中…</div>
+                                </div>
+                                <div class="runtime-uptime-foot">
+                                    <span data-uptime-start>—</span>
+                                    <span data-uptime-end>Now</span>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="runtime-section">
                             <h4 class="runtime-section-label">环境信息</h4>
                             <div class="runtime-meta-grid">
@@ -454,7 +487,7 @@ require_once APP_ROOT . '/header.php';
                                             <?= $compression_capability['gd'] ? '已启用' : '未启用' ?>
                                         </span>
                                         <?php if (!$compression_capability['gd']): ?>
-                                            <a href="https://litepic.io/docs#webp" target="_blank" rel="noopener noreferrer" class="<?= $cap_badge_help ?>" title="查看启用方法" aria-label="查看启用方法">
+                                            <a href="https://litepic.io/docs#gd" target="_blank" rel="noopener noreferrer" class="<?= $cap_badge_help ?>" title="查看启用方法" aria-label="查看启用方法">
                                                 <i class="fa-light fa-circle-question text-base" aria-hidden="true"></i>
                                             </a>
                                         <?php endif; ?>
@@ -467,7 +500,7 @@ require_once APP_ROOT . '/header.php';
                                             <?= $compression_capability['imagick'] ? '已启用' : '未启用' ?>
                                         </span>
                                         <?php if (!$compression_capability['imagick']): ?>
-                                            <a href="https://litepic.io/docs#compression-modes" target="_blank" rel="noopener noreferrer" class="<?= $cap_badge_help ?>" title="查看启用方法" aria-label="查看启用方法">
+                                            <a href="https://litepic.io/docs#imagick" target="_blank" rel="noopener noreferrer" class="<?= $cap_badge_help ?>" title="查看启用方法" aria-label="查看启用方法">
                                                 <i class="fa-light fa-circle-question text-base" aria-hidden="true"></i>
                                             </a>
                                         <?php endif; ?>
@@ -515,6 +548,7 @@ require_once APP_ROOT . '/header.php';
                             </div>
                         </div>
                     </section>
+
 <?php endif; // tab: basic (服务器信息) ?>
 
 <?php if (in_array($active_settings_tab, ['basic'], true)): // 上传限制: 移到基础 tab ?>
@@ -603,7 +637,7 @@ require_once APP_ROOT . '/header.php';
                             <span class="db-badge">
                                 <i class="fa-light fa-shield-check" aria-hidden="true"></i>
                                 <span class="db-badge__label">保护数据</span>
-                                <code class="db-badge__value">data / uploads / .env</code>
+                                <code class="db-badge__value">data / <?= htmlspecialchars(defined('STORAGE_DIR') ? STORAGE_DIR : 'uploads') ?> / .env</code>
                             </span>
                             <span class="db-badge">
                                 <i class="fa-light fa-box-archive" aria-hidden="true"></i>
@@ -614,7 +648,7 @@ require_once APP_ROOT . '/header.php';
 
                         <p class="cleanup-note">
                             <i class="fa-light fa-circle-info" aria-hidden="true"></i>
-                            <span>更新前会生成程序文件快照；更新过程不会覆盖 <code>.env</code>、<code>.user.ini</code>、<code>data/</code>、<code>uploads/</code>、<code>logs/</code> 和 <code>static/images/</code>。如服务器未启用 ZipArchive 或站点根目录不可写，会自动停止。</span>
+                            <span>更新前会生成程序文件快照；更新过程不会覆盖 <code>.env</code>、<code>.user.ini</code>、<code>data/</code>、<code><?= htmlspecialchars(defined('STORAGE_DIR') ? STORAGE_DIR : 'uploads') ?>/</code>、<code>logs/</code> 和 <code>static/images/</code>。如服务器未启用 ZipArchive 或站点根目录不可写，会自动停止。</span>
                         </p>
 
                         <div class="cleanup-toolbar" data-update-panel>
@@ -772,7 +806,7 @@ require_once APP_ROOT . '/header.php';
                         </div>
 
                         <p class="m-0 text-xs text-gray">
-                            备份方法：直接复制 <code><?= htmlspecialchars(basename($db_summary['path'])) ?></code> + <code>uploads/</code> 目录即可。
+                            备份方法：直接复制 <code><?= htmlspecialchars(basename($db_summary['path'])) ?></code> + <code><?= htmlspecialchars(defined('STORAGE_DIR') ? STORAGE_DIR : 'uploads') ?>/</code> 目录即可。
                             下方「数据库备份」section 提供 UI 备份 / 恢复 / 自动定时 / R2 同步。
                         </p>
                     </section>
@@ -1680,6 +1714,219 @@ require_once APP_ROOT . '/header.php';
                     </section>
 <?php endif; // tab: tasks (queue monitor + failed tasks) ?>
 
+<?php if (in_array($active_settings_tab, ['telegram'], true)): ?>
+                    <?php
+                    // ---- Telegram 相关设置加载 ----
+                    // 都从 Config 读取(同时落 settings 表 + .env)。webhook secret
+                    // 永远不直接展示明文 — 只展示「已配置 / 未配置」状态。
+                    $tg_enabled  = (bool)\LitePic\Core\Config::bool('TELEGRAM_ENABLED', false);
+                    $tg_token    = (string)\LitePic\Core\Config::get('TELEGRAM_BOT_TOKEN', '');
+                    $tg_users    = (string)\LitePic\Core\Config::get('TELEGRAM_ALLOWED_USER_IDS', '');
+                    $tg_default  = (string)\LitePic\Core\Config::get('TELEGRAM_DEFAULT_ALBUM_KEY', '');
+                    $tg_secret   = (string)\LitePic\Core\Config::get('TELEGRAM_WEBHOOK_SECRET', '');
+                    $tg_has_secret = $tg_secret !== '';
+                    // 站点 base — 给 webhook URL 预览用
+                    $tg_site_url = trim((string)\LitePic\Core\Config::get('SITE_URL', ''));
+                    if ($tg_site_url === '' || !preg_match('#^https?://#i', $tg_site_url)) {
+                        $tg_scheme = (!empty($_SERVER['HTTPS']) && (string)$_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+                        $tg_site_url = $tg_scheme . '://' . (string)($_SERVER['HTTP_HOST'] ?? 'localhost');
+                    }
+                    $tg_webhook_url = $tg_has_secret
+                        ? rtrim($tg_site_url, '/') . '/api/v1/telegram/webhook/' . $tg_secret
+                        : '(尚未注册)';
+                    $tg_albums_for_picker = (new \LitePic\Repository\AlbumRepository())->all();
+                    ?>
+                    <section>
+                        <div class="settings-section-header">
+                            <h3 class="settings-card-title">
+                                <i class="fa-light fa-paper-plane" aria-hidden="true"></i>
+                                <span>Telegram 机器人</span>
+                            </h3>
+                            <p>把 LitePic 接到 Telegram 机器人 — 直接发图上传,聊天里管理相册和拿链接。<a href="https://core.telegram.org/bots#how-do-i-create-a-bot" target="_blank" rel="noopener">如何创建 Bot Token →</a></p>
+                        </div>
+
+                        <div class="settings-grid">
+                            <!-- 启用开关 -->
+                            <div class="grid gap-2 col-span-2">
+                                <label class="flex items-center gap-2" for="telegram_enabled">
+                                    <input type="checkbox" id="telegram_enabled" name="telegram_enabled" value="1" <?= $tg_enabled ? 'checked' : '' ?>>
+                                    <span><strong>启用 Telegram 机器人</strong></span>
+                                </label>
+                                <p class="settings-field-hint">关闭时,即使 webhook 还在 Telegram 那边,LitePic 也不会处理任何消息。</p>
+                            </div>
+
+                            <!-- Bot Token -->
+                            <div class="grid gap-2 col-span-2">
+                                <label for="telegram_bot_token">Bot Token <span style="color:#d73a49;">*</span></label>
+                                <input id="telegram_bot_token" name="telegram_bot_token" type="text" autocomplete="off"
+                                       placeholder="例:1234567890:AABBccddEEffGGhhIIjjKKllMMnnOOpp"
+                                       value="<?= htmlspecialchars($tg_token) ?>">
+                                <p class="settings-field-hint">在 Telegram 里跟 <code>@BotFather</code> 对话,<code>/newbot</code> 拿到一个形如 <code>&lt;bot_id&gt;:&lt;token&gt;</code> 的字符串。</p>
+                            </div>
+
+                            <!-- 允许的用户 ID -->
+                            <div class="grid gap-2 col-span-2">
+                                <label for="telegram_allowed_user_ids">允许访问的 Telegram 用户 ID</label>
+                                <input id="telegram_allowed_user_ids" name="telegram_allowed_user_ids" type="text" autocomplete="off"
+                                       placeholder="例:123456789,987654321"
+                                       value="<?= htmlspecialchars($tg_users) ?>">
+                                <p class="settings-field-hint">逗号分隔的纯数字。<strong>白名单是唯一的认证</strong> — 留空 = 没人能用。第一次跟机器人对话用 <code>/start</code>,被拒时机器人会回复你的 user_id,把它填到这里再保存。</p>
+                            </div>
+
+                            <!-- 默认上传相册 -->
+                            <div class="grid gap-2 col-span-2">
+                                <label for="telegram_default_album_key">默认上传相册</label>
+                                <select id="telegram_default_album_key" name="telegram_default_album_key">
+                                    <option value="">— 不指定(只入主图库) —</option>
+                                    <?php foreach ($tg_albums_for_picker as $_a): ?>
+                                        <?php $_aKey = \LitePic\Service\Album\AlbumService::urlKey($_a); ?>
+                                        <option value="<?= htmlspecialchars($_aKey) ?>" <?= $_aKey === $tg_default ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars((string)$_a['name']) ?> (<?= (int)$_a['image_count'] ?> 张) — /a/<?= htmlspecialchars($_aKey) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <p class="settings-field-hint">机器人收到的图片会自动加入此相册。每个 Telegram 用户也能用 <code>/use &lt;key&gt;</code> 设置自己的覆盖值,优先级更高。</p>
+                            </div>
+
+                            <!-- Webhook 状态 + 操作 -->
+                            <div class="grid gap-2 col-span-2" style="border:1px solid var(--border-color);padding:14px;background:color-mix(in srgb, var(--light) 60%, var(--surface) 40%);">
+                                <div class="flex items-center justify-between gap-2 flex-wrap">
+                                    <div>
+                                        <strong>Webhook 状态:</strong>
+                                        <?php if ($tg_has_secret): ?>
+                                            <span class="status-pill is-on" style="margin-left:6px;">已注册</span>
+                                        <?php else: ?>
+                                            <span class="status-pill is-off" style="margin-left:6px;">未注册</span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="flex gap-2 flex-wrap">
+                                        <button type="button" class="btn btn--secondary btn--sm" data-tg-action="test">
+                                            <i class="fa-light fa-stethoscope" aria-hidden="true"></i>
+                                            <span>测试连接</span>
+                                        </button>
+                                        <button type="button" class="btn btn--primary btn--sm" data-tg-action="register">
+                                            <i class="fa-light fa-link" aria-hidden="true"></i>
+                                            <span>注册 / 重新注册 Webhook</span>
+                                        </button>
+                                        <?php if ($tg_has_secret): ?>
+                                            <button type="button" class="btn btn--danger btn--sm" data-tg-action="delete">
+                                                <i class="fa-light fa-link-slash" aria-hidden="true"></i>
+                                                <span>注销 Webhook</span>
+                                            </button>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                                <p class="settings-field-hint" style="margin-top:8px;">
+                                    Webhook URL: <code style="word-break:break-all;font-size:0.78rem;"><?= htmlspecialchars($tg_webhook_url) ?></code>
+                                </p>
+                                <p class="settings-field-hint">
+                                    点「注册 Webhook」会随机生成新 secret 并通知 Telegram。Telegram 要求 HTTPS,本地开发或 IP 直连无法注册。
+                                </p>
+                            </div>
+
+                            <!-- 指令速查 -->
+                            <div class="grid gap-2 col-span-2">
+                                <h4 style="margin:0 0 4px;font-size:0.92rem;">机器人支持的指令</h4>
+                                <ul style="margin:0;padding-left:1.2em;font-size:0.86rem;line-height:1.7;color:var(--gray);">
+                                    <li>📸 直接发图片 — 自动上传到 LitePic,机器人回复公开链接</li>
+                                    <li><code>/list [N]</code> — 最近 N 张图(默认 5,最多 20)</li>
+                                    <li><code>/albums</code> — 列出所有相册</li>
+                                    <li><code>/album &lt;key&gt;</code> — 查看某个相册</li>
+                                    <li><code>/newalbum &lt;名称&gt;</code> — 新建相册</li>
+                                    <li><code>/use &lt;key&gt;</code> / <code>/use none</code> — 设置 / 清除该用户的默认上传相册</li>
+                                    <li><code>/me</code> — 查看自己的 user_id 和当前默认相册</li>
+                                    <li><code>/help</code> — 显示帮助</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </section>
+
+                    <script>
+                    /*
+                     * Telegram 设置 tab — 三个独立的 AJAX 操作:
+                     *   注册 webhook / 注销 webhook / 测试连接
+                     *
+                     * 所有按钮都通过 form_action 切换走 SettingsController dispatch。
+                     * 复用 settings.php 的 isAjaxRequest 路径,后端给 JSON 回包,
+                     * 前端跑 toast。注册成功后页面 reload — webhook URL 里包含
+                     * 新 secret,需要重新渲染。
+                     */
+                    (function () {
+                        const root = document.querySelector('[data-active-settings-tab="telegram"]');
+                        if (!root || root._tgInited) return;
+                        root._tgInited = true;
+
+                        const csrf = root.querySelector('input[name="csrf_token"]')?.value
+                                  || window.CSRF_TOKEN || '';
+
+                        const callAction = async (action, btn, confirmText) => {
+                            if (confirmText) {
+                                const ok = window.ImgEt?.DialogManager?.showConfirmDialog
+                                    ? await new Promise((resolve) => {
+                                          ImgEt.DialogManager.showConfirmDialog(
+                                              '确认操作',
+                                              confirmText,
+                                              () => resolve(true),
+                                              { danger: action === 'telegram_delete_webhook',
+                                                onCancel: () => resolve(false) }
+                                          );
+                                      })
+                                    : confirm(confirmText);
+                                if (!ok) return;
+                            }
+                            btn.disabled = true;
+                            const origHtml = btn.innerHTML;
+                            btn.innerHTML = '<i class="fa-light fa-spinner fa-spin"></i><span>请稍候...</span>';
+                            try {
+                                const fd = new FormData();
+                                fd.set('csrf_token', csrf);
+                                fd.set('form_action', action);
+                                fd.set('active_tab', 'telegram');
+                                const res = await fetch('/settings/telegram', {
+                                    method: 'POST', body: fd, credentials: 'same-origin',
+                                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': csrf },
+                                });
+                                const data = await res.json().catch(() => ({}));
+                                const ok = data?.status === 'success' || data?.type === 'success';
+                                window.ImgEt?.Utils?.showNotification?.(
+                                    data?.message || (ok ? '操作成功' : '操作失败'),
+                                    ok ? 'success' : 'error'
+                                );
+                                if (ok && (action === 'telegram_register_webhook'
+                                        || action === 'telegram_delete_webhook')) {
+                                    // Webhook URL 包含 secret,重新渲染才能看到最新值
+                                    setTimeout(() => window.location.reload(), 800);
+                                }
+                            } catch (err) {
+                                console.error('TG action error:', err);
+                                window.ImgEt?.Utils?.showNotification?.(
+                                    err.message || '请求失败', 'error'
+                                );
+                            } finally {
+                                btn.disabled = false;
+                                btn.innerHTML = origHtml;
+                            }
+                        };
+
+                        root.addEventListener('click', (e) => {
+                            const btn = e.target.closest('[data-tg-action]');
+                            if (!btn) return;
+                            e.preventDefault();
+                            const a = btn.dataset.tgAction;
+                            if (a === 'register') {
+                                callAction('telegram_register_webhook', btn,
+                                    '注册会生成新的 URL secret,旧 URL 立即失效。继续吗?');
+                            } else if (a === 'delete') {
+                                callAction('telegram_delete_webhook', btn,
+                                    '注销后 Telegram 不会再推消息给本站,直到重新注册。继续吗?');
+                            } else if (a === 'test') {
+                                callAction('telegram_test', btn);
+                            }
+                        });
+                    })();
+                    </script>
+<?php endif; // tab: telegram ?>
+
 <?php if (in_array($active_settings_tab, ['basic'], true)): ?>
                     <section>
                         <div class="settings-section-header">
@@ -1907,15 +2154,16 @@ require_once APP_ROOT . '/header.php';
                             <p>扫描指定目录并导入图库，可选生成缩略图、压缩或转换</p>
                         </div>
                         <div class="grid gap-2">
-                            <label for="scanSourcePath">扫描路径（留空默认 upload / uploads）</label>
+                            <?php $_storage_dir_for_scan = defined('STORAGE_DIR') ? STORAGE_DIR : 'uploads'; ?>
+                            <label for="scanSourcePath">扫描路径（留空默认 upload / <?= htmlspecialchars($_storage_dir_for_scan) ?>）</label>
                             <input
                                 id="scanSourcePath"
-                               
+
                                 type="text"
                                 name="scan_source_path"
                                 value="<?= htmlspecialchars(trim((string)($_POST['scan_source_path'] ?? ''))) ?>"
                                 placeholder="upload 或 /www/wwwroot/site/upload，多个路径用英文逗号分隔">
-                            <p class="m-0 text-sm text-gray">会递归导入所选目录及所有子目录，导入到 uploads 时保留源目录内的相对路径。</p>
+                            <p class="m-0 text-sm text-gray">会递归导入所选目录及所有子目录，导入到 <?= htmlspecialchars($_storage_dir_for_scan) ?> 时保留源目录内的相对路径。</p>
                         </div>
                         <div class="settings-toggle-list">
                             <label class="settings-toggle-row scan-option" for="scanCreateThumbnail">
@@ -2164,7 +2412,7 @@ require_once APP_ROOT . '/header.php';
                         </button>
                     </form>
 
-                    <p class="m-0 text-sm text-gray">已配置 <?= count($compression_api_keys) ?> 个，启用中 <?= $compression_api_active_count ?> 个。系统优先使用调用次数较少的 Key，并记录每个 Key 的调用统计。</p>
+                    <p class="m-0 text-sm text-gray" data-compression-stats>已配置 <span data-compression-total><?= count($compression_api_keys) ?></span> 个，启用中 <span data-compression-active><?= $compression_api_active_count ?></span> 个。系统优先使用调用次数较少的 Key，并记录每个 Key 的调用统计。</p>
 
                     <div class="overflow-auto border border-border">
                         <table class="w-full border-collapse">
@@ -2180,7 +2428,7 @@ require_once APP_ROOT . '/header.php';
                                     <th>操作</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody data-compression-keys-tbody>
                                 <?php foreach ($compression_api_keys as $row): ?>
                                     <?php
                                     $id = (string)($row['id'] ?? '');
@@ -2263,11 +2511,11 @@ require_once APP_ROOT . '/header.php';
                             <span class="settings-switch" aria-hidden="true"><span></span></span>
                         </label>
                         <label class="settings-toggle-row" for="hotlinkProtectionEnabled">
-                            <span class="settings-toggle-copy">启用防盗链（保持 /uploads/... 原路径）</span>
-                            <input id="hotlinkProtectionEnabled" form="settingsForm" class="settings-switch-input" type="checkbox" name="apache_hotlink_protection_enabled" value="1" <?= $apache_hotlink_rules_enabled ? 'checked' : '' ?>>
+                            <span class="settings-toggle-copy">启用防盗链（开启后图片链接强制走 <code>/i/&lt;文件&gt;</code> 由 PHP 校验 Referer）</span>
+                            <input id="hotlinkProtectionEnabled" form="settingsForm" class="settings-switch-input" type="checkbox" name="hotlink_protection_enabled" value="1" <?= $hotlink_enabled ? 'checked' : '' ?>>
                             <span class="settings-switch" aria-hidden="true"><span></span></span>
                         </label>
-                        <label class="settings-toggle-row" for="hotlinkAllowEmptyReferer" data-hotlink-config <?= $apache_hotlink_rules_enabled ? '' : 'hidden' ?>>
+                        <label class="settings-toggle-row" for="hotlinkAllowEmptyReferer" data-hotlink-config <?= $hotlink_enabled ? '' : 'hidden' ?>>
                             <span class="settings-toggle-copy">
                                 允许无来源请求（直接打开图片 / 隐私浏览器不拦截）
                                 <a class="settings-help-link" href="https://litepic.io/docs#hotlink-empty-referer" target="_blank" rel="noopener noreferrer">说明</a>
@@ -2387,32 +2635,15 @@ require_once APP_ROOT . '/header.php';
                         </div>
                     </div>
 
-                    <div class="grid gap-3.5" data-hotlink-config <?= $apache_hotlink_rules_enabled ? '' : 'hidden' ?>>
+                    <div class="grid gap-3.5" data-hotlink-config <?= $hotlink_enabled ? '' : 'hidden' ?>>
                         <div class="grid gap-2 col-span-2">
                             <label for="hotlinkAllowedDomains">防盗链允许域名</label>
                             <input id="hotlinkAllowedDomains" form="settingsForm" type="text" name="hotlink_allowed_domains" value="<?= htmlspecialchars(implode(',', HOTLINK_ALLOWED_DOMAINS)) ?>" placeholder="example.com,cdn.example.com">
+                            <p class="settings-field-hint">逗号分隔。当前请求 host（<code><?= htmlspecialchars((string)($_SERVER['HTTP_HOST'] ?? '')) ?></code>）和 SITE_URL 自动加入白名单，无需重复填。</p>
                         </div>
                     </div>
 
-                    <div class="settings-callout settings-callout-compact" data-hotlink-config <?= $apache_hotlink_rules_enabled ? '' : 'hidden' ?>>
-                        <strong>不改图片地址的服务器防盗链</strong>
-                        <p class="m-0 text-xs text-gray">
-                            当前检测：<?= htmlspecialchars($server_label) ?><?= $server_software !== '' ? '（' . htmlspecialchars($server_software) . '）' : '' ?>；
-                            Apache/.htaccess 规则：<?= $apache_hotlink_rules_enabled ? '已写入' : '未写入' ?>；
-                            写入权限：<?= $htaccess_writable ? '可写' : '不可写' ?>。
-                            <?php if ($server_uses_htaccess): ?>
-                                Apache 或支持 .htaccess 的面板环境可直接生效。
-                            <?php elseif ($server_uses_nginx_rules): ?>
-                                Nginx / OpenResty 需要在 Web 服务器配置中添加防盗链规则，详见 <a href="https://litepic.io/docs#hotlink-protection" target="_blank" rel="noopener noreferrer">使用说明</a>。
-                            <?php elseif ($server_uses_caddyfile): ?>
-                                Caddy 需要在 Caddyfile 中添加防盗链规则，详见 <a href="https://litepic.io/docs#hotlink-protection" target="_blank" rel="noopener noreferrer">使用说明</a>。
-                            <?php else: ?>
-                                未识别服务器类型，.htaccess 仅在 Apache / 兼容环境有效。
-                            <?php endif; ?>
-                        </p>
-                    </div>
-
-                    <p class="m-0 text-xs text-gray">说明：开启后保存设置会自动写入 .htaccess；关闭后保存设置会自动移除规则。允许无来源请求表示直接打开图片、浏览器隐藏 Referer 或部分隐私浏览器访问时不拦截；关闭后这类请求也会被拒绝。</p>
+                    <p class="m-0 text-xs text-gray">说明：开启后图片公网链接强制走 <code>/i/&lt;文件&gt;</code> 由 PHP 校验 Referer，跨服务器（Apache / Nginx / Caddy）通用，无需写 .htaccess 或 vhost。允许无来源请求表示直接打开图片、隐私浏览器或预览类应用访问时不拦截；关闭后这类请求也会被拒绝。</p>
                 </section>
 <?php endif; // tab: image (水印 + 防盗链 section) ?>
 
@@ -2434,16 +2665,109 @@ require_once APP_ROOT . '/header.php';
                         </label>
                     </div>
 
-                    <p class="m-0 text-sm text-gray">说明：开启后图片公网链接将统一走 <code>/i/&lt;文件名&gt;</code> 路由，由 PHP 流式提供并把命中数累加到数据库（仅完整 200 响应计数，HEAD / 304 / Range 不计）。文件本身仍存放在 <code>uploads/</code> 目录。关闭后链接回退为下方「图片链接格式」配置的样式，统计也随之停止。</p>
+                    <?php $_storage_dir_for_hint = defined('STORAGE_DIR') ? STORAGE_DIR : 'uploads'; ?>
+                    <p class="m-0 text-sm text-gray">说明：开启后图片公网链接将统一走 <code>/i/&lt;文件名&gt;</code> 路由，由 PHP 流式提供并把命中数累加到数据库（仅完整 200 响应计数，HEAD / 304 / Range 不计）。文件本身仍存放在 <code><?= htmlspecialchars($_storage_dir_for_hint) ?>/</code> 目录。关闭后链接回退为下方「图片链接格式」配置的样式，统计也随之停止。</p>
                 </section>
 <?php endif; // tab: image (图片请求统计 section) ?>
+
+<?php if (in_array($active_settings_tab, ['image'], true)): // 物理存储目录（STORAGE_DIR）?>
+                <?php
+                $_storage_dir = defined('STORAGE_DIR') ? STORAGE_DIR : 'uploads';
+                $_storage_path = (defined('UPLOAD_PATH_LOCAL') ? UPLOAD_PATH_LOCAL : APP_ROOT . '/' . $_storage_dir . '/');
+                $_storage_exists = is_dir($_storage_path);
+                $_storage_writable = $_storage_exists && is_writable($_storage_path);
+                ?>
+                <section>
+                    <div class="settings-section-header">
+                        <h3 class="settings-card-title">
+                            <i class="fa-light fa-folder" aria-hidden="true"></i>
+                            <span>物理存储目录</span>
+                        </h3>
+                        <p>图片源文件实际落盘的目录（项目根下的子目录）。默认 <code>uploads</code>。</p>
+                    </div>
+
+                    <div class="settings-grid">
+                        <div class="grid gap-2 col-span-2">
+                            <label for="storageDir">目录名</label>
+                            <input
+                                id="storageDir"
+                                form="settingsForm"
+                                type="text"
+                                name="storage_dir"
+                                value="<?= htmlspecialchars($_storage_dir) ?>"
+                                placeholder="uploads"
+                                autocomplete="off"
+                                pattern="^[a-z][a-z0-9_-]{0,29}$"
+                                maxlength="30">
+                            <p class="settings-field-hint">
+                                小写字母开头，1–30 字符，可用 <code>a-z 0-9 _ -</code>。
+                                避开保留名：<code>api</code> / <code>app</code> / <code>assets</code> / <code>static</code> / <code>data</code> / <code>logs</code> / <code>i</code>。
+                            </p>
+                        </div>
+                        <div class="grid gap-2 col-span-2">
+                            <label>当前状态</label>
+                            <div class="settings-toggle-row settings-toggle-row-control" style="cursor:default;">
+                                <span class="settings-toggle-copy">
+                                    <strong>路径：</strong> <code><?= htmlspecialchars($_storage_path) ?></code>
+                                    <br>
+                                    <small class="text-gray">
+                                        目录
+                                        <?php if ($_storage_exists): ?>
+                                            <strong style="color:#22c55e;">存在</strong>
+                                        <?php else: ?>
+                                            <strong style="color:#d73a49;">不存在</strong>
+                                        <?php endif; ?>
+                                        ·
+                                        <?php if ($_storage_writable): ?>
+                                            <strong style="color:#22c55e;">可写</strong>
+                                        <?php elseif ($_storage_exists): ?>
+                                            <strong style="color:#d73a49;">不可写</strong>
+                                        <?php else: ?>
+                                            <span class="text-gray">—</span>
+                                        <?php endif; ?>
+                                    </small>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="m-0 text-xs text-gray">
+                        <strong>改名注意：</strong>
+                        在输入框改完目录名按「保存设置」，配置会更新但磁盘上的目录不会自动 rename。
+                        如果磁盘上目录还叫旧名，可以点下面的「重命名磁盘目录」一键完成（必须当前目录存在且新名不存在）。
+                        改名后已发布的 <code>/uploads/...</code> 链接会自动 301 跳到新前缀，老链接不会失效。
+                    </p>
+
+                    <form method="post" class="settings-inline-form" style="margin-top:8px;">
+                        <?= \LitePic\Core\Csrf::inputField() ?>
+                        <input type="hidden" name="form_action" value="rename_storage_dir">
+                        <input type="hidden" name="active_tab" value="image">
+                        <input type="hidden" name="from" value="<?= htmlspecialchars($_storage_dir) ?>">
+                        <input type="text"
+                               name="to"
+                               placeholder="新目录名（如 files / images / storage）"
+                               pattern="^[a-z][a-z0-9_-]{0,29}$"
+                               maxlength="30"
+                               required>
+                        <button type="submit" class="btn btn--secondary"
+                                data-confirm="确定把磁盘上的目录从 「<?= htmlspecialchars($_storage_dir) ?>」 重命名吗？操作期间建议没有正在进行的上传。"
+                                data-confirm-title="重命名物理存储目录">
+                            <i class="fa-light fa-folder-tree"></i>
+                            重命名磁盘目录
+                        </button>
+                    </form>
+                </section>
+<?php endif; // tab: image (物理存储目录 section) ?>
 
 <?php if (in_array($active_settings_tab, ['image'], true)): // 图片公网链接前缀（自定义）?>
                 <?php
                 $_url_prefix = defined('URL_PREFIX') ? URL_PREFIX : '/uploads/';
+                $_storage_dir = defined('STORAGE_DIR') ? STORAGE_DIR : 'uploads';
+                $_storage_url_prefix = '/' . $_storage_dir . '/';
                 $_force_proxy = (defined('IMAGE_VIEW_COUNTER_ENABLED') && IMAGE_VIEW_COUNTER_ENABLED)
                     || (defined('HOTLINK_PROTECTION_ENABLED') && HOTLINK_PROTECTION_ENABLED);
-                $_preset_prefixes = ['/uploads/', '/', '/i/', '/img/', '/photo/', '/p/'];
+                // Storage prefix 永远在第一位，其余预设保持稳定列表（去重）
+                $_preset_prefixes = array_values(array_unique(array_merge([$_storage_url_prefix], ['/', '/i/', '/img/', '/photo/', '/p/'])));
                 ?>
                 <section>
                     <div class="settings-section-header">
@@ -2451,7 +2775,7 @@ require_once APP_ROOT . '/header.php';
                             <i class="fa-light fa-link" aria-hidden="true"></i>
                             <span>图片链接前缀</span>
                         </h3>
-                        <p>自定义图片公网 URL 的前缀。物理文件始终在 <code>uploads/yyyy/mm/</code>，只改 URL 形态，不动磁盘。.htaccess 里的 catch-all 重写规则会把任何前缀自动指向 uploads。</p>
+                        <p>自定义图片公网 URL 的前缀。物理文件实际在 <code><?= htmlspecialchars($_storage_dir) ?>/yyyy/mm/</code>，URL 前缀只改链接形态，不动磁盘。任何非 <code><?= htmlspecialchars($_storage_url_prefix) ?></code> 的前缀都会走 PHP 路由。</p>
                     </div>
 
                     <?php if ($_force_proxy): ?>
@@ -2470,10 +2794,11 @@ require_once APP_ROOT . '/header.php';
                                 type="text"
                                 name="url_prefix"
                                 value="<?= htmlspecialchars($_url_prefix) ?>"
-                                placeholder="/uploads/"
+                                placeholder="<?= htmlspecialchars($_storage_url_prefix) ?>"
                                 autocomplete="off"
                                 pattern="^/([a-z0-9][a-z0-9_-]*/)?$"
                                 maxlength="32"
+                                data-storage-url-prefix="<?= htmlspecialchars($_storage_url_prefix) ?>"
                                 data-url-prefix-input>
                             <p class="settings-field-hint">
                                 必须以 <code>/</code> 开头和结尾，中间可填任意小写字母数字 <code>_</code> <code>-</code>。
@@ -2499,7 +2824,7 @@ require_once APP_ROOT . '/header.php';
                                         <?= htmlspecialchars(rtrim((string)SITE_URL, '/') . $_url_prefix) ?>2026/05/abc.webp
                                     </code>
                                     <small class="text-gray" data-url-prefix-stats-hint>
-                                        <?php if ($_url_prefix === '/uploads/'): ?>
+                                        <?php if ($_url_prefix === $_storage_url_prefix): ?>
                                             由 Web 服务器直接 serve（最快）— <strong>无访问统计</strong>
                                         <?php else: ?>
                                             由 PHP 路由 serve — 配合「启用图片请求计数」可统计 view_count
@@ -2512,13 +2837,13 @@ require_once APP_ROOT . '/header.php';
 
                     <p class="m-0 text-xs text-gray">
                         <strong>统计说明：</strong>
-                        除了 <code>/uploads/</code>（直连物理路径，Web 服务器直接 serve，PHP 不参与），<strong>其他所有前缀（包括 <code>/i/</code>、<code>/img/</code>、<code>/photo/</code>、<code>/anyword/</code>、<code>/</code>）都会经 PHP 路由</strong>，是否累加访问数由「启用图片请求计数」开关控制。
+                        除了 <code><?= htmlspecialchars($_storage_url_prefix) ?></code>（物理目录直连，Web 服务器直接 serve，PHP 不参与），<strong>其他所有前缀（包括 <code>/i/</code>、<code>/img/</code>、<code>/photo/</code>、<code>/anyword/</code>、<code>/</code>）都会经 PHP 路由</strong>，是否累加访问数由「启用图片请求计数」开关控制。
                         <br><br>
                         <strong>简单结论：</strong>
-                        想要统计 → 任选 <code>/uploads/</code> 之外的前缀；
-                        追求最快 → 用 <code>/uploads/</code>。
+                        想要统计 → 任选 <code><?= htmlspecialchars($_storage_url_prefix) ?></code> 之外的前缀；
+                        追求最快 → 用 <code><?= htmlspecialchars($_storage_url_prefix) ?></code>。
                         <br>
-                        <strong>切换前缀是安全的</strong>：老的 <code>/uploads/...</code> 链接和任何 <code>/&lt;新前缀&gt;/...</code> 都能 serve 同一张图，不会死链。
+                        <strong>切换前缀是安全的</strong>：老的 <code><?= htmlspecialchars($_storage_url_prefix) ?>...</code> 链接和任何 <code>/&lt;新前缀&gt;/...</code> 都能 serve 同一张图，不会死链。
                     </p>
 
                     <script>
@@ -2531,6 +2856,8 @@ require_once APP_ROOT . '/header.php';
                             const preview = root.querySelector('[data-url-prefix-preview]');
                             const statsHint = root.querySelector('[data-url-prefix-stats-hint]');
                             if (!input || !preview) return;
+                            // 物理目录对应的 URL 前缀（来自 STORAGE_DIR），落在它上 = 直连快路径无统计。
+                            const storagePrefix = input.dataset.storageUrlPrefix || '/uploads/';
 
                             // 简易 normalise — 跟后端 PHP 的 normalizeUrlPrefix 同语义
                             const sanitize = (raw) => {
@@ -2553,7 +2880,7 @@ require_once APP_ROOT . '/header.php';
                                 preview.style.color = '';
                                 preview.textContent = base + prefix + '2026/05/abc.webp';
                                 if (statsHint) {
-                                    if (prefix === '/uploads/') {
+                                    if (prefix === storagePrefix) {
                                         statsHint.innerHTML = '由 Web 服务器直接 serve（最快）— <strong>无访问统计</strong>';
                                     } else {
                                         statsHint.textContent = '由 PHP 路由 serve — 配合「启用图片请求计数」可统计 view_count';
@@ -2871,7 +3198,7 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
             if (note) {
                 note.textContent = usage === 'storage'
                     ? '说明：云端存储模式下，LitePic 本地保留处理缓存和图库索引，图片展示、复制链接和 API 返回会优先使用 R2/S3 公网地址。公网访问域名必填，远程上传失败时需要先处理失败原因。'
-                    : '说明：远程备份模式下，本地仍是主存储，R2/S3 只保存副本；图片展示、复制链接和 API 返回仍使用本站 /uploads 地址。本地删除后，远程对象会进入 24 小时延迟删除队列。';
+                    : '说明：远程备份模式下，本地仍是主存储，R2/S3 只保存副本；图片展示、复制链接和 API 返回仍使用本站 /<?= defined('STORAGE_DIR') ? STORAGE_DIR : 'uploads' ?> 地址。本地删除后，远程对象会进入 24 小时延迟删除队列。';
             }
         }
 
@@ -2890,7 +3217,7 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
                 auto_convert_on_upload: 'autoConvertOnUpload',
                 keep_original_after_process: 'keepOriginalAfterProcess',
                 watermark_enabled: 'watermarkEnabled',
-                apache_hotlink_protection_enabled: 'hotlinkProtectionEnabled',
+                hotlink_protection_enabled: 'hotlinkProtectionEnabled',
                 hotlink_allow_empty_referer: 'hotlinkAllowEmptyReferer',
                 watermark_panel_enabled: 'watermarkPanelEnabled',
                 image_view_counter_enabled: 'imageViewCounterEnabled',
@@ -2978,25 +3305,102 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
                 form.reset();
             }
 
-            if (action === 'revoke_token' || action === 'delete_compression_api') {
+            if (action === 'add_compression_api' && data.compression_key_added) {
+                appendCompressionKeyRow(data.compression_key_added);
+            }
+
+            if (action === 'delete_compression_api') {
+                // Capture enabled-ness BEFORE removing the row so we can adjust
+                // the active counter when an enabled key is dropped.
+                const row = submitter?.closest('tr');
+                const wasEnabled = row?.cells?.[1]?.textContent?.trim() === '启用中';
+                row?.remove();
+                bumpCompressionStats({ totalDelta: -1, activeDelta: wasEnabled ? -1 : 0 });
+            } else if (action === 'revoke_token') {
                 submitter?.closest('tr')?.remove();
             }
 
             if (action === 'toggle_compression_api') {
                 const enableInput = form.querySelector('input[name="enable"]');
                 const row = submitter?.closest('tr');
-                const enabled = enableInput?.value === '1';
+                // The hidden `enable` input carries the NEXT state (what
+                // the next click should do), not the current one. After a
+                // successful toggle, the new actual state == that "next".
+                const nowEnabled = enableInput?.value === '1';
                 if (enableInput) {
-                    enableInput.value = enabled ? '0' : '1';
+                    enableInput.value = nowEnabled ? '0' : '1';
                 }
                 if (submitter) {
-                    submitter.textContent = enabled ? '禁用' : '启用';
+                    submitter.textContent = nowEnabled ? '禁用' : '启用';
                 }
-                if (row && row.cells && row.cells[2]) {
-                    row.cells[2].textContent = enabled ? '启用中' : '已禁用';
+                // 状态 列在 index 1 (API Key=0, 状态=1, 总调用=2…)。
+                // 之前写的是 cells[2]，状态文字会被塞进「总调用」列 — 修正。
+                if (row && row.cells && row.cells[1]) {
+                    row.cells[1].textContent = nowEnabled ? '启用中' : '已禁用';
                 }
+                bumpCompressionStats({ activeDelta: nowEnabled ? +1 : -1 });
             }
         };
+
+        // ---- 压缩 API Key 表格的 DOM 维护 helpers ---------------------
+        const appendCompressionKeyRow = (added) => {
+            const tbody = document.querySelector('[data-compression-keys-tbody]');
+            if (!tbody) return;
+            // 移除空状态占位行（首次添加时存在）
+            tbody.querySelector('.settings-empty-row')?.remove();
+
+            const csrfToken = (window.CSRF_TOKEN || document.querySelector('input[name="csrf_token"]')?.value || '');
+            const id = String(added.id || '');
+            const masked = String(added.masked || '');
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${escapeHtml(masked)}</td>
+                <td>启用中</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>-</td>
+                <td>-</td>
+                <td>
+                    <div class="flex gap-2 flex-wrap">
+                        <form method="post">
+                            <input type="hidden" name="csrf_token" value="${escapeHtml(csrfToken)}">
+                            <input type="hidden" name="form_action" value="toggle_compression_api">
+                            <input type="hidden" name="active_tab" value="image">
+                            <input type="hidden" name="compression_api_id" value="${escapeHtml(id)}">
+                            <input type="hidden" name="enable" value="0">
+                            <button type="submit" class="btn btn--secondary">禁用</button>
+                        </form>
+                        <form method="post" data-confirm="确定要删除此压缩 API Key 吗？" data-confirm-title="删除 TinyPNG Key 确认">
+                            <input type="hidden" name="csrf_token" value="${escapeHtml(csrfToken)}">
+                            <input type="hidden" name="form_action" value="delete_compression_api">
+                            <input type="hidden" name="active_tab" value="image">
+                            <input type="hidden" name="compression_api_id" value="${escapeHtml(id)}">
+                            <button type="submit" class="btn btn--danger">删除</button>
+                        </form>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+            bumpCompressionStats({ totalDelta: +1, activeDelta: +1 });
+        };
+
+        const bumpCompressionStats = ({ totalDelta = 0, activeDelta = 0 } = {}) => {
+            const totalEl = document.querySelector('[data-compression-total]');
+            const activeEl = document.querySelector('[data-compression-active]');
+            if (totalEl) {
+                const next = Math.max(0, (parseInt(totalEl.textContent, 10) || 0) + totalDelta);
+                totalEl.textContent = String(next);
+            }
+            if (activeEl) {
+                const next = Math.max(0, (parseInt(activeEl.textContent, 10) || 0) + activeDelta);
+                activeEl.textContent = String(next);
+            }
+        };
+
+        const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+        }[c]));
 
         const submitSettingsAjax = async (form, submitter, options = {}) => {
             if (!form || form.dataset.ajaxPending === '1') return null;
@@ -3251,7 +3655,7 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
             'keep_original_after_process',
             'watermark_enabled',
             'watermark_type',
-            'apache_hotlink_protection_enabled',
+            'hotlink_protection_enabled',
             'hotlink_allow_empty_referer',
             'watermark_image_clear',
             'watermark_panel_enabled',
@@ -3489,6 +3893,112 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
             }
         };
         setInterval(updateSystemStatus, 3000);
+
+        // ==================== 整行 UPTIME 条 ====================
+        // 来自 /api/v1/uptime?range=1h|1d|30d|90d。每次切换 range 拉一次,
+        // 当前 range 的数据每 60s 自动刷新一次(1h 比较细 — 60s 一次让最右
+        // 一根接近实时;其它 range 这频率也够,反正分段大)。
+        (function () {
+            const strip = document.querySelector('[data-uptime-strip]');
+            if (!strip || strip._uptimeInited) return;
+            strip._uptimeInited = true;
+
+            const bar = strip.querySelector('[data-uptime-bar]');
+            const percentEl = strip.querySelector('[data-uptime-percent]');
+            const startEl = strip.querySelector('[data-uptime-start]');
+            const endEl = strip.querySelector('[data-uptime-end]');
+            const rangeBtns = strip.querySelectorAll('[data-uptime-range]');
+
+            let currentRange = strip.dataset.uptimeDefault || '1d';
+            let refreshTimer = null;
+
+            // 时间格式化: 同一年只显示 MM-DD HH:MM,跨年显示完整 YYYY-MM-DD
+            const fmtStart = (ts) => {
+                const d = new Date(ts * 1000);
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                const hh = String(d.getHours()).padStart(2, '0');
+                const mi = String(d.getMinutes()).padStart(2, '0');
+                return (yyyy === new Date().getFullYear())
+                    ? `${yyyy}-${mm}-${dd} ${hh}:${mi}`
+                    : `${yyyy}-${mm}-${dd}`;
+            };
+
+            const fmtTooltip = (seg, range) => {
+                const start = new Date(seg.at * 1000);
+                const isHourGrain = range === '1h' || range === '1d';
+                const stamp = isHourGrain
+                    ? `${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')} ${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}`
+                    : `${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')}`;
+                const statusText = ({
+                    up: '在线 100%', partial: `部分在线 ${seg.percent}%`,
+                    down: '离线', future: '未到时间', no_data: '无数据',
+                })[seg.status] || seg.status;
+                return `${stamp} · ${statusText}`;
+            };
+
+            const renderSegments = (data) => {
+                bar.innerHTML = '';
+                if (!data || !Array.isArray(data.segments)) {
+                    bar.innerHTML = '<div class="runtime-uptime-loading">无数据</div>';
+                    return;
+                }
+                const frag = document.createDocumentFragment();
+                for (const seg of data.segments) {
+                    const div = document.createElement('div');
+                    div.className = `runtime-uptime-seg is-${seg.status}`;
+                    div.dataset.tooltip = fmtTooltip(seg, data.range);
+                    frag.appendChild(div);
+                }
+                bar.appendChild(frag);
+                percentEl.textContent = (typeof data.overall_percent === 'number')
+                    ? `${data.overall_percent.toFixed(2)}%`
+                    : '—';
+                startEl.textContent = data.start_at ? fmtStart(data.start_at) : '—';
+                if (endEl) endEl.textContent = 'Now';
+            };
+
+            const fetchUptime = async (range) => {
+                try {
+                    const res = await fetch(`/api/v1/uptime?range=${encodeURIComponent(range)}`, {
+                        credentials: 'same-origin',
+                        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    });
+                    const json = await res.json();
+                    if (!res.ok || json.status !== 'success') {
+                        throw new Error(json?.message || `HTTP ${res.status}`);
+                    }
+                    renderSegments(json.data || json);
+                } catch (err) {
+                    console.error('uptime fetch failed', err);
+                    bar.innerHTML = '<div class="runtime-uptime-loading">加载失败</div>';
+                    percentEl.textContent = '—';
+                }
+            };
+
+            const setRange = (range) => {
+                currentRange = range;
+                rangeBtns.forEach((b) => {
+                    const active = b.dataset.uptimeRange === range;
+                    b.classList.toggle('is-active', active);
+                    b.setAttribute('aria-selected', active ? 'true' : 'false');
+                });
+                fetchUptime(range);
+            };
+
+            rangeBtns.forEach((b) => {
+                b.addEventListener('click', () => setRange(b.dataset.uptimeRange));
+            });
+
+            setRange(currentRange);
+            // 自动刷新 — 60s 拉一次,保持最右一段接近实时
+            refreshTimer = setInterval(() => fetchUptime(currentRange), 60000);
+        })();
+
+        // CPU 核数现在全自动 — 无需 UI。CLI bootstrap 会探测并缓存到
+        // settings.CPU_CORES_OVERRIDE,HTTP 端读缓存即可。受限主机首次
+        // 运行 `php worker.php`(或任何 CLI 入口)就会填充缓存。
 
         // ==================== Passkey 管理 ====================
         const loadPasskeys = async () => {

@@ -7,7 +7,7 @@
 
 **轻量级自托管图床 · SQLite 单文件 · 异步处理 · S3 / R2 远程存储**
 
-[![Version](https://img.shields.io/badge/version-3.3.3-0052D9?style=flat-square)](https://github.com/gentpan/LitePic/releases)
+[![Version](https://img.shields.io/badge/version-3.3.4-0052D9?style=flat-square)](https://github.com/gentpan/LitePic/releases)
 [![PHP](https://img.shields.io/badge/PHP-8.0%2B-777bb4?style=flat-square)](https://www.php.net/)
 [![License](https://img.shields.io/badge/license-MIT-111827?style=flat-square)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-litepic.io-0052D9?style=flat-square)](https://litepic.io/docs)
@@ -68,13 +68,15 @@ cp .env.example .env
 mkdir -p uploads data logs && chmod -R 755 uploads data logs
 ```
 
-编辑 `.env`，至少填这三项：
+编辑 `.env`（默认值即可起步，至少改这两项）：
 
 ```ini
 SITE_NAME="LitePic"
 SITE_URL="https://img.example.com"
-ADMIN_API_KEY="<32 位以上随机字符串>"
+# ADMIN_API_KEY 默认 12345678，登录后在「设置 → 安全」改成强随机字符串
 ```
+
+> 公网暴露前务必把 `ADMIN_API_KEY` 改掉。后台首次登录用默认 `12345678`，会有横幅提示更换。
 
 启动：
 

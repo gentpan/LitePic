@@ -41,6 +41,23 @@ if (PHP_SAPI !== 'cli') {
 
 require __DIR__ . '/bootstrap.php';
 
+/*
+ * Opportunistic server-stats probing — every CLI worker run reads /proc
+ * and caches the results to settings:
+ *   - CPU_CORES_OVERRIDE (cached forever once detected, hardware constant)
+ *   - SERVER_STATS_SNAPSHOT (memory used, uptime, load — refreshed each run)
+ *
+ * Why this matters: restricted PHP-FPM environments (BT panel etc.) block
+ * /proc + shell_exec from HTTP requests, so the resource gauges would
+ * otherwise show only PHP process memory + null uptime. CLI php has full
+ * /proc access on the same host. Schedule worker.php as a cron and the
+ * dashboard reflects real numbers within a minute.
+ */
+try {
+    \LitePic\Service\Stats\ServerInfo::probeAndCacheCpuCoresIfMissing();
+    \LitePic\Service\Stats\ServerInfo::probeAndCacheServerStats();
+} catch (\Throwable $_) { /* best-effort */ }
+
 // Parse flags
 $opts = getopt('', ['max-items::', 'max-seconds::', 'quiet']);
 $maxItems   = isset($opts['max-items'])   ? max(1, (int)$opts['max-items'])   : 200;

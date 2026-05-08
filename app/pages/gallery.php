@@ -51,10 +51,35 @@ class GalleryManager {
             }
         }
         $this->all_images_count = count($all_images);
-        
+
+        // ?album=<key> 筛选 — <key> 既可以是 slug 也可以是数字 ID
+        // (slug 是可选的,无 slug 的相册按数字 ID 寻址)。
+        // 'none' 是特殊值,显示「未加入任何相册」的图片(零相册成员)。
+        $albumKey = isset($_GET['album']) ? trim((string)$_GET['album']) : '';
+        if ($albumKey !== '') {
+            $albumImagesRepo = new \LitePic\Repository\AlbumImageRepository();
+            if ($albumKey === 'none') {
+                $albumed = [];
+                foreach ($all_images as $f) {
+                    if ($albumImagesRepo->albumsForFilename($f) !== []) $albumed[$f] = true;
+                }
+                $all_images = array_values(array_filter($all_images, static fn($f) => !isset($albumed[$f])));
+            } else {
+                $album = (new \LitePic\Repository\AlbumRepository())->findByKey($albumKey);
+                if ($album !== null) {
+                    $albumFilenames = $albumImagesRepo->listFilenames((int)$album['id']);
+                    // 保留 album_images 的排序,不要被全局 listIdentifiersSafe 覆盖
+                    $allowed = array_flip($albumFilenames);
+                    $all_images = array_values(array_filter($albumFilenames, static fn($f) => isset($allowed[$f])));
+                } else {
+                    $all_images = [];
+                }
+            }
+        }
+
         // 存储全部图片用于分页
         $this->images = $all_images;
-        $this->total_images = $this->all_images_count;
+        $this->total_images = count($all_images);
     }
 
     // 初始化分页（使用 POST/SESSION，避免 URL 参数污染）
@@ -136,9 +161,28 @@ class GalleryManager {
     }
 
     private function renderFilters(): string {
+        $albums = (new \LitePic\Repository\AlbumRepository())->all();
+        $currentAlbumKey = isset($_GET['album']) ? (string)$_GET['album'] : '';
         ob_start();
         ?>
         <div class="gallery-filters">
+            <!-- 相册筛选 — 服务端筛选(GET ?album=<key>,key 是 slug 或数字 ID),不走 JS,刷新保留 -->
+            <select class="filter-album" id="filterAlbum" name="filter_album"
+                    onchange="(function(s){var u=new URL(window.location.href);if(s){u.searchParams.set('album',s);}else{u.searchParams.delete('album');}window.location.href=u.toString();})(this.value)">
+                <option value="">全部图片</option>
+                <option value="none" <?= $currentAlbumKey === 'none' ? 'selected' : '' ?>>未加入任何相册</option>
+                <?php if (!empty($albums)): ?>
+                    <optgroup label="按相册">
+                    <?php foreach ($albums as $a): ?>
+                        <?php $aKey = \LitePic\Service\Album\AlbumService::urlKey($a); ?>
+                        <option value="<?= htmlspecialchars($aKey) ?>"
+                                <?= $currentAlbumKey === $aKey ? 'selected' : '' ?>>
+                            <?= htmlspecialchars((string)$a['name']) ?> (<?= (int)$a['image_count'] ?>)
+                        </option>
+                    <?php endforeach; ?>
+                    </optgroup>
+                <?php endif; ?>
+            </select>
             <select class="filter-type" id="filterType" name="filter_type">
                 <option value="all">所有类型</option>
                 <?php foreach (ALLOWED_TYPES as $type): ?>

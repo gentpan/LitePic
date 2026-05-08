@@ -188,6 +188,42 @@
     transform: translateY(-1px);
   }
 
+  /* 批量按钮颜色规范 — 跟单卡片操作按钮(.compress-btn / .webp-btn /
+     .avif-btn / .delete-btn 在 hover 态)保持一致:
+       压缩 = success 绿
+       转换 = #6f42c1 紫(覆盖 webp/avif/jpg/png 任一目标)
+       删除 = danger 红
+     批量按钮跟单卡片 hover 态不同:它们 ALWAYS 着色,所以醒目。*/
+  .batch-btn[data-action="compress"] {
+    border-color: var(--success);
+    background: var(--success);
+    color: #fff;
+  }
+  .batch-btn[data-action="compress"]:hover:not([disabled]) {
+    border-color: color-mix(in srgb, var(--success) 86%, #000 14%);
+    background: color-mix(in srgb, var(--success) 92%, #000 8%);
+    color: #fff;
+    transform: translateY(-1px);
+  }
+
+  .batch-btn[data-action="webp"],
+  .batch-btn[data-action="avif"],
+  .batch-btn[data-action="jpg"],
+  .batch-btn[data-action="png"] {
+    border-color: #6f42c1;
+    background: #6f42c1;
+    color: #fff;
+  }
+  .batch-btn[data-action="webp"]:hover:not([disabled]),
+  .batch-btn[data-action="avif"]:hover:not([disabled]),
+  .batch-btn[data-action="jpg"]:hover:not([disabled]),
+  .batch-btn[data-action="png"]:hover:not([disabled]) {
+    border-color: color-mix(in srgb, #6f42c1 86%, #000 14%);
+    background: color-mix(in srgb, #6f42c1 92%, #000 8%);
+    color: #fff;
+    transform: translateY(-1px);
+  }
+
   .batch-btn.delete {
     border-color: var(--danger);
     background: var(--danger);

@@ -63,6 +63,34 @@ if ($raw_files === null) {
 $files = \LitePic\Service\Upload\UploadService::normaliseFilesArray($raw_files);
 $results = (new \LitePic\Service\Upload\UploadService())->handle($files);
 
+/*
+ * Optional `album` field — when present, adds every successfully-uploaded
+ * file to that album in the same request. The album must exist; an
+ * unknown slug is ignored silently (we don't want to fail the upload
+ * over a typo in the album field — uploads are always more important).
+ *
+ * Auth note: api/upload.php already validated that the request is at
+ * least an upload-API caller (admin or third-party key). For album
+ * membership we additionally require admin — third-party API keys are
+ * not allowed to create album memberships, only push raw uploads.
+ */
+$albumSlug = trim((string)($_POST['album'] ?? $_GET['album'] ?? ''));
+if ($albumSlug !== '' && (new \LitePic\Service\Auth\AuthService())->isAdmin()) {
+    $albumRepo = new \LitePic\Repository\AlbumRepository();
+    $album = $albumRepo->findBySlug($albumSlug);
+    if ($album !== null) {
+        $filenames = [];
+        foreach ($results as $r) {
+            if (($r['status'] ?? '') === 'success' && ($r['filename'] ?? '') !== '') {
+                $filenames[] = (string)$r['filename'];
+            }
+        }
+        if ($filenames !== []) {
+            (new \LitePic\Service\Album\AlbumService())->addImages((int)$album['id'], $filenames);
+        }
+    }
+}
+
 // 异步流水线：响应送达后继续在同一 PHP 进程跑 ImageProcessor::drain()
 // 把队列里的缩略图 / 压缩 / WebP / AVIF / 水印 / 远程同步任务做完。
 // register_shutdown_function 保证 Response::success() 里的 exit 之后还能跑。

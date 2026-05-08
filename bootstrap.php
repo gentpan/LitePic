@@ -80,3 +80,21 @@ require_once APP_ROOT . '/config.php';
 // every web request that fires a drain at most once per 24h (default)
 // when no real cron is configured. No-op on CLI.
 \LitePic\Service\Queue\HeartbeatScheduler::arm();
+
+// Liveness sample for the runtime-info uptime strip. Every PHP request
+// records one ping per minute (PRIMARY KEY in liveness_pings collapses
+// concurrent inserts). Skip on CLI so background workers don't flood it.
+if (PHP_SAPI !== 'cli') {
+    \LitePic\Service\Stats\LivenessTracker::recordOnce();
+} else {
+    // CLI fast-path: snapshot all the server-side stats that restricted
+    // PHP-FPM can't read (BT panel locks /proc + shell_exec from HTTP, but
+    // CLI has full access). Cached to settings; HTTP requests fall back
+    // to the snapshot when their own probes fail.
+    //   - CPU cores: cached once forever (hardware constant)
+    //   - Memory total/used + uptime + load: refreshed every CLI run
+    try {
+        \LitePic\Service\Stats\ServerInfo::probeAndCacheCpuCoresIfMissing();
+        \LitePic\Service\Stats\ServerInfo::probeAndCacheServerStats();
+    } catch (\Throwable $_) { /* best-effort */ }
+}

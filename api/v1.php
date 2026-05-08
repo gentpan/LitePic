@@ -69,6 +69,10 @@ switch ($route) {
         require __DIR__ . '/system_status.php';
         break;
 
+    case '/uptime':
+        require __DIR__ . '/uptime.php';
+        break;
+
     case '/queue/drain':
         require __DIR__ . '/queue-drain.php';
         break;
@@ -97,7 +101,23 @@ switch ($route) {
     case '/cleanup/scan':   $_GET['action'] = 'scan';    require __DIR__ . '/cleanup.php'; break;
     case '/cleanup/run':    $_GET['action'] = 'run';     require __DIR__ . '/cleanup.php'; break;
 
+    // Albums (admin) — slug-parameterised so we can't use case-strings.
+    // Falls through to the regex matcher below.
     default:
+        if (preg_match('#^/albums(?:/([a-z0-9][a-z0-9-]{0,49}))?(?:/(images))?$#', $route, $m)) {
+            require __DIR__ . '/albums.php';
+            break;
+        }
+        // Telegram webhook — `/telegram/webhook/<32-hex-secret>`. Secret
+        // value is the URL-path-segment auth (paired with X-Telegram-Bot-
+        // Api-Secret-Token header check inside the handler). 16+ hex chars
+        // is the documented Telegram minimum; we allow up to 64.
+        if (preg_match('#^/telegram/webhook/([a-f0-9]{16,64})$#', $route, $m)) {
+            $_GET['secret'] = $m[1];
+            require __DIR__ . '/telegram.php';
+            break;
+        }
+
         header('Content-Type: application/json; charset=utf-8');
         http_response_code(404);
         echo json_encode([

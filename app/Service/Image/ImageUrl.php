@@ -27,17 +27,15 @@ final class ImageUrl
             return self::buildLocalUrl($identifier);
         }
 
-        if (defined('STORAGE_TYPE') && STORAGE_TYPE === 'date') {
-            $relative = PathService::identifierFromPath(PathService::resolveFilePath($filename));
-            if ($relative !== null) {
-                $remote = (new \LitePic\Service\Storage\RemoteStorage())->publicUrlForIdentifier($relative);
-                if ($remote !== null) return $remote;
-                return self::buildLocalUrl($relative);
-            }
+        $relative = PathService::identifierFromPath(PathService::resolveFilePath($filename));
+        if ($relative !== null) {
+            $remote = (new \LitePic\Service\Storage\RemoteStorage())->publicUrlForIdentifier($relative);
+            if ($remote !== null) return $remote;
+            return self::buildLocalUrl($relative);
         }
 
         $display = PathService::displayName($filename);
-        return self::shouldRouteThroughPhp()
+        return ImageServeService::isRoutedThroughPhp()
             ? rtrim(SITE_URL, '/') . '/i/' . rawurlencode($display)
             : SITE_URL . UPLOAD_PATH_WEB . $display;
     }
@@ -52,17 +50,12 @@ final class ImageUrl
     {
         $thumb = self::thumbnailFilename($filename);
         $identifier = PathService::normalizeIdentifier($filename);
-
-        if (defined('STORAGE_TYPE') && STORAGE_TYPE === 'date') {
-            $relative = $identifier !== ''
-                ? $identifier
-                : (string)PathService::identifierFromPath(PathService::resolveFilePath($filename));
-            [$year, $month] = self::yearMonth($relative);
-            return UPLOAD_PATH_LOCAL . '.thumbs' . DIRECTORY_SEPARATOR . $year
-                 . DIRECTORY_SEPARATOR . $month . DIRECTORY_SEPARATOR . $thumb;
-        }
-
-        return UPLOAD_PATH_LOCAL . '.thumbs' . DIRECTORY_SEPARATOR . $thumb;
+        $relative = $identifier !== ''
+            ? $identifier
+            : (string)PathService::identifierFromPath(PathService::resolveFilePath($filename));
+        [$year, $month] = self::yearMonth($relative);
+        return UPLOAD_PATH_LOCAL . '.thumbs' . DIRECTORY_SEPARATOR . $year
+             . DIRECTORY_SEPARATOR . $month . DIRECTORY_SEPARATOR . $thumb;
     }
 
     public static function thumbnailUrl(string $filename): string
@@ -71,16 +64,12 @@ final class ImageUrl
         $remote = (new \LitePic\Service\Storage\RemoteStorage())->publicUrlForLocalPath(self::thumbnailPath($filename));
         if ($remote !== null) return $remote;
 
-        if (defined('STORAGE_TYPE') && STORAGE_TYPE === 'date') {
-            $identifier = PathService::normalizeIdentifier($filename);
-            $relative = $identifier !== ''
-                ? $identifier
-                : (string)PathService::identifierFromPath(PathService::resolveFilePath($filename));
-            [$year, $month] = self::yearMonth($relative);
-            return SITE_URL . UPLOAD_PATH_WEB . '.thumbs/' . $year . '/' . $month . '/' . $thumb;
-        }
-
-        return SITE_URL . UPLOAD_PATH_WEB . '.thumbs/' . $thumb;
+        $identifier = PathService::normalizeIdentifier($filename);
+        $relative = $identifier !== ''
+            ? $identifier
+            : (string)PathService::identifierFromPath(PathService::resolveFilePath($filename));
+        [$year, $month] = self::yearMonth($relative);
+        return SITE_URL . UPLOAD_PATH_WEB . '.thumbs/' . $year . '/' . $month . '/' . $thumb;
     }
 
     /**
@@ -108,16 +97,6 @@ final class ImageUrl
         // 其它前缀（包括 /uploads/、/、/img/、/photo/ 等）都拼接成
         // <SITE_URL><prefix><identifier>，由 Apache 直接 serve
         return rtrim(SITE_URL, '/') . $prefix . $identifier;
-    }
-
-    /**
-     * True when EITHER hotlink protection OR the image view counter is
-     * configured on. Both features need every public image request to
-     * pass through PHP, so the URL points at the `/i/<identifier>` route.
-     */
-    private static function shouldRouteThroughPhp(): bool
-    {
-        return ImageServeService::isRoutedThroughPhp();
     }
 
     /**

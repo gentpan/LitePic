@@ -43,13 +43,25 @@ final class UpdateService
         'static/logo-dark.png',
     ];
 
-    /** @var string[] */
+    /**
+     * Documentation only — paths the updater MUST NOT touch. The actual
+     * protection comes from the REPLACEABLE_PATHS whitelist above (we
+     * replace nothing outside that list). This const is kept as a
+     * human-readable reminder; nothing reads it at runtime.
+     *
+     * Note: 'uploads' here represents the physical storage directory.
+     * Admins can rename it to "files" / "images" / etc. via STORAGE_DIR
+     * — whatever the runtime value is, it's still protected because
+     * it's not in REPLACEABLE_PATHS.
+     *
+     * @var string[]
+     */
     private const PROTECTED_PATHS = [
         '.env',
         '.user.ini',
         '.htaccess',
         'data',
-        'uploads',
+        'uploads', // see STORAGE_DIR — actual dir name is configurable
         'logs',
         'tmp',
         'static/images',

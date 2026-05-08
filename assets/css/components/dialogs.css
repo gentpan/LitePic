@@ -189,12 +189,6 @@
     padding: 24px;
   }
 
-  .dialog-footer {
-    @apply flex justify-end p-4;
-    gap: var(--spacing-sm);
-    border-top: 1px solid var(--border-color);
-  }
-
   /* =========================================================
      版权说明对话框 — Hero 标题 + 信息卡片网格 + 法律声明 + 官网入口
      重构自老的 label/value 表格列表，视觉更接近 Plan A 的卡片风格。
@@ -290,14 +284,9 @@
 
   .license-card > i {
     flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    background: color-mix(in srgb, var(--primary) 10%, var(--surface) 90%);
     color: var(--primary);
-    font-size: 14px;
+    font-size: 18px;
+    line-height: 1;
   }
 
   .license-card-body {
@@ -371,32 +360,6 @@
   /* ==========================================================================
      结果对话框
      ========================================================================== */
-
-  .compress-result,
-  .webp-result {
-    padding: var(--spacing);
-  }
-
-  .result-item {
-    @apply flex justify-between py-2 px-0;
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .result-item:last-child {
-    border-bottom: none;
-  }
-
-  .result-item.success {
-    @apply text-success font-medium;
-  }
-
-  .result-preview {
-    @apply text-center mt-4;
-  }
-
-  .result-preview img {
-    @apply max-w-full rounded-md;
-  }
 
   .process-result-dialog-content,
   .convert-dialog-content,
@@ -617,14 +580,6 @@
     border-color: var(--success);
   }
 
-  .convert-file-name {
-    color: var(--gray);
-    font-size: 0.78rem;
-    font-family: var(--font-mono, monospace);
-    line-height: 1.35;
-    word-break: break-all;
-  }
-
   /* ==========================================================================
      对话框暗色样式
      ========================================================================== */
@@ -677,14 +632,6 @@
   html[data-theme="dark"] .dialog-close:hover {
     background: rgba(255, 255, 255, 0.05);
     color: #fff;
-  }
-
-  html[data-theme="dark"] .dialog-footer {
-    border-color: var(--dialog-border);
-  }
-
-  html[data-theme="dark"] .result-item {
-    border-color: var(--dialog-border);
   }
 
   html[data-theme="dark"] .convert-result-preview,
@@ -748,11 +695,6 @@
 
     .confirm-dialog-actions {
       gap: 10px;
-    }
-
-    .dialog-footer button {
-      padding: 0.5rem;
-      font-size: 0.8rem;
     }
 
     .confirm-dialog-btn {
@@ -942,4 +884,115 @@
 
 html[data-theme="dark"] .change-password-overlay {
   background: rgba(0, 0, 0, 0.65);
+}
+
+@layer components {
+  /* ============== /upload 页内的"新建相册"快速表单弹窗 ============== */
+  .album-quick-form {
+    display: grid;
+    gap: 14px;
+    margin: 0;
+  }
+
+  .album-quick-field {
+    display: grid;
+    gap: 6px;
+  }
+  .album-quick-field[hidden] { display: none; }
+
+  .album-quick-field label {
+    color: var(--dark);
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .album-quick-field input,
+  .album-quick-field select {
+    width: 100%;
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    border-radius: 0;
+    background: var(--surface);
+    color: var(--dark);
+    font-family: inherit;
+    font-size: 0.92rem;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .album-quick-field input:focus,
+  .album-quick-field select:focus,
+  .album-quick-field input:focus-visible,
+  .album-quick-field select:focus-visible {
+    border-color: var(--primary);
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+  }
+
+  .album-quick-error {
+    margin: 0;
+    padding: 8px 10px;
+    background: color-mix(in srgb, var(--danger) 10%, transparent);
+    border-left: 3px solid var(--danger);
+    color: var(--danger);
+    font-size: 0.82rem;
+  }
+  .album-quick-error[hidden] { display: none; }
+
+  .album-quick-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 4px;
+  }
+
+  .album-quick-btn {
+    height: 38px;
+    padding: 0 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid transparent;
+    border-radius: 0;
+    background: var(--surface);
+    color: var(--dark);
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+  }
+
+  .album-quick-btn-cancel {
+    border-color: color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+  .album-quick-btn-cancel:hover {
+    background: color-mix(in srgb, var(--light) 60%, var(--surface) 40%);
+    border-color: color-mix(in srgb, var(--gray) 30%, var(--border-color) 70%);
+  }
+
+  .album-quick-btn-submit {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+  }
+  .album-quick-btn-submit:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--primary) 88%, #000 12%);
+    border-color: color-mix(in srgb, var(--primary) 88%, #000 12%);
+  }
+  .album-quick-btn-submit:disabled {
+    opacity: 0.6;
+    cursor: progress;
+  }
+
+  /* dark theme */
+  html[data-theme="dark"] .album-quick-field input,
+  html[data-theme="dark"] .album-quick-field select {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+  html[data-theme="dark"] .album-quick-btn-cancel {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
 }

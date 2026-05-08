@@ -500,6 +500,128 @@ window.ImgEt.Utils = {
 };
 
 /**
+ * 批量进度卡(单例) - 显示批量操作的实时进度
+ *
+ * 与右上角 toast 分工:
+ *   - 右上角 toast (ImgEt.Utils.showNotification) → 状态广播
+ *     "批量转换中..." / "批量转换完成: 9 张成功"
+ *   - 底部进度卡 (本组件)                       → 实时进度
+ *     标题 + N/M 张 + 进度条 + 百分比
+ *
+ * 使用方式:
+ *   ImgEt.BatchProgress.show('convert', '批量转换', 0, 10);   // 开始
+ *   ImgEt.BatchProgress.show('convert', '批量转换', 5, 10);   // 进度更新
+ *   ImgEt.BatchProgress.done();                                // 闪一下 100% 然后消失
+ *   // 或者 ImgEt.BatchProgress.hide(); 直接消失
+ *
+ * variant: 'compress' | 'convert' | 'delete' — 决定强调色
+ */
+if (!window.ImgEt.BatchProgress) {
+    window.ImgEt.BatchProgress = {
+        _el: null,
+        _hideTimer: null,
+        _currentVariant: null,
+
+        /**
+         * 创建/复用 DOM。第一次调用时插入到 body,后续 show 只更新内容。
+         * 不在模块加载时预创建,因为很多页面根本不用批量操作。
+         */
+        _ensure() {
+            if (this._el && document.body.contains(this._el)) return this._el;
+            const el = document.createElement('div');
+            el.className = 'batch-progress';
+            el.setAttribute('role', 'status');
+            el.setAttribute('aria-live', 'polite');
+            el.innerHTML = `
+                <div class="batch-progress__head">
+                    <i class="batch-progress__icon fa-light fa-spinner-third fa-spin" aria-hidden="true"></i>
+                    <span class="batch-progress__title"></span>
+                    <span class="batch-progress__count"></span>
+                    <span class="batch-progress__percent">0%</span>
+                </div>
+                <div class="batch-progress__bar">
+                    <div class="batch-progress__bar-fill"></div>
+                </div>
+            `;
+            document.body.appendChild(el);
+            this._el = el;
+            return el;
+        },
+
+        /**
+         * 显示或更新进度卡。done/total 都是 number,total=0 时百分比按 0 算。
+         */
+        show(variant, label, done, total) {
+            const el = this._ensure();
+            if (this._hideTimer) {
+                clearTimeout(this._hideTimer);
+                this._hideTimer = null;
+            }
+            // 切 variant 时清理旧的 modifier class — 不然连续做不同操作会叠
+            const variants = ['compress', 'convert', 'delete'];
+            for (const v of variants) {
+                el.classList.toggle('batch-progress--' + v, v === variant);
+            }
+            this._currentVariant = variant;
+            el.classList.remove('is-complete');
+
+            const safeDone = Math.max(0, Math.min(done | 0, total | 0));
+            const safeTotal = Math.max(0, total | 0);
+            const percent = safeTotal > 0 ? Math.round((safeDone / safeTotal) * 100) : 0;
+
+            const titleEl   = el.querySelector('.batch-progress__title');
+            const countEl   = el.querySelector('.batch-progress__count');
+            const percentEl = el.querySelector('.batch-progress__percent');
+            const fillEl    = el.querySelector('.batch-progress__bar-fill');
+            const iconEl    = el.querySelector('.batch-progress__icon');
+
+            if (titleEl)   titleEl.textContent = label || '';
+            if (countEl)   countEl.textContent = safeTotal > 0 ? `${safeDone}/${safeTotal} 张` : '';
+            if (percentEl) percentEl.textContent = percent + '%';
+            if (fillEl)    fillEl.style.width = percent + '%';
+            // 处理中:转 spinner;100% 时切 check (但 hide/done 接管最终视觉)
+            if (iconEl) {
+                iconEl.className = 'batch-progress__icon fa-light fa-spinner-third fa-spin';
+            }
+
+            // 触发滑入(放进 rAF 避免插入瞬间的 transition 失效)
+            requestAnimationFrame(() => el.classList.add('is-visible'));
+        },
+
+        /**
+         * 操作完成 — 把进度条拉满、换图标,稍微停留再淡出。
+         * 提供视觉反馈"真的跑完了",而不是直接消失感觉像中断。
+         */
+        done() {
+            if (!this._el) return;
+            const el = this._el;
+            el.classList.add('is-complete');
+            const fillEl = el.querySelector('.batch-progress__bar-fill');
+            const percentEl = el.querySelector('.batch-progress__percent');
+            const iconEl = el.querySelector('.batch-progress__icon');
+            if (fillEl)    fillEl.style.width = '100%';
+            if (percentEl) percentEl.textContent = '100%';
+            if (iconEl)    iconEl.className = 'batch-progress__icon fa-light fa-circle-check';
+            // 800ms 让用户看到完成态,再滑下去
+            this._hideTimer = setTimeout(() => this.hide(), 800);
+        },
+
+        /**
+         * 立即隐藏。用于失败 / 中止的场景(完成走 done()).
+         */
+        hide() {
+            if (this._hideTimer) {
+                clearTimeout(this._hideTimer);
+                this._hideTimer = null;
+            }
+            if (!this._el) return;
+            this._el.classList.remove('is-visible');
+            // CSS 过渡完再清 DOM 不必要 — 复用同一个 el 性能更好
+        },
+    };
+}
+
+/**
  * 对话框管理器类 - 处理对话框相关功能
  */
 if (!window.ImgEt.DialogManager) {
@@ -705,7 +827,7 @@ function initLicenseDialog() {
     trigger.dataset.licenseBound = '1';
     trigger.addEventListener('click', () => {
         if (!window.ImgEt?.DialogManager) return;
-        const version = String(window.LITEPIC_VERSION || '3.3.3');
+        const version = String(window.LITEPIC_VERSION || '3.3.4');
 
         const content = `
             <div class="litepic-license-dialog">
@@ -2550,65 +2672,15 @@ class BatchProcessor extends BaseProcessor {
         return { text: '删除', variant: 'delete', icon: 'fa-trash' };
     }
 
-    static #upsertDeleteProgressToast(done, total) {
-        const host = document.getElementById('notification');
-        if (!host) return;
-        let item = host.querySelector('.notification-item.batch-delete-progress');
-        if (!item) {
-            item = document.createElement('div');
-            item.className = 'notification-item info notification-process notification-batch batch-delete-progress show';
-            item.setAttribute('role', 'status');
-            item.innerHTML = `
-                <i class="fa-light fa-spinner-third fa-spin" aria-hidden="true"></i>
-                <div class="notification-copy">
-                    <strong class="batch-delete-text"></strong>
-                    <span>批量删除处理中</span>
-                </div>
-            `;
-            host.appendChild(item);
-        }
-        const text = item.querySelector('.batch-delete-text');
-        if (text) text.textContent = `删除 ${done}/${total}`;
-    }
-
-    static #removeDeleteProgressToast() {
-        const item = document.querySelector('#notification .notification-item.batch-delete-progress');
-        if (item) item.remove();
-    }
-
-    static #upsertProcessProgressToast(action, done, total) {
-        const host = ImgEt.Utils.getProcessNotificationContainer();
-        if (!host) return;
-        const style = this.#getActionStyle(action);
-        const percent = total > 0 ? Math.round((done / total) * 100) : 0;
-        let item = host.querySelector('.notification-item.batch-process-progress');
-        if (!item) {
-            item = document.createElement('div');
-            item.className = `notification-item info notification-process notification-batch notification-${style.variant} batch-process-progress show`;
-            item.setAttribute('role', 'status');
-            item.innerHTML = `
-                <i class="fa-light fa-spinner-third fa-spin" aria-hidden="true"></i>
-                <div class="notification-copy">
-                    <strong>批量${style.text}处理中</strong>
-                    <span class="batch-process-detail"></span>
-                    <em class="batch-process-meta"></em>
-                </div>
-            `;
-            host.appendChild(item);
-        }
-
-        item.classList.toggle('notification-compress', style.variant === 'compress');
-        item.classList.toggle('notification-convert', style.variant === 'convert');
-        const detail = item.querySelector('.batch-process-detail');
-        const meta = item.querySelector('.batch-process-meta');
-        if (detail) detail.textContent = `${done}/${total} 张`;
-        if (meta) meta.textContent = `${percent}%`;
-    }
-
-    static #removeProcessProgressToast() {
-        const item = document.querySelector('#processNotification .notification-item.batch-process-progress, #notification .notification-item.batch-process-progress');
-        if (item) item.remove();
-    }
+    /**
+     * 进度反馈拆成两半:
+     *   - 顶部 toast (showNotification) → 状态广播,操作开始 / 完成 / 失败
+     *   - 底部进度卡 (ImgEt.BatchProgress) → 实时计数 + 进度条 + 百分比
+     *
+     * 这两个方法以前是私有 #upsertProcessProgressToast / #upsertDeleteProgressToast
+     * 直接往 #notification 容器塞自定义 HTML,导致顶部 toast 既要做状态又要
+     * 显示进度,视觉上过载。重构后只调一次 BatchProgress.show 就够了。
+     */
 
     static #resetSelection() {
         const selectAllCheckbox = document.querySelector('#selectAll');
@@ -2696,10 +2768,13 @@ class BatchProcessor extends BaseProcessor {
         const total = files.length;
         const actionStyle = this.#getActionStyle(action);
         const actionText = actionStyle.text;
+        const progressLabel = `批量${actionText}`;
 
-        if (action !== 'delete') {
-            this.#upsertProcessProgressToast(action, 0, total);
-        }
+        // 顶部状态 toast — 只发一次,告诉用户「开始了」。短停留(2.5s)即自然消失,
+        // 不跟底部进度卡视觉打架。完成 toast 由循环结束后那段处理(更详细)。
+        ImgEt.Utils.showNotification(`${progressLabel}中...`, 'info', { duration: 2500 });
+        // 底部进度卡 — 立刻显示 0/total,后面循环里逐张更新
+        ImgEt.BatchProgress.show(actionStyle.variant, progressLabel, 0, total);
 
         for (const [index, filename] of files.entries()) {
             const imgCard = document.querySelector(getImageCardSelector(filename));
@@ -2708,11 +2783,7 @@ class BatchProcessor extends BaseProcessor {
                 continue;
             }
 
-            if (action === 'delete') {
-                this.#upsertDeleteProgressToast(index + 1, total);
-            } else {
-                this.#upsertProcessProgressToast(action, index + 1, total);
-            }
+            ImgEt.BatchProgress.show(actionStyle.variant, progressLabel, index + 1, total);
 
             try {
                 switch (action) {
@@ -2744,10 +2815,11 @@ class BatchProcessor extends BaseProcessor {
             }
         }
 
-        if (action === 'delete') {
-            this.#removeDeleteProgressToast();
+        // 收尾 — 失败时直接收掉进度卡(避免误导),全成功走 done() 演出 100% 完成态
+        if (results.fail > 0 && results.success === 0) {
+            ImgEt.BatchProgress.hide();
         } else {
-            this.#removeProcessProgressToast();
+            ImgEt.BatchProgress.done();
         }
 
         if (action === 'delete') {
@@ -3262,7 +3334,7 @@ class UploadManager {
         TIMEOUT_LARGE: 180000, // > 10MB: 180秒
         TIMEOUT_SMALL_THRESHOLD: 2 * 1024 * 1024,
         TIMEOUT_MEDIUM_THRESHOLD: 10 * 1024 * 1024,
-        MAX_CONCURRENT: 3, // 最大并发上传数
+        MAX_CONCURRENT: 20, // 最大并发上传数 — 自用图床,带宽是自己的,可调高
         FADE_DURATION: 300, // 动画过渡时间
     };
 
@@ -3386,9 +3458,11 @@ class UploadManager {
         const controls = this.elements.processingControls;
         const compressToggle = controls?.querySelector('[data-upload-setting-toggle="compress"]');
         const convertToggle = controls?.querySelector('[data-upload-setting-toggle="convert"]');
+        const watermarkToggle = controls?.querySelector('[data-upload-setting-toggle="watermark"]');
         return {
             compress: !!compressToggle?.checked,
             convert: !!convertToggle?.checked,
+            watermark: !!watermarkToggle?.checked,
             format: String(controls?.dataset.convertFormat || 'webp').toLowerCase()
         };
     }
@@ -3420,6 +3494,7 @@ class UploadManager {
             formData.append('changed', changed || '');
             formData.append('auto_compress_on_upload', state.compress ? '1' : '0');
             formData.append('auto_convert_on_upload', state.convert ? '1' : '0');
+            formData.append('watermark_enabled', state.watermark ? '1' : '0');
             formData.append('convert_preferred_format', ['webp', 'avif', 'jpg', 'png'].includes(state.format) ? state.format : 'webp');
 
             const response = await fetch('/upload', {
@@ -3482,6 +3557,7 @@ class UploadManager {
 
         const compressToggle = controls.querySelector('[data-upload-setting-toggle="compress"]');
         const convertToggle = controls.querySelector('[data-upload-setting-toggle="convert"]');
+        const watermarkToggle = controls.querySelector('[data-upload-setting-toggle="watermark"]');
         if (compressToggle) {
             compressToggle.checked = this.autoCompressEnabled;
             compressToggle.closest('.upload-setting-toggle')?.classList.toggle('is-active', this.autoCompressEnabled);
@@ -3489,6 +3565,14 @@ class UploadManager {
         if (convertToggle) {
             convertToggle.checked = this.autoConvertEnabled;
             convertToggle.closest('.upload-setting-toggle')?.classList.toggle('is-active', this.autoConvertEnabled);
+        }
+        // 水印 toggle 反映从 settings.watermark_enabled 来的全局开关
+        if (watermarkToggle && settings.watermark_enabled !== undefined) {
+            const wm = !!settings.watermark_enabled;
+            watermarkToggle.checked = wm;
+            watermarkToggle.closest('.upload-setting-toggle')?.classList.toggle('is-active', wm);
+            const wmValue = controls.querySelector('[data-upload-watermark-value]');
+            if (wmValue) wmValue.textContent = wm ? (settings.watermark_label || '开启') : '关闭';
         }
 
         const compressValue = controls.querySelector('[data-upload-compress-value]');
@@ -4401,6 +4485,11 @@ class UploadManager {
     createFormData(file) {
         const formData = new FormData();
         formData.append('image[]', file);  // 直接上传原始文件,不添加压缩参数
+        // 相册下拉选了就带上,后端 api/upload.php 会把这次上传的所有
+        // 文件加到这个相册。空值就忽略 — 上传不会因为相册问题失败。
+        const albumPicker = document.querySelector('[data-album-picker]');
+        const slug = albumPicker?.value?.trim() || '';
+        if (slug !== '') formData.append('album', slug);
         return formData;
     }
 
@@ -4650,18 +4739,38 @@ class UploadManager {
 
     /**
      * 异步处理状态轮询（poller）。
-     * 单实例：一个 poller 服务于所有正在 post-processing 的 record。
-     * 每 2.5s 跑一次，每次最多 100 个 id。Queue 全空时自动停。
+     *
+     * 时序模型(为什么要指数退避):
+     *   - upload XHR 在 ~100ms 返回响应
+     *   - 服务器在 fastcgi_finish_request 之后才启动 drain,所以 0ms 时探查到的
+     *     还是 'pending'。第一次轮询略等一下能赶上 'processing' / 'done'。
+     *   - 缩略图(用户当前唯一的后台任务)通常 200-500ms 完成
+     *   - 重活(WebP/AVIF/水印/远程同步)可达 2-30s
+     *
+     * 节奏:
+     *   起点 400ms → 700 → 1100 → 1700 → 2500ms 封顶。
+     *   缩略图 case 通常 1-2 次内就拿到 'done'(总等待 < 1s),
+     *   重活 case 自动退到 2.5s,不增加服务器压力。
+     *
+     * 单实例:一个 poller 服务于所有正在 post-processing 的 record;
+     * Queue 全空时自动停。
      */
     startPostProcessPoll() {
         if (this.postProcessPollTimer) return;
+
+        // 退避序列 — 经验值,头几次密集追快任务,尾部稳定在 2.5s
+        const POLL_INTERVALS = [400, 700, 1100, 1700, 2500];
+        let pollIndex = 0;
+
         const tick = async () => {
             const pending = this.getQueueRecords().filter(
                 (r) => r.serverState === 'post-processing' && r.serverFilename
             );
             if (pending.length === 0) {
-                window.clearInterval(this.postProcessPollTimer);
-                this.postProcessPollTimer = 0;
+                if (this.postProcessPollTimer) {
+                    clearTimeout(this.postProcessPollTimer);
+                    this.postProcessPollTimer = 0;
+                }
                 return;
             }
 
@@ -4721,9 +4830,18 @@ class UploadManager {
             }
         };
 
-        // 立即跑一次（避免第一次 2.5s 才有反馈），然后定时
-        tick();
-        this.postProcessPollTimer = window.setInterval(tick, 2500);
+        // setTimeout 链 + 退避,而不是 setInterval — 因为我们要每次根据
+        // pollIndex 取不同间隔。tick() 负责"如果还有 pending 就排下一次"。
+        const scheduleNext = () => {
+            const interval = POLL_INTERVALS[Math.min(pollIndex, POLL_INTERVALS.length - 1)];
+            pollIndex += 1;
+            this.postProcessPollTimer = window.setTimeout(async () => {
+                await tick();
+                // tick() 会在 pending 空时把 timer 清掉；只有还在跑才继续排
+                if (this.postProcessPollTimer) scheduleNext();
+            }, interval);
+        };
+        scheduleNext();
     }
 
     /**

@@ -69,7 +69,8 @@ final class Importer
 
         $sources = $this->resolveSources((string)($options['source_path'] ?? ''), $report['errors']);
         if ($sources === []) {
-            $report['errors'][] = '未找到可扫描目录（upload / uploads）';
+            $storageDir = defined('STORAGE_DIR') ? STORAGE_DIR : 'uploads';
+            $report['errors'][] = '未找到可扫描目录（upload / ' . $storageDir . '）';
             return $report;
         }
 
@@ -308,7 +309,14 @@ final class Importer
         $appRoot = defined('APP_ROOT') ? APP_ROOT : dirname(__DIR__, 3);
         $sourceInput = trim($sourceInput);
         $usingDefaults = $sourceInput === '';
-        $rawItems = $usingDefaults ? ['upload', 'uploads'] : (preg_split('/[\r\n,]+/', $sourceInput) ?: []);
+        // 默认扫描候选：'upload' 历史拼写 + 当前 STORAGE_DIR（管理员可配置）。
+        // 留空时挨个检查存在性，存在就用。
+        $defaultCandidates = ['upload'];
+        $storageDir = defined('STORAGE_DIR') ? STORAGE_DIR : 'uploads';
+        if (!in_array($storageDir, $defaultCandidates, true)) {
+            $defaultCandidates[] = $storageDir;
+        }
+        $rawItems = $usingDefaults ? $defaultCandidates : (preg_split('/[\r\n,]+/', $sourceInput) ?: []);
 
         $sources = [];
         foreach ($rawItems as $rawItem) {

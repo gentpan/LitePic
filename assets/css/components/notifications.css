@@ -27,21 +27,6 @@
     width: min(320px, calc(100vw - 32px));
   }
 
-  .process-toast-container {
-    position: fixed;
-    z-index: 9999;
-    top: calc(var(--header-offset) + 12px);
-    left: auto;
-    right: 20px;
-    transform: none;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    pointer-events: none;
-    align-items: flex-end;
-    width: min(340px, calc(100vw - 40px));
-  }
-
   /* ==========================================================================
      通知项目
      ========================================================================== */
@@ -65,16 +50,6 @@
     --tw-translate-x: 0;
     translate: var(--tw-translate-x) var(--tw-translate-y);
     opacity: 1;
-  }
-
-  .process-toast-container .notification-item {
-    --tw-translate-x: 100%;
-    --tw-translate-y: 0;
-  }
-
-  .process-toast-container .notification-item.show {
-    --tw-translate-x: 0;
-    --tw-translate-y: 0;
   }
 
   .notification-item i {
@@ -349,37 +324,45 @@
 
   /* ==========================================================================
      暗色主题通知样式
+     —— 之前用了一堆 --notification-bg / --success-bg 但这些 var 从来没
+     在任何文件定义,fallback 到 unset → 浅色白底从基础规则透出来,叠加
+     左边的彩色边框看起来就是"白绿渐变"那种花斑。直接给固定深色值。
      ========================================================================== */
 
   html[data-theme="dark"] .notification-item {
-    background: var(--notification-bg);
-    border: 1px solid var(--notification-border);
-    box-shadow: var(--notification-shadow);
-    backdrop-filter: blur(10px);
+    background: #1a1a1a;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+    color: var(--dark);
   }
 
   html[data-theme="dark"] .notification-item span {
-    color: var(--notification-text);
+    color: var(--dark);
   }
 
+  /* 类型色卡 — 用主色的深色变体打底,左边硬边框带醒目色 */
   html[data-theme="dark"] .notification-item.success {
-    background: var(--success-bg);
-    border-left-color: var(--success);
+    background: color-mix(in srgb, #22c55e 12%, #1a1a1a 88%);
+    border-color: rgba(34, 197, 94, 0.28);
+    border-left-color: #22c55e;
   }
 
   html[data-theme="dark"] .notification-item.error {
-    background: var(--error-bg);
-    border-left-color: var(--danger);
+    background: color-mix(in srgb, #ff6b6b 12%, #1a1a1a 88%);
+    border-color: rgba(255, 107, 107, 0.28);
+    border-left-color: #ff6b6b;
   }
 
   html[data-theme="dark"] .notification-item.warning {
-    background: var(--warning-bg);
-    border-left-color: var(--warning);
+    background: color-mix(in srgb, #f59e0b 12%, #1a1a1a 88%);
+    border-color: rgba(245, 158, 11, 0.28);
+    border-left-color: #f59e0b;
   }
 
   html[data-theme="dark"] .notification-item.info {
-    background: var(--info-bg);
-    border-left-color: var(--info);
+    background: color-mix(in srgb, #38bdf8 12%, #1a1a1a 88%);
+    border-color: rgba(56, 189, 248, 0.28);
+    border-left-color: #38bdf8;
   }
 
   html[data-theme="dark"] .notification-close {
@@ -459,8 +442,7 @@
      只覆盖 header 下方通知，不影响首页登录 auth toast。
      ========================================================================== */
 
-  .notification-container .notification-item,
-  .process-toast-container .notification-item {
+  .notification-container .notification-item {
     --toast-accent: var(--info);
     --toast-tint: rgba(23, 162, 184, 0.1);
     width: 100%;
@@ -483,46 +465,38 @@
     backdrop-filter: none;
   }
 
-  .notification-container .notification-item.success,
-  .process-toast-container .notification-item.success {
+  .notification-container .notification-item.success {
     --toast-accent: var(--success);
     --toast-tint: rgba(34, 197, 94, 0.11);
   }
 
-  .notification-container .notification-item.error,
-  .process-toast-container .notification-item.error {
+  .notification-container .notification-item.error {
     --toast-accent: var(--danger);
     --toast-tint: rgba(255, 107, 107, 0.11);
   }
 
-  .notification-container .notification-item.warning,
-  .process-toast-container .notification-item.warning {
+  .notification-container .notification-item.warning {
     --toast-accent: var(--warning);
     --toast-tint: rgba(255, 193, 7, 0.14);
   }
 
-  .notification-container .notification-item.info,
-  .process-toast-container .notification-item.info {
+  .notification-container .notification-item.info {
     --toast-accent: var(--primary);
     --toast-tint: rgba(22, 119, 255, 0.1);
   }
 
-  .notification-container .notification-item.notification-compress,
-  .process-toast-container .notification-item.notification-compress {
+  .notification-container .notification-item.notification-compress {
     --toast-accent: var(--success);
     --toast-tint: rgba(34, 197, 94, 0.11);
   }
 
   .notification-container .notification-item.notification-convert,
-  .process-toast-container .notification-item.notification-convert,
-  .notification-container .notification-item.notification-process,
-  .process-toast-container .notification-item.notification-process {
+  .notification-container .notification-item.notification-process {
     --toast-accent: var(--primary);
     --toast-tint: rgba(22, 119, 255, 0.1);
   }
 
-  .notification-container .notification-item > i,
-  .process-toast-container .notification-item > i {
+  .notification-container .notification-item > i {
     grid-column: 1;
     justify-self: center;
     align-self: center;
@@ -546,8 +520,7 @@
     --fa-width: auto;
   }
 
-  .notification-container .notification-item > i::before,
-  .process-toast-container .notification-item > i::before {
+  .notification-container .notification-item > i::before {
     display: block !important;
     width: auto !important;
     height: auto !important;
@@ -556,8 +529,7 @@
     transform: none;
   }
 
-  .notification-container .notification-item > span,
-  .process-toast-container .notification-item > span {
+  .notification-container .notification-item > span {
     grid-column: 2;
     align-self: center;
     display: flex;
@@ -565,37 +537,32 @@
     height: 100%;
   }
 
-  .notification-container .notification-copy,
-  .process-toast-container .notification-copy {
+  .notification-container .notification-copy {
     grid-column: 2;
     align-self: center;
     padding-top: 0;
     gap: 2px;
   }
 
-  .notification-container .notification-copy strong,
-  .process-toast-container .notification-copy strong {
+  .notification-container .notification-copy strong {
     color: #2b2f36;
     font-size: 0.94rem;
     font-weight: 600;
     line-height: 1.35;
   }
 
-  .notification-container .notification-copy span,
-  .process-toast-container .notification-copy span {
+  .notification-container .notification-copy span {
     color: #69717d;
     font-size: 0.78rem;
   }
 
-  .notification-container .notification-copy em,
-  .process-toast-container .notification-copy em {
+  .notification-container .notification-copy em {
     border-color: rgba(22, 119, 255, 0.18);
     background: rgba(22, 119, 255, 0.08);
     color: var(--toast-accent);
   }
 
-  .notification-container .notification-close,
-  .process-toast-container .notification-close {
+  .notification-container .notification-close {
     grid-column: 3;
     justify-self: center;
     align-self: center;
@@ -607,21 +574,18 @@
     opacity: 1;
   }
 
-  .notification-container .notification-close:hover,
-  .process-toast-container .notification-close:hover {
+  .notification-container .notification-close:hover {
     color: var(--toast-accent);
     background: rgba(15, 23, 42, 0.04);
   }
 
-  .notification-container .notification-close i,
-  .process-toast-container .notification-close i {
+  .notification-container .notification-close i {
     width: 18px;
     height: 18px;
     font-size: 1.05rem;
   }
 
-  html[data-theme="dark"] .notification-container .notification-item,
-  html[data-theme="dark"] .process-toast-container .notification-item {
+  html[data-theme="dark"] .notification-container .notification-item {
     background:
       linear-gradient(90deg,
         var(--toast-tint) 0%,
@@ -806,6 +770,131 @@
   html[data-theme="dark"] .auth-toast-container .notification-auth.warning {
     background: #f59e0b;
     border-color: #f59e0b;
+  }
+
+  /* ==========================================================================
+     批量进度卡(底部固定)
+     —————————————————————————————————————————————————————————————————————————
+     与右上角 toast 分工:右上角负责「状态广播」(开始 / 完成 / 失败),
+     底部负责「进度细节」(N/M 张 + 进度条 + 百分比)。
+     单例 — 同一时刻只有一个,操作期间持续显示,完成后自动滑下消失。
+     三种 variant 用 --accent 切色:压缩绿、转换紫、删除红。
+     ========================================================================== */
+  .batch-progress {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translate(-50%, calc(100% + 40px)); /* 默认藏在屏幕外 */
+    width: min(440px, calc(100vw - 32px));
+    background: var(--surface);
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    border-left: 3px solid var(--accent, var(--primary));
+    box-shadow: 0 12px 32px -10px rgba(0, 0, 0, 0.18),
+                0 4px 12px -4px rgba(0, 0, 0, 0.08);
+    padding: 12px 16px 14px;
+    z-index: 9999;
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+                opacity 200ms ease;
+    /* CSS 自定义属性 — 由 .batch-progress--<variant> 改写 */
+    --accent: var(--primary);
+  }
+  .batch-progress.is-visible {
+    transform: translate(-50%, 0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .batch-progress__head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-size: 0.86rem;
+    line-height: 1.3;
+  }
+  .batch-progress__icon {
+    flex: 0 0 auto;
+    color: var(--accent);
+    font-size: 1rem;
+  }
+  .batch-progress__title {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 600;
+    color: var(--dark);
+    /* 标题太长就截 — 操作行业内一般不会超,这是兜底 */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .batch-progress__count {
+    flex: 0 0 auto;
+    color: color-mix(in srgb, var(--dark) 65%, transparent);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.82rem;
+  }
+  .batch-progress__percent {
+    flex: 0 0 auto;
+    min-width: 3.2em;
+    text-align: right;
+    color: var(--accent);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.82rem;
+  }
+
+  .batch-progress__bar {
+    margin-top: 10px;
+    height: 4px;
+    background: color-mix(in srgb, var(--dark) 10%, transparent);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .batch-progress__bar-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    border-radius: inherit;
+    /* 进度条变化用稍长的过渡,跳动更柔和 */
+    transition: width 260ms ease;
+  }
+
+  /* 完成态 — 100% 时整张卡轻微闪一下,告诉用户「真完成了」再消失 */
+  .batch-progress.is-complete {
+    border-left-color: var(--success);
+    --accent: var(--success);
+  }
+
+  /* 三种 variant 颜色 — 跟批量按钮的视觉语言一致 */
+  .batch-progress--compress { --accent: var(--success); }
+  .batch-progress--convert  { --accent: #6f42c1; }
+  .batch-progress--delete   { --accent: var(--danger); }
+
+  /* 深色模式 */
+  html[data-theme="dark"] .batch-progress {
+    background: #1a1a1a;
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 16px 36px -10px rgba(0, 0, 0, 0.55),
+                0 6px 16px -4px rgba(0, 0, 0, 0.35);
+  }
+  html[data-theme="dark"] .batch-progress__bar {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  /* 移动端:进度卡贴着屏幕底,留出系统手势区 */
+  @media (max-width: 600px) {
+    .batch-progress {
+      left: 12px;
+      right: 12px;
+      bottom: 16px;
+      transform: translateY(calc(100% + 40px));
+      width: auto;
+    }
+    .batch-progress.is-visible {
+      transform: translateY(0);
+    }
   }
 
 }

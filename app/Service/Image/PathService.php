@@ -60,8 +60,7 @@ final class PathService
     }
 
     /**
-     * Generate a unique filename for an upload. Uses a date-prefixed path
-     * when STORAGE_TYPE === 'date'.
+     * Generate a unique filename for an upload (32 random hex chars + ext).
      */
     public static function generateFilename(string $ext): string
     {
@@ -91,15 +90,13 @@ final class PathService
         }
 
         $base = basename($filename);
-        if (defined('STORAGE_TYPE') && STORAGE_TYPE === 'date') {
-            $safe = str_replace(['*', '?', '[', ']'], '', $base);
-            $matches = glob(UPLOAD_PATH_LOCAL . '[0-9][0-9][0-9][0-9]/[0-1][0-9]/' . $safe);
-            if ($matches) {
-                foreach ($matches as $path) {
-                    $n = str_replace('\\', '/', $path);
-                    if (str_contains($n, '/.thumbs/')) continue;
-                    if (preg_match('#/(\d{4})/(0[1-9]|1[0-2])/#', $n)) return $path;
-                }
+        $safe = str_replace(['*', '?', '[', ']'], '', $base);
+        $matches = glob(UPLOAD_PATH_LOCAL . '[0-9][0-9][0-9][0-9]/[0-1][0-9]/' . $safe);
+        if ($matches) {
+            foreach ($matches as $path) {
+                $n = str_replace('\\', '/', $path);
+                if (str_contains($n, '/.thumbs/')) continue;
+                if (preg_match('#/(\d{4})/(0[1-9]|1[0-2])/#', $n)) return $path;
             }
         }
         return UPLOAD_PATH_LOCAL . $base;
@@ -115,14 +112,11 @@ final class PathService
 
     public static function storagePathByTimestamp(int $timestamp): string
     {
-        if (defined('STORAGE_TYPE') && STORAGE_TYPE === 'date') {
-            $ts = $timestamp > 0 ? $timestamp : time();
-            $path = UPLOAD_PATH_LOCAL . date('Y', $ts) . DIRECTORY_SEPARATOR . date('m', $ts) . DIRECTORY_SEPARATOR;
-            if (!is_dir($path)) {
-                @mkdir($path, 0755, true);
-            }
-            return $path;
+        $ts = $timestamp > 0 ? $timestamp : time();
+        $path = UPLOAD_PATH_LOCAL . date('Y', $ts) . DIRECTORY_SEPARATOR . date('m', $ts) . DIRECTORY_SEPARATOR;
+        if (!is_dir($path)) {
+            @mkdir($path, 0755, true);
         }
-        return UPLOAD_PATH_LOCAL;
+        return $path;
     }
 }

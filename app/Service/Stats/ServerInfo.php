@@ -128,11 +128,21 @@ final class ServerInfo
         if (is_string($raw) && preg_match('/^\s*([0-9]+(?:\.[0-9]+)?)/', $raw, $m)) {
             return max(0, (int)floor((float)$m[1]));
         }
-        if (function_exists('shell_exec')) {
+        if (self::canShellExec()) {
             $boot = @shell_exec('sysctl -n kern.boottime 2>/dev/null');
             if (is_string($boot) && preg_match('/sec\s*=\s*(\d+)/', $boot, $m)) {
                 return max(0, time() - (int)$m[1]);
             }
+        }
+
+        // 受限 PHP-FPM(BT 等)上回退到 CLI worker 写的 snapshot。
+        // 由于 uptime 是单调递增的,我们用 (snapshot.uptime + 当前时间 - 抓取时间) 做一次外推,
+        // 这样即使 worker 几分钟前才跑过,显示出来的 uptime 仍然合理近实时。
+        $snap = self::readSnapshot();
+        if (isset($snap['uptime_seconds']) && (int)$snap['uptime_seconds'] > 0) {
+            $base    = (int)$snap['uptime_seconds'];
+            $age     = max(0, time() - (int)($snap['captured_at'] ?? time()));
+            return $base + $age;
         }
         return null;
     }
@@ -349,7 +359,7 @@ final class ServerInfo
         if (PHP_OS_FAMILY === 'Linux' || PHP_OS_FAMILY === 'BSD') {
             $meminfo = @file_get_contents('/proc/meminfo');
             if (!is_string($meminfo) || $meminfo === '') {
-                $meminfo = function_exists('shell_exec') ? @shell_exec('cat /proc/meminfo 2>/dev/null') : '';
+                $meminfo = self::canShellExec() ? @shell_exec('cat /proc/meminfo 2>/dev/null') : '';
             }
             if (is_string($meminfo) && $meminfo !== '') {
                 $memTotal = 0;
@@ -366,7 +376,14 @@ final class ServerInfo
                     return [$memTotal, max(0, $memTotal - $memAvailable)];
                 }
             }
-        } elseif (PHP_OS_FAMILY === 'Darwin' && function_exists('shell_exec')) {
+
+            // Restricted PHP-FPM(BT 等)上 /proc 读不到时,回退到 CLI worker
+            // 写入的 snapshot。Snapshot 由 worker.php 每次启动时自动刷新。
+            $snap = self::readSnapshot();
+            if (isset($snap['mem_total']) && (int)$snap['mem_total'] > 0) {
+                return [(int)$snap['mem_total'], (int)($snap['mem_used'] ?? 0)];
+            }
+        } elseif (PHP_OS_FAMILY === 'Darwin' && self::canShellExec()) {
             $hwMemsize = @shell_exec('sysctl -n hw.memsize 2>/dev/null');
             $total = (is_string($hwMemsize) && is_numeric(trim($hwMemsize))) ? (int)trim($hwMemsize) : 0;
 
@@ -393,24 +410,215 @@ final class ServerInfo
         return [0, 0];
     }
 
-    private static function cpuCores(): ?int
+    /**
+     * CPU core count — admin-facing.
+     *
+     * Reads from settings cache first (populated by any successful CLI or
+     * unrestricted-FPM probe via {@see probeAndCacheCpuCoresIfMissing}).
+     * If still empty, attempts a probe right now. On restricted shared
+     * hosting (BT panel) all probe methods will fail in HTTP context, so
+     * we fall back to **1** silently — the gauge stays meaningful, and
+     * the next CLI worker run will refresh the cache to the real value.
+     */
+    private static function cpuCores(): int
     {
+        $cached = (int)\LitePic\Core\Config::get('CPU_CORES_OVERRIDE', 0);
+        if ($cached > 0) return $cached;
+
+        // Try probing now (cheap, ~5 file reads max). If it succeeds it
+        // also caches itself, so the next call is instant.
+        $probed = self::probeCpuCores();
+        if ($probed !== null) {
+            self::rememberCpuCores($probed);
+            return $probed;
+        }
+
+        // Final fallback — assume 1 core. The gauge keeps showing a sane
+        // number; if the real value is e.g. 4, the percent will read 4×
+        // higher than reality until a CLI worker run repopulates cache.
+        return 1;
+    }
+
+    /**
+     * Probe-and-cache entry point — called from worker.php / bootstrap CLI
+     * branch. CLI typically has access to /proc/cpuinfo and shell_exec
+     * even on hosts that lock down PHP-FPM (BT panel etc.), so a single
+     * cron-fired worker run is enough to populate the cache forever.
+     *
+     * Public so worker.php can wire it as a one-liner. No-op if cache
+     * already has a value, or if all probe methods fail.
+     */
+    public static function probeAndCacheCpuCoresIfMissing(): void
+    {
+        $cached = (int)\LitePic\Core\Config::get('CPU_CORES_OVERRIDE', 0);
+        if ($cached > 0) return;
+
+        $probed = self::probeCpuCores();
+        if ($probed !== null) {
+            self::rememberCpuCores($probed);
+        }
+    }
+
+    /**
+     * Snapshot dynamic server stats (memory used, uptime, load avg) into
+     * `settings.SERVER_STATS_SNAPSHOT` as JSON. Same restricted-host
+     * workaround as the CPU probe: CLI can read /proc/* even when HTTP
+     * PHP-FPM can't, so any CLI worker run refreshes the snapshot, and
+     * HTTP just reads the snapshot when its own probes fail.
+     *
+     * Designed to be called every time worker.php runs (cron entry).
+     * Snapshot includes captured_at so the UI can show "数据更新于 N 分钟前".
+     */
+    public static function probeAndCacheServerStats(): void
+    {
+        $snapshot = ['captured_at' => time()];
+
+        // Memory (Linux /proc/meminfo)
+        $meminfo = @file_get_contents('/proc/meminfo');
+        if (is_string($meminfo) && $meminfo !== '') {
+            $memTotal = 0;
+            $memAvail = 0;
+            if (preg_match('/MemTotal:\s+(\d+)\s+kB/', $meminfo, $m)) {
+                $memTotal = (int)$m[1] * 1024;
+            }
+            if (preg_match('/MemAvailable:\s+(\d+)\s+kB/', $meminfo, $m)) {
+                $memAvail = (int)$m[1] * 1024;
+            } elseif (preg_match('/MemFree:\s+(\d+)\s+kB/', $meminfo, $m)) {
+                $memAvail = (int)$m[1] * 1024;
+            }
+            if ($memTotal > 0) {
+                $snapshot['mem_total'] = $memTotal;
+                $snapshot['mem_used']  = max(0, $memTotal - $memAvail);
+            }
+        }
+
+        // Uptime (Linux /proc/uptime: "12345.67 9876.54")
+        $uptime = @file_get_contents('/proc/uptime');
+        if (is_string($uptime) && preg_match('/^(\d+)/', trim($uptime), $m)) {
+            $snapshot['uptime_seconds'] = (int)$m[1];
+        }
+
+        // Load average (works in HTTP too via syscall, but cache anyway
+        // so a stale snapshot at least has SOMETHING when the gauge first paints)
+        $load = function_exists('sys_getloadavg') ? @sys_getloadavg() : false;
+        if (is_array($load) && isset($load[0])) {
+            $snapshot['load1']  = (float)$load[0];
+            $snapshot['load5']  = (float)($load[1] ?? 0);
+            $snapshot['load15'] = (float)($load[2] ?? 0);
+        }
+
+        // Always write — even an "empty-ish" snapshot is useful (it tells
+        // the UI when the last probe ran). Skip only if NOTHING new beyond
+        // captured_at (e.g. all reads failed → no point overwriting good
+        // cache with empty cache).
+        if (count($snapshot) <= 1) return;
+
+        try {
+            (new \LitePic\Repository\SettingsRepository())
+                ->set('SERVER_STATS_SNAPSHOT', (string)json_encode($snapshot, JSON_UNESCAPED_UNICODE));
+            \LitePic\Core\Config::warmSettings();
+        } catch (\Throwable $_) { /* best-effort */ }
+    }
+
+    /**
+     * Read the cached server-stats snapshot. Returns empty array if no cache.
+     * @return array<string, mixed>
+     */
+    private static function readSnapshot(): array
+    {
+        $raw = (string)\LitePic\Core\Config::get('SERVER_STATS_SNAPSHOT', '');
+        if ($raw === '') return [];
+        $decoded = json_decode($raw, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * Run every detection method we have. Returns the first success, or null
+     * if all methods fail. Doesn't write anywhere — pure detection.
+     */
+    private static function probeCpuCores(): ?int
+    {
+        // /proc/cpuinfo — Linux, works when open_basedir whitelists /proc
         $cpuinfo = @file_get_contents('/proc/cpuinfo');
         if (is_string($cpuinfo) && $cpuinfo !== '') {
             $count = preg_match_all('/^processor\s*:/m', $cpuinfo);
             if ($count > 0) return $count;
         }
-        if (function_exists('shell_exec')) {
+
+        // /sys/devices/system/cpu/online — alt path, format like "0-1" or "0-3,5"
+        $online = @file_get_contents('/sys/devices/system/cpu/online');
+        if (is_string($online) && trim($online) !== '') {
+            $total = 0;
+            foreach (explode(',', trim($online)) as $part) {
+                if (preg_match('/^(\d+)(?:-(\d+))?$/', trim($part), $m)) {
+                    $total += isset($m[2]) ? ((int)$m[2] - (int)$m[1] + 1) : 1;
+                }
+            }
+            if ($total > 0) return $total;
+        }
+
+        // shell_exec fallbacks — disabled on BT, but works on many hosts in CLI
+        if (self::canShellExec()) {
             $nproc = @shell_exec('nproc 2>/dev/null');
             if (is_string($nproc) && ctype_digit(trim($nproc))) {
                 return (int)trim($nproc);
+            }
+            $getconf = @shell_exec('getconf _NPROCESSORS_ONLN 2>/dev/null');
+            if (is_string($getconf) && ctype_digit(trim($getconf))) {
+                return (int)trim($getconf);
             }
             $sysctl = @shell_exec('sysctl -n hw.ncpu 2>/dev/null');
             if (is_string($sysctl) && ctype_digit(trim($sysctl))) {
                 return (int)trim($sysctl);
             }
         }
+
+        // Windows env
+        $envCores = (string)getenv('NUMBER_OF_PROCESSORS');
+        if (ctype_digit($envCores) && (int)$envCores > 0) {
+            return (int)$envCores;
+        }
+
+        // Swoole extension exposes it directly (rare but free if installed)
+        if (function_exists('swoole_cpu_num')) {
+            $n = (int)@swoole_cpu_num();
+            if ($n > 0) return $n;
+        }
+
         return null;
+    }
+
+    /**
+     * Persist a detected core count into settings. Silent and idempotent —
+     * doesn't overwrite an existing value, doesn't break a request on DB
+     * trouble, and refreshes the in-memory Config cache so the same
+     * request can read the new value immediately.
+     */
+    private static function rememberCpuCores(int $count): void
+    {
+        if ($count <= 0) return;
+        try {
+            $repo = new \LitePic\Repository\SettingsRepository();
+            $existing = $repo->get('CPU_CORES_OVERRIDE');
+            if ($existing === null || $existing === '') {
+                $repo->set('CPU_CORES_OVERRIDE', (string)$count);
+                \LitePic\Core\Config::warmSettings();
+            }
+        } catch (\Throwable $_) {
+            // Ignore — caching is best-effort.
+        }
+    }
+
+    /**
+     * True iff `shell_exec` is callable AND not listed in disable_functions.
+     * `function_exists()` alone returns false when disabled, but some
+     * configurations leak the entry — belt-and-braces check.
+     */
+    private static function canShellExec(): bool
+    {
+        if (!function_exists('shell_exec')) return false;
+        $disabled = array_map('trim', explode(',', (string)ini_get('disable_functions')));
+        return !in_array('shell_exec', $disabled, true);
     }
 
     private static function uptimeText(?int $seconds): string

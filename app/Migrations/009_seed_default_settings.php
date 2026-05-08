@@ -66,6 +66,10 @@ return function (PDO $pdo): void {
         // ---- Image serving ----
         'IMAGE_VIEW_COUNTER_ENABLED'    => 'true',
         'URL_PREFIX'                    => '/uploads/',
+        // 物理存储目录名（默认 uploads）。改成 files/images/storage 等任意名字
+        // 都行，但磁盘上的目录要同步重命名，否则会找不到文件。详见 config.php
+        // 中的 STORAGE_DIR 定义。
+        'STORAGE_DIR'                   => 'uploads',
 
         // ---- Remote storage (S3/R2) ----
         'REMOTE_STORAGE_USAGE'          => 'backup',

@@ -79,6 +79,13 @@ $document_title = isset($html_title) && trim((string)$html_title) !== ''
         window.CSRF_TOKEN = <?= json_encode(\LitePic\Core\Csrf::token(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         window.LITEPIC_VERSION = <?= json_encode(SITE_VERSION, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
     </script>
+    <?php
+    // Pages can set $extra_head before requiring header.php to inject custom
+    // <meta>/<link> into <head> — used for noindex on unlisted/private albums.
+    if (isset($extra_head) && is_string($extra_head) && $extra_head !== '') {
+        echo "\n    " . $extra_head . "\n";
+    }
+    ?>
 </head>
 
 <body<?= isset($body_class) && is_string($body_class) && $body_class !== '' ? ' class="' . htmlspecialchars($body_class) . '"' : '' ?>>
@@ -121,6 +128,7 @@ $document_title = isset($html_title) && trim((string)$html_title) !== ''
                 $nav_items = [
                     '/' => ['首页', 'fa-home'],
                     '/gallery' => ['图库', 'fa-images'],
+                    '/albums' => ['相册', 'fa-rectangle-history'],
                     '/stats' => ['统计', 'fa-chart-line'],
                     '/settings' => ['设置', 'fa-gear'],
                 ];
@@ -128,9 +136,12 @@ $document_title = isset($html_title) && trim((string)$html_title) !== ''
                 // 输出导航项
                 foreach ($nav_items as $route => $info): ?>
                     <?php
+                    // active 也覆盖路径化子页 — /albums/new、/albums/2/edit 都高亮"相册";
+                    // /settings/<tab> 同理。
                     $active = $current_path === $route
                         || ($route === '/' && $current_path === '/index.php')
-                        || ($route !== '/' && $current_path === $route . '.php');
+                        || ($route !== '/' && $current_path === $route . '.php')
+                        || ($route !== '/' && str_starts_with($current_path, $route . '/'));
                     ?>
                     <a href="<?= htmlspecialchars($route) ?>"
                         class="nav-link <?= $active ? 'active' : '' ?> flex items-center gap-2 px-3 py-1.5 bg-transparent border-0 cursor-pointer text-sm font-medium no-underline transition-colors duration-200 rounded-full"

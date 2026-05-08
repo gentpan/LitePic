@@ -45,12 +45,6 @@
     color: var(--primary);
   }
 
-  .recent-count {
-    color: var(--gray);
-    font-size: 0.86rem;
-    font-weight: 500;
-  }
-
   .recent-time-tag {
     display: inline-flex;
     align-items: center;

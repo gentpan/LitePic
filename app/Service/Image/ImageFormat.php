@@ -16,7 +16,10 @@ final class ImageFormat
     private const JPEG_CONVERTIBLE = ['png', 'gif', 'webp', 'avif', 'heic', 'heif'];
     private const PNG_CONVERTIBLE = ['jpg', 'jpeg', 'gif', 'webp', 'avif', 'heic', 'heif'];
     private const CONVERT_TARGETS = ['webp', 'avif', 'jpg', 'png'];
-    private const COMPRESSION_MODES = ['tinypng', 'gd', 'imagemagick'];
+    /** Authoritative list of compression engines (single source of truth —
+     *  SettingsController references this directly instead of keeping its
+     *  own copy). */
+    public const COMPRESSION_MODES = ['tinypng', 'gd', 'imagemagick'];
 
     private const MIME_TO_LABEL = [
         'image/jpeg' => 'JPG',

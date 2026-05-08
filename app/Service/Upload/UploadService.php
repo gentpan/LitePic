@@ -68,6 +68,156 @@ final class UploadService
         return $phpLimit <= 0 ? $configured : min($configured, $phpLimit);
     }
 
+    /**
+     * Server-side ingest path: takes a file that's already on local disk
+     * (NOT a PHP-managed $_FILES tmp upload) and runs it through the same
+     * validation + dedupe + storage + queue pipeline as the browser flow.
+     *
+     * Use cases:
+     *   - Telegram webhook hands us a file it just downloaded from
+     *     api.telegram.org.
+     *   - Future: programmatic CLI/cron import where you have a path.
+     *
+     * Difference vs {@see self::handleSingle()}: we use `rename()` instead
+     * of `move_uploaded_file()` (which only works on tmp uploads), and we
+     * accept the source's original filename via parameter rather than from
+     * `$_FILES`.
+     *
+     * Returns the same shape as `handleSingle()`. On `status === 'success'`
+     * the file at `$sourcePath` has been moved into LitePic's storage tree;
+     * on any other status the source is left untouched (caller cleans up).
+     *
+     * @return array<string,mixed>
+     */
+    public function storeFromPath(string $sourcePath, string $originalName): array
+    {
+        if (!is_file($sourcePath) || !is_readable($sourcePath)) {
+            return ['status' => 'error', 'message' => "源文件不存在或不可读：{$sourcePath}"];
+        }
+
+        $ext = strtolower((string)pathinfo($originalName, PATHINFO_EXTENSION));
+        $allowedExts = defined('ALLOWED_UPLOAD_TYPES') ? ALLOWED_UPLOAD_TYPES : [];
+        $uploadType = $this->resolveUploadType($sourcePath, $ext, $allowedExts);
+        if ($uploadType === null) {
+            return ['status' => 'error', 'message' => "文件 {$originalName} 内容与实际类型不符、格式未启用或包含危险内容"];
+        }
+        $ext = (string)$uploadType['ext'];
+        $detectedMime = (string)$uploadType['mime'];
+
+        $size = (int)@filesize($sourcePath);
+        $maxBytes = $this->maxBytes();
+        if ($size > $maxBytes) {
+            return ['status' => 'error', 'message' => "文件 {$originalName} 超过大小限制（当前上限 " . self::fmt($maxBytes) . '）'];
+        }
+
+        // Content-hash dedupe — identical to browser path. If we've seen
+        // this exact bytes-on-disk before, hand back the existing image
+        // identifier (so callers can still reply with a public URL).
+        $hash = @sha1_file($sourcePath);
+        $hash = is_string($hash) ? $hash : '';
+        $imageRepo = new ImageRepository();
+        if ($hash !== '') {
+            $duplicate = $imageRepo->findByHashWithBackfill($hash);
+            if ($duplicate !== null) {
+                $existing = (string)($duplicate['filename'] ?? '');
+                @unlink($sourcePath); // dedupe wins → drop the source copy
+                return [
+                    'status' => 'duplicate',
+                    'message' => '图片已存在，已跳过',
+                    'duplicate' => true,
+                    'filename' => $existing,
+                    'original_name' => (string)($duplicate['original_name'] ?? $existing),
+                    'url' => ImageUrl::forIdentifier($existing),
+                    'thumbnail_url' => ImageUrl::forIdentifier($existing),
+                    'hash' => $hash,
+                ];
+            }
+        }
+
+        $filename = PathService::generateFilename($ext);
+        $storagePath = PathService::todaysStoragePath();
+        $target = $storagePath . $filename;
+
+        if (!is_dir($storagePath) && !mkdir($storagePath, 0755, true) && !is_dir($storagePath)) {
+            return ['status' => 'error', 'message' => "文件 {$originalName} 存储目录创建失败"];
+        }
+        // rename() works for both same-FS moves and (on most platforms)
+        // cross-FS — it's the right primitive for "I already own this file".
+        if (!@rename($sourcePath, $target)) {
+            // Fallback: copy + unlink, in case rename trips up on a tmpfs
+            // cross-device edge case (PHP-FPM tmp dir vs storage volume).
+            if (!@copy($sourcePath, $target)) {
+                return ['status' => 'error', 'message' => "文件 {$originalName} 保存失败"];
+            }
+            @unlink($sourcePath);
+        }
+
+        $identifier = PathService::identifierFromPath($target) ?? $filename;
+        $imageRepo->recordOriginalName($identifier, $originalName);
+        $imageMeta = [
+            'hash' => $hash !== '' ? $hash : null,
+            'mime' => $detectedMime !== '' ? $detectedMime : self::detectMime($target),
+            'size' => is_file($target) ? (int)@filesize($target) : $size,
+            'ext' => $ext,
+        ];
+        $dimensions = @getimagesize($target);
+        if (is_array($dimensions)) {
+            $imageMeta['width'] = (int)($dimensions[0] ?? 0);
+            $imageMeta['height'] = (int)($dimensions[1] ?? 0);
+        }
+        $imageRepo->update($identifier, $imageMeta);
+
+        // 同步生成缩略图 — 把它从异步队列里抽出来同步做。
+        // 决策依据:缩略图是 99% 情况下用户「最先想看到的东西」,异步走轮询要等
+        // 至少 400ms。同步生成虽然会让上传响应慢 30-200ms(中等图),但换来
+        // 「响应一返回就能显示缩略图」,体感反而快。失败时静默退回到队列流程。
+        // 把上面已经算过的 $dimensions(getimagesize 结果)透传下去,避免
+        // ThumbnailService::create 再读一次同一文件的图片头。
+        $thumbnailReady = false;
+        try {
+            $thumbnailReady = (new ThumbnailService())->create($identifier, false, is_array($dimensions) ? $dimensions : null);
+        } catch (\Throwable $_) {
+            // 任何异常都退到异步路径 — 缩略图失败不能阻断上传成功
+            $thumbnailReady = false;
+        }
+
+        // Same post-processing pipeline as the browser path — thumbnail,
+        // optional auto-compress / convert / watermark, optional remote sync.
+        // 同步生成成功就跳过 create_thumbnail,worker 不再重复做工。
+        $queueOptions = [
+            'create_thumbnail'    => !$thumbnailReady,
+            'auto_compress'       => defined('AUTO_COMPRESS_ON_UPLOAD') && AUTO_COMPRESS_ON_UPLOAD,
+            'auto_convert'        => defined('AUTO_CONVERT_ON_UPLOAD') && AUTO_CONVERT_ON_UPLOAD,
+            'auto_convert_target' => defined('CONVERT_PREFERRED_FORMAT') ? CONVERT_PREFERRED_FORMAT : 'webp',
+            'auto_webp'           => defined('AUTO_CONVERT_WEBP_ON_UPLOAD') && AUTO_CONVERT_WEBP_ON_UPLOAD,
+            'auto_avif'           => defined('AUTO_CONVERT_AVIF_ON_UPLOAD') && AUTO_CONVERT_AVIF_ON_UPLOAD,
+            'watermark'           => defined('WATERMARK_ENABLED') && WATERMARK_ENABLED,
+            'remote_sync'         => (new RemoteStorage())->isEnabled(),
+        ];
+        $queue = new \LitePic\Repository\ImportQueueRepository();
+        $hasWork = \LitePic\Repository\ImportQueueRepository::hasWork($queueOptions);
+        if ($hasWork) $queue->enqueue($identifier, $queueOptions);
+
+        // 缩略图就绪时直接给前端真实的 thumbnail URL,失败/异常时回退到原图
+        $thumbUrl = $thumbnailReady
+            ? ImageUrl::thumbnailUrl($identifier)
+            : ImageUrl::forIdentifier($identifier);
+
+        return [
+            'status' => 'success',
+            'filename' => $identifier,
+            'original_name' => $originalName,
+            'url' => ImageUrl::forIdentifier($identifier),
+            'thumbnail_url' => $thumbUrl,
+            'has_thumbnail' => $thumbnailReady, // 前端可据此跳过轮询「等缩略图」
+            'processing' => [
+                'queued' => $hasWork,
+                'queue_options' => $queueOptions,
+                'final_filename' => $identifier,
+            ],
+        ];
+    }
+
     public function uploadErrorMessage(int $errorCode, string $filename = ''): string
     {
         $name = $filename !== '' ? "文件 {$filename} " : '文件 ';
@@ -239,9 +389,22 @@ final class UploadService
         }
         $imageRepo->update($identifier, $imageMeta);
 
-        // 根据全局设置决定要做哪些重活（沿用之前同步流程的开关含义）
+        // 同步生成缩略图(从队列里抽出来同步做)。
+        // 缩略图通常 <200ms,代价小,但能换来「响应一返回前端就能秒显示缩略图」,
+        // 比异步 + 轮询体感快好几倍。失败时静默退回到队列流程,不阻断上传成功。
+        // 重活(压缩/WebP/AVIF/水印/远程同步)仍走异步,不影响上传响应。
+        // 透传 $dimensions 避免 ThumbnailService 再调一次 getimagesize。
+        $thumbnailReady = false;
+        try {
+            $thumbnailReady = (new ThumbnailService())->create($identifier, false, is_array($dimensions) ? $dimensions : null);
+        } catch (\Throwable $_) {
+            $thumbnailReady = false;
+        }
+
+        // 根据全局设置决定要做哪些重活(沿用之前同步流程的开关含义)。
+        // create_thumbnail 视上面的同步生成结果而定 — 成功就跳过,失败重新入队。
         $queueOptions = [
-            'create_thumbnail' => true,                         // 总是生成
+            'create_thumbnail' => !$thumbnailReady,
             'auto_compress'    => defined('AUTO_COMPRESS_ON_UPLOAD') && AUTO_COMPRESS_ON_UPLOAD,
             'auto_convert'     => defined('AUTO_CONVERT_ON_UPLOAD') && AUTO_CONVERT_ON_UPLOAD,
             'auto_convert_target' => defined('CONVERT_PREFERRED_FORMAT') ? CONVERT_PREFERRED_FORMAT : 'webp',
@@ -257,19 +420,24 @@ final class UploadService
             $queue->enqueue($identifier, $queueOptions);
         }
 
-        // 上传成功立即返回；URL 已可访问（原图直接 serve）。
-        // 客户端可以拿 filename 去轮询 /api/image-status 看处理进度，等服务端
-        // 跑完 webp/avif 再切到优化版本（或保持原样不切，看你 UI 设计）。
+        // 上传成功立即返回;URL 已可访问(原图直接 serve)。
+        // 缩略图如果同步生成成功,直接给真实 thumbnail URL;否则回退到原图,
+        // 客户端轮询 /api/image-status 等异步处理完再升级到优化版本。
+        $thumbUrl = $thumbnailReady
+            ? ImageUrl::thumbnailUrl($identifier)
+            : ImageUrl::forIdentifier($identifier);
+
         return [
             'status' => 'success',
             'filename' => $identifier,
             'original_name' => $originalName,
             'url' => ImageUrl::forIdentifier($identifier),
-            'thumbnail_url' => ImageUrl::forIdentifier($identifier),  // 缩略图未生成前回退到原图
+            'thumbnail_url' => $thumbUrl,
+            'has_thumbnail' => $thumbnailReady, // 前端可据此跳过「等缩略图」轮询
             'processing' => [
                 'queued'           => $hasWork,
                 'queue_options'    => $queueOptions,
-                'final_filename'   => $identifier,                    // 处理前等于原图；webp/avif 转换完成后会变
+                'final_filename'   => $identifier,
                 'auto_compress'    => [],
                 'auto_webp'        => [],
                 'auto_avif'        => [],

@@ -135,8 +135,10 @@ html[data-theme="dark"] {
   --logo-light-opacity: 0;
   --logo-dark-opacity: 1;
   --home-overlay-opacity: 1;
-  --nav-cta-bg: #ffffff;
-  --nav-cta-color: var(--light);
+  /* Upload 按钮在深色下依然保持品牌主色,而不是反白 —
+     反白在深色面板上太突兀,蓝色才是"上传"的语义色 */
+  --nav-cta-bg: var(--primary);
+  --nav-cta-color: #ffffff;
   color-scheme: dark;
 }
 
@@ -228,6 +230,7 @@ html[data-theme="dark"] * {
 @import "./components/upload.css";
 @import "./components/recent.css";
 @import "./components/gallery.css";
+@import "./components/album.css";
 @import "./components/settings.css";
 @import "./components/stats.css";
 /* docs.css removed — usage docs migrated to litepic.io/docs */

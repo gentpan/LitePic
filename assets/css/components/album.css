@@ -1,0 +1,765 @@
+@layer components {
+
+  /* =============================================================
+   * Albums — 后台相册管理(/albums + /albums/<id>/edit)
+   *
+   * 跟 gallery / stats 的 .page-shell 卡片对齐：白底卡片浮在
+   * body 灰背景上,顶部 .page-shell-header,主体 .page-shell-body。
+   * ============================================================= */
+
+  /* Header: 标题在左,操作按钮在右(返回列表 / 新建相册) */
+  .albums-shell-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .albums-shell-header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  /* ----- 列表页空状态 ----- */
+  .albums-empty {
+    @apply flex flex-col items-center justify-center text-center;
+    min-height: 320px;
+    padding: 40px 20px;
+    color: var(--gray);
+    gap: 12px;
+  }
+
+  .albums-empty > i {
+    font-size: 48px;
+    color: color-mix(in srgb, var(--primary) 30%, var(--border-color) 70%);
+  }
+
+  .albums-empty h3 {
+    margin: 8px 0 0;
+    color: var(--dark);
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+
+  .albums-empty p {
+    margin: 0 0 16px;
+    max-width: 420px;
+    font-size: 0.88rem;
+    line-height: 1.6;
+  }
+
+  /* ----- 列表页:相册卡片网格 ----- */
+  .albums-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+
+  .album-card {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent);
+    background: var(--surface);
+    overflow: hidden;
+    transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+  }
+
+  .album-card:hover {
+    border-color: color-mix(in srgb, var(--primary) 36%, var(--border-color) 64%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+  }
+
+  .album-card-cover {
+    position: relative;
+    display: block;
+    aspect-ratio: 16 / 9;
+    background: color-mix(in srgb, var(--surface) 82%, var(--light) 18%);
+    overflow: hidden;
+  }
+
+  .album-card-cover > img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 280ms ease;
+  }
+
+  .album-card:hover .album-card-cover > img {
+    transform: scale(1.03);
+  }
+
+  .album-card-cover-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: color-mix(in srgb, var(--gray) 60%, var(--border-color) 40%);
+    font-size: 32px;
+  }
+
+  /* 可见性徽章浮在封面右上角 */
+  .album-card-vis {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 3px 8px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    border: none;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    backdrop-filter: blur(4px);
+  }
+  .album-card-vis.is-on    { background: rgba(34, 197, 94, 0.85); }
+  .album-card-vis.is-warn  { background: rgba(245, 158, 11, 0.85); }
+  .album-card-vis.is-off   { background: rgba(100, 116, 139, 0.9); }
+
+  .album-card-body {
+    display: grid;
+    gap: 8px;
+    padding: 14px 16px 16px;
+  }
+
+  .album-card-name {
+    color: var(--dark);
+    font-size: 1rem;
+    font-weight: 700;
+    text-decoration: none;
+    line-height: 1.3;
+  }
+  .album-card-name:hover { color: var(--primary); }
+
+  .album-card-desc {
+    margin: 0;
+    color: color-mix(in srgb, var(--gray) 80%, var(--dark) 20%);
+    font-size: 0.82rem;
+    line-height: 1.5;
+    /* 限制 2 行 */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .album-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    color: var(--gray);
+    font-size: 0.78rem;
+  }
+
+  .album-card-meta > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .album-card-meta code {
+    font-size: 0.74rem;
+  }
+
+  .album-card-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  /* 编辑页内的"相册内 / 从图库挑选"网格用通用 .upload-grid 即可,
+     额外只补一些 picker 卡片态 */
+  .albums-shell .upload-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+  }
+
+  .albums-shell .upload-grid .img-box {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--surface) 90%, var(--light) 10%);
+  }
+
+  .albums-shell .upload-grid .img-box > img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .albums-shell .upload-grid .img-box.is-selected {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 30%, transparent);
+  }
+
+  .albums-shell .upload-grid .img-box.is-in-album {
+    opacity: 0.55;
+    filter: grayscale(60%);
+  }
+
+  .albums-shell .upload-grid .img-box.is-in-album::after {
+    content: "已在相册";
+    position: absolute;
+    inset: auto 0 0 0;
+    padding: 4px 6px;
+    background: rgba(34, 197, 94, 0.85);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  /* 编辑页 slug 提示里的"打开公开页"链接 */
+  .album-share-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--primary);
+    text-decoration: none;
+    transition: color 120ms ease;
+  }
+  .album-share-link:hover {
+    color: color-mix(in srgb, var(--primary) 80%, #000 20%);
+    text-decoration: underline;
+  }
+  .album-share-link > i {
+    font-size: 0.78rem;
+    opacity: 0.7;
+  }
+
+  /* 响应式收紧 */
+  @media (max-width: 600px) {
+    .albums-grid {
+      grid-template-columns: 1fr;
+    }
+    .albums-shell-header {
+      align-items: flex-start;
+    }
+  }
+}
+
+@layer components {
+
+  /* =============================================================
+   * .albums-shell 内部表单控件 + 按钮样式
+   *
+   * settings.css 把 .btn / input / select 的样式都锁在 .settings-page
+   * 作用域里。相册页(/albums + /albums/<id>/edit)在自己的 shell 下
+   * 复用 page-shell 容器,但同款表单控件需要这里再定义一遍。
+   *
+   * 跟 settings 风格保持视觉一致(直角 + 浅色),改 settings 那套时
+   * 这里也要同步。后续若要彻底统一,把这两套迁到一个共享 .form-shell
+   * scope 即可。
+   * ============================================================= */
+
+  .albums-shell input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  .albums-shell select,
+  .albums-shell textarea {
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+    border-radius: 0;
+    background: color-mix(in srgb, var(--surface) 92%, var(--light) 8%);
+    color: var(--dark);
+    font-family: inherit;
+    font-size: 0.92rem;
+    line-height: 1.4;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.72) inset;
+    transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  }
+
+  .albums-shell textarea {
+    min-height: 88px;
+    padding: 10px 12px;
+    line-height: 1.6;
+    resize: vertical;
+  }
+
+  .albums-shell input:focus,
+  .albums-shell input:focus-visible,
+  .albums-shell select:focus,
+  .albums-shell select:focus-visible,
+  .albums-shell textarea:focus,
+  .albums-shell textarea:focus-visible {
+    border-color: var(--primary);
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+  }
+
+  .albums-shell label {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--dark);
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .albums-shell .settings-field-hint {
+    margin: 4px 0 0;
+    color: var(--gray);
+    font-size: 0.78rem;
+    line-height: 1.5;
+  }
+
+  /* ---- 按钮基础(跟 settings.css 的 .btn 体系等价) ---- */
+  .albums-shell .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 38px;
+    padding: 0 16px;
+    border: 1px solid transparent;
+    border-radius: 0;
+    background: var(--surface);
+    color: var(--dark);
+    font-size: 0.9rem;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    text-decoration: none;
+    appearance: none;
+    -webkit-appearance: none;
+    margin: 0;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .albums-shell .btn > i {
+    font-size: 0.95em;
+    line-height: 1;
+  }
+
+  .albums-shell .btn:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent);
+    outline-offset: 2px;
+  }
+
+  .albums-shell .btn:disabled,
+  .albums-shell .btn[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .albums-shell .btn--primary {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+  }
+  .albums-shell .btn--primary:hover {
+    background: color-mix(in srgb, var(--primary) 88%, #000 12%);
+    border-color: color-mix(in srgb, var(--primary) 88%, #000 12%);
+  }
+
+  .albums-shell .btn--secondary {
+    background: var(--surface);
+    border-color: color-mix(in srgb, var(--border-color) 70%, transparent);
+    color: var(--dark);
+  }
+  .albums-shell .btn--secondary:hover {
+    background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
+    border-color: color-mix(in srgb, var(--primary) 32%, var(--border-color) 68%);
+  }
+
+  .albums-shell .btn--danger {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: #fff;
+  }
+  .albums-shell .btn--danger:hover {
+    background: color-mix(in srgb, var(--danger) 88%, #000 12%);
+    border-color: color-mix(in srgb, var(--danger) 88%, #000 12%);
+  }
+
+  .albums-shell .btn--lg {
+    height: 44px;
+    padding: 0 22px;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  /* sm 变体 — 列表卡片操作行用 */
+  .albums-shell .btn--sm {
+    height: 30px;
+    padding: 0 10px;
+    font-size: 0.78rem;
+    gap: 4px;
+  }
+  .albums-shell .btn--sm > i {
+    font-size: 11px;
+  }
+
+  /* settings-grid 子区域(基本信息表单) */
+  .albums-shell .settings-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  /* settings-save-actions(保存按钮容器) */
+  .albums-shell .settings-save-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 6px 0 0;
+  }
+
+  /* settings-inline-form(添加按钮 + 清空按钮 等行) */
+  .albums-shell .settings-inline-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  /* "无图片" 空状态行(覆盖 recent.css 的窄场景版) */
+  .albums-shell .recent-empty {
+    grid-column: 1 / -1;
+    min-height: 120px;
+    border: 1px dashed var(--border-color);
+    color: var(--gray);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: color-mix(in srgb, var(--surface) 96%, var(--light) 4%);
+  }
+
+  /* ---- 深色主题适配 ---- */
+  html[data-theme="dark"] .albums-shell input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  html[data-theme="dark"] .albums-shell select,
+  html[data-theme="dark"] .albums-shell textarea {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+    color: var(--dark);
+    box-shadow: none;
+  }
+
+  html[data-theme="dark"] .albums-shell .btn--secondary {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  html[data-theme="dark"] .album-card {
+    background: rgba(255, 255, 255, 0.025);
+    border-color: rgba(255, 255, 255, 0.06);
+  }
+}
+
+@layer components {
+
+  /* =============================================================
+   * 公开相册页 /a/<slug> — 访客视图 + 密码门
+   *
+   * 跟全站 .page-shell 卡片对齐,但 hero 有大封面图 + 标题区。
+   * 图片网格用 .public-album-grid (跟 admin 编辑页的 .upload-grid 不同
+   * 因为公开页要更大的瓷砖 + 极简 lightbox)。
+   * ============================================================= */
+  .public-album-shell {
+    overflow: hidden;
+  }
+
+  .public-album-hero {
+    position: relative;
+    padding: 28px 28px 22px;
+    border-bottom: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--surface) 96%, var(--light) 4%);
+  }
+
+  .public-album-hero-cover {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    opacity: 0.18;
+    filter: blur(2px) saturate(110%);
+  }
+
+  .public-album-hero-body {
+    position: relative;
+    display: grid;
+    gap: 8px;
+    z-index: 1;
+  }
+
+  .public-album-name {
+    margin: 0;
+    color: var(--dark);
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .public-album-desc {
+    margin: 0;
+    max-width: 680px;
+    color: color-mix(in srgb, var(--gray) 70%, var(--dark) 30%);
+    font-size: 0.95rem;
+    line-height: 1.7;
+  }
+
+  .public-album-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin-top: 6px;
+    color: var(--gray);
+    font-size: 0.82rem;
+  }
+  .public-album-meta > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .public-album-meta .status-pill {
+    padding: 2px 8px;
+    border: 1px solid var(--border-color);
+    background: var(--surface);
+    color: var(--dark);
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+  .public-album-meta .status-pill.is-on   { background: rgba(34,197,94,0.12); color: #15803d; border-color: rgba(34,197,94,0.32); }
+  .public-album-meta .status-pill.is-warn { background: rgba(245,158,11,0.12); color: #b45309; border-color: rgba(245,158,11,0.32); }
+  .public-album-meta .status-pill.is-off  { background: rgba(100,116,139,0.12); color: #475569; border-color: rgba(100,116,139,0.32); }
+
+  .public-album-admin-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    padding: 4px 10px;
+    border: 1px solid var(--border-color);
+    background: var(--surface);
+    color: var(--gray);
+    font-size: 0.78rem;
+    text-decoration: none;
+    transition: color 120ms ease, border-color 120ms ease;
+  }
+  .public-album-admin-link:hover {
+    color: var(--primary);
+    border-color: color-mix(in srgb, var(--primary) 36%, var(--border-color) 64%);
+  }
+
+  /* ----- 网格 ----- */
+  .public-album-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 4px;
+    padding: 4px;
+    background: color-mix(in srgb, var(--light) 50%, var(--surface) 50%);
+  }
+
+  .public-album-tile {
+    margin: 0;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    background: var(--light);
+    position: relative;
+  }
+
+  .public-album-tile a {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .public-album-tile img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 320ms ease;
+  }
+
+  .public-album-tile:hover img {
+    transform: scale(1.05);
+  }
+
+  /* ----- 空状态 ----- */
+  .public-album-empty {
+    padding: 80px 20px;
+    text-align: center;
+    color: var(--gray);
+  }
+  .public-album-empty > i {
+    display: block;
+    font-size: 48px;
+    margin-bottom: 12px;
+    color: color-mix(in srgb, var(--gray) 60%, var(--border-color) 40%);
+  }
+  .public-album-empty > p { margin: 0; }
+
+  .public-album-foot {
+    padding: 14px 22px;
+    border-top: 1px solid var(--border-color);
+    text-align: center;
+    color: var(--gray);
+    font-size: 0.78rem;
+  }
+  .public-album-foot a {
+    color: inherit;
+    text-decoration: none;
+    transition: color 120ms ease;
+  }
+  .public-album-foot a:hover { color: var(--primary); }
+
+  /* ----- 极简 lightbox ----- */
+  .public-album-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    cursor: zoom-out;
+  }
+  .public-album-lightbox[hidden] { display: none; }
+
+  .public-album-lightbox img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    cursor: default;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+
+  .public-album-lightbox-close {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    width: 40px;
+    height: 40px;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(0,0,0,0.4);
+    color: #fff;
+    font-size: 18px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 120ms ease, border-color 120ms ease;
+  }
+  .public-album-lightbox-close:hover {
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(255,255,255,0.4);
+  }
+
+  /* ----- 密码门 ----- */
+  .public-album-gate {
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .public-album-gate .page-shell-body {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+
+  .public-album-gate-card {
+    width: min(420px, 100%);
+    text-align: center;
+    display: grid;
+    gap: 14px;
+  }
+
+  .public-album-gate-icon {
+    font-size: 48px;
+    color: color-mix(in srgb, var(--primary) 60%, var(--border-color) 40%);
+  }
+
+  .public-album-gate-card h2 {
+    margin: 0;
+    color: var(--dark);
+    font-size: 1.25rem;
+    font-weight: 700;
+  }
+
+  .public-album-gate-form {
+    display: grid;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .public-album-gate-form input[type="password"] {
+    width: 100%;
+    height: 44px;
+    padding: 8px 14px;
+    border: 1px solid var(--border-color);
+    background: var(--surface);
+    color: var(--dark);
+    font-size: 0.95rem;
+    text-align: center;
+    letter-spacing: 0.05em;
+  }
+
+  .public-album-gate-form input[type="password"]:focus,
+  .public-album-gate-form input[type="password"]:focus-visible {
+    border-color: var(--primary);
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+  }
+
+  .public-album-gate-form button {
+    height: 44px;
+    border: none;
+    background: var(--primary);
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 120ms ease;
+  }
+  .public-album-gate-form button:hover {
+    background: color-mix(in srgb, var(--primary) 88%, #000 12%);
+  }
+
+  .public-album-gate-error {
+    margin: 0;
+    color: var(--danger);
+    font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  /* ----- 响应式 ----- */
+  @media (max-width: 600px) {
+    .public-album-hero {
+      padding: 20px;
+    }
+    .public-album-name {
+      font-size: 1.3rem;
+    }
+    .public-album-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  /* ----- 深色主题 ----- */
+  html[data-theme="dark"] .public-album-hero {
+    background: color-mix(in srgb, var(--surface) 100%, transparent);
+  }
+  html[data-theme="dark"] .public-album-grid {
+    background: var(--light);
+  }
+  html[data-theme="dark"] .public-album-tile {
+    background: rgba(255,255,255,0.04);
+  }
+}

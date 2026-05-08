@@ -26,7 +26,10 @@ if (!function_exists('litepic_migration_has_original_sibling')) {
 
 return function (PDO $pdo): void {
     $appRoot = defined('APP_ROOT') ? APP_ROOT : dirname(__DIR__, 2);
-    $uploadsDir = $appRoot . '/uploads';
+    // 优先用 STORAGE_DIR（管理员可改成 files / images / 等），否则回退 uploads。
+    // 配置层已在 config.php 中定义并校验过，这里只做兜底。
+    $storageDir = defined('STORAGE_DIR') ? STORAGE_DIR : 'uploads';
+    $uploadsDir = $appRoot . '/' . $storageDir;
     if (!is_dir($uploadsDir)) {
         return;
     }

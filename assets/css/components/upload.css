@@ -57,29 +57,88 @@
     flex-wrap: nowrap;
   }
 
-  .upload-card-title {
+  /* ============== 相册选择器 (顶部工具栏左侧) ==============
+     跟右边的 .upload-processing-controls 共用一行;窄屏 wrap 成两行。 */
+  .upload-album-picker {
     display: inline-flex;
     align-items: center;
-    align-self: center;
     gap: 8px;
-    flex: 0 0 auto;
-    height: 44px;
     min-width: 0;
-    color: var(--dark);
-    font-size: 1rem;
-    font-weight: 650;
+    flex: 1 1 auto;
+  }
+
+  .upload-album-picker-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    padding: 0 4px;
+    color: var(--gray);
+    font-size: 0.78rem;
+    font-weight: 600;
     white-space: nowrap;
   }
 
-  .upload-card-title > i {
-    width: 22px;
-    height: 22px;
-    min-width: 22px;
+  .upload-album-picker-label > i {
+    font-size: 0.92rem;
+    color: var(--primary);
+  }
+
+  .upload-album-picker-select {
+    flex: 1 1 auto;
+    min-width: 140px;
+    max-width: 320px;
+    height: 36px;
+    padding: 0 28px 0 10px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    border-radius: 0;
+    background: color-mix(in srgb, var(--surface) 92%, var(--light) 8%);
+    color: var(--dark);
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: border-color 160ms ease;
+  }
+
+  .upload-album-picker-select:hover,
+  .upload-album-picker-select:focus,
+  .upload-album-picker-select:focus-visible {
+    border-color: color-mix(in srgb, var(--primary) 40%, var(--border-color) 60%);
+    outline: none;
+  }
+
+  /* "+" 新建相册 — 紧凑按钮,不抢眼 */
+  .upload-album-picker-new {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    background: color-mix(in srgb, var(--surface) 92%, var(--light) 8%);
+    color: var(--gray);
+    text-decoration: none;
+    transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+  }
+
+  .upload-album-picker-new:hover {
     color: var(--primary);
-    font-size: 1rem;
+    border-color: color-mix(in srgb, var(--primary) 40%, var(--border-color) 60%);
+    background: color-mix(in srgb, var(--primary) 6%, var(--surface) 94%);
+  }
+
+  /* 窄屏:相册选择 + 3 toggle 折成两行,picker 占满宽 */
+  @media (max-width: 720px) {
+    .upload-toolbar-row {
+      flex-wrap: wrap;
+      grid-template-columns: 1fr;
+    }
+    .upload-album-picker,
+    .upload-processing-controls {
+      width: 100%;
+    }
+    .upload-album-picker-select {
+      max-width: none;
+    }
   }
 
   .upload-info {
@@ -282,100 +341,11 @@
     transform: translateX(16px);
   }
 
-  .upload-status-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-    gap: 10px;
-  }
-
-  .upload-status-pill {
-    --upload-status-color: var(--gray);
-    --upload-status-bg: color-mix(in srgb, var(--surface) 88%, var(--light) 12%);
-    --upload-status-border: color-mix(in srgb, var(--border-color) 70%, transparent);
-    min-width: 0;
-    min-height: 42px;
-    display: grid;
-    grid-template-columns: auto minmax(0, auto) minmax(0, 1fr);
-    align-items: center;
-    gap: 8px;
-    padding: 8px 10px;
-    border: 1px solid var(--upload-status-border);
-    border-radius: 0;
-    background: var(--upload-status-bg);
-    color: var(--upload-status-color);
-  }
-
-  .upload-status-pill > i {
-    width: 22px;
-    height: 22px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--upload-status-border);
-    border-radius: 0;
-    background: color-mix(in srgb, var(--upload-status-color) 9%, var(--surface) 91%);
-    color: var(--upload-status-color);
-    font-size: 0.78rem;
-    line-height: 1;
-  }
-
-  .upload-status-pill > span {
-    min-width: 0;
-    overflow: hidden;
-    color: color-mix(in srgb, var(--dark) 72%, var(--gray) 28%);
-    font-size: 0.78rem;
-    font-weight: 600;
-    line-height: 1.2;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .upload-status-pill > strong {
-    min-width: 0;
-    justify-self: end;
-    overflow: hidden;
-    color: var(--upload-status-color);
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-    font-weight: 700;
-    line-height: 1.2;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .upload-status-on {
-    --upload-status-color: #15803d;
-    --upload-status-bg: #f0fdf4;
-    --upload-status-border: #bbf7d0;
-  }
-
-  .upload-status-convert {
-    --upload-status-color: #1d4ed8;
-    --upload-status-bg: #eff6ff;
-    --upload-status-border: #bfdbfe;
-  }
-
-  .upload-status-api {
-    --upload-status-color: #7c3aed;
-    --upload-status-bg: #f5f3ff;
-    --upload-status-border: #ddd6fe;
-  }
-
-  .upload-status-warn {
-    --upload-status-color: #b45309;
-    --upload-status-bg: #fffbeb;
-    --upload-status-border: #fde68a;
-  }
-
-  .upload-status-muted {
-    --upload-status-color: #64748b;
-    --upload-status-bg: #f8fafc;
-    --upload-status-border: #e2e8f0;
-  }
-
   .drop-zone {
+    position: relative;
     min-height: 345px;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     border: 1px dashed color-mix(in srgb, var(--primary) 28%, var(--border-color) 72%);
@@ -391,6 +361,43 @@
     border-color: var(--primary);
     background: color-mix(in srgb, var(--primary) 5%, var(--surface) 95%);
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 10%, transparent);
+  }
+
+  /* 支持格式 — 低调浮动在 dropZone 底部,不抢主视觉。
+     用绝对定位避免拉高内容区域,影响居中。 */
+  .drop-zone-formats {
+    position: absolute;
+    left: 50%;
+    bottom: 14px;
+    transform: translateX(-50%);
+    display: inline-flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px 6px;
+    max-width: calc(100% - 32px);
+    padding: 0;
+    color: color-mix(in srgb, var(--gray) 70%, transparent);
+    font-size: 0.7rem;
+    font-family: var(--font-mono, monospace);
+    letter-spacing: 0.02em;
+    pointer-events: none;
+    opacity: 0.7;
+    transition: opacity 160ms ease;
+  }
+
+  .drop-zone:hover .drop-zone-formats {
+    opacity: 1;
+  }
+
+  .drop-zone-format {
+    display: inline-block;
+    padding: 1px 5px;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--gray) 8%, transparent);
+  }
+
+  html[data-theme="dark"] .drop-zone-format {
+    background: rgba(255, 255, 255, 0.05);
   }
 
   .file-input-wrapper {
@@ -937,46 +944,6 @@
     animation: spin 1s linear infinite;
   }
 
-  .upload-login-shell {
-    width: min(520px, 100%);
-    margin: 64px auto 0;
-  }
-
-  .upload-login-body {
-    display: grid;
-    justify-items: center;
-    gap: 18px;
-    padding: 32px;
-    text-align: center;
-  }
-
-  .upload-login-body p {
-    color: var(--gray);
-    margin: 0;
-  }
-
-  .upload-login-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    min-height: 42px;
-    padding: 0 22px;
-    border: 0;
-    border-radius: 0;
-    background: var(--primary);
-    color: #fff;
-    font-size: 0.92rem;
-    font-weight: 650;
-    cursor: pointer;
-    transition: transform 160ms ease, filter 160ms ease;
-  }
-
-  .upload-login-btn:hover {
-    transform: translateY(-1px);
-    filter: brightness(0.96);
-  }
-
   html[data-theme="dark"] .upload-box {
     background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.025));
     border-color: rgba(255,255,255,0.08);
@@ -1155,10 +1122,6 @@
   }
 
   @media (max-width: 480px) {
-    .upload-card-title {
-      font-size: 0.95rem;
-    }
-
     .file-input-wrapper label {
       padding: 24px 18px;
     }

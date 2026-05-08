@@ -27,6 +27,8 @@ function resolve_page_for_path(string $path): ?string
         '/gallery' => 'gallery',
         '/settings' => 'settings',
         '/stats' => 'stats',
+        '/albums' => 'albums',
+        '/albums/new' => 'album_edit',
     ];
 
     if (isset($routes[$normalized])) {
@@ -38,6 +40,20 @@ function resolve_page_for_path(string $path): ?string
     if (preg_match('#^/settings/([a-z]+)$#', $normalized, $m)) {
         $_GET['tab'] = $m[1];
         return 'settings';
+    }
+
+    // 相册编辑：/albums/<id>/edit。id 是数字 PK，不是 slug。
+    if (preg_match('#^/albums/(\d+)/edit$#', $normalized, $m)) {
+        $_GET['album_id'] = $m[1];
+        return 'album_edit';
+    }
+
+    // 公开相册页：/a/<key>。<key> 可以是数字 id（默认，新建无 slug 时）
+    // 或 slug 字符串（管理员手动设置后）。访客视图，按 visibility 决定
+    // 200 / 密码门 / 404。
+    if (preg_match('#^/a/(\d+|[a-z][a-z0-9-]{0,49})$#', $normalized, $m)) {
+        $_GET['album_key'] = $m[1];
+        return 'public_album';
     }
 
     return null;

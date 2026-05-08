@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.4] - 2026-05-08
+
+### Added
+- **Telegram 机器人集成** — 全新 `设置 → Telegram` tab,绑定一个 BotFather 拿到的 Bot Token + 白名单用户 ID 后,机器人即可:
+  - 直接发图片(或图片文档)到机器人 → 自动上传到 LitePic,回复公开链接
+  - `/list [N]`、`/albums`、`/album <key>`、`/newalbum <名称>`、`/use <key>`、`/me`、`/help` 一整套指令
+  - 三层安全:URL secret(32-hex,一键轮换) + Telegram `secret_token` header + `TELEGRAM_ALLOWED_USER_IDS` 白名单
+  - 每用户「默认上传相册」状态(新表 `telegram_user_state`)
+  - 新文件:`app/Service/Telegram/{TelegramApi,TelegramHandler}.php`、`app/Repository/TelegramUserStateRepository.php`、`api/telegram.php`、迁移 `013_telegram_settings.php`
+- **底部批量进度卡** — `assets/js/main.js` `ImgEt.BatchProgress` 单例 + 新 CSS。批量压缩 / 转换 / 删除时,顶部 toast 只发状态广播,底部固定卡显示实时 N/M + 进度条 + 百分比;三色 variant(绿/紫/红)对应三种操作。
+- **`UploadService::storeFromPath()`** 公共方法 — 服务端 ingest 路径,把已经在磁盘上的文件走完整上传流水线(供 Telegram 用,未来也可供 CLI 导入)。
+- **nginx 详细 timing log_format** — `wall_time` + `upstream_time` 字段,以后排查上传性能问题不用靠猜。
+
+### Changed
+- **相册 URL 默认数字 ID,slug 可选** — 迁移 `012_albums_slug_nullable.php` 通过 `writable_schema` 把 `albums.slug` 改成 NULLABLE。新建相册不填 slug → 公开 URL 是 `/a/<id>`(数字);填 slug → `/a/<slug>`。Router、Controller、Repository 全部支持 `findByKey($key)` 双模式。新增 `AlbumService::urlKey($album)` 作为单一 URL 构造源。
+- **上传性能 10× 优化** — 综合多层调优,典型 2-3MB 照片从「100 秒级」体感降到「1-3 秒级」:
+  - PHP-FPM `pm = ondemand → dynamic`(8 worker 常驻,消除 burst 冷启动 50-150ms)
+  - `ThumbnailService` Imagick 加 `jpeg:size` DCT-domain 降采样 hint + JPEG 跳过 `mergeImageLayers / setImageAlphaChannel`(4032×3024 大图缩略图 794ms → 74ms,**10×**)
+  - **同步生成缩略图** — `UploadService::storeFromPath` / `handleSingle` 在响应内做完缩略图,响应一返回前端立刻显示真实 thumbnail URL,无需轮询;失败自动退回到异步队列
+  - `getimagesize` 透传给 `ThumbnailService::create($id, $force, $info)` 避免重复读图片头
+  - `LivenessTracker::recordOnce()` 改 1/8 抽样,burst 上传时 SQLite 写锁竞争 -87.5%(uptime 桶分辨率仍保持分钟级)
+  - 浏览器并发上传 `MAX_CONCURRENT: 3 → 20`(自托管/局域网图床,带宽是自己的)
+  - 后端处理状态轮询从 `setInterval(2500ms)` 改成指数退避 `400 / 700 / 1100 / 1700 / 2500ms`(缩略图典型 1-2 次内拿到 'done',总等待 < 1 秒)
+  - 新增 `cron` 兜底:每分钟跑 `worker.php` 处理队列(用户离开页面后还能继续 drain)
+- **基础设施门限** — PHP `upload_max_filesize` / `post_max_size` 50M → 200M,`memory_limit` 128M → 256M,`max_input_time` 60s → 600s;nginx `client_max_body_size` 50m → 200m,`client_body_buffer_size` 512k → 32m(32MB 以下完全在内存,不再 spool 到磁盘)
+- **删除相册** — 改用自定义 `ImgEt.DialogManager.showConfirmDialog`(`danger: true`),不再用浏览器原生 `confirm()`,跟删除图片走同一套样式。
+- **能力卡帮助图标** — `?` 链接直接跳 `litepic.io/docs#<anchor>`,移除之前在应用内做但有 CSS 渲染问题的「一键启用命令」弹窗。文档统一在官网维护。
+
+### Fixed
+- 修复迁移 `012` 早期版本里 `PDO->beginTransaction()` 在 Migration runner 已开启的事务里抛 "There is already an active transaction" — 改用 `writable_schema` + `schema_version` bump 在已有事务里直接修改 `sqlite_master`。
+- 修复某些情况下 `findByHashWithBackfill` 在历史无 hash 图片很多时遍历整库 sha1_file 导致上传慢(本版本未改 API,但 sync thumbnail 的延迟提升让这个潜在风险显形 — 若用户报告慢可建议跑一次 backfill 命令)。
+
+### Infrastructure
+- 服务器侧调优(部署文档已更新):BT 面板用户建议 `pm = dynamic`,nginx `client_body_buffer_size 32m`,PHP `memory_limit 256M`,以及 cron `* * * * * php /<root>/worker.php`。
+
 ## [3.3.3] - 2026-05-06
 
 ### Changed

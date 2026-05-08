@@ -7,7 +7,6 @@ use LitePic\Core\Config;
 use LitePic\Core\Format;
 use LitePic\Repository\ApiTokenRepository;
 use LitePic\Repository\CompressionKeyRepository;
-use LitePic\Service\Hotlink\HotlinkProtection;
 use LitePic\Service\Image\ThumbnailService;
 use LitePic\Service\Image\WatermarkService;
 use LitePic\Service\Importer\Importer;
@@ -34,7 +33,6 @@ final class SettingsController
     private const SUPPORTED_REMOTE_STORAGE_USAGE = ['backup', 'storage'];
     private const SUPPORTED_WATERMARK_TYPES = ['text', 'image'];
     private const SUPPORTED_WATERMARK_POSITIONS = ['bottom-right', 'bottom-left', 'top-right', 'top-left', 'center'];
-    private const SUPPORTED_COMPRESSION_MODES = ['tinypng', 'gd', 'imagemagick'];
     private const SUPPORTED_CONVERSION_ENGINES = ['auto', 'imagick', 'gd'];
     private const SUPPORTED_CONVERT_FORMATS = ['webp', 'avif', 'jpg', 'png'];
 
@@ -57,9 +55,92 @@ final class SettingsController
             'sync_remote_storage_all' => $this->handleSyncRemoteStorageAll(),
             'restore_remote_storage_all' => $this->handleRestoreRemoteStorageAll(),
             'purge_remote_storage' => $this->handlePurgeRemoteStorage(),
+            'rename_storage_dir' => $this->handleRenameStorageDir(),
             'save_settings' => $this->handleSaveSettings(),
+            'telegram_register_webhook'   => $this->handleTelegramRegisterWebhook(),
+            'telegram_delete_webhook'     => $this->handleTelegramDeleteWebhook(),
+            'telegram_test'               => $this->handleTelegramTest(),
             default => ['message' => '', 'type' => 'success'],
         };
+    }
+
+    /**
+     * Rename the physical storage directory on disk and pivot STORAGE_DIR
+     * + URL_PREFIX (when it pointed to the old folder) to the new name.
+     *
+     * Validation:
+     *   - New name matches /^[a-z][a-z0-9_-]{0,29}$/
+     *   - Not in the reserved-paths list (api/app/data/...)
+     *   - Source directory exists, target does NOT
+     *   - Both paths resolve under APP_ROOT (defence-in-depth against ../)
+     *
+     * The DB is the canonical store, so we update settings via Config::write().
+     * Constants UPLOAD_PATH_LOCAL/WEB/STORAGE_DIR were defined at boot — they
+     * stay stale for THIS request, but the PRG redirect at the end of
+     * settings.php will reload everything fresh next request.
+     */
+    private function handleRenameStorageDir(): array
+    {
+        $appRoot = defined('APP_ROOT') ? APP_ROOT : dirname(__DIR__, 3);
+        $from = strtolower(trim((string)($_POST['from'] ?? '')));
+        $to   = strtolower(trim((string)($_POST['to'] ?? '')));
+
+        $reserved = ['api', 'app', 'assets', 'static', 'data', 'logs', 'i', 'release', 'wordpress', 'node_modules', 'tmp', 'cache'];
+        $valid = static fn (string $name): bool =>
+            $name !== '' &&
+            preg_match('/^[a-z][a-z0-9_-]{0,29}$/', $name) === 1 &&
+            !in_array($name, $reserved, true);
+
+        if (!$valid($from)) {
+            return ['message' => '原目录名不合法或为保留名', 'type' => 'error'];
+        }
+        if (!$valid($to)) {
+            return ['message' => '新目录名不合法（必须 a-z 开头，1–30 字符，且不能是保留名）', 'type' => 'error'];
+        }
+        if ($from === $to) {
+            return ['message' => '新旧目录名相同，无需重命名', 'type' => 'error'];
+        }
+
+        $fromPath = $appRoot . DIRECTORY_SEPARATOR . $from;
+        $toPath   = $appRoot . DIRECTORY_SEPARATOR . $to;
+
+        if (!is_dir($fromPath)) {
+            return ['message' => "源目录不存在：{$from}/", 'type' => 'error'];
+        }
+        if (file_exists($toPath)) {
+            return ['message' => "目标目录已存在：{$to}/，请先清理或换个名字", 'type' => 'error'];
+        }
+        // Defence-in-depth — make sure neither path escapes APP_ROOT.
+        $rootReal = realpath($appRoot);
+        $fromReal = realpath($fromPath);
+        if ($rootReal === false || $fromReal === false || !str_starts_with($fromReal, $rootReal . DIRECTORY_SEPARATOR)) {
+            return ['message' => '路径校验失败', 'type' => 'error'];
+        }
+
+        if (!@rename($fromPath, $toPath)) {
+            $err = error_get_last();
+            return [
+                'message' => '磁盘 rename 失败：' . ($err['message'] ?? '未知错误') . '（检查父目录写权限）',
+                'type' => 'error',
+            ];
+        }
+
+        // Pivot config: STORAGE_DIR + URL_PREFIX (only when it was tracking the old name).
+        $payload = ['STORAGE_DIR' => $to];
+        $oldUrlPrefix = '/' . $from . '/';
+        $newUrlPrefix = '/' . $to . '/';
+        $currentUrlPrefix = defined('URL_PREFIX') ? URL_PREFIX : '/uploads/';
+        if ($currentUrlPrefix === $oldUrlPrefix) {
+            $payload['URL_PREFIX'] = $newUrlPrefix;
+        }
+        Config::write($payload);
+
+        $msg = "目录已重命名：{$from}/ → {$to}/";
+        if (isset($payload['URL_PREFIX'])) {
+            $msg .= "；URL 前缀同步更新为 {$newUrlPrefix}";
+        }
+        $msg .= '。已发布的旧链接会自动 301 跳到新前缀。';
+        return ['message' => $msg, 'type' => 'success'];
     }
 
     private function handleCreateToken(): array
@@ -88,10 +169,33 @@ final class SettingsController
     private function handleAddCompressionApi(): array
     {
         $apiKey = trim((string)($_POST['compression_api_key'] ?? ''));
-        if (!(new CompressionKeyRepository())->create('', $apiKey)) {
+        $repo = new CompressionKeyRepository();
+        if (!$repo->create('', $apiKey)) {
             return ['message' => '添加压缩 API Key 失败', 'type' => 'error'];
         }
-        return ['message' => '压缩 API Key 已添加', 'type' => 'success'];
+
+        // Surface the new row's metadata so the frontend can append a <tr>
+        // without a full page refresh. We re-fetch by api_key because
+        // create() returns bool (no inserted id).
+        $latest = null;
+        foreach ($repo->all() as $row) {
+            if (($row['api_key'] ?? '') === $apiKey) {
+                $latest = $row;
+                break;
+            }
+        }
+        $masked = strlen($apiKey) > 8
+            ? substr($apiKey, 0, 4) . str_repeat('*', max(0, strlen($apiKey) - 8)) . substr($apiKey, -4)
+            : str_repeat('*', strlen($apiKey));
+
+        return [
+            'message' => '压缩 API Key 已添加',
+            'type' => 'success',
+            'compression_key_added' => $latest === null ? null : [
+                'id'     => (string)($latest['id'] ?? ''),
+                'masked' => $masked,
+            ],
+        ];
     }
 
     private function handleToggleCompressionApi(): array
@@ -148,6 +252,137 @@ final class SettingsController
             'message' => empty($test['success']) ? '测试失败' : '测试成功',
             'type' => empty($test['success']) ? 'error' : 'success',
         ];
+    }
+
+    /**
+     * Register the webhook with Telegram. Generates a fresh URL secret on
+     * every call (so re-clicking "register" rotates the key, invalidating
+     * any old URL that may have leaked).
+     */
+    private function handleTelegramRegisterWebhook(): array
+    {
+        $token = trim((string)Config::get('TELEGRAM_BOT_TOKEN', ''));
+        if ($token === '') {
+            return ['message' => '请先填写 Bot Token 并保存,再注册 Webhook', 'type' => 'error'];
+        }
+        // Build the webhook URL from the configured site URL or current host.
+        // Telegram requires HTTPS — bail early with a clear error if we can't
+        // produce one (saves a confusing API error from Telegram).
+        $base = self::resolveSiteBaseUrl();
+        if (!preg_match('#^https://#i', $base)) {
+            return [
+                'message' => 'Telegram 要求 HTTPS。请先在「基础」tab 填写以 https:// 开头的站点 URL,'
+                          . '或确保当前请求是 HTTPS。',
+                'type'    => 'error',
+            ];
+        }
+
+        $secret = bin2hex(random_bytes(16)); // 32 hex chars — well within api/v1.php regex
+        $webhookUrl = rtrim($base, '/') . '/api/v1/telegram/webhook/' . $secret;
+
+        $api = new \LitePic\Service\Telegram\TelegramApi($token);
+        if (!$api->isConfigured()) {
+            return ['message' => 'Bot Token 格式不正确,无法注册', 'type' => 'error'];
+        }
+        $result = $api->setWebhook($webhookUrl, $secret);
+        if ($result === null) {
+            return ['message' => '调用 Telegram setWebhook 失败,请查看应用日志', 'type' => 'error'];
+        }
+        // Persist the new secret only after Telegram accepted it — otherwise
+        // we'd briefly have a secret in our DB that doesn't match anything.
+        Config::write(['TELEGRAM_WEBHOOK_SECRET' => \LitePic\Core\Format::envQuote($secret)]);
+
+        // Sanity-probe getMe so the success message can include the bot's
+        // @username — admins like the visual confirmation.
+        $me = $api->getMe();
+        $username = is_array($me) ? (string)($me['username'] ?? '') : '';
+        $tag = $username !== '' ? " (@{$username})" : '';
+
+        return [
+            'message' => "Webhook 已注册{$tag},URL secret 已轮换。后续 Telegram 消息会推送到 {$webhookUrl}",
+            'type'    => 'success',
+        ];
+    }
+
+    /**
+     * Tell Telegram to stop sending updates to us. Doesn't clear the local
+     * settings — admin can re-register with the same token any time.
+     */
+    private function handleTelegramDeleteWebhook(): array
+    {
+        $token = trim((string)Config::get('TELEGRAM_BOT_TOKEN', ''));
+        if ($token === '') {
+            return ['message' => '当前没有配置 Bot Token', 'type' => 'error'];
+        }
+        $api = new \LitePic\Service\Telegram\TelegramApi($token);
+        $result = $api->deleteWebhook();
+        if ($result === null) {
+            return ['message' => '调用 Telegram deleteWebhook 失败,请查看日志', 'type' => 'error'];
+        }
+        // Clear our local secret too — next register call will re-mint.
+        Config::write(['TELEGRAM_WEBHOOK_SECRET' => '""']);
+        return ['message' => 'Webhook 已注销,机器人停止接收消息', 'type' => 'success'];
+    }
+
+    /**
+     * Smoke-test the bot — call getMe + getWebhookInfo. Useful for debugging
+     * "I clicked register but messages aren't coming through" — admin can
+     * see if the webhook URL Telegram has matches what we expect.
+     */
+    private function handleTelegramTest(): array
+    {
+        $token = trim((string)Config::get('TELEGRAM_BOT_TOKEN', ''));
+        if ($token === '') {
+            return ['message' => '请先填写 Bot Token', 'type' => 'error'];
+        }
+        $api = new \LitePic\Service\Telegram\TelegramApi($token);
+        $me = $api->getMe();
+        if ($me === null) {
+            return ['message' => 'getMe 失败 — Token 可能无效或网络不通', 'type' => 'error'];
+        }
+        $info = $api->getWebhookInfo();
+        $username = (string)($me['username'] ?? '');
+        $webhookUrl = is_array($info) ? (string)($info['url'] ?? '') : '';
+        $pending = is_array($info) ? (int)($info['pending_update_count'] ?? 0) : 0;
+        $msg = "Bot 连接成功 — @{$username}";
+        if ($webhookUrl !== '') {
+            $msg .= "; 当前 webhook: {$webhookUrl}";
+            if ($pending > 0) $msg .= "; 待处理消息数: {$pending}";
+        } else {
+            $msg .= '; 当前未注册 webhook (点「注册 Webhook」开始接收消息)';
+        }
+        return ['message' => $msg, 'type' => 'success'];
+    }
+
+    /**
+     * Normalise the comma/whitespace-separated user-id list. Drops blanks,
+     * non-numeric entries, dedupes. Stored shape is "12345,67890".
+     */
+    private static function normalizeTelegramUserIds(string $raw): string
+    {
+        $parts = preg_split('/[\s,]+/', $raw, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $clean = [];
+        foreach ($parts as $p) {
+            $p = trim((string)$p);
+            if ($p !== '' && ctype_digit($p) && !in_array($p, $clean, true)) $clean[] = $p;
+        }
+        return implode(',', $clean);
+    }
+
+    /**
+     * Best-effort site base URL, mirroring the logic in TelegramHandler.
+     * Used by the register-webhook handler to construct the URL we hand
+     * to Telegram.
+     */
+    private static function resolveSiteBaseUrl(): string
+    {
+        $configured = trim((string)Config::get('SITE_URL', ''));
+        if ($configured !== '' && preg_match('#^https?://#i', $configured)) {
+            return rtrim($configured, '/');
+        }
+        $scheme = (!empty($_SERVER['HTTPS']) && (string)$_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $host   = (string)($_SERVER['HTTP_HOST'] ?? 'localhost');
+        return $scheme . '://' . $host;
     }
 
     private function handleScanImportUploads(): array
@@ -329,13 +564,49 @@ final class SettingsController
          $watermarkPanelEnabled, $watermarkPanelOpacity, $watermarkPanelPadding,
          $watermarkPanelRadius] = $this->resolveWatermarkSettings($warnings);
 
-        // Hotlink
-        $apacheHotlinkEnabled = self::boolFromPost('apache_hotlink_protection_enabled');
+        // Hotlink — PHP-only path now. The toggle was historically called
+        // "apache_hotlink_*" because it wrote .htaccess; we now flip
+        // HOTLINK_PROTECTION_ENABLED instead, which routes images through
+        // /i/<id> where ImageServeService runs the referer check. Form
+        // field renamed accordingly.
+        $hotlinkProtectionEnabled = self::boolFromPost('hotlink_protection_enabled');
         $hotlinkAllowedDomains = trim((string)($_POST['hotlink_allowed_domains'] ?? implode(',', HOTLINK_ALLOWED_DOMAINS)));
         $hotlinkAllowEmptyReferer = self::boolFromPost('hotlink_allow_empty_referer');
 
         // Image view counter (PHP-based — no Web 服务器 access.log dependency)
         $imageViewCounterEnabled = self::boolFromPost('image_view_counter_enabled');
+
+        // ---- Telegram bot integration ----
+        // All five fields fall back to the current Config value when absent
+        // from the POST — so saving the "basic" tab doesn't accidentally
+        // clobber the Telegram tab's settings, and vice versa.
+        $telegramEnabled        = self::boolFromPost('telegram_enabled');
+        $telegramBotToken       = trim((string)($_POST['telegram_bot_token']
+                                  ?? Config::get('TELEGRAM_BOT_TOKEN', '')));
+        $telegramAllowedUserIds = self::normalizeTelegramUserIds(
+            (string)($_POST['telegram_allowed_user_ids']
+                ?? Config::get('TELEGRAM_ALLOWED_USER_IDS', ''))
+        );
+        $telegramDefaultAlbum   = trim((string)($_POST['telegram_default_album_key']
+                                  ?? Config::get('TELEGRAM_DEFAULT_ALBUM_KEY', '')));
+        // Webhook secret is admin-rotated via the dedicated register-webhook
+        // action below — never overwritten by save_settings. We re-write
+        // the existing value to keep array_merge() shape stable.
+        $telegramWebhookSecret  = trim((string)Config::get('TELEGRAM_WEBHOOK_SECRET', ''));
+
+        // Validate token shape if user is enabling the feature — empty is
+        // OK (means "I'll fill it in later").
+        if ($telegramEnabled && $telegramBotToken !== ''
+            && preg_match('/^\d+:[A-Za-z0-9_-]{30,}$/', $telegramBotToken) !== 1) {
+            $warnings[] = 'Telegram Bot Token 格式不对(应该是 "<bot_id>:<token>"),已保留之前的值';
+            $telegramBotToken = (string)Config::get('TELEGRAM_BOT_TOKEN', '');
+        }
+        if ($telegramEnabled && $telegramBotToken === '') {
+            $warnings[] = 'Telegram 已启用但 Bot Token 为空,机器人不会接收任何消息';
+        }
+        if ($telegramEnabled && $telegramAllowedUserIds === '') {
+            $warnings[] = 'Telegram 已启用但「允许的用户 ID」为空,所有人都会被拒绝(只接受白名单用户)';
+        }
 
         // Remote storage usage warning (fields are saved by the dedicated handler)
         $remoteStorageUsage = $this->resolveRemoteStorageUsage();
@@ -351,7 +622,7 @@ final class SettingsController
         }
 
         $compressionMode = trim((string)($_POST['compression_mode'] ?? COMPRESSION_MODE));
-        if (!in_array($compressionMode, self::SUPPORTED_COMPRESSION_MODES, true)) {
+        if (!in_array($compressionMode, \LitePic\Service\Image\ImageFormat::COMPRESSION_MODES, true)) {
             $compressionMode = 'imagemagick';
         }
         $conversionEngine = strtolower(trim((string)($_POST['conversion_engine'] ?? (defined('CONVERSION_ENGINE') ? CONVERSION_ENGINE : 'auto'))));
@@ -365,6 +636,21 @@ final class SettingsController
         if ($urlPrefix === '') {
             $warnings[] = '图片链接前缀格式无效，已保留原配置（必须以 / 开头和结尾，仅允许小写字母数字 _ -，不能跟系统路径冲突）';
             $urlPrefix = defined('URL_PREFIX') ? URL_PREFIX : '/uploads/';
+        }
+
+        // STORAGE_DIR — 物理存储目录名（仅改名 + 校验，不动磁盘；磁盘 rename
+        // 走单独的 rename_storage_dir 表单）。空值/非法值不覆盖现配置。
+        $storageDirRaw = strtolower(trim((string)($_POST['storage_dir'] ?? '')));
+        $storageDir = defined('STORAGE_DIR') ? STORAGE_DIR : 'uploads';
+        if ($storageDirRaw !== '' && $storageDirRaw !== $storageDir) {
+            $reservedDirs = ['api', 'app', 'assets', 'static', 'data', 'logs', 'i', 'release', 'wordpress', 'node_modules', 'tmp', 'cache'];
+            $isValid = preg_match('/^[a-z][a-z0-9_-]{0,29}$/', $storageDirRaw) === 1
+                && !in_array($storageDirRaw, $reservedDirs, true);
+            if ($isValid) {
+                $storageDir = $storageDirRaw;
+            } else {
+                $warnings[] = '物理存储目录名不合法，已保留原配置（a-z 开头，1–30 字符，避开系统保留名）';
+            }
         }
 
         // Persist everything that goes into .env in one shot
@@ -384,6 +670,7 @@ final class SettingsController
             'COMPRESSION_MODE' => $compressionMode,
             'CONVERSION_ENGINE' => $conversionEngine,
             'URL_PREFIX' => $urlPrefix,
+            'STORAGE_DIR' => $storageDir,
             'WATERMARK_ENABLED' => $watermarkEnabled ? 'true' : 'false',
             'WATERMARK_TYPE' => $watermarkType,
             'WATERMARK_TEXT' => Format::envQuote($watermarkText),
@@ -399,11 +686,15 @@ final class SettingsController
             'WATERMARK_PANEL_OPACITY' => (string)$watermarkPanelOpacity,
             'WATERMARK_PANEL_PADDING' => (string)$watermarkPanelPadding,
             'WATERMARK_PANEL_RADIUS' => (string)$watermarkPanelRadius,
-            // HOTLINK_PROTECTION_ENABLED is .htaccess-driven and not flipped here
-            'HOTLINK_PROTECTION_ENABLED' => 'false',
+            'HOTLINK_PROTECTION_ENABLED' => $hotlinkProtectionEnabled ? 'true' : 'false',
             'HOTLINK_ALLOWED_DOMAINS' => Format::envQuote($hotlinkAllowedDomains),
             'HOTLINK_ALLOW_EMPTY_REFERER' => $hotlinkAllowEmptyReferer ? 'true' : 'false',
             'IMAGE_VIEW_COUNTER_ENABLED' => $imageViewCounterEnabled ? 'true' : 'false',
+            'TELEGRAM_ENABLED'           => $telegramEnabled ? 'true' : 'false',
+            'TELEGRAM_BOT_TOKEN'         => Format::envQuote($telegramBotToken),
+            'TELEGRAM_ALLOWED_USER_IDS'  => Format::envQuote($telegramAllowedUserIds),
+            'TELEGRAM_DEFAULT_ALBUM_KEY' => Format::envQuote($telegramDefaultAlbum),
+            'TELEGRAM_WEBHOOK_SECRET'    => Format::envQuote($telegramWebhookSecret),
         ], RemoteStorage::envFromPostedForm()));
 
         $iniPath = APP_ROOT . '/.user.ini';
@@ -418,36 +709,10 @@ final class SettingsController
             'memory_limit' => '256M',
         ]);
 
-        $htaccessPath = APP_ROOT . '/.htaccess';
-        $htaccessWritten = HotlinkProtection::writeApacheRules(
-            $htaccessPath,
-            $apacheHotlinkEnabled,
-            $hotlinkAllowedDomains,
-            $hotlinkAllowEmptyReferer
-        );
-        if (!$htaccessWritten) {
-            // 详细诊断：判断到底是哪一种权限问题，给用户明确的修复方法
-            $diag = '';
-            if (!is_file($htaccessPath)) {
-                $diag = '（.htaccess 文件不存在）';
-            } elseif (!is_writable($htaccessPath)) {
-                $owner = function_exists('posix_getpwuid') ? (posix_getpwuid(fileowner($htaccessPath))['name'] ?? '?') : (string)fileowner($htaccessPath);
-                $current = function_exists('posix_geteuid') ? (posix_getpwuid(posix_geteuid())['name'] ?? '?') : 'php';
-                $perms = substr(sprintf('%o', fileperms($htaccessPath)), -3);
-                $diag = sprintf('（文件 owner=%s，当前 PHP user=%s，perms=%s — 修复：`chmod 666 .htaccess` 或 `chown %s .htaccess`）', $owner, $current, $perms, $current);
-            }
-            $warnings[] = ($apacheHotlinkEnabled
-                ? '防盗链规则写入 .htaccess 失败'
-                : '防盗链规则从 .htaccess 移除失败') . $diag;
-        } elseif ($apacheHotlinkEnabled) {
-            $webServer = (new ServerInfo())->webServer();
-            if (empty($webServer['uses_htaccess'])) {
-                $warnings[] = sprintf(
-                    '当前检测为 %s，.htaccess 通常不会生效，请按使用说明添加对应服务器规则',
-                    (string)$webServer['label']
-                );
-            }
-        }
+        // Hotlink protection is now PHP-only — no .htaccess writes. The
+        // HOTLINK_PROTECTION_ENABLED env above is the single source of
+        // truth; ImageServeService::serve() consults it on every /i/<id>
+        // request and 403s on disallowed referers.
 
         if (!$envWritten) {
             $message = '写入 .env 失败，请检查文件权限';
@@ -470,7 +735,7 @@ final class SettingsController
             'keep_original_after_process' => $keepOriginalAfterProcess,
             'watermark_enabled' => $watermarkEnabled,
             'watermark_type' => $watermarkType,
-            'apache_hotlink_protection_enabled' => HotlinkProtection::apacheRulesEnabled($htaccessPath),
+            'hotlink_protection_enabled' => $hotlinkProtectionEnabled,
             'hotlink_allow_empty_referer' => $hotlinkAllowEmptyReferer,
             'watermark_panel_enabled' => $watermarkPanelEnabled,
             'image_view_counter_enabled' => $imageViewCounterEnabled,

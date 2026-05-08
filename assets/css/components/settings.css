@@ -177,10 +177,6 @@
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
-.settings-full-action {
-  width: 100%;
-}
-
 .settings-save-actions {
   display: flex;
   justify-content: flex-end;
@@ -255,12 +251,6 @@
   justify-content: flex-end;
   gap: 10px;
   flex: 0 0 auto;
-}
-
-.settings-page .settings-convert-select {
-  width: 132px;
-  min-height: 38px;
-  height: 38px;
 }
 
 .settings-switch-label {
@@ -343,49 +333,6 @@
 .settings-radio-option-block:has(input:checked) strong,
 .settings-radio-option-block:has(input:checked) small {
   color: var(--primary);
-}
-
-.settings-format-options {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-  gap: 8px;
-}
-
-.settings-format-option {
-  min-height: 38px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 0 10px;
-  border: 1px solid color-mix(in srgb, var(--border-color) 64%, transparent);
-  border-radius: 0;
-  background: color-mix(in srgb, var(--surface) 90%, var(--light) 10%);
-  color: color-mix(in srgb, var(--dark) 76%, var(--gray) 24%);
-  cursor: pointer;
-  transition:
-    border-color 160ms ease,
-    background 160ms ease,
-    color 160ms ease;
-}
-
-.settings-format-option:hover,
-.settings-format-option:has(input:checked) {
-  border-color: color-mix(in srgb, var(--primary) 46%, var(--border-color) 54%);
-  background: color-mix(in srgb, var(--primary) 7%, var(--surface) 93%);
-  color: var(--primary);
-}
-
-.settings-format-option input {
-  width: 14px;
-  height: 14px;
-  accent-color: var(--primary);
-}
-
-.settings-format-option span {
-  font-size: 0.86rem;
-  font-weight: 650;
-  line-height: 1;
 }
 
 .settings-toggle-row:has(.settings-switch-input:focus-visible) {
@@ -1099,10 +1046,6 @@ html[data-theme="dark"] .settings-block-runtime .runtime-meta-label > i {
   min-width: 0;
 }
 
-.settings-page .settings-field--full {
-  grid-column: 1 / -1;
-}
-
 /* =============================================================
  * Settings tab title block — sits between the tab nav and the
  * tab's content (sections). Gives every tab a clear, identical
@@ -1201,72 +1144,6 @@ html[data-theme="dark"] .settings-page .settings-tab-title__icon {
  * layout stays tight. */
 .settings-page .settings-shell > .settings-panel:not(:has(section)) {
   display: none;
-}
-
-/* =============================================================
- * Border radius spec — 外 4 内 8
- *
- * 用户要求：
- *   - 外边框（settings-shell 整张大卡片）= 4px
- *   - 内部表单 / 按钮 / 输入框 / 选项行 / 开关 / 文件拖拽 = 8px
- *
- * 这一段集中写在文件末尾以胜过上面所有 `border-radius: 6px / 0 /
- * var(--radius-md)` 旧规则；这样视觉规范 100% 由这一处控制，加新
- * 控件时只要套对的 class 就自动跟齐，不用再去翻散落在各处的原值。
- * ============================================================= */
-
-/* 外: 整张 shell + 顶部 nav 的圆角呼应 (上半 4px、下半 0 紧贴下方 section) */
-.settings-page .settings-shell {
-  border-radius: 4px;
-}
-.settings-page .settings-shell > .settings-tab-nav {
-  border-radius: 4px 4px 0 0;
-}
-
-/* 内: 所有表单输入与下拉框 */
-.settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
-.settings-page select,
-.settings-page textarea {
-  border-radius: 8px;
-}
-
-/* 内: 通用按钮系统（.btn / .btn--primary / .btn--secondary / .btn--danger）*/
-.settings-page .btn,
-.settings-page .btn--lg {
-  border-radius: 8px;
-}
-
-/* 内: 单行带开关的选项条（自动压缩 / 自动转换 / 启用水印 / 启用图片请求统计 等）*/
-.settings-page .settings-toggle-row {
-  border-radius: 8px;
-}
-
-/* 内: 上传 / 文件拖拽区 (水印图片、首页背景等) */
-.settings-page .file-drop,
-.settings-page .upload-zone,
-.settings-page .settings-drop {
-  border-radius: 8px;
-}
-
-/* 内: 子卡片 / 网格项（运行时指标卡片、水印预览、API Token 行、Passkey 凭证行 等）*/
-.settings-page .runtime-meta-grid > article,
-.settings-page .runtime-capability-grid > article,
-.settings-page .runtime-gauge-card,
-.settings-page .compression-key-row,
-.settings-page .api-token-row,
-.settings-page .passkey-credential-row {
-  border-radius: 8px;
-}
-
-/* 内: 保存设置按钮的 large 变体（覆盖文件中已有的 8px，保持一致即可）*/
-.settings-page .btn--lg {
-  border-radius: 8px;
-}
-
-/* 例外: 保留圆形 / 药丸控件（tab nav 药丸、switch track）— 它们就是要 999px */
-.settings-page .settings-tab-nav a,
-.settings-page .settings-switch {
-  /* 不动 — 仍是 999px (药丸) */
 }
 
 /* =============================================================
@@ -1460,8 +1337,6 @@ body:has(.settings-page) {
 .settings-page .runtime-meta-grid > article,
 .settings-page .runtime-capability-grid > article,
 .settings-page .runtime-gauge-card,
-.settings-page .compression-key-row,
-.settings-page .api-token-row,
 .settings-page .passkey-credential-row {
   background: var(--surface);
   border-color: var(--border-color);
@@ -1530,15 +1405,10 @@ html[data-theme="dark"] .settings-page .settings-callout {
 
 /* --- 选项条 / 子卡片 / 网格项 / callout / 下拉框 --- */
 .settings-page .settings-toggle-row,
-.settings-page .file-drop,
-.settings-page .upload-zone,
-.settings-page .settings-drop,
 .settings-page .settings-callout,
 .settings-page .runtime-meta-grid > article,
 .settings-page .runtime-capability-grid > article,
 .settings-page .runtime-gauge-card,
-.settings-page .compression-key-row,
-.settings-page .api-token-row,
 .settings-page .passkey-credential-row {
   border-radius: 0;
 }
@@ -2321,3 +2191,252 @@ html[data-theme="dark"] .settings-page .queue-stat__icon {
   font-size: 13px;
   line-height: 1;
 }
+
+/* =============================================================
+ * 整行 UPTIME 条 — 模仿 BetterStack/UptimeRobot 风格的状态条
+ *
+ * 浅色与深色都通过 CSS 变量自动适配:
+ *   --uptime-bg / --uptime-fg / --uptime-muted / --uptime-border /
+ *   --uptime-tooltip-bg / --uptime-future-bg
+ *
+ * 状态色(语义,不随主题变):
+ *   .is-up      绿  100%
+ *   .is-partial 琥珀 1-99%
+ *   .is-down    红  0%
+ *   .is-future  灰  还没到的桶(浅 → 浅灰; 深 → 深灰)
+ *   .is-nodata  虚线灰 在第一次记录之前
+ * ============================================================= */
+.runtime-uptime-section {
+  /* 抢占整行；不进 grid */
+  grid-column: 1 / -1;
+
+  /* Light-mode tokens — 浅色:白底 + 浅边 + 暗字 */
+  --uptime-bg: var(--surface);
+  --uptime-fg: var(--dark);
+  --uptime-muted: var(--gray);
+  --uptime-border: color-mix(in srgb, var(--border-color) 70%, transparent);
+  --uptime-range-border: var(--border-color);
+  --uptime-range-hover-bg: color-mix(in srgb, var(--border-color) 30%, var(--surface) 70%);
+  --uptime-future-bg: color-mix(in srgb, var(--border-color) 60%, var(--surface) 40%);
+  --uptime-tooltip-bg: var(--dark);
+  --uptime-tooltip-fg: var(--surface);
+  --uptime-percent: #16a34a;
+}
+
+html[data-theme="dark"] .runtime-uptime-section {
+  /* Dark-mode tokens */
+  --uptime-bg: #1b1b1b;
+  --uptime-fg: var(--dark);
+  --uptime-muted: var(--gray);
+  --uptime-border: rgba(255, 255, 255, 0.03);
+  --uptime-range-border: rgba(255, 255, 255, 0.08);
+  --uptime-range-hover-bg: rgba(255, 255, 255, 0.04);
+  --uptime-future-bg: rgba(255, 255, 255, 0.06);
+  --uptime-tooltip-bg: #1a1a1a;
+  --uptime-tooltip-fg: var(--dark);
+  --uptime-percent: #4ade80;
+}
+
+.runtime-uptime-strip {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px 14px;
+  background: var(--uptime-bg);
+  color: var(--uptime-fg);
+  border: 1px solid var(--uptime-border);
+  font-family: var(--font-mono, "SFMono-Regular", Menlo, Monaco, Consolas, monospace);
+}
+
+.runtime-uptime-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.runtime-uptime-title {
+  letter-spacing: 0.14em;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--uptime-muted);
+}
+
+.runtime-uptime-ranges {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.runtime-uptime-range {
+  padding: 3px 10px;
+  border: 1px solid var(--uptime-range-border);
+  background: transparent;
+  color: var(--uptime-muted);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.runtime-uptime-range:hover {
+  background: var(--uptime-range-hover-bg);
+  color: var(--uptime-fg);
+}
+
+.runtime-uptime-range.is-active {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #ffffff;
+}
+
+.runtime-uptime-percent {
+  margin-left: auto;
+  color: var(--uptime-percent);
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Bar — 用 grid 等距分段，gap 控制段间距 */
+.runtime-uptime-bar {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  height: 32px;
+  position: relative;
+}
+
+.runtime-uptime-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--uptime-muted);
+  font-size: 0.72rem;
+}
+
+.runtime-uptime-seg {
+  background: #16a34a;
+  position: relative;
+  cursor: default;
+  transition: background 120ms ease;
+}
+
+.runtime-uptime-seg:hover {
+  filter: brightness(1.15);
+}
+
+.runtime-uptime-seg.is-up      { background: #16a34a; }
+.runtime-uptime-seg.is-partial { background: #f59e0b; }
+.runtime-uptime-seg.is-down    { background: #ef4444; }
+.runtime-uptime-seg.is-future  { background: var(--uptime-future-bg); }
+.runtime-uptime-seg.is-nodata  {
+  background: transparent;
+  border: 1px dashed var(--uptime-range-border);
+}
+
+/* Tooltip-on-hover via CSS only — appears above the segment */
+.runtime-uptime-seg::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  background: var(--uptime-tooltip-bg);
+  color: var(--uptime-tooltip-fg);
+  border: 1px solid var(--uptime-range-border);
+  font-size: 0.7rem;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 100ms ease;
+  z-index: 5;
+}
+
+.runtime-uptime-seg:hover::after {
+  opacity: 1;
+}
+
+.runtime-uptime-foot {
+  display: flex;
+  justify-content: space-between;
+  color: var(--uptime-muted);
+  font-size: 0.72rem;
+}
+
+/* CPU 核数手动覆盖 — 嵌在 .runtime-gauge-card 底部的小输入条。
+   默认折叠(hidden 属性);自动检测失败时模板会去掉 hidden 默认展开。
+   点详情行右侧的小铅笔按钮也能 toggle 显隐。 */
+
+.runtime-cpu-source {
+  margin-left: 4px;
+  color: var(--gray);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
+.runtime-cpu-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-left: 6px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--gray);
+  font-size: 0.78rem;
+  cursor: pointer;
+  vertical-align: middle;
+  border-radius: 4px;
+  transition: color 120ms ease, background 120ms ease;
+}
+.runtime-cpu-edit-btn:hover {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+.runtime-cpu-edit-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent);
+  outline-offset: 2px;
+}
+
+.runtime-cpu-override {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 0.72rem;
+  color: var(--gray);
+}
+
+.runtime-cpu-override[hidden] { display: none; }
+
+.runtime-cpu-override input[type="number"] {
+  width: 70px;
+  height: 28px;
+  padding: 2px 6px;
+  border: 1px solid var(--border-color);
+  background: var(--surface);
+  color: var(--dark);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+.runtime-cpu-override input[type="number"]::-webkit-outer-spin-button,
+.runtime-cpu-override input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.runtime-cpu-override .btn--sm {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 0.72rem;
+  gap: 4px;
+}
+.runtime-cpu-override .btn--sm > i { font-size: 11px; }

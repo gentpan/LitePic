@@ -67,27 +67,6 @@ final class LoginAttemptRepository
             ->execute([':n' => $count, ':t' => $now, ':b' => $blockedUntil, ':ip' => $ip]);
     }
 
-    public function reset(string $ip): void
-    {
-        Database::connection()
-            ->prepare('DELETE FROM login_attempts WHERE ip = :ip')
-            ->execute([':ip' => $ip]);
-    }
-
-    /**
-     * Drop expired records. Cheap to call periodically (or from a cron).
-     */
-    public function purgeExpired(): int
-    {
-        $cutoff = time() - self::WINDOW_SECONDS;
-        $stmt = Database::connection()->prepare(
-            'DELETE FROM login_attempts
-             WHERE last_failure_at < :c AND (blocked_until IS NULL OR blocked_until < :n)'
-        );
-        $stmt->execute([':c' => $cutoff, ':n' => time()]);
-        return $stmt->rowCount();
-    }
-
     private function find(string $ip): ?array
     {
         $stmt = Database::connection()->prepare(

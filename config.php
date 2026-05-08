@@ -68,7 +68,7 @@ $default_host = $_SERVER['HTTP_HOST'] ?? 'localhost:8080';
 $default_scheme = $is_https ? 'https' : 'http';
 
 // 基础配置
-define('LITEPIC_VERSION', '3.3.3');
+define('LITEPIC_VERSION', '3.3.4');
 define('SITE_NAME', env_value('SITE_NAME', 'LitePic'));
 define('SITE_DESCRIPTION', env_value('SITE_DESCRIPTION', '轻量级图床程序'));
 define('SITE_VERSION', LITEPIC_VERSION);
@@ -79,9 +79,34 @@ define('HOME_BACKGROUND_IMAGE', '/static/images/background.jpg');
 
 // 网站路径配置
 define('SITE_URL', env_value('SITE_URL', $default_scheme . '://' . $default_host));
-define('UPLOAD_PATH_WEB', '/uploads/');
-define('UPLOAD_PATH_LOCAL', __DIR__ . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR);
-define('STATIC_PATH', '/static/');
+
+/*
+ * 物理存储目录名 — 图片源文件实际落盘的目录（相对项目根）。
+ *
+ * 默认 "uploads"（保持向后兼容，不动存量站点）。管理员可改成
+ * "files" / "images" / "storage" 等任意名字，但要避开 LitePic 自己
+ * 的子目录（api / app / assets / static / data / logs / i）以免路由冲突。
+ *
+ * 数据库 images.filename 存的是相对路径（如 2026/04/abc.jpg），
+ * 不含目录名，所以改这个值不需要迁移数据 —— 只要把磁盘上的旧
+ * 目录 rename 成新名即可。后续会有后台 UI 一键完成改名。
+ *
+ * 命名规则：
+ *   - 小写字母开头
+ *   - 1-30 个字符，仅 a-z 0-9 _ -
+ *   - 不能是 LitePic 保留路径
+ * 不合法时静默回退 "uploads"，避免一个错误的 .env 让站点 404。
+ */
+$_storage_reserved = ['api', 'app', 'assets', 'static', 'data', 'logs', 'i', 'release', 'wordpress', 'node_modules', 'tmp', 'cache'];
+$_storage_raw = strtolower(trim((string)env_value('STORAGE_DIR', 'uploads')));
+$_storage_dir = preg_match('/^[a-z][a-z0-9_-]{0,29}$/', $_storage_raw) === 1 && !in_array($_storage_raw, $_storage_reserved, true)
+    ? $_storage_raw
+    : 'uploads';
+define('STORAGE_DIR', $_storage_dir);
+unset($_storage_reserved, $_storage_raw, $_storage_dir);
+
+define('UPLOAD_PATH_WEB', '/' . STORAGE_DIR . '/');
+define('UPLOAD_PATH_LOCAL', __DIR__ . DIRECTORY_SEPARATOR . STORAGE_DIR . DIRECTORY_SEPARATOR);
 
 // 图片相关配置
 $supported_image_types = [
@@ -147,24 +172,10 @@ define('COOKIE_SAMESITE', 'Strict');
 
 // 显示配置
 define('ITEMS_PER_PAGE', 20); // 固定每页显示 20 张
-define('GALLERY_COLUMNS', 4); // 固定图库 4 列
-define('ENABLE_LAZY_LOAD', true);
-define('DEFAULT_SORT', 'date-desc');
 
-// 功能开关 — WebP 支持要求 PHP 编译时启用 GD with WebP
-if (!defined('ENABLE_WEBP')) {
-    if (!function_exists('imagewebp')) {
-        error_log('[LitePic] Server does not support WebP conversion');
-        define('ENABLE_WEBP', false);
-    } else {
-        define('ENABLE_WEBP', true);
-    }
-}
+// 压缩开关 — CompressionService 检查后才走 TinyPNG 路径，留这一项
 if (!defined('ENABLE_COMPRESSION')) {
     define('ENABLE_COMPRESSION', true);
-}
-if (!defined('ENABLE_EXIF_CLEAN')) {
-    define('ENABLE_EXIF_CLEAN', true);
 }
 define('AUTO_COMPRESS_ON_UPLOAD', env_bool('AUTO_COMPRESS_ON_UPLOAD', false));
 $convert_preferred_format = strtolower((string)env_value('CONVERT_PREFERRED_FORMAT', 'webp'));
@@ -245,8 +256,6 @@ if (!in_array($remote_storage_usage, ['backup', 'storage'], true)) {
     $remote_storage_usage = 'backup';
 }
 define('REMOTE_STORAGE_USAGE', $remote_storage_usage);
-define('REMOTE_STORAGE_MODE', 'sync');
-define('S3_PROVIDER', 's3');
 define('S3_BUCKET', (string)env_value('S3_BUCKET', ''));
 define('S3_REGION', (string)env_value('S3_REGION', 'auto'));
 define('S3_ENDPOINT', (string)env_value('S3_ENDPOINT', ''));
@@ -258,18 +267,6 @@ define('REMOTE_STORAGE_DELETE_DELAY_SECONDS', max(0, (int)env_value('REMOTE_STOR
 
 // TinyPNG API Key 列表（建议放在 .env: TINIFY_API_KEYS=key1,key2）
 define('TINIFY_API_KEYS', env_csv('TINIFY_API_KEYS', []));
-
-// 存储配置
-define('STORAGE_TYPE', 'date');
-define('STORAGE_DATE_FORMAT', 'Y/m/d');
-
-// 外链格式
-define('LINK_FORMATS', [
-    'url' => '[URL]',
-    'html' => '<img src="[URL]" alt="[FILENAME]">',
-    'markdown' => '![图片]([URL])',
-    'bbcode' => '[img][URL][/img]'
-]);
 
 // CORS 配置 — 逗号分隔的允许跨域的域名列表（空 = 禁止跨域，* = 允许所有）
 // 例: "https://app.example.com,https://admin.example.com"

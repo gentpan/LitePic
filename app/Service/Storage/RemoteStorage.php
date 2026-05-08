@@ -48,9 +48,7 @@ final class RemoteStorage
         };
 
         return [
-            'REMOTE_STORAGE_MODE' => 'sync',
             'REMOTE_STORAGE_USAGE' => $usage,
-            'S3_PROVIDER' => 's3',
             'S3_BUCKET' => $get('s3_bucket', 'S3_BUCKET'),
             'S3_REGION' => $get('s3_region', 'S3_REGION'),
             'S3_ENDPOINT' => $get('s3_endpoint', 'S3_ENDPOINT'),
