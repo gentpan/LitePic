@@ -30,7 +30,44 @@ final class AuthService
         if (!isset($_COOKIE[$cookieName]) || $masterKey === '') {
             return false;
         }
-        return hash_equals(hash('sha256', $masterKey), (string)$_COOKIE[$cookieName]);
+        $cookie = (string)$_COOKIE[$cookieName];
+
+        // 新格式：基于 session_secret 的 cookie（密码已升级为 bcrypt）
+        $sessionSecret = (string)\LitePic\Core\Config::get('ADMIN_SESSION_SECRET', '');
+        if ($sessionSecret !== '') {
+            return hash_equals(hash('sha256', $sessionSecret), $cookie);
+        }
+
+        // 旧格式向后兼容：sha256(password)
+        return hash_equals(hash('sha256', $masterKey), $cookie);
+    }
+
+    /**
+     * Verify a plaintext password against the stored credentials.
+     * Checks ADMIN_PASSWORD_HASH (bcrypt) first, falls back to
+     * ADMIN_API_KEY (plaintext) for backward compatibility with
+     * installations that haven't upgraded yet.
+     */
+    public static function verifyPassword(string $password): bool
+    {
+        $hash = (string)\LitePic\Core\Config::get('ADMIN_PASSWORD_HASH', '');
+        if ($hash !== '' && str_starts_with($hash, '$2y$') && password_verify($password, $hash)) {
+            return true;
+        }
+
+        // 回退到明文比对（未升级的旧安装）
+        $masterKey = defined('ADMIN_API_KEY') ? (string)ADMIN_API_KEY : '';
+        return $masterKey !== '' && hash_equals($masterKey, $password);
+    }
+
+    /**
+     * True when the stored password is still plaintext (not yet upgraded
+     * to bcrypt). Used to trigger auto-migration on first successful login.
+     */
+    public static function isPasswordPlaintext(): bool
+    {
+        $hash = (string)\LitePic\Core\Config::get('ADMIN_PASSWORD_HASH', '');
+        return $hash === '' || !str_starts_with($hash, '$2y$');
     }
 
     /**

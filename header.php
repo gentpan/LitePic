@@ -3,9 +3,7 @@ declare(strict_types=1);
 
 \LitePic\Core\Session::start();
 
-$is_logged_in = ADMIN_API_KEY !== '' &&
-    isset($_COOKIE[API_KEY_COOKIE]) &&
-    hash_equals(hash('sha256', ADMIN_API_KEY), (string)$_COOKIE[API_KEY_COOKIE]);
+$is_logged_in = (new \LitePic\Service\Auth\AuthService())->isAdmin();
 $document_title = isset($html_title) && trim((string)$html_title) !== ''
     ? trim((string)$html_title)
     : ((isset($page_title) && trim((string)$page_title) !== '' ? trim((string)$page_title) . ' - ' : '') . SITE_NAME);

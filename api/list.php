@@ -16,18 +16,22 @@ if (!defined('LITEPIC_API_V1_DISPATCH')) {
     exit;
 }
 
+require_once __DIR__ . '/../bootstrap.php';
+
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
 header('Vary: Origin');
 header('Access-Control-Allow-Methods: GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, X-API-Key, Authorization, X-Requested-With');
+$_origin = cors_origin();
+if ($_origin !== '') {
+    header('Access-Control-Allow-Origin: ' . $_origin);
+}
+unset($_origin);
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
-
-require_once __DIR__ . '/../bootstrap.php';
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
     \LitePic\Core\Response::error('仅支持 GET 请求', 405);

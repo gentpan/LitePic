@@ -47,8 +47,10 @@ if ($action === 'logout') {
 //   - currentPassword: 当前密码（防止 cookie 被劫持后改密）
 //   - newPassword:     新密码
 //
-// 写入流程：Config::write(['ADMIN_API_KEY' => 新密码]) → SQLite settings 表，
-// 然后立刻把当前请求的 cookie 换成新 hash，用户保持登录状态。
+// 写入流程：
+//   1. AdminAuthService::verifyPassword() 校验当前密码
+//   2. Config::write(['ADMIN_API_KEY' => 明文, 'ADMIN_PASSWORD_HASH' => bcrypt])
+//   3. 签发新的 session_secret cookie
 if ($action === 'change_password') {
     if (!(new \LitePic\Service\Auth\AuthService())->isApiRequestAuthorized()) {
         \LitePic\Core\Response::error('未授权', 401);
@@ -63,7 +65,7 @@ if ($action === 'change_password') {
         \LitePic\Core\Response::error('请输入当前密码和新密码', 400);
         exit;
     }
-    if (!hash_equals(ADMIN_API_KEY, $current)) {
+    if (!\LitePic\Service\Auth\AuthService::verifyPassword($current)) {
         \LitePic\Core\Response::error('当前密码不正确', 403);
         exit;
     }
@@ -84,17 +86,23 @@ if ($action === 'change_password') {
         exit;
     }
 
-    $ok = \LitePic\Core\Config::write(['ADMIN_API_KEY' => $next]);
+    // 保存：明文保留给 API key 匹配，bcrypt hash 存储用于安全校验
+    $newHash = password_hash($next, PASSWORD_BCRYPT);
+    $newSecret = bin2hex(random_bytes(32));
+    $ok = \LitePic\Core\Config::write([
+        'ADMIN_API_KEY' => $next,
+        'ADMIN_PASSWORD_HASH' => $newHash,
+        'ADMIN_SESSION_SECRET' => $newSecret,
+    ]);
     if (!$ok) {
         \LitePic\Core\Response::error('密码保存失败，请稍后重试', 500);
         exit;
     }
 
-    // 续签 cookie，让用户保持登录态。新密码已经写进 $_ENV / Config 缓存，
-    // 但 ADMIN_API_KEY 常量是本次请求开始时定义的，所以这里直接用 $next。
+    // 续签 cookie，让用户保持登录态
     setcookie(
         API_KEY_COOKIE,
-        hash('sha256', $next),
+        hash('sha256', $newSecret),
         [
             'expires' => time() + COOKIE_LIFETIME,
             'path' => COOKIE_PATH,
@@ -119,11 +127,25 @@ if (isset($data['apiKey'])) {
     }
 
     $api_key = trim((string)$data['apiKey']);
+    $auth = new \LitePic\Service\Auth\AuthService();
 
-    if (ADMIN_API_KEY !== '' && hash_equals(ADMIN_API_KEY, $api_key)) {
+    if ($auth->verifyPassword($api_key)) {
+        // 自动生成 session_secret（如果还没有）用于 cookie 签名
+        $sessionSecret = (string)\LitePic\Core\Config::get('ADMIN_SESSION_SECRET', '');
+        if ($sessionSecret === '') {
+            $sessionSecret = bin2hex(random_bytes(32));
+            \LitePic\Core\Config::write(['ADMIN_SESSION_SECRET' => $sessionSecret]);
+        }
+
+        // 如果密码还是明文存储，自动升级为 bcrypt
+        if ($auth->isPasswordPlaintext()) {
+            $newHash = password_hash($api_key, PASSWORD_BCRYPT);
+            \LitePic\Core\Config::write(['ADMIN_PASSWORD_HASH' => $newHash]);
+        }
+
         setcookie(
             API_KEY_COOKIE,
-            hash('sha256', $api_key),
+            hash('sha256', $sessionSecret),
             [
                 'expires' => time() + COOKIE_LIFETIME,
                 'path' => COOKIE_PATH,

@@ -8,10 +8,11 @@ declare(strict_types=1);
  *   1. Define APP_ROOT
  *   2. Register the PSR-4 autoloader
  *   3. Bring up Logger
- *   4. Load .env (first-boot fallback only — DB is the canonical store)
+ *   4. Load .env (optional — no .env required; DB is the canonical store)
  *   5. Open the SQLite connection and run any pending migrations
+ *      (migration 008 seeds all defaults into the settings table)
  *   6. Warm the settings cache from the DB (one SELECT * FROM settings),
- *      then seed it from .env if the table is still empty (one-time)
+ *      then seed from .env on first boot only (one-time, idempotent)
  *   7. Pull in `config.php` constants (define()s read from settings cache
  *      first via env_value/bool/csv, then $_ENV, then defaults)
  */

@@ -4,59 +4,7 @@ declare(strict_types=1);
  * LitePic - 配置文件
  */
 
-if (!function_exists('load_dotenv_file')) {
-    /**
-     * 轻量 .env 读取器（无外部依赖）
-     */
-    function load_dotenv_file(string $path): void {
-        if (!is_file($path) || !is_readable($path)) {
-            return;
-        }
-
-        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        if (!is_array($lines)) {
-            return;
-        }
-
-        foreach ($lines as $line) {
-            $line = trim((string)$line);
-            if ($line === '' || str_starts_with($line, '#')) {
-                continue;
-            }
-
-            $pos = strpos($line, '=');
-            if ($pos === false || $pos <= 0) {
-                continue;
-            }
-
-            $key = trim(substr($line, 0, $pos));
-            $value = trim(substr($line, $pos + 1));
-
-            if ($key === '') {
-                continue;
-            }
-
-            if (
-                (str_starts_with($value, '"') && str_ends_with($value, '"')) ||
-                (str_starts_with($value, "'") && str_ends_with($value, "'"))
-            ) {
-                $value = substr($value, 1, -1);
-            }
-
-            $value = str_replace(['\\n', '\\r', '\\"', "\\'"], ["\n", "\r", '"', "'"], $value);
-
-            // 始终以 .env 文件为准覆盖当前进程环境，避免开关值在长驻进程中残留
-            // 部分生产环境会禁用 putenv（disable_functions），需降级兼容
-            if (function_exists('putenv')) {
-                @putenv($key . '=' . $value);
-            }
-            $_ENV[$key] = $value;
-            $_SERVER[$key] = $value;
-        }
-    }
-}
-
-load_dotenv_file(__DIR__ . '/.env');
+// .env 加载由 bootstrap.php 中的 Config::init() 统一处理，这里不再重复加载。
 
 /**
  * env_value / env_bool / env_csv resolve config values in this order:
@@ -322,6 +270,39 @@ define('LINK_FORMATS', [
     'markdown' => '![图片]([URL])',
     'bbcode' => '[img][URL][/img]'
 ]);
+
+// CORS 配置 — 逗号分隔的允许跨域的域名列表（空 = 禁止跨域，* = 允许所有）
+// 例: "https://app.example.com,https://admin.example.com"
+define('CORS_ALLOWED_ORIGINS', env_csv('CORS_ALLOWED_ORIGINS', ['*']));
+
+if (!function_exists('cors_origin')) {
+    /**
+     * Return the Access-Control-Allow-Origin header value for the current
+     * request, or '' when the Origin is not in the allowlist.
+     *
+     * When CORS_ALLOWED_ORIGINS contains only '*', returns '*' (legacy
+     * permissive behaviour). Otherwise checks the request Origin header
+     * against the allowlist using a suffix match so "example.com" also
+     * covers "https://example.com".
+     */
+    function cors_origin(): string {
+        $allowed = CORS_ALLOWED_ORIGINS;
+        if (in_array('*', $allowed, true)) {
+            return '*';
+        }
+        $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+        if ($origin === '') return '';
+        foreach ($allowed as $entry) {
+            $entry = trim((string)$entry);
+            if ($entry === '') continue;
+            // 精确匹配或后缀匹配（*.example.com）
+            if ($origin === $entry || str_ends_with($origin, '.' . ltrim($entry, '*.'))) {
+                return $origin;
+            }
+        }
+        return '';
+    }
+}
 
 // 调试配置
 define('DEBUG', env_bool('DEBUG', false));

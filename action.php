@@ -19,7 +19,7 @@ error_reporting(E_ALL);
 require_once __DIR__ . '/bootstrap.php';
 
 // 在任何通用参数校验之前，先处理特殊动作
-$action = (string)($_REQUEST['action'] ?? '');
+$action = (string)($_POST['action'] ?? $_GET['action'] ?? '');
 if ($action === 'render_card') {
     header('Content-Type: text/html; charset=utf-8');
 
@@ -77,9 +77,12 @@ if ($action === 'render_card') {
 }
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
+$_cors = cors_origin();
+if ($_cors !== '') header('Access-Control-Allow-Origin: ' . $_cors);
+header('Vary: Origin');
 header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, X-API-Key, Authorization, X-Requested-With');
+unset($_cors);
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     http_response_code(204);

@@ -32,10 +32,10 @@ use Throwable;
  * Disabled when
  *   • SAPI is cli / cli-server (worker.php loads bootstrap.php; we
  *     must not recurse).
- *   • LITEPIC_HEARTBEAT_DISABLED env truthy (1 / true / yes / on).
+ *   • LITEPIC_HEARTBEAT_DISABLED setting truthy (1 / true / yes / on).
  *   • Last drain (any source) was within the interval window.
  *
- * Knobs (env)
+ * Knobs (DB settings table, first boot via migration 008)
  *   LITEPIC_HEARTBEAT_DISABLED            — opt-out switch
  *   LITEPIC_HEARTBEAT_INTERVAL_HOURS=24   — minimum gap between fires
  */
@@ -136,10 +136,8 @@ final class HeartbeatScheduler
 
     private static function isDisabled(): bool
     {
-        $val = $_ENV['LITEPIC_HEARTBEAT_DISABLED']
-            ?? $_SERVER['LITEPIC_HEARTBEAT_DISABLED']
-            ?? getenv('LITEPIC_HEARTBEAT_DISABLED');
-        return in_array(strtolower((string)$val), ['1', 'true', 'yes', 'on'], true);
+        $val = (string)\LitePic\Core\Config::get('LITEPIC_HEARTBEAT_DISABLED', '');
+        return in_array(strtolower($val), ['1', 'true', 'yes', 'on'], true);
     }
 
     private static function isDrainStale(): bool
@@ -160,10 +158,7 @@ final class HeartbeatScheduler
 
     private static function intervalHours(): int
     {
-        $raw = $_ENV['LITEPIC_HEARTBEAT_INTERVAL_HOURS']
-            ?? $_SERVER['LITEPIC_HEARTBEAT_INTERVAL_HOURS']
-            ?? getenv('LITEPIC_HEARTBEAT_INTERVAL_HOURS');
-        $hours = (int)$raw;
+        $hours = (int)\LitePic\Core\Config::get('LITEPIC_HEARTBEAT_INTERVAL_HOURS', 0);
         return $hours > 0 ? $hours : self::DEFAULT_INTERVAL_HOURS;
     }
 }

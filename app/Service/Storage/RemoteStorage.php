@@ -393,7 +393,7 @@ final class RemoteStorage
         if (!$this->credentialsValid()) {
             return ['success' => false, 'message' => '远程存储配置不完整', 'total' => 0, 'synced' => 0, 'failed' => 0];
         }
-        $images = function_exists('get_uploaded_images') ? (new \LitePic\Repository\ImageRepository())->listIdentifiersSafe() : [];
+        $images = (new \LitePic\Repository\ImageRepository())->listIdentifiersSafe();
         $total = count($images);
         $synced = $failed = 0;
         $errors = [];

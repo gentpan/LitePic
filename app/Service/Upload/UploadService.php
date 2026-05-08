@@ -109,12 +109,9 @@ final class UploadService
         $unit = strtolower(substr($raw, -1));
         $num = (float)$raw;
         if ($num <= 0) return 0;
-        switch ($unit) {
-            case 'p': $num *= 1024;
-            case 't': $num *= 1024;
-            case 'g': $num *= 1024;
-            case 'm': $num *= 1024;
-            case 'k': $num *= 1024;
+        $multipliers = ['k' => 1024, 'm' => 1024 ** 2, 'g' => 1024 ** 3, 't' => 1024 ** 4, 'p' => 1024 ** 5];
+        if (isset($multipliers[$unit])) {
+            $num *= $multipliers[$unit];
         }
         return (int)round($num);
     }

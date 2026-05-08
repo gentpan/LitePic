@@ -248,21 +248,22 @@ final class Config
      * the `settings` table so future writes (which now go to DB) don't
      * silently shadow a stale .env value.
      *
-     * Skips keys that already exist in the settings table — re-running
-     * this is safe and idempotent.
+     * Uses a `_env_seeded` marker in the settings table to ensure this
+     * runs exactly once — migration 008 pre-populates defaults but this
+     * step can still override them with .env values on first boot.
+     *
+     * Safe and idempotent: re-running is a no-op once the marker exists.
      */
     public static function seedFromEnvIfEmpty(): int
     {
         try {
             $repo = new SettingsRepository();
-            $existing = $repo->all();
         } catch (\Throwable $e) {
             return 0;
         }
 
-        // Only seed when the table is genuinely empty — otherwise the
-        // DB is the source of truth and .env is just first-boot debris.
-        if ($existing !== []) {
+        // Already seeded on a previous boot — skip.
+        if ($repo->exists('_env_seeded')) {
             return 0;
         }
 
@@ -274,7 +275,15 @@ final class Config
             $payload[$key] = self::stripQuotes($value);
         }
 
-        if ($payload === []) {
+        // Set the marker regardless — even without .env values we don't
+        // want to re-check on every request.
+        $payload['_env_seeded'] = '1';
+
+        if ($payload === ['_env_seeded' => '1']) {
+            // No .env values to import — just write the marker.
+            try {
+                $repo->set('_env_seeded', '1');
+            } catch (\Throwable $_) {}
             return 0;
         }
 
@@ -287,7 +296,7 @@ final class Config
 
         // Re-warm so this request sees the seeded values.
         self::warmSettings();
-        return count($payload);
+        return count($payload) - 1; // don't count the marker
     }
 
     /**
@@ -327,6 +336,7 @@ final class Config
             'S3_PROVIDER', 'S3_BUCKET', 'S3_REGION', 'S3_ENDPOINT',
             'S3_KEY', 'S3_SECRET', 'S3_PATH_PREFIX', 'S3_PUBLIC_BASE_URL',
             'MANAGED_API_TOKENS_JSON',
+            'CORS_ALLOWED_ORIGINS',
             'DEBUG',
         ];
     }
