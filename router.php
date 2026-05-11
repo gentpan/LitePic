@@ -60,6 +60,14 @@ if (in_array($normalizedPath, $pageRoutes, true)) {
     return true;
 }
 
+// /gallery/page/<n> — 路径化图库分页 URL。
+if (preg_match('#^/gallery/page/([1-9][0-9]*)/?$#', $normalizedPath, $m)) {
+    $_GET['page'] = $m[1];
+    $_SERVER['PHP_SELF'] = '/index.php';
+    require __DIR__ . '/index.php';
+    return true;
+}
+
 // /albums/<id>/edit — 路径化 album 编辑页(id 是数字)
 if (preg_match('#^/albums/(\d+)/edit/?$#', $normalizedPath, $m)) {
     $_GET['album_id'] = $m[1];

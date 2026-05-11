@@ -15,12 +15,20 @@ $view_counter_enabled = \LitePic\Service\Image\ImageServeService::isViewCounterE
 $total_image_requests = $image_repo->totalViews();
 $top_image_rows = $image_repo->topByViews(20);
 $top_images = [];
+$image_info = new \LitePic\Service\Image\ImageInfo($image_repo);
+$max_top_views = 0;
 foreach ($top_image_rows as $row) {
+    $filename = (string)$row['filename'];
+    $info = $image_info->getSafe($filename);
+    $view_count = (int)$row['view_count'];
+    $max_top_views = max($max_top_views, $view_count);
     $top_images[] = [
-        'filename' => $row['filename'],
-        'original_name' => $row['original_name'] !== '' ? $row['original_name'] : $row['filename'],
-        'view_count' => $row['view_count'],
-        'url' => \LitePic\Service\Image\ImageUrl::forIdentifier($row['filename']),
+        'filename' => $filename,
+        'original_name' => $row['original_name'] !== '' ? $row['original_name'] : $filename,
+        'view_count' => $view_count,
+        'url' => \LitePic\Service\Image\ImageUrl::forIdentifier($filename),
+        'thumb_url' => (string)($info['thumb_url'] ?? \LitePic\Service\Image\ImageUrl::forIdentifier($filename)),
+        'format' => (string)($info['format'] ?? strtoupper((string)pathinfo($filename, PATHINFO_EXTENSION))),
         'source_url' => (string)($row['source_url'] ?? ''),
         'source_host' => (string)($row['source_host'] ?? ''),
         'source_count' => (int)($row['source_count'] ?? 0),
@@ -260,51 +268,71 @@ require_once APP_ROOT . '/header.php';
                 </div>
             </div>
 
-            <div class="stats-table stats-table-wide">
-                <h3>图片请求 Top 20</h3>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr><th>图片名字</th><th>图片地址</th><th>请求次数</th><th>请求来源</th></tr>
-                        </thead>
-                        <tbody>
-                        <?php if (empty($top_images)): ?>
-                            <tr>
-                                <td colspan="4">暂无图片请求记录</td>
-                            </tr>
-                        <?php else: ?>
-                            <?php foreach ($top_images as $item): ?>
-                                <tr>
-                                    <td class="stats-image-title" title="<?= htmlspecialchars((string)$item['original_name']) ?>">
-                                        <?= htmlspecialchars((string)$item['original_name']) ?>
-                                    </td>
-                                    <td class="stats-image-name" title="<?= htmlspecialchars((string)$item['filename']) ?>">
-                                        <a href="<?= htmlspecialchars((string)$item['url']) ?>" target="_blank" rel="noopener">
-                                            <?= htmlspecialchars((string)$item['filename']) ?>
+            <div class="stats-table stats-table-wide stats-request-card">
+                <div class="stats-request-head">
+                    <div>
+                        <h3>图片请求 Top 20</h3>
+                        <p>按 PHP 直读统计排序，进度条表示相对榜首热度。</p>
+                    </div>
+                    <span class="stats-request-total"><?= number_format($total_image_requests) ?> 次总请求</span>
+                </div>
+
+                <div class="stats-request-list">
+                    <?php if (empty($top_images)): ?>
+                        <div class="stats-request-empty">
+                            <i class="fa-light fa-chart-simple" aria-hidden="true"></i>
+                            <span>暂无图片请求记录</span>
+                        </div>
+                    <?php else: ?>
+                        <?php foreach ($top_images as $idx => $item): ?>
+                            <?php
+                                $rank = $idx + 1;
+                                $views = (int)$item['view_count'];
+                                $percent = $max_top_views > 0 ? max(4, min(100, (int)round(($views / $max_top_views) * 100))) : 0;
+                                $source_url = (string)$item['source_url'];
+                                $source_label = $source_url !== ''
+                                    ? ((string)$item['source_host'] !== '' ? (string)$item['source_host'] : $source_url)
+                                    : (((int)$item['source_count'] > 0) ? '直接访问 / 无来源' : '未记录来源');
+                            ?>
+                            <article class="stats-request-item">
+                                <div class="stats-request-rank" aria-label="第 <?= $rank ?> 名"><?= $rank ?></div>
+                                <a class="stats-request-thumb" href="<?= htmlspecialchars((string)$item['url']) ?>" target="_blank" rel="noopener" title="打开原图">
+                                    <img src="<?= htmlspecialchars((string)$item['thumb_url']) ?>" alt="" loading="lazy">
+                                </a>
+                                <div class="stats-request-main">
+                                    <div class="stats-request-title-row">
+                                        <a class="stats-request-title" href="<?= htmlspecialchars((string)$item['url']) ?>" target="_blank" rel="noopener" title="<?= htmlspecialchars((string)$item['original_name']) ?>">
+                                            <?= htmlspecialchars((string)$item['original_name']) ?>
                                         </a>
-                                    </td>
-                                    <td class="stats-count-cell">
-                                        <?= number_format((int)$item['view_count']) ?>
-                                    </td>
-                                    <td class="stats-source-cell">
-                                        <?php if ((string)$item['source_url'] === ''): ?>
-                                            <span class="stats-source-muted">
-                                                <?= ((int)$item['source_count'] > 0) ? '直接访问 / 无来源' : '未记录来源' ?>
-                                            </span>
-                                        <?php else: ?>
-                                            <a href="<?= htmlspecialchars((string)$item['source_url']) ?>" target="_blank" rel="noopener" title="<?= htmlspecialchars((string)$item['source_url']) ?>">
-                                                <?= htmlspecialchars((string)$item['source_url']) ?>
+                                        <span class="stats-request-format"><?= htmlspecialchars((string)$item['format']) ?></span>
+                                    </div>
+                                    <a class="stats-request-path" href="<?= htmlspecialchars((string)$item['url']) ?>" target="_blank" rel="noopener" title="<?= htmlspecialchars((string)$item['filename']) ?>">
+                                        <?= htmlspecialchars((string)$item['filename']) ?>
+                                    </a>
+                                    <div class="stats-request-source">
+                                        <i class="fa-light fa-arrow-turn-down-right" aria-hidden="true"></i>
+                                        <?php if ($source_url !== ''): ?>
+                                            <a href="<?= htmlspecialchars($source_url) ?>" target="_blank" rel="noopener" title="<?= htmlspecialchars($source_url) ?>">
+                                                <?= htmlspecialchars($source_label) ?>
                                             </a>
-                                            <?php if ((int)$item['source_count'] > 0): ?>
-                                                <small>来源 <?= number_format((int)$item['source_count']) ?> 次</small>
-                                            <?php endif; ?>
+                                        <?php else: ?>
+                                            <span><?= htmlspecialchars($source_label) ?></span>
                                         <?php endif; ?>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                        </tbody>
-                    </table>
+                                        <?php if ((int)$item['source_count'] > 0): ?>
+                                            <em>来源 <?= number_format((int)$item['source_count']) ?> 次</em>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="stats-request-meter" aria-hidden="true">
+                                        <span style="width: <?= $percent ?>%"></span>
+                                    </div>
+                                </div>
+                                <div class="stats-request-count">
+                                    <strong><?= number_format($views) ?></strong>
+                                    <span>请求</span>
+                                </div>
+                            </article>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>

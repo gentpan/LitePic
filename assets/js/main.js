@@ -79,7 +79,9 @@ window.Pjax = {
             // ?tab=XYZ permutations. Refresh in this mode goes back to
             // the page's default view.
             const soft = link.getAttribute('data-pjax') === 'soft';
-            this.go(link.href, { push: !soft });
+            const preserveScroll = link.getAttribute('data-pjax-scroll') === 'preserve'
+                || !!link.closest('[data-pjax-scroll="preserve"]');
+            this.go(link.href, { push: !soft, preserveScroll });
         });
 
         // Browser back / forward
@@ -97,13 +99,16 @@ window.Pjax = {
     },
 
     async go(url, opts = {}) {
-        const { push = true } = opts;
+        const { push = true, preserveScroll = false } = opts;
         if (this.isNavigating) return; // ignore rapid double-clicks
         const container = document.querySelector(this.containerSelector);
         if (!container) {
             window.location.href = url;
             return;
         }
+        const scrollPosition = preserveScroll
+            ? { x: window.scrollX || 0, y: window.scrollY || 0 }
+            : null;
 
         this.isNavigating = true;
         container.classList.add(this.loadingClass);
@@ -155,8 +160,12 @@ window.Pjax = {
                 history.pushState({ pjax: true }, '', url);
             }
 
-            // Reset scroll to top of the new tab
-            window.scrollTo(0, 0);
+            if (scrollPosition) {
+                window.scrollTo(scrollPosition.x, scrollPosition.y);
+            } else {
+                // Reset scroll to top of the new tab
+                window.scrollTo(0, 0);
+            }
 
             // Notify any subscribers (theme system, nav indicator, etc.)
             document.dispatchEvent(new CustomEvent('pjax:loaded', {
@@ -3317,6 +3326,15 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
         console.error('图库初始化失败:', error);
         window.ImgEt?.Utils?.showNotification?.('初始化失败，请刷新页面重试', 'error');
+    }
+});
+
+document.addEventListener('pjax:loaded', () => {
+    try {
+        GalleryManager.init();
+    } catch (error) {
+        console.error('PJAX 图库初始化失败:', error);
+        window.ImgEt?.Utils?.showNotification?.('图库初始化失败，请刷新页面重试', 'error');
     }
 });
 

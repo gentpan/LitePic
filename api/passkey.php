@@ -79,9 +79,15 @@ try {
             $clientDataJson = \LitePic\Service\Auth\Passkey\WebAuthn::base64UrlDecode($clientDataJsonB64);
             if ($webauthn->verifyAuthentication($credentialId, $authenticatorData, $clientDataJson, $signature)) {
                 // 认证成功，设置管理员 Cookie
+                $sessionSecret = (string)\LitePic\Core\Config::get('ADMIN_SESSION_SECRET', '');
+                if ($sessionSecret === '') {
+                    $sessionSecret = bin2hex(random_bytes(32));
+                    \LitePic\Core\Config::write(['ADMIN_SESSION_SECRET' => $sessionSecret]);
+                }
+
                 setcookie(
                     API_KEY_COOKIE,
-                    hash('sha256', ADMIN_API_KEY),
+                    hash('sha256', $sessionSecret),
                     [
                         'expires' => time() + COOKIE_LIFETIME,
                         'path' => COOKIE_PATH,

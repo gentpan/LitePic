@@ -35,6 +35,13 @@ function resolve_page_for_path(string $path): ?string
         return $routes[$normalized];
     }
 
+    // 图库分页路径化 URL：/gallery/page/4。
+    // 页码仍塞回 $_GET，复用 gallery.php 里原有分页逻辑。
+    if (preg_match('#^/gallery/page/([1-9][0-9]*)$#', $normalized, $m)) {
+        $_GET['page'] = $m[1];
+        return 'gallery';
+    }
+
     // 设置子页面路径化 URL — /settings/<tab> 走同一份 settings.php，
     // 把 tab segment 提取塞进 $_GET，让模板按平时的 ?tab= 逻辑工作。
     if (preg_match('#^/settings/([a-z]+)$#', $normalized, $m)) {
@@ -58,4 +65,3 @@ function resolve_page_for_path(string $path): ?string
 
     return null;
 }
-

@@ -13,15 +13,16 @@ use LitePic\Core\Database;
  *     a single INSERT OR IGNORE per minute. Static guard makes it cheap
  *     even when called repeatedly inside one request.
  *   - {@see series()} — read-side. Returns an array shaped for the
- *     uptime strip widget: a list of segments, an overall percentage,
- *     and the start/end timestamps of the window.
+ *     uptime strip widget. The displayed strip is based on server OS
+ *     uptime, not web-request sampling, so it reflects the machine's
+ *     real boot time.
  *
  * Status semantics:
  *   - up       = 100% of expected pings present
  *   - partial  = some pings present but < 100%
  *   - down     = no pings present in a window we expected to see them
  *   - future   = window hasn't elapsed yet (don't paint as down)
- *   - no_data  = window starts before our first recorded ping (gray)
+ *   - no_data  = uptime source unavailable
  */
 final class LivenessTracker
 {
@@ -42,20 +43,14 @@ final class LivenessTracker
      * Record one ping for the current minute. Safe to call multiple times
      * per request — only the first call hits the DB.
      *
-     * 性能注:这里用 1/8 抽样写入,把每请求一次的写竞争降到 ~12.5%。
-     * uptime 桶的分辨率本身就是「分钟」,只要 60 秒内有 1 个请求落桶,
-     * 这个分钟就被标活;一分钟内通常远不止 8 个请求,抽样不会丢桶。
-     * 上传 burst 时 20 个并发 worker 不再都抢同一个 SQLite 写锁。
+     * 这里不做随机抽样：UPTIME 条的粒度就是分钟,INSERT OR IGNORE
+     * 会把同一分钟的并发请求压成一条记录。这样低访问量后台也不会
+     * 因为抽样没命中而出现“假离线”。
      */
     public static function recordOnce(): void
     {
         if (self::$recorded) return;
         self::$recorded = true;
-
-        // 1/8 抽样 — 用 random_int 确保密码学级随机度(虽然这里只是写入抽样)。
-        // mt_rand 也行但 random_int 更适合默认。负载下浪费的 random_int 调用
-        // 微秒级,不构成新的瓶颈。
-        if (random_int(1, 8) !== 1) return;
 
         try {
             $bucket = self::bucketMinute(time());
@@ -87,6 +82,11 @@ final class LivenessTracker
         $now = time();
         $endAt = self::alignToBoundary($now, $segmentSeconds);
         $startAt = $endAt - ($segmentCount * $segmentSeconds);
+
+        $serverUptime = (new ServerInfo())->uptimeSeconds();
+        if ($serverUptime !== null && $serverUptime >= 0) {
+            return $this->seriesFromServerUptime($range, $startAt, $endAt, $segmentSeconds, $segmentCount, $now, $serverUptime);
+        }
 
         // Pull all pings in the window in one query — cheap (ranged scan on PK).
         $pdo = Database::connection();
@@ -165,6 +165,79 @@ final class LivenessTracker
 
         $overall = $totalExpected > 0
             ? round(($totalPings / $totalExpected) * 100, 2)
+            : 0.0;
+
+        return [
+            'range'           => $range,
+            'start_at'        => $startAt,
+            'end_at'          => min($endAt, $now),
+            'overall_percent' => $overall,
+            'segments'        => $segments,
+        ];
+    }
+
+    /**
+     * Build strip segments from OS uptime. A segment is up for the portion
+     * after the current boot timestamp; time before boot is treated as down.
+     *
+     * @return array{
+     *   range:string, start_at:int, end_at:int,
+     *   overall_percent:float,
+     *   segments: array<int, array{at:int, until:int, percent:float, status:string}>
+     * }
+     */
+    private function seriesFromServerUptime(
+        string $range,
+        int $startAt,
+        int $endAt,
+        int $segmentSeconds,
+        int $segmentCount,
+        int $now,
+        int $serverUptime
+    ): array {
+        $bootAt = $now - $serverUptime;
+        $segments = [];
+        $totalUp = 0;
+        $totalExpected = 0;
+
+        for ($i = 0; $i < $segmentCount; $i++) {
+            $segStart = $startAt + ($i * $segmentSeconds);
+            $segEnd = $segStart + $segmentSeconds;
+            $effectiveEnd = min($segEnd, $now);
+
+            if ($segStart >= $now) {
+                $status = 'future';
+                $percent = 0.0;
+            } elseif ($effectiveEnd <= $segStart) {
+                $status = 'no_data';
+                $percent = 0.0;
+            } else {
+                $expected = $effectiveEnd - $segStart;
+                $upSeconds = max(0, $effectiveEnd - max($segStart, $bootAt));
+                $percent = $expected > 0 ? round(($upSeconds / $expected) * 100, 2) : 0.0;
+
+                if ($percent >= 100) {
+                    $status = 'up';
+                } elseif ($percent <= 0) {
+                    $status = 'down';
+                } else {
+                    $status = 'partial';
+                }
+
+                $totalUp += $upSeconds;
+                $totalExpected += $expected;
+            }
+
+            $segments[] = [
+                'at'      => $segStart,
+                'until'   => $segEnd,
+                'percent' => $percent,
+                'status'  => $status,
+            ];
+        }
+
+        $overall = $totalExpected > 0
+            ? round(($totalUp / $totalExpected) * 100, 2)
             : 0.0;
 
         return [
