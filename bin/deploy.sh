@@ -124,8 +124,15 @@ SSH "find ${REMOTE} \( -name '._*' -o -name '.DS_Store' \) -type f -delete 2>/de
 
 say "tar 流式同步代码"
 echo "  (从 ${ROOT} 推到 ${USER}@${HOST}:${REMOTE})"
+# chown 必须跳过 BT 面板 / cPanel 这类控制面板锁住的 root-owned 文件
+# (.user.ini、.htaccess、.env)—— 它们要么有 immutable 位,要么有面板的
+# kernel-level 保护。`find -prune` 把这些路径完全排除在 chown 之外,
+# 剩下的 tree 一次性 chown -R 给 www。
 COPYFILE_DISABLE=1 tar -cz "${TAR_EXCLUDES[@]}" -f - . | \
-    SSH "cd ${REMOTE} && tar -xz 2>/dev/null; chown -R ${OWNER} . && echo '  ✓ extracted + chowned'"
+    SSH "cd ${REMOTE} && tar -xz 2>/dev/null && \
+         find . \( -path './.git' -o -name '.user.ini' -o -name '.htaccess' -o -name '.env' \) -prune \
+             -o -exec chown ${OWNER} {} + 2>/dev/null && \
+         echo '  ✓ extracted + chowned (.user.ini/.htaccess/.env 被面板保护,跳过)'"
 
 say "运行迁移(触发 bootstrap.php)"
 SSH "cd ${REMOTE} && sudo -u www php -r 'require __DIR__.\"/bootstrap.php\"; echo \"  ✓ bootstrap OK\n\";'"
