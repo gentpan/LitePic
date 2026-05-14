@@ -70,25 +70,107 @@ final class ImportQueueRepository
     }
 
     /**
+     * Claim the next pending batch atomically and return the claimed rows.
+     *
+     * 同步并发安全:用一次 UPDATE...WHERE id IN (SELECT...) 把一批 pending
+     * 行转成 processing+worker_id,然后 SELECT 出我们刚刚标记的那批。这
+     * 关闭了之前两个并发 drain(in-request shutdown + cron)同时 SELECT 同
+     * 一批 pending 然后双倍处理(双重水印 / 双重远程同步)的窗口。
+     *
+     * Priority DESC first (reprocess from gallery 默认 priority=10 优先于
+     * 普通 upload 任务的 priority=0),同优先级内部按 id ASC 保 FIFO。
+     *
      * @return array<int, array<string, mixed>>
      */
     public function nextBatch(int $limit): array
     {
         $limit = max(1, min(50, $limit));
-        // Priority DESC first (高优先级 任务先跑：reprocess from gallery
-        // 默认 priority=10 跳过普通 upload 任务的 priority=0)，同优先级
-        // 内部按 id ASC 保 FIFO，跟之前行为一致。
-        $stmt = Database::connection()->prepare(
-            'SELECT id, filename, options, status, attempts, last_error, created_at, updated_at
-             FROM import_queue
-             WHERE status = :s
-             ORDER BY priority DESC, id ASC
-             LIMIT :l'
+        $pdo = Database::connection();
+        $workerId = self::workerId();
+        $now = time();
+
+        // Atomic claim — flip exactly $limit pending rows to processing and
+        // tag them with this worker's id. SQLite's UPDATE doesn't support
+        // ORDER BY+LIMIT directly, so we go through a subquery.
+        $claim = $pdo->prepare(
+            'UPDATE import_queue
+                SET status = :proc, worker_id = :wid, updated_at = :t
+              WHERE id IN (
+                  SELECT id FROM import_queue
+                   WHERE status = :pending
+                   ORDER BY priority DESC, id ASC
+                   LIMIT :l
+              )'
         );
-        $stmt->bindValue(':s', self::STATUS_PENDING);
-        $stmt->bindValue(':l', $limit, \PDO::PARAM_INT);
+        $claim->bindValue(':proc', self::STATUS_PROCESSING);
+        $claim->bindValue(':wid', $workerId);
+        $claim->bindValue(':t', $now);
+        $claim->bindValue(':pending', self::STATUS_PENDING);
+        $claim->bindValue(':l', $limit, \PDO::PARAM_INT);
+        $claim->execute();
+        if ($claim->rowCount() === 0) return [];
+
+        // Now read back our claimed rows. Filtering by worker_id+status is
+        // sufficient — even if another worker raced us, SQLite serialised
+        // the UPDATEs so each row carries exactly one worker_id.
+        $stmt = $pdo->prepare(
+            'SELECT id, filename, options, status, attempts, last_error, created_at, updated_at
+               FROM import_queue
+              WHERE worker_id = :wid AND status = :proc
+              ORDER BY priority DESC, id ASC'
+        );
+        $stmt->bindValue(':wid', $workerId);
+        $stmt->bindValue(':proc', self::STATUS_PROCESSING);
         $stmt->execute();
         return array_map([self::class, 'cast'], $stmt->fetchAll() ?: []);
+    }
+
+    /**
+     * Reset rows stuck in `processing` longer than $thresholdSeconds back
+     * to pending. Covers the "worker died mid-task" case — without this,
+     * a crashed PHP-FPM worker would leave its claimed rows orphaned in
+     * processing forever.
+     *
+     * Returns the number of rows reclaimed (mostly for logging).
+     *
+     * Called from {@see \LitePic\Service\Image\ImageProcessor::drain()}
+     * at the start of every drain cycle.
+     */
+    public function reclaimStale(int $thresholdSeconds = 600): int
+    {
+        $cutoff = time() - max(60, $thresholdSeconds);
+        $stmt = Database::connection()->prepare(
+            'UPDATE import_queue
+                SET status = :pending, worker_id = NULL, updated_at = :t
+              WHERE status = :proc AND updated_at < :cut'
+        );
+        $stmt->execute([
+            ':pending' => self::STATUS_PENDING,
+            ':proc'    => self::STATUS_PROCESSING,
+            ':t'       => time(),
+            ':cut'     => $cutoff,
+        ]);
+        return $stmt->rowCount();
+    }
+
+    /**
+     * Per-process worker identity used for row-claim attribution. The
+     * combination of PID + random nonce means two concurrent drains in
+     * separate processes never collide, and an in-request shutdown
+     * drain that reuses this process between requests gets a fresh nonce
+     * each call.
+     */
+    private static function workerId(): string
+    {
+        static $cached = null;
+        if ($cached !== null) return $cached;
+        $pid = function_exists('getmypid') ? (int)getmypid() : 0;
+        try {
+            $rand = bin2hex(random_bytes(6));
+        } catch (\Throwable $_) {
+            $rand = (string)mt_rand();
+        }
+        return $cached = $pid . '-' . $rand;
     }
 
     public function markDone(int $id): void

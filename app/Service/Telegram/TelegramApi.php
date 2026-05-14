@@ -108,15 +108,35 @@ final class TelegramApi
      * Stream a Telegram-hosted file to a local path. Uses cURL to avoid
      * loading the whole image into memory.
      *
-     * Returns true on a 2xx + non-empty file; false otherwise (logs the
-     * failure). The caller owns the destination — we only write to it.
+     * Returns true on a 2xx + non-empty file under the size cap; false
+     * otherwise (logs the failure). The caller owns the destination — we
+     * only write to it.
+     *
+     * Size cap (both Content-Length and rolling-byte-count enforced):
+     *   - CURLOPT_MAXFILESIZE aborts before the body starts if the
+     *     server-advertised size exceeds the cap.
+     *   - CURLOPT_PROGRESSFUNCTION aborts mid-transfer if the actual
+     *     download exceeds the cap (covers servers that lie about
+     *     Content-Length or send chunked transfer-encoding).
+     *
+     * Default cap is MAX_FILE_SIZE from config (matches what UploadService
+     * would reject downstream anyway). Caller can override for batch
+     * import flows that legitimately need a higher ceiling.
      */
-    public function downloadFile(string $filePath, string $destPath): bool
+    public function downloadFile(string $filePath, string $destPath, int $maxBytes = 0): bool
     {
         // Sanity-check the path. Telegram's `file_path` is unquoted —
         // tail-segments may contain "/" — but should never start with one.
         $filePath = ltrim($filePath, '/');
         if ($filePath === '') return false;
+
+        if ($maxBytes <= 0) {
+            // Fall back to MAX_FILE_SIZE (~20MB default) when caller didn't
+            // specify. We refuse to run with an unlimited cap — a malicious
+            // 2GB "image/png" document would fill /tmp before our MIME
+            // sniff ever ran.
+            $maxBytes = defined('MAX_FILE_SIZE') ? max(1, (int)MAX_FILE_SIZE) : (20 * 1024 * 1024);
+        }
 
         $url = self::API_BASE . '/file/bot' . rawurlencode($this->token) . '/' . $filePath;
         // rawurlencode mangled the colon — undo (Telegram's URL is pre-escaped already)
@@ -137,6 +157,14 @@ final class TelegramApi
             CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_FAILONERROR    => true, // 4xx/5xx → curl_exec returns false
             CURLOPT_USERAGENT      => 'LitePic-Telegram/1.0',
+            // Content-Length-based abort.
+            CURLOPT_MAXFILESIZE    => $maxBytes,
+            // Rolling-byte abort — fires every ~100ms with the bytes-so-far.
+            // Returning non-zero from this callback tells cURL to abort.
+            CURLOPT_NOPROGRESS     => false,
+            CURLOPT_PROGRESSFUNCTION => static function ($_res, $dlTotal, $dlNow) use ($maxBytes) {
+                return ((int)$dlTotal > $maxBytes || (int)$dlNow > $maxBytes) ? 1 : 0;
+            },
         ]);
         $ok       = curl_exec($ch);
         $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -149,12 +177,26 @@ final class TelegramApi
                 'http_code' => $httpCode,
                 'curl_err'  => $err,
                 'file_path' => $filePath,
+                'max_bytes' => $maxBytes,
             ]);
             @unlink($destPath);
             return false;
         }
         // Defensive: 0-byte file is a failure even if HTTP 200.
-        if ((int)@filesize($destPath) <= 0) {
+        $writtenBytes = (int)@filesize($destPath);
+        if ($writtenBytes <= 0) {
+            @unlink($destPath);
+            return false;
+        }
+        // Belt-and-braces: confirm the file actually fits under the cap.
+        // CURLOPT_MAXFILESIZE/PROGRESSFUNCTION already covers this, but
+        // if either is unsupported by the runtime's libcurl version we
+        // catch the overshoot here.
+        if ($writtenBytes > $maxBytes) {
+            Logger::warning('Telegram downloadFile exceeded cap', [
+                'written'   => $writtenBytes,
+                'max_bytes' => $maxBytes,
+            ]);
             @unlink($destPath);
             return false;
         }

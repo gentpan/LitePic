@@ -2,6 +2,50 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.6] - 2026-05-15
+
+集中修复 v3.3.4 引入的安全 + 并发问题。整轮代码审查共发现 6 个 P0 / 8 个 P1 / 8 个 P2,本版本全部修复并加配套迁移 + worker 兜底清理。
+
+### Security
+
+- **`/i/<filename>` 现在受相册可见性约束** — 私密 / 密码相册里的图片不再能通过直链绕开密码门。`ImageServeService` 新增 `isAlbumAccessAllowed()` 闸门:图片不在任何相册 / 至少在一个 public / unlisted 相册时正常服务;只在 private 相册时仅管理员可见;只在 password 相册时检查 `lp_album_<key>` HMAC cookie。返回 404(而非 403)避免攻击者通过响应码枚举受限文件名。
+- **Telegram webhook 三层防御真正各自生效** — 之前 header secret 在 header 缺失时直接通过("三层"实际只有两层),URL secret 校验在 feature gate 之前所以禁用部署能被指纹识别,`from.id` 完全可由攻击者伪造。本版本把 URL secret + header secret + feature gate 全部串行化、统一返回 403 + 无 body,把 enabled / disabled / bad-secret 三种状态压成同一种响应。
+- **Telegram 下载加 size cap** — `TelegramApi::downloadFile` 现在用 `CURLOPT_MAXFILESIZE` + `CURLOPT_PROGRESSFUNCTION` 双重防护,白名单内的攻击者也无法借 `image/png` MIME 标签的 2 GB document 把 `sys_get_temp_dir()` 撑爆。默认上限继承 `MAX_FILE_SIZE`。
+- **`UploadService::storeFromPath()` 加路径白名单 + 拒绝 symlink** — 之前任意可读路径都能被吞,一个未来调用方不小心传了 `$_POST['path']` 就成任意文件读取。Telegram 调用方现在显式传 `[sys_get_temp_dir()]`,默认空数组也会回退到 tmp 目录而非"放行一切"。
+- **Webhook 注册成功 banner 不再泄露 URL secret** — `Webhook 已注册,URL: …/webhook/abcd…1234` 替代原来的完整明文 URL,view-source / 浏览器历史里都看不到完整 secret 了。
+
+### Fixed (correctness)
+
+- **导入队列的 row-claim 真正原子化** — `ImportQueueRepository::nextBatch()` 用 `UPDATE ... WHERE id IN (SELECT ... LIMIT)` 一次性把 pending 行 flip 到 `processing` 并打上 `worker_id`,然后只 SELECT 自己标记的那批。in-request shutdown drain 和 cron worker 同时跑时不会再双倍处理。新增 `reclaimStale()` 在每轮 drain 开头把 >10 分钟还在 `processing` 的行还回 `pending`(覆盖 worker 进程中途死亡的孤儿行)。
+- **同步缩略图加 wall-clock + 像素双闸门** — `ThumbnailService::create()` 拒绝 > 60 MP 的图(那些走异步),`createWithImagick()` 设置 `Imagick::RESOURCETYPE_TIME=8s` + `MEMORY=256MB` + `MAP=512MB`。之前一张多页 TIFF 能让上传请求跑 30s+ 直接撞 XHR timeout,前端报失败但服务端记录已写入 → 留下"幽灵"图片。现在 8 秒做不完直接 fail,异步 worker 接手。
+- **缩略图 alpha-skip 改用 MIME 而非扩展名** — 之前 `transparent.png` 改名 `.jpg` 后,thumbnail 跳过 alpha 剥离 → 输出黑底。现在用 `finfo` MIME 判定。
+- **Telegram `/newalbum`,`/use` 加 update_id dedupe** — 新表 `telegram_seen_updates` 通过 PK 上的 `INSERT OR IGNORE` 做幂等闸门。网络抖动导致的 Telegram 24h retry 不再创建重复相册。Photo 上传本身已经有 SHA1 dedupe,这次覆盖剩下的 mutating 命令。
+- **Telegram tempfile 用 try/finally 清理** — 之前 `storeFromPath` 在 Imagick OOM 时抛 throwable,后面的 `@unlink($tmp)` 永远跑不到。`/tmp` 残留垃圾在长期运行的主机上会累积。
+- **Telegram caption-derived filename 加 sanitize** — `basename()` + 去 control / 路径 / shell 元字符 + 120 字符截断。文件存盘名仍由 `PathService::generateFilename()` 生成,这里护的是 `images.original_name` 列在管理 UI 里的 XSS 表面。
+- **`/a/<id>` 在 `php -S` 下不再 404** — `router.php` 跟 `app/Http/router.php` 的正则现在一致:`^/a/(\d+|[a-z][a-z0-9-]{0,49})/?$` + `$_GET['album_key']`(canonical)。nginx 路由和 PHP 内置服务器路由不再分裂。
+- **迁移 012 用 regex 重写 + 写后断言** — 不再依赖字面量空白匹配。之前迁移 010 一改格式,012 就会静默 no-op,slug 仍是 NOT NULL,后续插入失败。现在用 `/\bslug\s+TEXT\b[^,\n)]*?\bNOT\s+NULL\s*/i` 匹配,写完检查 `PRAGMA table_info` 强行抛错。
+- **相册访问计数:从 cookie-only 改成 IP + cookie 双层** — 新表 `album_visit_log(album_id, ip_hash, bucket_at)` 作为 source of truth,cookie 退居 UX 快路径。隐身窗 / 清 cookie 不能再无限刷计数。IP 用 sha1(ip + ADMIN_SESSION_SECRET) 存,不留明文 IP。
+
+### Changed (performance / hygiene)
+
+- **`LivenessTracker::recordOnce()` 按需写入** — 主机 `/proc/uptime` 可读时直接 short-circuit(uptime UI 已经走 OS 数据,无需写表了),每请求一次的 INSERT 减为 0。沙盒主机(BT 锁 /proc / Windows-PHP)仍正常写,后续 `series()` fallback 也仍工作。
+- **`ImageInfo::preload()` 批量预热** — public album / album_edit 渲染 500 张相册之前 = 500 次 `SELECT ... WHERE filename = :f` round-trip。新增 `preload(array $filenames)` 走一条 `IN (...)` 全拉回来塞进 per-instance 缓存。两个页面已切换到新流程。
+- **`ServerInfo::databaseSummary()` 加 per-process 缓存** — 设置页一次渲染期内重复调用不再每次对每表跑 `COUNT(*)`。新请求总是看到新快照。
+- **`/api/v1/uptime` 加 60s 浏览器缓存** — 数据本来就是分钟粒度,后端无谓重算。
+- **浏览器并发上传 20 → 8** — 跟 PHP-FPM warm workers 对齐,避免 9-20 号 XHR 在 accept 队列里等到 timeout。
+- **worker.php 清理三张小表** — 每次 cron 跑完 drain 后顺手清:`liveness_pings` > 90d、`telegram_seen_updates` > 24h(Telegram retry 窗口)、`album_visit_log` > 1h(30min dedupe bucket + 安全裕量)。三张表都不再无界增长。
+
+### UI
+
+- **深色模式 Toast 取消渐变** — 顶部 `notification-process / convert / compress` 和右侧 `notification-container` toast 在深色下都改成纯深色底(`#0f1116`),只保留左侧 4px accent 竖条 + icon 的素色识别。之前的 135deg / 90deg 渐变在 OLED 屏上发糊,侧边 toast 还有个 bug 在深色下渐变到 `#ffffff` 白色。浅色模式渐变完整保留。修了一同处:侧边 toast 在深色下的标题/副本/关闭按钮字色从黑字切到浅字(之前在白色渐变末端能勉强读到,改纯深色底后必须切)。
+
+### Infrastructure
+
+- **`.user.ini` / `nginx-litepic.conf` 与 CHANGELOG 3.3.4 宣传值对齐** — 之前实际是 `upload_max_filesize=20M` / `client_max_body_size 50m`,文档却写 200M。现在统一改成:`upload_max_filesize=200M`、`post_max_size=220M`、`max_input_time=600`、`client_max_body_size 200m`、`client_body_buffer_size 32m`、`client_body_timeout 600s`。
+- **新迁移 014_idempotency_tables.php** — 一次性创建 `telegram_seen_updates` + `album_visit_log` 两张小表,worker 自带 retention。
+- **新仓库类** — `app/Repository/TelegramSeenUpdateRepository.php`、`app/Repository/AlbumVisitLogRepository.php`。
+- **新 helper** — `app/Repository/AlbumImageRepository::visibilityFor()`、`app/Repository/ImageRepository::findMany()`、`app/Service/Image/ImageInfo::preload()`、`app/Service/Upload/UploadService::pathInsideAny()`、`app/Service/Stats/LivenessTracker::osUptimeAvailable()`、`app/Repository/ImportQueueRepository::reclaimStale()`。
+
 ## [3.3.5] - 2026-05-12
 
 ### Changed

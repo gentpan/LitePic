@@ -43,14 +43,24 @@ final class LivenessTracker
      * Record one ping for the current minute. Safe to call multiple times
      * per request — only the first call hits the DB.
      *
-     * 这里不做随机抽样：UPTIME 条的粒度就是分钟,INSERT OR IGNORE
-     * 会把同一分钟的并发请求压成一条记录。这样低访问量后台也不会
-     * 因为抽样没命中而出现“假离线”。
+     * Conditional write: skip the INSERT entirely on hosts where the OS
+     * exposes `/proc/uptime` (or whatever path ServerInfo::uptimeSeconds
+     * can read). In that case the uptime strip reads boot-time from OS,
+     * and `liveness_pings` is never consulted — every write would be
+     * dead I/O + an unauth DoS amplifier (any 404 / favicon probe writes
+     * to SQLite).
+     *
+     * Sandboxed hosts (BT panel locking /proc, Windows-PHP) still need
+     * the request-based fallback, so we keep writing when OS uptime
+     * isn't available. The static `$useOsUptime` cache means one probe
+     * per process, not one per request.
      */
     public static function recordOnce(): void
     {
         if (self::$recorded) return;
         self::$recorded = true;
+
+        if (self::osUptimeAvailable()) return;
 
         try {
             $bucket = self::bucketMinute(time());
@@ -59,6 +69,23 @@ final class LivenessTracker
                 ->execute([':b' => $bucket]);
         } catch (\Throwable $_) {
             // Best-effort — never break a request because uptime tracking failed.
+        }
+    }
+
+    /**
+     * One-shot per-process probe: does OS uptime work on this host?
+     * If yes, {@see series()} reads from there instead of the table,
+     * and {@see recordOnce()} can stop writing entirely.
+     */
+    private static function osUptimeAvailable(): bool
+    {
+        static $cached = null;
+        if ($cached !== null) return $cached;
+        try {
+            $u = (new ServerInfo())->uptimeSeconds();
+            return $cached = ($u !== null && $u >= 0);
+        } catch (\Throwable $_) {
+            return $cached = false;
         }
     }
 

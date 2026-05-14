@@ -36,7 +36,10 @@ if (!$isNew) {
     }
     $albumImageRepo = new \LitePic\Repository\AlbumImageRepository();
     $info = new \LitePic\Service\Image\ImageInfo();
-    foreach ($albumImageRepo->listFilenames($albumId) as $filename) {
+    $filenames = $albumImageRepo->listFilenames($albumId);
+    // 一次 IN (...) 把所有图片元数据拉回来,避免 500 张图 = 500 次 SELECT。
+    $info->preload($filenames);
+    foreach ($filenames as $filename) {
         $meta = $info->getSafe($filename);
         if ($meta === null) continue; // orphan
         $albumImages[] = [

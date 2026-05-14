@@ -298,8 +298,18 @@ final class SettingsController
         $username = is_array($me) ? (string)($me['username'] ?? '') : '';
         $tag = $username !== '' ? " (@{$username})" : '';
 
+        // Mask the secret in the URL we echo back. The full URL ends up in
+        // page HTML, browser history, and view-source — leaking it gives
+        // an attacker the URL-secret half of the two-secret webhook auth.
+        // Telegram itself has the unredacted URL via setWebhook above.
+        $maskedUrl = preg_replace(
+            '#(/telegram/webhook/)([0-9a-f]{4})[0-9a-f]+([0-9a-f]{4})#i',
+            '$1$2…$3',
+            $webhookUrl
+        );
+
         return [
-            'message' => "Webhook 已注册{$tag},URL secret 已轮换。后续 Telegram 消息会推送到 {$webhookUrl}",
+            'message' => "Webhook 已注册{$tag},URL secret 已轮换。后续 Telegram 消息会推送到 {$maskedUrl}",
             'type'    => 'success',
         ];
     }

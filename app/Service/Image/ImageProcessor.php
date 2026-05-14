@@ -24,10 +24,12 @@ use Throwable;
  *   • drainOne()                  — process exactly one task, used in
  *     tests and by the future "process now" UI button.
  *
- * Concurrency: SQLite has BUSY_TIMEOUT for write locking; we let it
- * handle multi-worker safety. Each task is claimed via a single UPDATE
- * (status pending → processing) so two parallel drains can't grab the
- * same row.
+ * Concurrency: each task is claimed via a single atomic UPDATE
+ * (status pending → processing, tagged with this worker's id) inside
+ * {@see \LitePic\Repository\ImportQueueRepository::nextBatch()} — two
+ * parallel drains (in-request shutdown + cron) can't both pull the same
+ * row. Stale claims (worker died mid-task) get reset back to pending at
+ * the top of every drain cycle via reclaimStale().
  */
 final class ImageProcessor
 {
@@ -52,6 +54,19 @@ final class ImageProcessor
         $processed = 0;
         $failed = 0;
         $skipped = 0;
+
+        // 先把上一轮 worker 死亡留下的孤儿行还回 pending — 卡 >10 分钟
+        // 仍在 processing 的几乎一定是 worker 进程已经死了。错的话最多
+        // 也就是慢任务被重做一次,代价可控。
+        try {
+            $reclaimed = $this->queue->reclaimStale(600);
+            if ($reclaimed > 0) {
+                Logger::info('ImageProcessor reclaimed stale rows', ['count' => $reclaimed]);
+            }
+        } catch (Throwable $_) {
+            // Best-effort — a failure here just means we miss a reclaim
+            // cycle. Next drain tries again.
+        }
 
         while ($processed + $failed + $skipped < $maxItems) {
             if ((microtime(true) - $start) >= $maxSeconds) break;

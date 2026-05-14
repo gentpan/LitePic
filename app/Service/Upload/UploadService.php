@@ -83,17 +83,51 @@ final class UploadService
      * accept the source's original filename via parameter rather than from
      * `$_FILES`.
      *
+     * Path safety:
+     *   - Symlinks are always rejected (no follow).
+     *   - `$sourcePath`'s realpath must live inside one of `$allowedPrefixes`.
+     *   - When `$allowedPrefixes` is empty, we default to `sys_get_temp_dir()`.
+     *     This keeps every safe in-tree caller (Telegram webhook) working
+     *     unchanged while making any future "import any file by path"
+     *     caller fail safely until it explicitly broadens the allowlist.
+     *
      * Returns the same shape as `handleSingle()`. On `status === 'success'`
      * the file at `$sourcePath` has been moved into LitePic's storage tree;
      * on any other status the source is left untouched (caller cleans up).
      *
+     * @param string[] $allowedPrefixes Caller-supplied allowlist of absolute
+     *                                  directory prefixes that $sourcePath
+     *                                  is permitted to live under.
      * @return array<string,mixed>
      */
-    public function storeFromPath(string $sourcePath, string $originalName): array
+    public function storeFromPath(string $sourcePath, string $originalName, array $allowedPrefixes = []): array
     {
+        // Reject symlinks before anything else — is_file follows symlinks,
+        // so a `ln -s /etc/hosts.png /tmp/litepic_tg_xxx` would otherwise
+        // be ingested as a perfectly legitimate "I own this file" path.
+        if (is_link($sourcePath)) {
+            return ['status' => 'error', 'message' => "源路径是符号链接,拒绝以避免任意文件读取"];
+        }
         if (!is_file($sourcePath) || !is_readable($sourcePath)) {
             return ['status' => 'error', 'message' => "源文件不存在或不可读：{$sourcePath}"];
         }
+        // Realpath strips any `..` / symlink chasing and gives us the
+        // canonical absolute path. Compare against the allowlist with
+        // a trailing-separator-safe prefix check.
+        $realSource = realpath($sourcePath);
+        if ($realSource === false) {
+            return ['status' => 'error', 'message' => "源路径无法 resolve 到真实文件"];
+        }
+        if ($allowedPrefixes === []) {
+            $tmp = realpath(sys_get_temp_dir());
+            $allowedPrefixes = $tmp !== false ? [$tmp] : [];
+        }
+        if (!self::pathInsideAny($realSource, $allowedPrefixes)) {
+            return ['status' => 'error', 'message' => "源路径不在允许的目录列表内"];
+        }
+        // Continue with the (canonical) path so downstream rename/copy
+        // doesn't get tricked by a path that resolves differently later.
+        $sourcePath = $realSource;
 
         $ext = strtolower((string)pathinfo($originalName, PATHINFO_EXTENSION));
         $allowedExts = defined('ALLOWED_UPLOAD_TYPES') ? ALLOWED_UPLOAD_TYPES : [];
@@ -553,5 +587,27 @@ final class UploadService
     private static function fmt(int $bytes): string
     {
         return function_exists('format_filesize') ? \LitePic\Core\Format::filesize($bytes) : ($bytes . ' B');
+    }
+
+    /**
+     * Check whether `$path` is a descendant of any directory in `$prefixes`.
+     * Both sides are normalised so trailing separators / different
+     * canonical forms don't cause false negatives.
+     *
+     * @param string[] $prefixes
+     */
+    private static function pathInsideAny(string $path, array $prefixes): bool
+    {
+        $path = rtrim($path, DIRECTORY_SEPARATOR);
+        foreach ($prefixes as $prefix) {
+            $prefix = is_string($prefix) ? rtrim($prefix, DIRECTORY_SEPARATOR) : '';
+            if ($prefix === '') continue;
+            // Require either an exact match or a path that continues with
+            // the directory separator — guards against `/tmp/lite` matching
+            // `/tmp/litepic_evil_dir/...` when prefix is `/tmp/lite`.
+            if ($path === $prefix) return true;
+            if (str_starts_with($path, $prefix . DIRECTORY_SEPARATOR)) return true;
+        }
+        return false;
     }
 }

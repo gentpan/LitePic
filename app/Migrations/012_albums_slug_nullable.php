@@ -24,24 +24,47 @@ declare(strict_types=1);
  * Idempotent: bails cleanly when slug is already nullable.
  */
 return function (PDO $pdo): void {
+    // Already nullable? Bail — idempotent.
     foreach ($pdo->query('PRAGMA table_info(albums)')->fetchAll() as $col) {
         if (($col['name'] ?? '') === 'slug' && (int)($col['notnull'] ?? 1) === 0) {
             return;
         }
     }
 
-    // Replace the exact NOT NULL clause on the slug column. The CREATE TABLE
-    // text stored in sqlite_master is whatever the original migration wrote,
-    // verbatim — see migration 010_albums.php.
+    // Read the current CREATE TABLE statement so we can rewrite it. Using a
+    // regex on the actual stored DDL is more robust than the previous
+    // literal-string REPLACE — any whitespace tweak in migration 010 would
+    // have made that REPLACE a silent no-op, leaving slug NOT NULL while
+    // the rest of the app assumes it's nullable.
+    $currentSql = (string)$pdo
+        ->query("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'albums'")
+        ->fetchColumn();
+    if ($currentSql === '') {
+        throw new \RuntimeException('Migration 012: albums table not found in sqlite_master');
+    }
+
+    // Match "slug<whitespace>TEXT<...optional...>NOT NULL<...optional...>"
+    // and strip the NOT NULL clause. Allows for variations in whitespace,
+    // column-level constraint order (UNIQUE before/after NOT NULL), etc.
+    $rewritten = preg_replace(
+        '/(\bslug\s+TEXT\b[^,\n)]*?)\bNOT\s+NULL\s*/i',
+        '$1',
+        $currentSql,
+        1,
+        $count
+    );
+    if ($rewritten === null || $count === 0 || $rewritten === $currentSql) {
+        throw new \RuntimeException(
+            'Migration 012: could not locate slug NOT NULL clause to relax. '
+            . 'sqlite_master.sql for albums: ' . $currentSql
+        );
+    }
+
     $pdo->exec('PRAGMA writable_schema = 1');
     $stmt = $pdo->prepare(
-        "UPDATE sqlite_master
-            SET sql = REPLACE(sql,
-                              'slug            TEXT NOT NULL UNIQUE',
-                              'slug            TEXT UNIQUE')
-          WHERE type = 'table' AND name = 'albums'"
+        "UPDATE sqlite_master SET sql = :sql WHERE type = 'table' AND name = 'albums'"
     );
-    $stmt->execute();
+    $stmt->execute([':sql' => $rewritten]);
     // Bumping schema_version invalidates the per-connection schema cache —
     // without this, `PRAGMA table_info(albums)` (and PDO's prepared-statement
     // metadata) still see the old NOT NULL constraint until the connection
@@ -49,6 +72,22 @@ return function (PDO $pdo): void {
     $currentVersion = (int)$pdo->query('PRAGMA schema_version')->fetchColumn();
     $pdo->exec('PRAGMA schema_version = ' . ($currentVersion + 1));
     $pdo->exec('PRAGMA writable_schema = 0');
+
+    // Post-write assertion — surface failure loudly instead of silently
+    // leaving slug NOT NULL while callers assume otherwise.
+    $stillNotNull = false;
+    foreach ($pdo->query('PRAGMA table_info(albums)')->fetchAll() as $col) {
+        if (($col['name'] ?? '') === 'slug') {
+            $stillNotNull = (int)($col['notnull'] ?? 1) === 1;
+            break;
+        }
+    }
+    if ($stillNotNull) {
+        throw new \RuntimeException(
+            'Migration 012: albums.slug remained NOT NULL after schema rewrite. '
+            . 'Rewritten SQL was: ' . $rewritten
+        );
+    }
 
     // Coerce empty-string slugs to NULL so callers see one canonical
     // "no slug" representation. Pre-existing albums with a slug stay as-is.
