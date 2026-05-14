@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 namespace LitePic\Service\Image;
 
+use LitePic\Repository\AlbumImageRepository;
 use LitePic\Repository\ImageRepository;
+use LitePic\Service\Auth\AuthService;
 use LitePic\Service\Hotlink\HotlinkProtection;
 
 /**
@@ -71,6 +73,19 @@ final class ImageServeService
             return;
         }
 
+        // Album visibility gate — if every album that owns this image is
+        // private/password-protected, refuse to serve directly unless the
+        // requester is admin or carries a matching password cookie. Images
+        // not in any album, or in at least one public/unlisted album, stay
+        // freely fetchable (the "additive tag" intent of album membership).
+        if (!self::isAlbumAccessAllowed($identifier)) {
+            // 404 not 403 — same response as a missing image so attackers
+            // can't enumerate which filenames belong to restricted albums.
+            http_response_code(404);
+            echo 'Image not found';
+            return;
+        }
+
         if (self::isHotlinkEnabled() && !$this->hotlink->isRequestAllowed()) {
             http_response_code(403);
             header('Content-Type: text/plain; charset=utf-8');
@@ -111,6 +126,55 @@ final class ImageServeService
             return;
         }
         readfile($path);
+    }
+
+    /**
+     * Album-membership-based access gate. Returns true if the requester is
+     * allowed to fetch this image:
+     *   - image not in any album → public (current behaviour, unchanged)
+     *   - image in any public/unlisted album → public
+     *   - image only in private/password albums → admin OR matching
+     *     `lp_album_<key>` HMAC cookie required
+     *
+     * Best-effort: any DB error returns true so a broken albums table can't
+     * black-hole the entire image-serving path.
+     */
+    private static function isAlbumAccessAllowed(string $identifier): bool
+    {
+        try {
+            $memberships = (new AlbumImageRepository())->visibilityFor($identifier);
+        } catch (\Throwable $_) {
+            return true;
+        }
+        if ($memberships === []) return true;
+
+        foreach ($memberships as $m) {
+            $v = $m['visibility'];
+            if ($v === 'public' || $v === 'unlisted') return true;
+        }
+        // Every owning album is restricted (private or password). Admin
+        // always wins; otherwise check whether the caller already passed
+        // the password gate for any of these albums (cookie signed by
+        // public_album.php on successful unlock).
+        if ((new AuthService())->isAdmin()) return true;
+
+        $secret = (string)\LitePic\Core\Config::get('ADMIN_SESSION_SECRET', '');
+        if ($secret === '') return false; // no signing secret → no cookie can be valid
+
+        foreach ($memberships as $m) {
+            if ($m['visibility'] !== 'password') continue;
+            $cookieKey = $m['slug'] !== null ? $m['slug'] : (string)$m['id'];
+            $cookieName = 'lp_album_' . $cookieKey;
+            $raw = (string)($_COOKIE[$cookieName] ?? '');
+            if ($raw === '') continue;
+            [$expBlob, $sig] = array_pad(explode('.', $raw, 2), 2, '');
+            if ($sig === '' || !ctype_digit($expBlob)) continue;
+            $expected = hash_hmac('sha256', $cookieKey . ':' . $expBlob, $secret);
+            if (hash_equals($expected, $sig) && (int)$expBlob > time()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

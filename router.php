@@ -76,9 +76,17 @@ if (preg_match('#^/albums/(\d+)/edit/?$#', $normalizedPath, $m)) {
     return true;
 }
 
-// 公开相册页 /a/<slug> — 访客视图,4 级可见性
-if (preg_match('#^/a/([a-z][a-z0-9-]{0,49})/?$#', $normalizedPath, $m)) {
-    $_GET['album_slug'] = $m[1];
+// 公开相册页 /a/<key> — 访客视图,4 级可见性。
+// <key> 可以是 数字 id(默认 — 没填 slug 的相册公网 URL 是 /a/<id>)
+// 或 slug 字符串(管理员手动设置)。这里必须跟 app/Http/router.php:54
+// 保持完全相同的正则,否则 nginx (走 app/Http/router) 和 php -S (走这里)
+// 行为分裂:之前的回归是 /a/3 在 php -S 下 404,nginx 下正常。
+//
+// $_GET 键名也跟 nginx 路径下保持一致(album_key),public_album.php 用
+// $_GET['album_key'] ?? $_GET['album_slug'] 两边都兜底,但 album_key 是
+// canonical 名。
+if (preg_match('#^/a/(\d+|[a-z][a-z0-9-]{0,49})/?$#', $normalizedPath, $m)) {
+    $_GET['album_key'] = $m[1];
     $_SERVER['PHP_SELF'] = '/index.php';
     require __DIR__ . '/index.php';
     return true;

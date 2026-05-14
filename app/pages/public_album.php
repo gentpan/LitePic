@@ -156,12 +156,24 @@ if (!$passwordPassed) {
 }
 
 // ============== 访问计数(防刷)==============
-// 用 session cookie 跟踪同一 IP+album 的 30 分钟去重窗口。
+// 双层去重 — cookie 是 UX 快路径(避免连续刷新都打 DB),SQLite 表是
+// authoritative。之前只有 cookie,导致隐身/清 cookie 后能无限刷计数。
+// (album_id, ip_hash, 30min-bucket) 组合 PK + INSERT OR IGNORE 是单
+// 语句原子检查。
 $visitCookieName = 'lp_album_visit_' . $cookieKey;
+$shouldCount = false;
 if (!isset($_COOKIE[$visitCookieName])) {
+    $visitLog = new \LitePic\Repository\AlbumVisitLogRepository();
+    $clientIp = (string)($_SERVER['REMOTE_ADDR'] ?? '');
     try {
-        $albumRepo->incrementViewCount((int)$album['id']);
-    } catch (\Throwable $_) { /* best-effort */ }
+        $shouldCount = $visitLog->recordVisitIfNew((int)$album['id'], $clientIp);
+    } catch (\Throwable $_) {
+        // best-effort — DB error → fall back to cookie-only behaviour
+        $shouldCount = true;
+    }
+
+    // Cookie still set either way — it's the cheap "skip the DB lookup"
+    // bypass for the same browser, not the security gate.
     setcookie($visitCookieName, '1', [
         'expires'  => time() + 1800,
         'path'     => '/',
@@ -169,6 +181,12 @@ if (!isset($_COOKIE[$visitCookieName])) {
         'httponly' => true,
         'samesite' => 'Lax',
     ]);
+}
+
+if ($shouldCount) {
+    try {
+        $albumRepo->incrementViewCount((int)$album['id']);
+    } catch (\Throwable $_) { /* best-effort */ }
     // 反映在当次渲染里
     $album['view_count']++;
 }
@@ -177,8 +195,14 @@ if (!isset($_COOKIE[$visitCookieName])) {
 $albumImageRepo = new \LitePic\Repository\AlbumImageRepository();
 $info = new \LitePic\Service\Image\ImageInfo();
 
+$filenames = $albumImageRepo->listFilenames((int)$album['id']);
+// 一次性 batch-load DB 行 — 之前每张图都要单独 SELECT,500 张相册等于 500
+// 次往返。preload 用一条 IN (...) 把它们全拉回来塞进 ImageInfo 的进程内
+// 缓存,后续 getSafe() 都是命中缓存。
+$info->preload($filenames);
+
 $images = [];
-foreach ($albumImageRepo->listFilenames((int)$album['id']) as $filename) {
+foreach ($filenames as $filename) {
     $meta = $info->getSafe($filename);
     if ($meta === null) continue; // 跳过孤儿
     $images[] = [

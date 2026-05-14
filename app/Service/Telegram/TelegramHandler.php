@@ -7,6 +7,7 @@ use LitePic\Core\Config;
 use LitePic\Core\Logger;
 use LitePic\Repository\AlbumRepository;
 use LitePic\Repository\ImageRepository;
+use LitePic\Repository\TelegramSeenUpdateRepository;
 use LitePic\Repository\TelegramUserStateRepository;
 use LitePic\Service\Album\AlbumService;
 use LitePic\Service\Image\ImageInfo;
@@ -42,11 +43,16 @@ final class TelegramHandler
 {
     private TelegramApi $api;
     private TelegramUserStateRepository $state;
+    private TelegramSeenUpdateRepository $seen;
 
-    public function __construct(?TelegramApi $api = null, ?TelegramUserStateRepository $state = null)
-    {
+    public function __construct(
+        ?TelegramApi $api = null,
+        ?TelegramUserStateRepository $state = null,
+        ?TelegramSeenUpdateRepository $seen = null
+    ) {
         $this->api   = $api   ?? new TelegramApi();
         $this->state = $state ?? new TelegramUserStateRepository();
+        $this->seen  = $seen  ?? new TelegramSeenUpdateRepository();
     }
 
     /**
@@ -56,6 +62,17 @@ final class TelegramHandler
      */
     public function handle(array $update): void
     {
+        // Idempotency gate — Telegram retries non-2xx for ~24h, so an
+        // ACK delivery failure causes the same update_id to come back.
+        // /newalbum, /use, /album-attach etc. all mutate DB state; without
+        // dedupe a retry creates a second album with the same name. Photo
+        // uploads already have SHA1 dedupe in UploadService.
+        $updateId = isset($update['update_id']) ? (int)$update['update_id'] : 0;
+        if ($updateId > 0 && !$this->seen->markSeen($updateId)) {
+            Logger::info('Telegram webhook: duplicate update_id ignored', ['id' => $updateId]);
+            return;
+        }
+
         // We only listen for `message` updates (configured in setWebhook).
         // edited_message / channel_post / inline_query etc. aren't supported.
         $message = $update['message'] ?? null;
@@ -170,53 +187,68 @@ final class TelegramHandler
             $this->api->sendMessage($chatId, '⚠️ 服务器临时目录不可写,请联系管理员。');
             return;
         }
-        if (!$this->api->downloadFile($remotePath, $tmp)) {
-            @unlink($tmp);
-            $this->api->sendMessage($chatId, '⚠️ 下载文件失败,请稍后再试。');
-            return;
-        }
 
-        // Step 3: hand off to LitePic's storage pipeline. storeFromPath
-        // moves the temp file into its final spot on success and leaves
-        // it for us to clean up on failure.
-        $upload = new UploadService();
-        $result = $upload->storeFromPath($tmp, $originalName);
-        if (is_file($tmp)) @unlink($tmp); // belt-and-braces cleanup
-
-        $status = (string)($result['status'] ?? 'error');
-        if ($status === 'error') {
-            $this->api->sendMessage($chatId,
-                '❌ 上传失败:' . TelegramApi::escapeHtml((string)($result['message'] ?? '未知错误'))
-            );
-            return;
-        }
-
-        $filename = (string)($result['filename'] ?? '');
-        $publicUrl = $this->absoluteUrl((string)($result['url'] ?? ''));
-
-        // Step 4: optional album attach. Per-user > global default.
-        $albumKey = $this->resolveDestinationAlbumKey($userId);
-        $albumNote = '';
-        if ($albumKey !== null && $filename !== '') {
-            $album = (new AlbumRepository())->findByKey($albumKey);
-            if ($album !== null) {
-                $svc = new AlbumService();
-                // addImages is idempotent on duplicates → safe to call.
-                $svc->addImages((int)$album['id'], [$filename]);
-                $albumNote = "\n📁 已加入相册 <b>" . TelegramApi::escapeHtml((string)$album['name']) . "</b>";
+        try {
+            // downloadFile has its own size cap (MAX_FILE_SIZE) — that means
+            // a 2GB "image/png" Document from an allow-listed attacker can no
+            // longer fill /tmp before the MIME sniff in step 3 even fires.
+            if (!$this->api->downloadFile($remotePath, $tmp)) {
+                $this->api->sendMessage($chatId, '⚠️ 下载文件失败(可能超出大小限制),请稍后再试。');
+                return;
             }
+
+            // Step 3: hand off to LitePic's storage pipeline. We pass the
+            // tmp-dir as the only allowed source prefix — storeFromPath
+            // refuses anything outside it (symlinks too), so even if a
+            // future caller passed an attacker-controlled path here, the
+            // ingest stays sandboxed.
+            $tmpDir = realpath(sys_get_temp_dir());
+            $allowedPrefixes = $tmpDir !== false ? [$tmpDir] : [];
+
+            $upload = new UploadService();
+            $result = $upload->storeFromPath($tmp, $originalName, $allowedPrefixes);
+
+            $status = (string)($result['status'] ?? 'error');
+            if ($status === 'error') {
+                $this->api->sendMessage($chatId,
+                    '❌ 上传失败:' . TelegramApi::escapeHtml((string)($result['message'] ?? '未知错误'))
+                );
+                return;
+            }
+
+            $filename = (string)($result['filename'] ?? '');
+            $publicUrl = $this->absoluteUrl((string)($result['url'] ?? ''));
+
+            // Step 4: optional album attach. Per-user > global default.
+            $albumKey = $this->resolveDestinationAlbumKey($userId);
+            $albumNote = '';
+            if ($albumKey !== null && $filename !== '') {
+                $album = (new AlbumRepository())->findByKey($albumKey);
+                if ($album !== null) {
+                    $svc = new AlbumService();
+                    // addImages is idempotent on duplicates → safe to call.
+                    $svc->addImages((int)$album['id'], [$filename]);
+                    $albumNote = "\n📁 已加入相册 <b>" . TelegramApi::escapeHtml((string)$album['name']) . "</b>";
+                }
+            }
+
+            $duplicateNote = $status === 'duplicate' ? "\nℹ️ 这张图之前已上传过,这次没重复存储。" : '';
+
+            $this->api->sendMessage($chatId,
+                ($status === 'duplicate' ? '✅ 已找到这张图' : '✅ 上传成功')
+                . "\n🔗 <a href=\"" . TelegramApi::escapeHtml($publicUrl) . '">'
+                . TelegramApi::escapeHtml($publicUrl) . '</a>'
+                . $albumNote
+                . $duplicateNote,
+                ['disable_web_page_preview' => false]
+            );
+        } finally {
+            // Always clean up tmp on every exit path — success, error,
+            // or any throw inside storeFromPath / Imagick processing.
+            // storeFromPath consumes the file via rename() on success, so
+            // is_file() guards against an "already moved" double-delete.
+            if (is_file($tmp)) @unlink($tmp);
         }
-
-        $duplicateNote = $status === 'duplicate' ? "\nℹ️ 这张图之前已上传过,这次没重复存储。" : '';
-
-        $this->api->sendMessage($chatId,
-            ($status === 'duplicate' ? '✅ 已找到这张图' : '✅ 上传成功')
-            . "\n🔗 <a href=\"" . TelegramApi::escapeHtml($publicUrl) . '">'
-            . TelegramApi::escapeHtml($publicUrl) . '</a>'
-            . $albumNote
-            . $duplicateNote,
-            ['disable_web_page_preview' => false]
-        );
     }
 
     // ==================== command dispatch ====================
@@ -506,13 +538,42 @@ final class TelegramHandler
     /**
      * Telegram doesn't always send a filename. Best-effort: derive from
      * caption (if it looks like a name) or fall back to a timestamp.
+     *
+     * Sanitisation:
+     *   - basename() strips any directory components ("../" or "/etc/x.jpg")
+     *   - whitespace + control chars + path separators removed
+     *   - max length 120 chars (matches the column constraint downstream)
+     *
+     * The on-disk filename is always generated by PathService::generateFilename
+     * regardless of what we return here, so the only attack surface is the
+     * "original_name" column which is later rendered in the admin UI. The
+     * UI does its own htmlspecialchars, but defense-in-depth: don't ship
+     * `<script>` strings through into a DB column even if they're escaped
+     * everywhere they're displayed today.
      */
     private static function guessFilename(string $caption, string $defaultExt): string
     {
         $caption = trim($caption);
-        if ($caption !== '' && preg_match('/\.[a-z0-9]{1,5}$/i', $caption)) {
-            return $caption;
+        if ($caption === '' || !preg_match('/\.[a-z0-9]{1,5}$/i', $caption)) {
+            return 'tg_' . date('Ymd_His') . $defaultExt;
         }
-        return 'tg_' . date('Ymd_His') . $defaultExt;
+        // Strip directory portion, then any control / path-separator / shell
+        // metacharacter that has no business in a stored filename. We keep
+        // unicode (Chinese filenames are common) but drop anything below
+        // 0x20 and the bracket family that's never a real filename.
+        $name = basename($caption);
+        $name = preg_replace('/[\x00-\x1f\x7f\\\\\/<>:"|?*]+/u', '', $name) ?? '';
+        $name = trim($name);
+        if ($name === '' || $name === '.' || $name === '..') {
+            return 'tg_' . date('Ymd_His') . $defaultExt;
+        }
+        // Cap length while preserving the extension — mb_strlen handles
+        // multi-byte names safely.
+        if (mb_strlen($name) > 120) {
+            $ext = (string)pathinfo($name, PATHINFO_EXTENSION);
+            $stem = mb_substr($name, 0, 120 - mb_strlen($ext) - 1);
+            $name = $stem . '.' . $ext;
+        }
+        return $name;
     }
 }

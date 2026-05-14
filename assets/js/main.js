@@ -836,7 +836,7 @@ function initLicenseDialog() {
     trigger.dataset.licenseBound = '1';
     trigger.addEventListener('click', () => {
         if (!window.ImgEt?.DialogManager) return;
-        const version = String(window.LITEPIC_VERSION || '3.3.4');
+        const version = String(window.LITEPIC_VERSION || '3.3.6');
 
         const content = `
             <div class="litepic-license-dialog">
@@ -3352,7 +3352,10 @@ class UploadManager {
         TIMEOUT_LARGE: 180000, // > 10MB: 180秒
         TIMEOUT_SMALL_THRESHOLD: 2 * 1024 * 1024,
         TIMEOUT_MEDIUM_THRESHOLD: 10 * 1024 * 1024,
-        MAX_CONCURRENT: 20, // 最大并发上传数 — 自用图床,带宽是自己的,可调高
+        MAX_CONCURRENT: 8, // 最大并发上传数 — 跟 PHP-FPM warm worker 数对齐
+                            // (3.3.4 曾经设到 20,实测 9-20 号 XHR 在 FPM 队列
+                            // 里等到 timeout。8 是预热的 worker 数,刚好打满
+                            // 不堵塞,也避免一张大图卡 worker 时全队列雪崩。)
         FADE_DURATION: 300, // 动画过渡时间
     };
 

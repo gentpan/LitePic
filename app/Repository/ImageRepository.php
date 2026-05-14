@@ -28,6 +28,41 @@ final class ImageRepository
         return $row === false ? null : self::cast($row);
     }
 
+    /**
+     * Bulk version of {@see find}. Returns a filename-keyed map; missing
+     * filenames map to null. Designed for page-render loops (album view,
+     * gallery) that previously did N×find() = N round-trips on a 500-item
+     * album. One IN(...) query replaces the round-trips.
+     *
+     * @param  array<int,string>           $filenames
+     * @return array<string, array<string,mixed>|null>
+     */
+    public function findMany(array $filenames): array
+    {
+        $unique = array_values(array_unique(array_filter(array_map('strval', $filenames), 'strlen')));
+        if ($unique === []) return [];
+
+        // Initialize all-keys-null so callers can iterate even when some
+        // filenames don't have rows.
+        $out = array_fill_keys($unique, null);
+
+        // SQLite has a high (~999) bound-parameter cap; chunk so we don't
+        // explode on giant albums. 200 is plenty fast for the IN query.
+        foreach (array_chunk($unique, 200) as $chunk) {
+            $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+            $stmt = Database::connection()->prepare(
+                'SELECT ' . self::ALL_COLUMNS . " FROM images WHERE filename IN ($placeholders)"
+            );
+            $stmt->execute($chunk);
+            foreach ($stmt->fetchAll() ?: [] as $row) {
+                $name = (string)($row['filename'] ?? '');
+                if ($name === '') continue;
+                $out[$name] = self::cast($row);
+            }
+        }
+        return $out;
+    }
+
     public function findById(int $id): ?array
     {
         $stmt = Database::connection()->prepare(

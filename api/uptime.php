@@ -47,6 +47,13 @@ if (!(new \LitePic\Service\Auth\AuthService())->isApiRequestAuthorized()) {
     \LitePic\Core\Response::error('权限不足', 403);
 }
 
+// Uptime resolution is minute-level — 60s of browser caching is free
+// fidelity. Stats page polls every 30s; with this header the browser
+// uses the cached response for the second poll instead of round-tripping
+// to LivenessTracker::series() which runs unbounded PRAGMA-table scans
+// on `liveness_pings` (fallback path) on every miss.
+header('Cache-Control: private, max-age=60');
+
 $range = strtolower(trim((string)($_GET['range'] ?? '1d')));
 $series = (new \LitePic\Service\Stats\LivenessTracker())->series($range);
 

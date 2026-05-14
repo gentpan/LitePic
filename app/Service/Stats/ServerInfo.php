@@ -689,6 +689,18 @@ final class ServerInfo
      */
     public function databaseSummary(): array
     {
+        // Per-process cache — settings page re-renders during a single
+        // request would otherwise run COUNT(*) against every table on each
+        // call. The per-table COUNT(*) on a 130k-row table (liveness_pings
+        // on legacy installs) is a full scan; doing it 3× per request when
+        // multiple panels share this data is wasteful.
+        //
+        // Invalidation: process-scoped, so a fresh request always gets
+        // a fresh snapshot — settings UI never goes more than a few seconds
+        // stale relative to actual table sizes.
+        static $cached = null;
+        if ($cached !== null) return $cached;
+
         $path = (defined('APP_ROOT') ? APP_ROOT : dirname(__DIR__, 3)) . '/data/litepic.sqlite';
         $size = is_file($path) ? (int)@filesize($path) : 0;
 
@@ -726,7 +738,7 @@ final class ServerInfo
             // DB not initialised yet — return what we have
         }
 
-        return [
+        return $cached = [
             'path'             => $path,
             'exists'           => is_file($path),
             'size_bytes'       => $size,

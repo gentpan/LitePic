@@ -389,14 +389,16 @@
     color: var(--info);
   }
 
+  /* 深色模式:不要渐变 — 用纯深色底,只在左侧竖条 + icon 上保留素色。
+     之前的 135deg 渐变在 OLED / 高对比度屏上会发糊,改纯色更干净。 */
   html[data-theme="dark"] .notification-item.notification-process,
   html[data-theme="dark"] .notification-item.notification-convert {
-    background: linear-gradient(135deg, rgba(22, 119, 255, 0.18), rgba(15, 17, 22, 0.96));
+    background: rgba(15, 17, 22, 0.96);
     border-color: rgba(22, 119, 255, 0.28);
   }
 
   html[data-theme="dark"] .notification-item.notification-compress {
-    background: linear-gradient(135deg, rgba(34, 197, 94, 0.16), rgba(15, 17, 22, 0.96));
+    background: rgba(15, 17, 22, 0.96);
     border-color: rgba(34, 197, 94, 0.26);
   }
 
@@ -585,15 +587,31 @@
     font-size: 1.05rem;
   }
 
+  /* 深色模式侧边 toast:浅色模式那条 90deg 渐变在深色下会渐变到 #ffffff
+     白色,既显眼又跟整体深色调违和。改成纯深色底 + 左侧 4px 竖条保留
+     accent 色识别。文字也需要切到浅色,否则在深底上看不见(原浅色规则用
+     #2b2f36 黑字)。 */
   html[data-theme="dark"] .notification-container .notification-item {
-    background:
-      linear-gradient(90deg,
-        var(--toast-tint) 0%,
-        var(--toast-tint) 30%,
-        #ffffff 72%,
-        #ffffff 100%);
+    background: rgba(15, 17, 22, 0.96);
     border-left-color: var(--toast-accent);
     box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+  }
+
+  html[data-theme="dark"] .notification-container .notification-copy strong {
+    color: var(--notification-text);
+  }
+
+  html[data-theme="dark"] .notification-container .notification-copy span {
+    color: rgba(230, 238, 248, 0.72);
+  }
+
+  html[data-theme="dark"] .notification-container .notification-close {
+    color: rgba(230, 238, 248, 0.72);
+  }
+
+  html[data-theme="dark"] .notification-container .notification-close:hover {
+    color: var(--toast-accent);
+    background: rgba(255, 255, 255, 0.06);
   }
 
   /* ==========================================================================

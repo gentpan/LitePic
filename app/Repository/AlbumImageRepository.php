@@ -63,6 +63,38 @@ final class AlbumImageRepository
         return $out;
     }
 
+    /**
+     * Same shape as {@see albumsForFilename} but with the album's visibility
+     * tier — used by ImageServeService to gate direct `/i/<filename>` access
+     * against private/password album membership. Splitting the query keeps
+     * the public-facing reverse-lookup (which legitimately needs the name)
+     * from leaking visibility into surfaces that don't need it.
+     *
+     * @return array<int, array{id:int, slug:?string, visibility:string}>
+     */
+    public function visibilityFor(string $filename): array
+    {
+        if ($filename === '') return [];
+        $stmt = Database::connection()->prepare(
+            'SELECT a.id, a.slug, a.visibility
+               FROM album_images ai
+               JOIN albums a ON a.id = ai.album_id
+              WHERE ai.filename = :f'
+        );
+        $stmt->execute([':f' => $filename]);
+        $out = [];
+        foreach ($stmt->fetchAll() ?: [] as $row) {
+            $slug = $row['slug'] ?? null;
+            if ($slug !== null && (string)$slug === '') $slug = null;
+            $out[] = [
+                'id'         => (int)$row['id'],
+                'slug'       => $slug !== null ? (string)$slug : null,
+                'visibility' => (string)$row['visibility'],
+            ];
+        }
+        return $out;
+    }
+
     public function contains(int $albumId, string $filename): bool
     {
         $stmt = Database::connection()->prepare(

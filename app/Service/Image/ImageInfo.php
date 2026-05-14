@@ -17,9 +17,40 @@ final class ImageInfo
 {
     private ImageRepository $repo;
 
+    /**
+     * Per-instance row cache. Pre-warmed by {@see preload} so a page loop
+     * over N filenames avoids N×find() round-trips. Null marks "we asked
+     * the DB and there's no row" vs missing-key "we haven't asked yet".
+     *
+     * @var array<string, array<string,mixed>|null>
+     */
+    private array $rowCache = [];
+
     public function __construct(?ImageRepository $repo = null)
     {
         $this->repo = $repo ?? new ImageRepository();
+    }
+
+    /**
+     * Bulk pre-fetch the underlying DB rows for the given filenames so
+     * subsequent {@see get}/{@see getSafe} calls inside the same loop
+     * don't each hit SQLite. The N+1 in album_edit.php and public_album.php
+     * was 1 SELECT per image × hundreds of images per album.
+     *
+     * @param array<int,string> $filenames
+     */
+    public function preload(array $filenames): void
+    {
+        $todo = [];
+        foreach ($filenames as $name) {
+            $id = PathService::normalizeIdentifier((string)$name);
+            if ($id === '') continue;
+            if (!array_key_exists($id, $this->rowCache)) $todo[] = $id;
+        }
+        if ($todo === []) return;
+        foreach ($this->repo->findMany($todo) as $key => $row) {
+            $this->rowCache[$key] = $row;
+        }
     }
 
     /**
@@ -50,7 +81,12 @@ final class ImageInfo
             return null;
         }
 
-        $row = $this->repo->find($identifier);
+        if (array_key_exists($identifier, $this->rowCache)) {
+            $row = $this->rowCache[$identifier];
+        } else {
+            $row = $this->repo->find($identifier);
+            $this->rowCache[$identifier] = $row;
+        }
 
         $size = $row['size'] ?? 0;
         if ($size <= 0) $size = (int)@filesize($filepath);

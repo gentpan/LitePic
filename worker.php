@@ -98,6 +98,31 @@ try {
 
     $result = (new \LitePic\Service\Image\ImageProcessor())->drain($maxItems, $maxSeconds);
 
+    // 保留窗口外的小表清理 — 防止三张 idempotency / abuse-throttle 表
+    // 无界增长。都是 best-effort,失败只是浪费一点磁盘,不影响主流程。
+    //   - liveness_pings:    > 90d 之外的 ping(只在 ServerInfo::uptimeSeconds
+    //                        不可用、需要 web-request 兜底的沙盒主机上才会写)
+    //   - telegram_seen_updates: > 24h (Telegram retry 窗口)
+    //   - album_visit_log:   > 1h (30min dedupe bucket + 30min 安全裕量)
+    try {
+        $pdo = \LitePic\Core\Database::connection();
+        $pruneTs = time();
+        $pruned = ['liveness' => 0, 'tg_seen' => 0, 'album_visit' => 0];
+
+        $s = $pdo->prepare('DELETE FROM liveness_pings WHERE bucket_at < :cut');
+        $s->execute([':cut' => $pruneTs - (90 * 86400)]);
+        $pruned['liveness'] = $s->rowCount();
+
+        $pruned['tg_seen'] = (new \LitePic\Repository\TelegramSeenUpdateRepository())->prune(86400);
+        $pruned['album_visit'] = (new \LitePic\Repository\AlbumVisitLogRepository())->prune(3600);
+
+        if (!$quiet && array_sum($pruned) > 0) {
+            fwrite(STDOUT, '[' . date('c') . "] worker: pruned liveness={$pruned['liveness']} tg_seen={$pruned['tg_seen']} album_visit={$pruned['album_visit']}\n");
+        }
+    } catch (\Throwable $e) {
+        \LitePic\Core\Logger::error('worker: retention prune failed', ['error' => $e->getMessage()]);
+    }
+
     // 顺便检查一下定时备份 — DatabaseBackup 自己判断"是否到点"，
     // 没到点就立刻返回，到点了就跑一次（VACUUM INTO + 可选 R2 上传 + 修剪旧备份）
     try {
