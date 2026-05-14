@@ -2,11 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [3.3.7] - 2026-05-15
 
 ### Added
 
 - **图库卡片文件名内联重命名** — 双击 `.img-name` 进入编辑态(`contenteditable`),Enter 保存,Esc 取消。后端新 action `rename`,只改 `images.original_name` 列,磁盘上的随机 hash 文件名 + 老链接 + 远程同步 key 都不动。扩展名始终保留原始的(用户输入的后缀会被剥掉)防 MIME 漂移。文件名清洗复用 Telegram caption 的白名单:剥目录段 + 去 control / 路径分隔符 / shell 元字符,最长 120 字符。事件在 `document` 上代理,所以 PJAX 重渲染后的新卡片自动获得行为。
+
+### Tooling
+
+- **`bin/deploy.sh` 一键部署脚本** — 流式 tar 推 + 服务器端快照 + 维护模式 + 触发迁移 + HTTP 自检 + 一键回滚命令。tar excludes 同时挡 macOS 元数据(`._*`、`.DS_Store`)和站点状态(`data/`、`uploads/`、`logs/`、`.env`、`.user.ini`、`.htaccess`)。支持 `--dry-run` / `--skip-build` / `--skip-snapshot`。全部参数 env var 化(`LITEPIC_HOST` / `USER` / `KEY` / `REMOTE` / `OWNER` / `URL`)。背景:之前手动 tar | ssh tar 推到 Linux 时,BSD tar 的 pax 扩展头被 GNU tar 转成 169 个 `._FILENAME` 影子文件落盘,包括 `._index.php` / `._worker.php` 这种会被 nginx 当静态文件 serve 出去的。新脚本同时设 `COPYFILE_DISABLE=1` 防 BSD tar 写元数据,部署前还 SSH 一次兜底清掉服务器残留 `._*`。
 
 ## [3.3.6] - 2026-05-15
 
