@@ -496,6 +496,51 @@ switch ($action) {
         $handle_convert_action($action);
         break;
 
+    case 'rename':
+        // 图库卡片双击文件名 → 输入新名 → Enter 触发。改的是 images.original_name
+        // 列(对外显示名),磁盘上的实际文件名(随机 hash)不动。这样老链接 / 缩略图 /
+        // 远程同步的 key 都不需要重写。扩展名永远保留原始的 — 用户输入的后缀会被丢掉,
+        // 防止把 cat.jpg 改成 cat.php 或类似破坏 MIME 一致性。
+        try {
+            $new_name = trim((string)($_POST['new_name'] ?? ''));
+            if ($new_name === '') {
+                \LitePic\Core\Response::error('新文件名不能为空', 400);
+            }
+            // basename() 剥目录段,然后去掉 control 字符 / 路径分隔符 / shell 元字符
+            // (跟 TelegramHandler::guessFilename 用同一套白名单)。
+            $new_name = basename($new_name);
+            $new_name = preg_replace('/[\x00-\x1f\x7f\\\\\/<>:"|?*]+/u', '', $new_name) ?? '';
+            $new_name = trim($new_name);
+            if ($new_name === '' || $new_name === '.' || $new_name === '..') {
+                \LitePic\Core\Response::error('新文件名不合法', 400);
+            }
+            if (mb_strlen($new_name) > 120) {
+                $new_name = mb_substr($new_name, 0, 120);
+            }
+            // 始终用原始磁盘文件的扩展名 — 用户输入的后缀全部丢掉。
+            // 既防 MIME 漂移,也保证回放下载时浏览器识别正确。
+            $orig_ext = strtolower((string)pathinfo($file, PATHINFO_EXTENSION));
+            $stem = (string)pathinfo($new_name, PATHINFO_FILENAME);
+            if ($stem === '') {
+                \LitePic\Core\Response::error('新文件名去掉扩展名后为空', 400);
+            }
+            $final_name = $orig_ext !== '' ? $stem . '.' . $orig_ext : $stem;
+
+            (new \LitePic\Repository\ImageRepository())->recordOriginalName($file, $final_name);
+
+            \LitePic\Core\Response::success([
+                'message'       => '已重命名',
+                'filename'      => $file,
+                'original_name' => $final_name,
+                // 给前端用的"卡片上显示的那个字符串"(已去掉扩展名)。
+                'display_name'  => $stem,
+            ]);
+        } catch (Exception $e) {
+            error_log("Rename failed for {$file}: " . $e->getMessage());
+            \LitePic\Core\Response::error(\LitePic\Core\Response::safeMessage($e), 500);
+        }
+        break;
+
     case 'regenerate_thumbnail':
         // 从图库卡片右键菜单触发：强制重新生成缩略图（覆盖旧的）。
         // 同步执行，立即返回新缩略图 URL 供前端 cache-bust 刷新。

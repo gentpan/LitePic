@@ -1113,6 +1113,112 @@ document.addEventListener('DOMContentLoaded', initLicenseDialog);
     });
 })();
 
+/* =====================================================================
+ * 图库卡片文件名内联重命名
+ * ---------------------------------------------------------------------
+ *  - 双击 .img-name → 进入 contenteditable=true,全选当前文本
+ *  - Enter → blur 触发保存
+ *  - Esc → 恢复原文本后 blur,不保存
+ *  - blur 时若内容变了则 POST /api/v1/action action=rename
+ *  - 后端只改 images.original_name 列(对外展示名),不动磁盘文件名
+ *  - 扩展名永远保留原始的(后端剥掉用户输入的后缀)
+ *
+ *  事件代理在 document 上挂,因为画廊卡片在 GalleryManager 刷新时会被
+ *  替换。代理保证新卡片自动获得行为,不用每次 attach。
+ * ===================================================================== */
+(function() {
+    document.addEventListener('dblclick', (e) => {
+        const nameEl = e.target.closest?.('.img-card .img-name, .img-box .img-name');
+        if (!nameEl) return;
+        // 已经在编辑中 — 双击是用户在选词,别拦截。
+        if (nameEl.getAttribute('contenteditable') === 'true') return;
+        // 卡片必须在画廊页(有 admin 权限)。upload 页的 .img-box 也有 .img-name,
+        // 但那里 show_select=false 不渲染 .img-info,所以不会命中 — 防御性检查留着。
+        if (!nameEl.closest('.gallery, .upload-grid')) return;
+
+        e.preventDefault();
+        const originalDisplay = nameEl.textContent.trim();
+        nameEl.dataset.originalText = originalDisplay;
+        nameEl.setAttribute('contenteditable', 'true');
+        nameEl.spellcheck = false;
+        nameEl.focus();
+
+        // 全选文本
+        const range = document.createRange();
+        range.selectNodeContents(nameEl);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    });
+
+    document.addEventListener('keydown', (e) => {
+        const nameEl = e.target?.closest?.('.img-name[contenteditable="true"]');
+        if (!nameEl) return;
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            nameEl.blur(); // blur 触发保存
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            nameEl.textContent = nameEl.dataset.originalText || '';
+            nameEl.dataset.cancelled = '1';
+            nameEl.blur();
+        }
+    });
+
+    // blur 不冒泡,但 focusout 冒泡。用 focusout 才能事件代理。
+    document.addEventListener('focusout', async (e) => {
+        const nameEl = e.target;
+        if (!(nameEl instanceof HTMLElement)) return;
+        if (!nameEl.matches?.('.img-name[contenteditable="true"]')) return;
+
+        nameEl.removeAttribute('contenteditable');
+
+        const cancelled = nameEl.dataset.cancelled === '1';
+        delete nameEl.dataset.cancelled;
+
+        const newText = (nameEl.textContent || '').trim();
+        const oldText = nameEl.dataset.originalText || '';
+        delete nameEl.dataset.originalText;
+
+        // 取消 / 没动 / 清空 → 直接回滚显示
+        if (cancelled || newText === '' || newText === oldText) {
+            nameEl.textContent = oldText;
+            return;
+        }
+
+        const card = nameEl.closest('.img-card, .img-box');
+        const filename = card?.dataset?.filename || '';
+        if (!filename) {
+            nameEl.textContent = oldText;
+            return;
+        }
+
+        try {
+            const result = await ApiService.request('/api/v1/action', {
+                action: 'rename',
+                file: filename,
+                new_name: newText,
+                csrf_token: window.CSRF_TOKEN || ''
+            }, { method: 'POST' });
+
+            // 后端权威 — 用 display_name(已去扩展名)更新卡片显示,
+            // 用 original_name(含扩展名)更新 title hover 提示。
+            const display = (result && result.display_name) || newText;
+            const fullName = (result && result.original_name) || display;
+            nameEl.textContent = display;
+            const row = nameEl.closest('.img-name-row');
+            const named = row?.querySelector('.img-name');
+            if (named) named.title = fullName;
+
+            window.ImgEt?.Utils?.showNotification?.('已重命名为 ' + display, 'success');
+        } catch (err) {
+            nameEl.textContent = oldText;
+            const msg = (err && err.message) ? err.message : '请稍后重试';
+            window.ImgEt?.Utils?.showNotification?.('重命名失败:' + msg, 'error');
+        }
+    });
+})();
+
 /* ---------------------------
    主题切换（Footer 按钮逻辑）
    - 存储: localStorage.siteTheme = 'system'|'light'|'dark'

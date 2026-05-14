@@ -365,6 +365,34 @@
     line-height: 1.28;
     text-overflow: ellipsis;
     white-space: nowrap;
+    /* 双击可改 — hover 时给个虚线下划线提示。光标只在 hover 时变 text,
+       否则点删除按钮的瞬间扫过文件名时光标会闪。 */
+    border-bottom: 1px dashed transparent;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+  }
+
+  .img-name:hover {
+    cursor: text;
+    border-bottom-color: color-mix(in srgb, var(--border-color) 80%, transparent);
+  }
+
+  /* 编辑态:contenteditable=true。允许横向滚动看长名,加 primary 色描边 */
+  .img-name[contenteditable="true"] {
+    overflow-x: auto;
+    overflow-y: hidden;
+    text-overflow: clip;
+    background: rgba(22, 119, 255, 0.06);
+    border-bottom: 1px solid var(--primary);
+    outline: none;
+    cursor: text;
+  }
+
+  .img-name[contenteditable="true"]::-webkit-scrollbar {
+    height: 2px;
+  }
+
+  html[data-theme="dark"] .img-name[contenteditable="true"] {
+    background: rgba(22, 119, 255, 0.16);
   }
 
   .img-meta-badge {
