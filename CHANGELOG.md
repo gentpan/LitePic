@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **图库卡片文件名内联重命名** — 双击 `.img-name` 进入编辑态(`contenteditable`),Enter 保存,Esc 取消。后端新 action `rename`,只改 `images.original_name` 列,磁盘上的随机 hash 文件名 + 老链接 + 远程同步 key 都不动。扩展名始终保留原始的(用户输入的后缀会被剥掉)防 MIME 漂移。文件名清洗复用 Telegram caption 的白名单:剥目录段 + 去 control / 路径分隔符 / shell 元字符,最长 120 字符。事件在 `document` 上代理,所以 PJAX 重渲染后的新卡片自动获得行为。
+
 ## [3.3.6] - 2026-05-15
 
 集中修复 v3.3.4 引入的安全 + 并发问题。整轮代码审查共发现 6 个 P0 / 8 个 P1 / 8 个 P2,本版本全部修复并加配套迁移 + worker 兜底清理。
