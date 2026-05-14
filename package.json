@@ -1,6 +1,6 @@
 {
   "name": "litepic",
-  "version": "3.3.6",
+  "version": "3.3.7",
   "description": "LitePic - 轻量级自托管图床系统",
   "scripts": {
     "build:css": "npx @tailwindcss/cli -i ./assets/css/tailwind.css -o ./assets/css/main.css --minify",
