@@ -61,6 +61,10 @@ if ($raw_files === null) {
 }
 
 $files = \LitePic\Service\Upload\UploadService::normaliseFilesArray($raw_files);
+$maxFiles = defined('UPLOAD_MAX_FILES') ? (int)UPLOAD_MAX_FILES : 100;
+if (count($files) > $maxFiles) {
+    \LitePic\Core\Response::error('单次上传文件数量超过后台上限（当前 ' . $maxFiles . ' 个）', 413);
+}
 $results = (new \LitePic\Service\Upload\UploadService())->handle($files);
 
 /*

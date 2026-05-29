@@ -27,6 +27,8 @@ return function (PDO $pdo): void {
 
         // ---- Upload ----
         'MAX_FILE_SIZE_MB'              => '20',
+        'UPLOAD_MAX_FILES'              => '100',
+        'UPLOAD_MAX_CONCURRENT'         => '3',
         'UPLOAD_ALLOWED_TYPES'          => 'jpg,jpeg,png,gif,webp,avif,ico,svg,bmp,tiff,tif',
         'IMAGE_PROCESS_MAX_PIXELS'      => '100000000',
 

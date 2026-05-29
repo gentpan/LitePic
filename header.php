@@ -4,6 +4,12 @@ declare(strict_types=1);
 \LitePic\Core\Session::start();
 
 $is_logged_in = (new \LitePic\Service\Auth\AuthService())->isAdmin();
+if (!headers_sent()) {
+    header('Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
+    header('Vary: Cookie');
+}
 $document_title = isset($html_title) && trim((string)$html_title) !== ''
     ? trim((string)$html_title)
     : ((isset($page_title) && trim((string)$page_title) !== '' ? trim((string)$page_title) . ' - ' : '') . SITE_NAME);

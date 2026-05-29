@@ -23,14 +23,7 @@ $action = isset($data['action']) ? (string)$data['action'] : '';
 
 // ---- 退出登录 ----------------------------------------------------------
 if ($action === 'logout') {
-    setcookie(API_KEY_COOKIE, '', [
-        'expires' => time() - 3600,
-        'path' => COOKIE_PATH,
-        'domain' => COOKIE_DOMAIN,
-        'secure' => COOKIE_SECURE,
-        'httponly' => COOKIE_HTTPONLY,
-        'samesite' => COOKIE_SAMESITE,
-    ]);
+    \LitePic\Service\Auth\AuthService::clearAdminCookie();
     if (session_status() !== PHP_SESSION_ACTIVE) session_start();
     session_destroy();
 
@@ -100,18 +93,7 @@ if ($action === 'change_password') {
     }
 
     // 续签 cookie，让用户保持登录态
-    setcookie(
-        API_KEY_COOKIE,
-        hash('sha256', $newSecret),
-        [
-            'expires' => time() + COOKIE_LIFETIME,
-            'path' => COOKIE_PATH,
-            'domain' => COOKIE_DOMAIN,
-            'secure' => COOKIE_SECURE,
-            'httponly' => COOKIE_HTTPONLY,
-            'samesite' => COOKIE_SAMESITE,
-        ]
-    );
+    \LitePic\Service\Auth\AuthService::issueAdminCookie($newSecret);
 
     \LitePic\Core\Response::success([
         'message' => '密码修改成功',
@@ -143,18 +125,7 @@ if (isset($data['apiKey'])) {
             \LitePic\Core\Config::write(['ADMIN_PASSWORD_HASH' => $newHash]);
         }
 
-        setcookie(
-            API_KEY_COOKIE,
-            hash('sha256', $sessionSecret),
-            [
-                'expires' => time() + COOKIE_LIFETIME,
-                'path' => COOKIE_PATH,
-                'domain' => COOKIE_DOMAIN,
-                'secure' => COOKIE_SECURE,
-                'httponly' => COOKIE_HTTPONLY,
-                'samesite' => COOKIE_SAMESITE,
-            ]
-        );
+        \LitePic\Service\Auth\AuthService::issueAdminCookie($sessionSecret);
 
         // 是否仍在使用默认密码 — 是则要求修改
         $mustChange = defined('DEFAULT_ADMIN_API_KEY')

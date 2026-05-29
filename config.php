@@ -62,13 +62,15 @@ if (!function_exists('env_csv')) {
 
 $is_https = (
     (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
+    (strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https') ||
+    (strtolower((string)($_SERVER['HTTP_X_FORWARDED_SSL'] ?? '')) === 'on') ||
     (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443)
 );
 $default_host = $_SERVER['HTTP_HOST'] ?? 'localhost:8080';
 $default_scheme = $is_https ? 'https' : 'http';
 
 // 基础配置
-define('LITEPIC_VERSION', '3.3.7');
+define('LITEPIC_VERSION', '3.3.8');
 define('SITE_NAME', env_value('SITE_NAME', 'LitePic'));
 define('SITE_DESCRIPTION', env_value('SITE_DESCRIPTION', '轻量级图床程序'));
 define('SITE_VERSION', LITEPIC_VERSION);
@@ -136,6 +138,8 @@ if (empty($allowed_upload_types)) {
 }
 define('ALLOWED_UPLOAD_TYPES', $allowed_upload_types);
 define('MAX_FILE_SIZE', max(1, (int)env_value('MAX_FILE_SIZE_MB', 20)) * 1024 * 1024);
+define('UPLOAD_MAX_FILES', max(1, min(500, (int)env_value('UPLOAD_MAX_FILES', 100))));
+define('UPLOAD_MAX_CONCURRENT', max(1, min(10, (int)env_value('UPLOAD_MAX_CONCURRENT', 3))));
 define('MIN_IMAGE_WIDTH', 20);
 define('MIN_IMAGE_HEIGHT', 20);
 // 单张图最大像素数 — 转换 / 压缩流水线的安全阀。超过这个值的图直接跳过
