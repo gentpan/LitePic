@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.8] - 2026-05-29
+
+### Added
+
+- **上传限制重新回到后台可配置** — 「设置 → 基础 → 上传限制」新增单文件上限、单次队列数量上限、上传并发数三个配置项。保存后写入 SQLite settings，并同步写入 `.user.ini` 的 `upload_max_filesize`、`post_max_size`、`max_file_uploads`。上传页通过 `data-max-size` / `data-max-files` / `data-max-concurrent` 读取后台值，前端队列和后端 API 都会执行同一套限制。
+
+### Changed
+
+- **批量上传默认更稳** — 默认并发从 8 调整为 3，单文件 XHR 超时时间提升到 60 / 180 / 300 秒，适配 PHP 内置服务器、低配 PHP-FPM 和大批量图片上传场景。批量上传进度刷新不再反复重建整个队列 DOM，减少 50+ 图片队列下的浏览器重排和缩略图重复解码。
+- **上传错误提示更具体** — XHR 连接中断时提示检查上传大小限制；服务端返回 413 时明确提示检查 PHP `post_max_size` / Web 服务器 `client_max_body_size`，不再统一显示笼统的“网络错误”。
+
+### Fixed
+
+- **登录态缓存导致首页误判未登录** — 动态页面统一输出 `no-store` 缓存头并对 PJAX 请求禁用缓存，避免登录后点击首页仍显示未登录状态。
+- **后台设置 AJAX 返回 HTML 时前端只显示“格式异常”** — 设置页现在对未登录、CSRF 失效、控制器异常返回结构化 JSON，并在前端解析失败时保留更清晰的错误提示。
+- **UPTIME 30 天 / 90 天切换失效** — `/api/v1/uptime` 改为 no-store 响应，设置页范围切换统一做参数归一化并为请求附加时间戳，避免浏览器缓存旧区间数据。
+
 ## [3.3.7] - 2026-05-15
 
 ### Added

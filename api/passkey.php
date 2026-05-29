@@ -85,18 +85,7 @@ try {
                     \LitePic\Core\Config::write(['ADMIN_SESSION_SECRET' => $sessionSecret]);
                 }
 
-                setcookie(
-                    API_KEY_COOKIE,
-                    hash('sha256', $sessionSecret),
-                    [
-                        'expires' => time() + COOKIE_LIFETIME,
-                        'path' => COOKIE_PATH,
-                        'domain' => COOKIE_DOMAIN,
-                        'secure' => COOKIE_SECURE,
-                        'httponly' => COOKIE_HTTPONLY,
-                        'samesite' => COOKIE_SAMESITE
-                    ]
-                );
+                \LitePic\Service\Auth\AuthService::issueAdminCookie($sessionSecret);
                 \LitePic\Core\Response::success(['message' => 'Passkey 登录成功']);
             } else {
                 \LitePic\Core\Response::error('Passkey 验证失败', 401);

@@ -550,10 +550,14 @@ final class SettingsController
         // Site identity + upload limits
         $siteName = trim((string)($_POST['site_name'] ?? SITE_NAME));
         $siteDescription = trim((string)($_POST['site_description'] ?? SITE_DESCRIPTION));
-        $maxFileSizeMb = max(1, min(50, (int)($_POST['max_file_size_mb'] ?? (int)round(MAX_FILE_SIZE / 1024 / 1024))));
+        $maxFileSizeMb = max(1, min(2048, (int)($_POST['max_file_size_mb'] ?? (int)round(MAX_FILE_SIZE / 1024 / 1024))));
+        $uploadMaxFiles = max(1, min(500, (int)($_POST['upload_max_files'] ?? (defined('UPLOAD_MAX_FILES') ? UPLOAD_MAX_FILES : 100))));
+        $uploadMaxConcurrent = max(1, min(10, (int)($_POST['upload_max_concurrent'] ?? (defined('UPLOAD_MAX_CONCURRENT') ? UPLOAD_MAX_CONCURRENT : 3))));
         $allowedTypes = $this->parseAllowedUploadTypes($warnings);
         $isHttps = (
             (!empty($_SERVER['HTTPS']) && (string)$_SERVER['HTTPS'] !== 'off') ||
+            (strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https') ||
+            (strtolower((string)($_SERVER['HTTP_X_FORWARDED_SSL'] ?? '')) === 'on') ||
             (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443)
         );
         // ADMIN_API_KEY 已不再随主设置表单提交（改由 /api/auth.php 的
@@ -668,6 +672,8 @@ final class SettingsController
             'SITE_NAME' => Format::envQuote($siteName),
             'SITE_DESCRIPTION' => Format::envQuote($siteDescription),
             'MAX_FILE_SIZE_MB' => (string)$maxFileSizeMb,
+            'UPLOAD_MAX_FILES' => (string)$uploadMaxFiles,
+            'UPLOAD_MAX_CONCURRENT' => (string)$uploadMaxConcurrent,
             'UPLOAD_ALLOWED_TYPES' => implode(',', $allowedTypes),
             'COOKIE_SECURE' => $isHttps ? 'true' : 'false',
             'ADMIN_API_KEY' => Format::envQuote($adminApiKey),
@@ -710,12 +716,12 @@ final class SettingsController
         $iniPath = APP_ROOT . '/.user.ini';
         // post_max_size has to be a touch bigger than upload_max_filesize so multipart
         // headers don't push us over the limit.
-        $postMaxSizeMb = min(52, $maxFileSizeMb + 2);
+        $postMaxSizeMb = max($maxFileSizeMb + 2, (int)ceil($maxFileSizeMb * 1.1));
         $iniWritten = self::writeUserIni($iniPath, [
             'open_basedir' => ServerInfo::openBasedirValue($iniPath),
             'upload_max_filesize' => $maxFileSizeMb . 'M',
             'post_max_size' => $postMaxSizeMb . 'M',
-            'max_file_uploads' => '50',
+            'max_file_uploads' => (string)$uploadMaxFiles,
             'memory_limit' => '256M',
         ]);
 
@@ -740,6 +746,9 @@ final class SettingsController
             'auto_compress_on_upload' => $autoCompressOnUpload,
             'auto_convert_on_upload' => $autoConvertOnUpload,
             'convert_preferred_format' => $convertPreferredFormat,
+            'max_file_size_mb' => $maxFileSizeMb,
+            'upload_max_files' => $uploadMaxFiles,
+            'upload_max_concurrent' => $uploadMaxConcurrent,
             'upload_allowed_types' => $allowedTypes,
             'remote_storage_usage' => $remoteStorageUsage,
             'keep_original_after_process' => $keepOriginalAfterProcess,

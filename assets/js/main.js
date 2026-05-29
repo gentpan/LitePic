@@ -125,6 +125,7 @@ window.Pjax = {
                     'Accept': 'text/html',
                 },
                 credentials: 'same-origin',
+                cache: 'no-store',
                 redirect: 'follow',
             });
 
@@ -3453,15 +3454,13 @@ class UploadManager {
     // 配置常量
     static CONFIG = {
         MAX_SIZE: 20 * 1024 * 1024, // 默认最大文件大小（会被后端传值覆盖）
-        TIMEOUT_SMALL: 30000, // <= 2MB: 30秒
-        TIMEOUT_MEDIUM: 90000, // <= 10MB: 90秒
-        TIMEOUT_LARGE: 180000, // > 10MB: 180秒
+        TIMEOUT_SMALL: 60000, // <= 2MB: 60秒
+        TIMEOUT_MEDIUM: 180000, // <= 10MB: 180秒
+        TIMEOUT_LARGE: 300000, // > 10MB: 300秒
         TIMEOUT_SMALL_THRESHOLD: 2 * 1024 * 1024,
         TIMEOUT_MEDIUM_THRESHOLD: 10 * 1024 * 1024,
-        MAX_CONCURRENT: 8, // 最大并发上传数 — 跟 PHP-FPM warm worker 数对齐
-                            // (3.3.4 曾经设到 20,实测 9-20 号 XHR 在 FPM 队列
-                            // 里等到 timeout。8 是预热的 worker 数,刚好打满
-                            // 不堵塞,也避免一张大图卡 worker 时全队列雪崩。)
+        MAX_FILES: 100,
+        MAX_CONCURRENT: 3, // 批量上传并发数；本地 php -S 和低配 PHP-FPM 更稳
         FADE_DURATION: 300, // 动画过渡时间
     };
 
@@ -3493,6 +3492,8 @@ class UploadManager {
         this.headerUploadDefaultText = this.headerUploadLabel ? this.headerUploadLabel.textContent : '上传';
         this.lastNavigationNoticeAt = 0;
         this.maxSize = UploadManager.CONFIG.MAX_SIZE;
+        this.maxFiles = UploadManager.CONFIG.MAX_FILES;
+        this.maxConcurrent = UploadManager.CONFIG.MAX_CONCURRENT;
         this.autoCompressEnabled = false;
         this.autoConvertEnabled = false;
         this.autoConvertFormat = 'webp';
@@ -3503,6 +3504,18 @@ class UploadManager {
             const parsed = parseInt(this.elements.imageInput.dataset.maxSize, 10);
             if (Number.isFinite(parsed) && parsed > 0) {
                 this.maxSize = parsed;
+            }
+        }
+        if (this.elements.imageInput && this.elements.imageInput.dataset.maxFiles) {
+            const parsed = parseInt(this.elements.imageInput.dataset.maxFiles, 10);
+            if (Number.isFinite(parsed) && parsed > 0) {
+                this.maxFiles = parsed;
+            }
+        }
+        if (this.elements.imageInput && this.elements.imageInput.dataset.maxConcurrent) {
+            const parsed = parseInt(this.elements.imageInput.dataset.maxConcurrent, 10);
+            if (Number.isFinite(parsed) && parsed > 0) {
+                this.maxConcurrent = Math.max(1, Math.min(10, parsed));
             }
         }
         if (this.elements.imageInput) {
@@ -3799,7 +3812,17 @@ class UploadManager {
         const uploadableFiles = await this.filterDuplicateFiles(validFiles);
         if (uploadableFiles.length === 0) return;
 
-        uploadableFiles.forEach(file => this.createUploadRecord(file));
+        const availableSlots = Math.max(0, this.maxFiles - this.uploadRecords.size);
+        if (availableSlots <= 0) {
+            ImgEt.Utils.showNotification(`待上传队列已达到上限（${this.maxFiles} 个）`, 'warning');
+            return;
+        }
+        const filesToQueue = uploadableFiles.slice(0, availableSlots);
+        const skippedByLimit = uploadableFiles.length - filesToQueue.length;
+        filesToQueue.forEach(file => this.createUploadRecord(file));
+        if (skippedByLimit > 0) {
+            ImgEt.Utils.showNotification(`已达到队列上限，跳过 ${skippedByLimit} 个文件`, 'warning');
+        }
         if (this.elements.imageInput) {
             this.elements.imageInput.value = '';
         }
@@ -4557,7 +4580,7 @@ class UploadManager {
     }
 
     processUploadQueue() {
-        while (this.activeUploads < UploadManager.CONFIG.MAX_CONCURRENT && this.uploadQueue.length > 0) {
+        while (this.activeUploads < this.maxConcurrent && this.uploadQueue.length > 0) {
             const record = this.uploadQueue.shift();
             this.uploadSingleFile(record);
         }
@@ -4580,7 +4603,7 @@ class UploadManager {
             settleOnce(false);
         });
         xhr.addEventListener('error', () => {
-            this.handleUploadError(record, '网络错误');
+            this.handleUploadError(record, '连接中断，请检查上传大小限制或稍后重试');
             settleOnce(false);
         });
         xhr.addEventListener('abort', () => {
@@ -4688,7 +4711,6 @@ class UploadManager {
                 progressBar.classList.toggle('danger', isFinished && this.batchFailed > 0);
             }
         }
-        this.renderUploadQueue();
         if (progressPercent) {
             progressPercent.textContent = `${percent}%`;
         }
@@ -4699,7 +4721,7 @@ class UploadManager {
         const activeNames = Array.from(this.uploadRecords.values())
             .filter(record => this.activeRunIds.has(record.id))
             .filter(record => record.state === 'uploading' || record.state === 'processing')
-            .slice(0, UploadManager.CONFIG.MAX_CONCURRENT)
+            .slice(0, this.maxConcurrent)
             .map(record => record.name);
         if (filename) {
             filename.textContent = activeNames.length > 0 ? activeNames.join(' / ') : '批量上传';
@@ -4827,6 +4849,9 @@ class UploadManager {
             }
 
             if (xhr.status !== 200) {
+                if (xhr.status === 413) {
+                    throw new Error('请求体过大，请检查 PHP post_max_size / Nginx client_max_body_size');
+                }
                 throw new Error(response?.message || `服务器错误 (${xhr.status})`);
             }
 

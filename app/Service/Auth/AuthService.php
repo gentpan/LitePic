@@ -10,7 +10,7 @@ use LitePic\Repository\ApiTokenRepository;
  * for the upload API, or for back-office endpoints.
  *
  * Three credentials are supported:
- *   1. Admin cookie (sha256 of ADMIN_API_KEY in the API_KEY_COOKIE)
+ *   1. Admin cookie (sha256 of ADMIN_SESSION_SECRET in the API_KEY_COOKIE)
  *   2. Master API key (ADMIN_API_KEY itself, sent as X-API-Key or Bearer)
  *   3. Per-app tokens issued via ApiTokenRepository
  */
@@ -133,5 +133,47 @@ final class AuthService
             return trim($m[1]);
         }
         return null;
+    }
+
+    public static function adminCookieValue(string $sessionSecret): string
+    {
+        return hash('sha256', $sessionSecret);
+    }
+
+    /**
+     * Single source of truth for the admin login cookie. Keeping this in one
+     * place avoids login / passkey / password-change issuing subtly different
+     * cookies and makes the 30-day lifetime consistent.
+     *
+     * @return array{expires:int,path:string,domain:string,secure:bool,httponly:bool,samesite:string}
+     */
+    public static function adminCookieOptions(?int $expires = null): array
+    {
+        return [
+            'expires' => $expires ?? (time() + (defined('COOKIE_LIFETIME') ? COOKIE_LIFETIME : 2592000)),
+            'path' => defined('COOKIE_PATH') ? COOKIE_PATH : '/',
+            'domain' => defined('COOKIE_DOMAIN') ? COOKIE_DOMAIN : '',
+            'secure' => defined('COOKIE_SECURE') ? COOKIE_SECURE : false,
+            'httponly' => defined('COOKIE_HTTPONLY') ? COOKIE_HTTPONLY : true,
+            'samesite' => defined('COOKIE_SAMESITE') ? COOKIE_SAMESITE : 'Lax',
+        ];
+    }
+
+    public static function issueAdminCookie(string $sessionSecret): void
+    {
+        setcookie(
+            defined('API_KEY_COOKIE') ? API_KEY_COOKIE : 'img_api_key',
+            self::adminCookieValue($sessionSecret),
+            self::adminCookieOptions()
+        );
+    }
+
+    public static function clearAdminCookie(): void
+    {
+        setcookie(
+            defined('API_KEY_COOKIE') ? API_KEY_COOKIE : 'img_api_key',
+            '',
+            self::adminCookieOptions(time() - 3600)
+        );
     }
 }

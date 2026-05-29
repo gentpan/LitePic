@@ -7,6 +7,13 @@ if (!defined('APP_ROOT')) {
 
 
 if (!(new \LitePic\Service\Auth\AuthService())->isAdmin()) {
+    if (\LitePic\Http\Controllers\SettingsController::isAjaxRequest()) {
+        \LitePic\Core\Response::json([
+            'status' => 'error',
+            'type' => 'error',
+            'message' => '登录状态已失效，请重新登录后再保存设置',
+        ], 401);
+    }
     header('Location: /upload');
     exit;
 }
@@ -105,12 +112,40 @@ if (!empty($_COOKIE[SETTINGS_FLASH_COOKIE])) {
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $csrfToken = (string)($_POST['csrf_token'] ?? '');
+    $is_ajax_request = \LitePic\Http\Controllers\SettingsController::isAjaxRequest();
     if (!\LitePic\Core\Csrf::verify($csrfToken)) {
         $message = '安全令牌无效或已过期，请刷新页面后重试';
         $message_type = 'error';
+        if ($is_ajax_request) {
+            \LitePic\Core\Response::json([
+                'status' => 'error',
+                'type' => 'error',
+                'message' => $message,
+                'action' => (string)($_POST['form_action'] ?? 'save_settings'),
+            ], 419);
+        }
     } else {
         $form_action = (string)($_POST['form_action'] ?? 'save_settings');
-        $result = (new \LitePic\Http\Controllers\SettingsController())->dispatch($form_action);
+        try {
+            $result = (new \LitePic\Http\Controllers\SettingsController())->dispatch($form_action);
+        } catch (\Throwable $e) {
+            \LitePic\Core\Logger::error('Settings action failed', [
+                'action' => $form_action,
+                'error' => $e->getMessage(),
+            ]);
+            if ($is_ajax_request) {
+                \LitePic\Core\Response::json([
+                    'status' => 'error',
+                    'type' => 'error',
+                    'message' => \LitePic\Core\Response::safeMessage($e),
+                    'action' => $form_action,
+                ], 500);
+            }
+            $result = [
+                'message' => \LitePic\Core\Response::safeMessage($e),
+                'type' => 'error',
+            ];
+        }
 
         if (($result['message'] ?? '') !== '') {
             $message = (string)$result['message'];
@@ -124,7 +159,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
 
         // AJAX clients (settings JS) take JSON; everyone else gets a PRG redirect.
-        if (\LitePic\Http\Controllers\SettingsController::isAjaxRequest()) {
+        if ($is_ajax_request) {
+            $import_task_status = null;
+            try {
+                $import_task_status = (new \LitePic\Service\Importer\Importer())->queueStatus();
+            } catch (\Throwable $e) {
+                \LitePic\Core\Logger::error('Settings import queue status failed', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
             \LitePic\Core\Response::json([
                 'status' => $message_type === 'success' ? 'success' : 'error',
                 'type' => $message_type === 'success' ? 'success' : 'error',
@@ -133,7 +176,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 'created_token' => $created_token,
                 'saved_settings' => $saved_settings,
                 'compression_key_added' => $result['compression_key_added'] ?? null,
-                'import_task_status' => (new \LitePic\Service\Importer\Importer())->queueStatus(),
+                'import_task_status' => $import_task_status,
             ]);
         }
 
@@ -558,10 +601,25 @@ require_once APP_ROOT . '/header.php';
                                 <i class="fa-light fa-cloud-arrow-up" aria-hidden="true"></i>
                                 <span>上传限制</span>
                             </h3>
-                            <p>允许上传的格式白名单</p>
+                            <p>单文件大小、批量队列数量、上传并发和允许上传的格式白名单</p>
                         </div>
 
                         <div class="settings-grid">
+                            <div class="grid gap-2">
+                                <label for="maxFileSizeMb">单文件上限（MB）</label>
+                                <input id="maxFileSizeMb" type="number" name="max_file_size_mb" min="1" max="2048" step="1" value="<?= (int)round(MAX_FILE_SIZE / 1024 / 1024) ?>">
+                                <span class="settings-field-hint">同时写入 .user.ini 的 upload_max_filesize；线上还需要 Web 服务器限制不低于该值。</span>
+                            </div>
+                            <div class="grid gap-2">
+                                <label for="uploadMaxFiles">单次队列数量上限</label>
+                                <input id="uploadMaxFiles" type="number" name="upload_max_files" min="1" max="500" step="1" value="<?= (int)(defined('UPLOAD_MAX_FILES') ? UPLOAD_MAX_FILES : 100) ?>">
+                                <span class="settings-field-hint">限制一次选择 / 拖拽最多加入多少张，也会写入 PHP max_file_uploads。</span>
+                            </div>
+                            <div class="grid gap-2">
+                                <label for="uploadMaxConcurrent">上传并发数</label>
+                                <input id="uploadMaxConcurrent" type="number" name="upload_max_concurrent" min="1" max="10" step="1" value="<?= (int)(defined('UPLOAD_MAX_CONCURRENT') ? UPLOAD_MAX_CONCURRENT : 3) ?>">
+                                <span class="settings-field-hint">推荐 2-4；服务器性能强可以调高，过高会增加网络错误概率。</span>
+                            </div>
                             <div class="grid gap-2 col-span-2">
                                 <div class="flex items-center justify-between gap-2">
                                     <label for="uploadAllowedTypeNew">允许上传格式</label>
@@ -3241,6 +3299,18 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
             if (Object.prototype.hasOwnProperty.call(settings, 'convert_preferred_format')) {
                 setRadioValue('convert_preferred_format', settings.convert_preferred_format);
             }
+            if (Object.prototype.hasOwnProperty.call(settings, 'max_file_size_mb')) {
+                const input = document.getElementById('maxFileSizeMb');
+                if (input instanceof HTMLInputElement) input.value = String(settings.max_file_size_mb);
+            }
+            if (Object.prototype.hasOwnProperty.call(settings, 'upload_max_files')) {
+                const input = document.getElementById('uploadMaxFiles');
+                if (input instanceof HTMLInputElement) input.value = String(settings.upload_max_files);
+            }
+            if (Object.prototype.hasOwnProperty.call(settings, 'upload_max_concurrent')) {
+                const input = document.getElementById('uploadMaxConcurrent');
+                if (input instanceof HTMLInputElement) input.value = String(settings.upload_max_concurrent);
+            }
             if (Object.prototype.hasOwnProperty.call(settings, 'watermark_type')) {
                 setRadioValue('watermark_type', settings.watermark_type);
             }
@@ -3435,9 +3505,21 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
                         'X-Requested-With': 'XMLHttpRequest',
                     },
                 });
-                const data = await response.json().catch(() => null);
+                const raw = await response.text();
+                let data = null;
+                try {
+                    data = raw ? JSON.parse(raw) : null;
+                } catch (parseError) {
+                    console.error('settings ajax returned non-json', {
+                        status: response.status,
+                        url: response.url,
+                        body: raw.slice(0, 600),
+                    });
+                }
                 if (!data || typeof data !== 'object') {
-                    throw new Error('服务器返回格式异常');
+                    throw new Error(response.status === 419
+                        ? '安全令牌无效或已过期，请刷新页面后重试'
+                        : '服务器返回格式异常，请查看 PHP 错误日志');
                 }
                 if (!options.silentSuccess || data.status !== 'success') {
                     notifySettings(data.message || (data.status === 'success' ? '操作完成' : '操作失败'), data.status === 'success' ? 'success' : 'error');
@@ -3908,8 +3990,13 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
             const startEl = strip.querySelector('[data-uptime-start]');
             const endEl = strip.querySelector('[data-uptime-end]');
             const rangeBtns = strip.querySelectorAll('[data-uptime-range]');
+            const validRanges = new Set(['1h', '1d', '30d', '90d']);
+            const normalizeRange = (range) => {
+                const value = String(range || '').trim().toLowerCase();
+                return validRanges.has(value) ? value : '1d';
+            };
 
-            let currentRange = strip.dataset.uptimeDefault || '1d';
+            let currentRange = normalizeRange(strip.dataset.uptimeDefault || '1d');
             let refreshTimer = null;
 
             // 时间格式化: 同一年只显示 MM-DD HH:MM,跨年显示完整 YYYY-MM-DD
@@ -3960,9 +4047,11 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
             };
 
             const fetchUptime = async (range) => {
+                const nextRange = normalizeRange(range);
                 try {
-                    const res = await fetch(`/api/v1/uptime?range=${encodeURIComponent(range)}`, {
+                    const res = await fetch(`/api/v1/uptime?range=${encodeURIComponent(nextRange)}&_=${Date.now()}`, {
                         credentials: 'same-origin',
+                        cache: 'no-store',
                         headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     });
                     const json = await res.json();
@@ -3978,17 +4067,21 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
             };
 
             const setRange = (range) => {
-                currentRange = range;
+                const nextRange = normalizeRange(range);
+                currentRange = nextRange;
                 rangeBtns.forEach((b) => {
-                    const active = b.dataset.uptimeRange === range;
+                    const active = normalizeRange(b.dataset.uptimeRange) === nextRange;
                     b.classList.toggle('is-active', active);
                     b.setAttribute('aria-selected', active ? 'true' : 'false');
                 });
-                fetchUptime(range);
+                fetchUptime(nextRange);
             };
 
-            rangeBtns.forEach((b) => {
-                b.addEventListener('click', () => setRange(b.dataset.uptimeRange));
+            strip.addEventListener('click', (event) => {
+                const button = event.target.closest('[data-uptime-range]');
+                if (!button || !strip.contains(button)) return;
+                event.preventDefault();
+                setRange(button.dataset.uptimeRange);
             });
 
             setRange(currentRange);
