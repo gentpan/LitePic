@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.4.1] - 2026-06-04
+
+### Fixed
+
+- **更新检查结果被缓存导致检测不到新版** — `/api/v1/update/check` 响应未带禁缓存头,浏览器/前置 CDN 会把「最新版本」结果缓存住(典型:站点挂了 CDN 时,旧的「latest=3.x」长期被缓存,后台一直显示旧版、「立即更新」按钮点不动,误以为是 GitHub 限速或网络问题)。端点改为强制 `Cache-Control: no-store, no-cache`,前端检查请求加 `cache: 'no-store'` + 时间戳破缓存参数,确保每次都拿实时结果。
+
 ## [3.4.0] - 2026-06-03
 
 ### Added
