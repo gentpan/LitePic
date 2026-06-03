@@ -146,7 +146,7 @@ say "HTTP 自检"
 http_code=$(curl -sk -o /dev/null -w "%{http_code}" "${URL}/" || echo "000")
 http_time=$(curl -sk -o /dev/null -w "%{time_total}" "${URL}/" || echo "?")
 echo "  ${URL}/  →  HTTP ${http_code} in ${http_time}s"
-ver=$(curl -sk "${URL}/" | grep -oE 'v3\.3\.[0-9]+' | head -1 || true)
+ver=$(curl -sk "${URL}/" | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
 echo "  页脚版本: ${ver:-未抓到}"
 
 say "完成"
