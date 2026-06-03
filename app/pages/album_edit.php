@@ -69,7 +69,8 @@ if (!$isNew && !empty($album)) {
       data-album-mode="<?= $isNew ? 'new' : 'edit' ?>"
       data-album-id="<?= (int)($album['id'] ?? 0) ?>"
       data-album-slug="<?= htmlspecialchars((string)($album['slug'] ?? '')) ?>"
-      data-album-key="<?= htmlspecialchars($albumUrlKey) ?>">
+      data-album-key="<?= htmlspecialchars($albumUrlKey) ?>"
+      data-album-cover="<?= htmlspecialchars((string)($album['cover_filename'] ?? '')) ?>">
     <section class="page-shell albums-shell">
         <div class="page-shell-header albums-shell-header">
             <h2 class="page-shell-title">
@@ -182,9 +183,17 @@ if (!$isNew && !empty($album)) {
                             <span>相册还是空的，从下方图库挑几张加进来</span>
                         </div>
                     <?php else: ?>
-                        <?php foreach ($albumImages as $img): ?>
-                            <figure class="img-box" data-album-image data-filename="<?= htmlspecialchars($img['filename']) ?>">
+                        <?php foreach ($albumImages as $img):
+                            $isCover = !empty($album['cover_filename']) && (string)$album['cover_filename'] === (string)$img['filename'];
+                        ?>
+                            <figure class="img-box<?= $isCover ? ' is-cover' : '' ?>" data-album-image data-filename="<?= htmlspecialchars($img['filename']) ?>">
                                 <img src="<?= htmlspecialchars($img['thumb_url']) ?>" alt="" loading="lazy">
+                                <button type="button" class="album-cover-btn"
+                                        data-set-cover
+                                        data-filename="<?= htmlspecialchars($img['filename']) ?>"
+                                        title="设为封面" aria-label="设为封面">
+                                    <i class="fa-light fa-star" aria-hidden="true"></i>
+                                </button>
                                 <button type="button" class="btn btn--danger btn--sm"
                                         data-remove-from-album
                                         data-filename="<?= htmlspecialchars($img['filename']) ?>"
@@ -402,6 +411,35 @@ if (!$isNew && !empty($album)) {
             console.error(err);
             btn.disabled = false;
             window.ImgEt?.Utils?.showNotification?.(err.message || '移除失败', 'error');
+        }
+    });
+
+    // ------ 设为封面(点图片左上角星标) ------
+    currentBox?.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-set-cover]');
+        if (!btn) return;
+        const card = btn.closest('[data-album-image]');
+        if (!card || card.classList.contains('is-cover')) return; // 已是封面
+        const filename = card.dataset.filename;
+        btn.disabled = true;
+        try {
+            const res = await fetch(`/api/v1/albums/${encodeURIComponent(albumKey)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf, 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ form_action: 'update', cover_filename: filename }),
+                credentials: 'same-origin',
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data.status !== 'success') throw new Error(data.message || `请求失败 (${res.status})`);
+            currentBox.querySelectorAll('[data-album-image].is-cover').forEach(c => c.classList.remove('is-cover'));
+            card.classList.add('is-cover');
+            root.dataset.albumCover = filename;
+            window.ImgEt?.Utils?.showNotification?.('已设为封面', 'success');
+        } catch (err) {
+            console.error(err);
+            window.ImgEt?.Utils?.showNotification?.(err.message || '设置封面失败', 'error');
+        } finally {
+            btn.disabled = false;
         }
     });
 

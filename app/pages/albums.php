@@ -66,8 +66,10 @@ require_once APP_ROOT . '/header.php';
                 <?php foreach ($albums as $album): ?>
                     <?php
                     $coverUrl = '';
-                    if (!empty($album['cover_filename'])) {
-                        $coverUrl = \LitePic\Service\Image\ImageUrl::thumbnailUrl((string)$album['cover_filename']);
+                    // 优先显式封面,未设置则用相册第一张图(cover_effective)
+                    $coverSrc = (string)($album['cover_effective'] ?? $album['cover_filename'] ?? '');
+                    if ($coverSrc !== '') {
+                        $coverUrl = \LitePic\Service\Image\ImageUrl::thumbnailUrl($coverSrc);
                     }
                     $vis = (string)$album['visibility'];
                     $visLabel = $visibilityLabels[$vis] ?? $vis;

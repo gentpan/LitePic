@@ -14,6 +14,12 @@ use LitePic\Core\Database;
 final class AlbumRepository
 {
     private const SELECT = 'SELECT id, slug, name, description, cover_filename,
+                                   COALESCE(cover_filename,
+                                       (SELECT ai.filename FROM album_images ai
+                                         WHERE ai.album_id = albums.id
+                                         ORDER BY ai.sort_order ASC, ai.added_at ASC
+                                         LIMIT 1)
+                                   ) AS cover_effective,
                                    visibility, password_hash, embed_token,
                                    image_count, view_count, sort_order,
                                    created_at, updated_at
@@ -210,6 +216,8 @@ final class AlbumRepository
             'name'           => (string)$row['name'],
             'description'    => (string)$row['description'],
             'cover_filename' => $row['cover_filename'] !== null ? (string)$row['cover_filename'] : null,
+            // 显式封面 或 第一张图(供列表/公开页兜底显示);可能不存在(旧查询)
+            'cover_effective' => isset($row['cover_effective']) && $row['cover_effective'] !== null ? (string)$row['cover_effective'] : null,
             'visibility'     => (string)$row['visibility'],
             'password_hash'  => $row['password_hash'] !== null ? (string)$row['password_hash'] : null,
             'embed_token'    => (string)$row['embed_token'],
