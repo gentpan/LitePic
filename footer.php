@@ -12,7 +12,7 @@ $footer_is_home_guest = isset($body_class)
         <!-- 左侧：版权 + 站点名称 + Powered by LitePic 徽章 -->
         <div class="footer-copyright text-gray text-sm inline-flex items-center gap-2 flex-wrap">
             <span>&copy; <?= date('Y') ?></span>
-            <span><?= htmlspecialchars(SITE_NAME, ENT_QUOTES, 'UTF-8') ?></span>
+            <span class="font-logo"><?= htmlspecialchars(SITE_NAME, ENT_QUOTES, 'UTF-8') ?></span>
             <span class="opacity-60">&middot;</span>
             <a href="https://litepic.io" target="_blank" rel="noopener noreferrer" class="powered-shield powered-shield--sharp" title="Powered by LitePic">
                 <span class="powered-shield__label">LitePic</span>
