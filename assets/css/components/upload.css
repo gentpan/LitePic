@@ -881,6 +881,10 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    /* 父级 .progress-item 是 grid,网格子项默认 min-width:auto 不会收缩;
+       长文件名(并发多时拼接一长串)会撑破容器。归零后 .filename 的
+       overflow/ellipsis 才能生效,文件名不再溢出。 */
+    min-width: 0;
   }
 
   .filename {
