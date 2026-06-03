@@ -175,8 +175,20 @@
   /* 编辑页内的"相册内 / 从图库挑选"网格用通用 .upload-grid 即可,
      额外只补一些 picker 卡片态 */
   .albums-shell .upload-grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(8, 1fr);
     gap: 10px;
+  }
+
+  /* 窄屏回退,避免 8 列把缩略图挤得太小 */
+  @media (max-width: 1024px) {
+    .albums-shell .upload-grid {
+      grid-template-columns: repeat(6, 1fr);
+    }
+  }
+  @media (max-width: 768px) {
+    .albums-shell .upload-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
   }
 
   .albums-shell .upload-grid .img-box {
@@ -185,6 +197,12 @@
     overflow: hidden;
     border: 1px solid var(--border-color);
     background: color-mix(in srgb, var(--surface) 90%, var(--light) 10%);
+    cursor: pointer;
+    transition: border-color 140ms ease, box-shadow 140ms ease;
+  }
+
+  .albums-shell .upload-grid .img-box:not(.is-in-album):hover {
+    border-color: color-mix(in srgb, var(--primary) 45%, var(--border-color));
   }
 
   .albums-shell .upload-grid .img-box > img {
@@ -199,9 +217,26 @@
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 30%, transparent);
   }
 
+  /* 选中角标 —— 边框高亮之外再给个明确标记(选中态与「已在相册」互斥,
+     共用 ::after 不冲突) */
+  .albums-shell .upload-grid .img-box.is-selected::after {
+    content: "✓ 已选";
+    position: absolute;
+    top: 0;
+    left: 0;
+    padding: 3px 8px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 600;
+    border-bottom-right-radius: 6px;
+    z-index: 2;
+  }
+
   .albums-shell .upload-grid .img-box.is-in-album {
     opacity: 0.55;
     filter: grayscale(60%);
+    cursor: default;
   }
 
   .albums-shell .upload-grid .img-box.is-in-album::after {

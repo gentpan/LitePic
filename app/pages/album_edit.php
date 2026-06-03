@@ -354,7 +354,7 @@ if (!$isNew && !empty($album)) {
     const imageCountSpan = root.querySelector('[data-album-image-count]');
 
     let pickerOffset = 0;
-    const pickerPageSize = 30;
+    const pickerPageSize = 32; // 8 张/行 × 4 行;「加载更多」再加载 4 行
     let selected = new Set();
     const inAlbum = new Set(
         Array.from(currentBox?.querySelectorAll('[data-album-image]') || [])
@@ -428,15 +428,9 @@ if (!$isNew && !empty($album)) {
                 card.className = 'img-box';
                 card.dataset.pickFilename = filename;
                 if (isMember) card.classList.add('is-in-album');
-                card.innerHTML = `
-                    <img src="${img.thumb_url || img.url || ''}" alt="" loading="lazy">
-                    <div class="img-overlay" style="display:flex;align-items:center;justify-content:center;">
-                        <button type="button" class="btn btn--secondary btn--sm" data-pick-toggle
-                                style="position:absolute;inset:auto;${isMember ? 'background:#22c55e;color:#fff;border-color:#22c55e;' : ''}">
-                            <i class="fa-light ${isMember ? 'fa-check' : 'fa-plus'}"></i>
-                            <span>${isMember ? '已在相册' : '选中'}</span>
-                        </button>
-                    </div>`;
+                // 纯图片卡 —— 整图可点选中,状态由 CSS(边框高亮 + 角标)呈现,
+                // 不再放「选中」按钮。已在相册的卡灰显 + 「已在相册」角标且不可点。
+                card.innerHTML = `<img src="${img.thumb_url || img.url || ''}" alt="" loading="lazy">`;
                 pickerBox.appendChild(card);
             }
             pickerOffset += list.length;
@@ -453,46 +447,25 @@ if (!$isNew && !empty($album)) {
     loadLibraryPage();
     loadMoreBtn?.addEventListener('click', () => loadLibraryPage());
 
-    // ------ 选中切换 ------
+    // ------ 选中切换:整张图片可点(已在相册的不可点) ------
     pickerBox?.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-pick-toggle]');
-        if (!btn) return;
-        const card = btn.closest('[data-pick-filename]');
-        if (!card) return;
+        const card = e.target.closest('[data-pick-filename]');
+        if (!card || !pickerBox.contains(card)) return;
         if (card.classList.contains('is-in-album')) return; // 已在相册不可点
         const filename = card.dataset.pickFilename;
         if (selected.has(filename)) {
             selected.delete(filename);
             card.classList.remove('is-selected');
-            btn.style.background = '';
-            btn.style.color = '';
-            btn.style.borderColor = '';
-            btn.querySelector('i').className = 'fa-light fa-plus';
-            btn.querySelector('span').textContent = '选中';
         } else {
             selected.add(filename);
             card.classList.add('is-selected');
-            btn.style.background = 'var(--primary)';
-            btn.style.color = '#fff';
-            btn.style.borderColor = 'var(--primary)';
-            btn.querySelector('i').className = 'fa-light fa-check';
-            btn.querySelector('span').textContent = '已选';
         }
         setSelectedCount();
     });
 
     clearSelBtn?.addEventListener('click', () => {
         selected.forEach(f => {
-            const c = pickerBox?.querySelector(`[data-pick-filename="${CSS.escape(f)}"]`);
-            c?.classList.remove('is-selected');
-            const btn = c?.querySelector('[data-pick-toggle]');
-            if (btn) {
-                btn.style.background = '';
-                btn.style.color = '';
-                btn.style.borderColor = '';
-                btn.querySelector('i').className = 'fa-light fa-plus';
-                btn.querySelector('span').textContent = '选中';
-            }
+            pickerBox?.querySelector(`[data-pick-filename="${CSS.escape(f)}"]`)?.classList.remove('is-selected');
         });
         selected.clear();
         setSelectedCount();
