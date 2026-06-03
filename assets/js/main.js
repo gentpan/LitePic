@@ -5433,7 +5433,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         borderColor: THEME.surface,
                         borderWidth: 2,
                         hoverOffset: 6,
-                        radius: '78%'
+                        radius: '86%'
                     }]
                 },
                 options: {
@@ -5458,31 +5458,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             });
 
-            // 类型占比摘要（插入到图表容器底部）
-            const parent = el.closest('.chart-container');
-            if (parent) {
-                // 清理旧摘要
-                const old = parent.querySelector('.type-summary');
-                if (old) old.remove();
-
-                const total = (t.data || []).reduce((a, b) => a + Number(b || 0), 0) || 1;
-                const pairs = t.labels.map((lab, i) => ({ label: lab, value: Number(t.data[i] || 0) }));
-                pairs.sort((a, b) => b.value - a.value);
-
-                const top = pairs.slice(0, 6);
-                const div = document.createElement('div');
-                div.className = 'type-summary';
-                div.style.marginTop = '8px';
-                div.style.fontSize = '0.9rem';
-                div.innerHTML = top.map(p => {
-                    return `<div class="flex justify-between py-0.5">
-                        <span class="text-gray">${p.label}</span>
-                        <span class="font-semibold">${p.value} (${formatPercent(p.value / total)})</span>
-                    </div>`;
-                }).join('') + `<div class="border-t border-border pt-1.5 mt-1.5 text-gray text-sm">总计: ${pairs.reduce((a,b)=>a+b.value,0)} 张</div>`;
-
-                parent.appendChild(div);
-            }
         }
     } catch (err) { console.error('typeChart error:', err); }
 
@@ -5502,7 +5477,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         borderColor: THEME.surface,
                         borderWidth: 2,
                         hoverOffset: 6,
-                        radius: '92%'
+                        radius: '86%'
                     }]
                 },
                 options: {

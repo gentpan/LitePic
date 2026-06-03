@@ -205,18 +205,27 @@ $images = [];
 foreach ($filenames as $filename) {
     $meta = $info->getSafe($filename);
     if ($meta === null) continue; // 跳过孤儿
+    $title = (string)($meta['original_name'] ?? '');
+    // 隐藏纯哈希文件名当标题(没意义),只在用户重命名过时才展示
+    if ($title !== '' && preg_match('/^[0-9a-f]{16,}$/i', pathinfo($title, PATHINFO_FILENAME))) {
+        $title = '';
+    }
     $images[] = [
         'filename'   => $filename,
         'url'        => \LitePic\Service\Image\ImageUrl::forIdentifier($filename),
         'thumb_url'  => (string)($meta['thumb_url'] ?? \LitePic\Service\Image\ImageUrl::forIdentifier($filename)),
         'dimensions' => (string)($meta['dimensions'] ?? ''),
         'size'       => (int)($meta['size'] ?? 0),
+        'title'      => $title,
+        'date'       => (int)($meta['time'] ?? 0) > 0 ? date('Y-m-d', (int)$meta['time']) : '',
     ];
 }
 
 $coverUrl = '';
-if (!empty($album['cover_filename'])) {
-    $coverUrl = \LitePic\Service\Image\ImageUrl::thumbnailUrl((string)$album['cover_filename']);
+// 优先显式封面,未设置则用相册第一张图(cover_effective)
+$coverSrc = (string)($album['cover_effective'] ?? $album['cover_filename'] ?? '');
+if ($coverSrc !== '') {
+    $coverUrl = \LitePic\Service\Image\ImageUrl::thumbnailUrl($coverSrc);
 }
 
 $page_title = $album['name'];
@@ -239,94 +248,121 @@ $visBadge = match ($visibility) {
 require_once APP_ROOT . '/header.php';
 ?>
 
-<main class="page-container page-main">
-    <article class="page-shell public-album-shell" data-album-slug="<?= htmlspecialchars((string)($album['slug'] ?? '')) ?>" data-album-id="<?= (int)$album['id'] ?>" data-album-key="<?= htmlspecialchars($cookieKey) ?>">
-        <header class="public-album-hero">
-            <?php if ($coverUrl !== ''): ?>
-                <div class="public-album-hero-cover" style="background-image:url('<?= htmlspecialchars($coverUrl) ?>')" aria-hidden="true"></div>
-            <?php endif; ?>
-            <div class="public-album-hero-body">
-                <h1 class="public-album-name"><?= htmlspecialchars((string)$album['name']) ?></h1>
-                <?php if ((string)$album['description'] !== ''): ?>
-                    <p class="public-album-desc"><?= nl2br(htmlspecialchars((string)$album['description'])) ?></p>
-                <?php endif; ?>
-                <div class="public-album-meta">
-                    <span><i class="fa-light fa-images"></i> <?= number_format((int)$album['image_count']) ?> 张图片</span>
-                    <span><i class="fa-light fa-eye"></i> <?= number_format((int)$album['view_count']) ?> 次访问</span>
-                    <span><i class="fa-light fa-calendar"></i> <?= htmlspecialchars(date('Y-m-d', (int)$album['created_at'])) ?></span>
-                    <?php if ($isAdmin): ?>
-                        <span class="status-pill <?= htmlspecialchars($visBadge[1]) ?>"><?= htmlspecialchars($visBadge[0]) ?></span>
-                        <a href="/albums/<?= (int)$album['id'] ?>/edit" class="public-album-admin-link" data-pjax>
-                            <i class="fa-light fa-pen-to-square"></i><span>编辑相册</span>
-                        </a>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </header>
-
+<main class="pa-standalone">
+    <article class="pa-album" data-album-slug="<?= htmlspecialchars((string)($album['slug'] ?? '')) ?>" data-album-id="<?= (int)$album['id'] ?>" data-album-key="<?= htmlspecialchars($cookieKey) ?>">
         <?php if (empty($images)): ?>
-            <div class="public-album-empty">
+            <div class="pa-empty">
                 <i class="fa-light fa-image" aria-hidden="true"></i>
                 <p>这个相册还没有图片</p>
             </div>
         <?php else: ?>
-            <div class="public-album-grid" data-public-album-grid>
-                <?php foreach ($images as $img): ?>
-                    <figure class="public-album-tile" data-album-image>
-                        <a href="<?= htmlspecialchars($img['url']) ?>" data-lightbox-src="<?= htmlspecialchars($img['url']) ?>"
-                           target="_blank" rel="noopener noreferrer">
-                            <img src="<?= htmlspecialchars($img['thumb_url']) ?>" alt="" loading="lazy"
-                                 <?php if ($img['dimensions'] !== '' && preg_match('/^(\d+)x(\d+)/', $img['dimensions'], $d)): ?>
-                                 width="<?= (int)$d[1] ?>" height="<?= (int)$d[2] ?>"
-                                 <?php endif; ?>>
-                        </a>
+            <div class="pa-grid" data-pa-grid>
+                <?php foreach ($images as $i => $img): ?>
+                    <figure class="pa-tile" data-pa-index="<?= (int)$i ?>"
+                            data-full="<?= htmlspecialchars($img['url']) ?>"
+                            data-title="<?= htmlspecialchars($img['title']) ?>"
+                            data-date="<?= htmlspecialchars($img['date']) ?>">
+                        <img src="<?= htmlspecialchars($img['thumb_url']) ?>" alt="<?= htmlspecialchars($img['title']) ?>" loading="lazy"
+                             <?php if ($img['dimensions'] !== '' && preg_match('/^(\d+)x(\d+)/', $img['dimensions'], $d)): ?>
+                             width="<?= (int)$d[1] ?>" height="<?= (int)$d[2] ?>"
+                             <?php endif; ?>>
+                        <?php if ($img['title'] !== ''): ?>
+                            <figcaption class="pa-tile-cap"><?= htmlspecialchars($img['title']) ?></figcaption>
+                        <?php endif; ?>
                     </figure>
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
 
-        <footer class="public-album-foot">
-            <span><a href="https://litepic.io" target="_blank" rel="noopener noreferrer">由 LitePic 驱动</a></span>
+        <footer class="pa-foot">
+            <div class="pa-foot-left">
+                <span class="pa-foot-name"><?= htmlspecialchars((string)$album['name']) ?></span>
+                <span class="pa-foot-meta"><?= number_format((int)$album['image_count']) ?> 张 · <?= htmlspecialchars(date('Y-m-d', (int)$album['created_at'])) ?></span>
+            </div>
+            <div class="pa-foot-right">
+                <a href="https://litepic.io" target="_blank" rel="noopener noreferrer">由 LitePic 驱动</a>
+            </div>
         </footer>
     </article>
 </main>
 
-<!-- 极简 lightbox — 点缩略图全屏看大图,ESC / 点击空白关闭 -->
-<div class="public-album-lightbox" data-lightbox hidden>
-    <button type="button" class="public-album-lightbox-close" data-lightbox-close aria-label="关闭">
-        <i class="fa-light fa-xmark"></i>
-    </button>
-    <img alt="" data-lightbox-img>
+<!-- 灯箱:大图 + 标题/日期 + 左右翻页 + 关闭,模糊深色背景 -->
+<div class="pa-lb" data-pa-lb hidden>
+    <button type="button" class="pa-lb-close" data-pa-close aria-label="关闭"><i class="fa-light fa-xmark"></i></button>
+    <button type="button" class="pa-lb-nav pa-lb-prev" data-pa-prev aria-label="上一张"><i class="fa-light fa-angle-left"></i></button>
+    <button type="button" class="pa-lb-nav pa-lb-next" data-pa-next aria-label="下一张"><i class="fa-light fa-angle-right"></i></button>
+    <span class="pa-lb-spinner" data-pa-spinner aria-hidden="true"></span>
+    <figure class="pa-lb-stage">
+        <img class="pa-lb-img" alt="" data-pa-img>
+        <figcaption class="pa-lb-cap">
+            <span class="pa-lb-title" data-pa-title></span>
+            <span class="pa-lb-date" data-pa-date></span>
+        </figcaption>
+    </figure>
 </div>
 
 <script>
 (function () {
-    const grid = document.querySelector('[data-public-album-grid]');
-    const lb = document.querySelector('[data-lightbox]');
+    const grid = document.querySelector('[data-pa-grid]');
+    const lb = document.querySelector('[data-pa-lb]');
     if (!grid || !lb) return;
 
-    const lbImg = lb.querySelector('[data-lightbox-img]');
-    const closeBtn = lb.querySelector('[data-lightbox-close]');
+    const tiles = Array.from(grid.querySelectorAll('.pa-tile'));
+    const img = lb.querySelector('[data-pa-img]');
+    const titleEl = lb.querySelector('[data-pa-title]');
+    const dateEl = lb.querySelector('[data-pa-date]');
+    const spinner = lb.querySelector('[data-pa-spinner]');
+    let cur = -1;
 
-    const open = (src) => {
-        lbImg.src = src;
-        lb.hidden = false;
-        document.body.style.overflow = 'hidden';
+    // 灯箱大图:加载时转圈,加载完淡入
+    img.addEventListener('load', () => { spinner.hidden = true; img.classList.add('is-loaded'); });
+    img.addEventListener('error', () => { spinner.hidden = true; });
+
+    const show = (i) => {
+        if (i < 0 || i >= tiles.length) return;
+        cur = i;
+        const t = tiles[i];
+        spinner.hidden = false;
+        img.classList.remove('is-loaded');
+        img.src = t.dataset.full;
+        const title = t.dataset.title || '';
+        const date = t.dataset.date || '';
+        titleEl.textContent = title;
+        titleEl.style.display = title ? '' : 'none';
+        dateEl.textContent = date;
+        dateEl.style.display = date ? '' : 'none';
     };
-    const close = () => {
-        lb.hidden = true;
-        lbImg.src = '';
-        document.body.style.overflow = '';
-    };
+    const open = (i) => { show(i); lb.hidden = false; document.body.style.overflow = 'hidden'; };
+    const close = () => { lb.hidden = true; img.src = ''; document.body.style.overflow = ''; };
+    const prev = () => show((cur - 1 + tiles.length) % tiles.length);
+    const next = () => show((cur + 1) % tiles.length);
 
     grid.addEventListener('click', (e) => {
-        const a = e.target.closest('[data-lightbox-src]');
-        if (!a) return;
+        const tile = e.target.closest('.pa-tile');
+        if (!tile) return;
         e.preventDefault();
-        open(a.getAttribute('data-lightbox-src'));
+        open(tiles.indexOf(tile));
     });
-    closeBtn.addEventListener('click', close);
-    lb.addEventListener('click', (e) => { if (e.target === lb) close(); });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !lb.hidden) close(); });
+    lb.querySelector('[data-pa-close]').addEventListener('click', close);
+    lb.querySelector('[data-pa-prev]').addEventListener('click', (e) => { e.stopPropagation(); prev(); });
+    lb.querySelector('[data-pa-next]').addEventListener('click', (e) => { e.stopPropagation(); next(); });
+    lb.addEventListener('click', (e) => {
+        if (e.target === lb || e.target.classList.contains('pa-lb-stage')) close();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (lb.hidden) return;
+        if (e.key === 'Escape') close();
+        else if (e.key === 'ArrowLeft') prev();
+        else if (e.key === 'ArrowRight') next();
+    });
+
+    // 网格缩略图:加载时淡入(已缓存的直接显示)
+    tiles.forEach((t) => {
+        const im = t.querySelector('img');
+        if (!im) return;
+        if (im.complete && im.naturalWidth) { im.classList.add('is-loaded'); return; }
+        im.addEventListener('load', () => im.classList.add('is-loaded'), { once: true });
+        im.addEventListener('error', () => im.classList.add('is-loaded'), { once: true });
+    });
 })();
 </script>

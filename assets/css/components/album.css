@@ -251,6 +251,55 @@
     text-align: center;
   }
 
+  /* ===== 相册图片卡:设为封面按钮 + 当前封面标记 ===== */
+  .album-cover-btn {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    z-index: 3;
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.48);
+    color: #fff;
+    font-size: 0.78rem;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 140ms ease, background 140ms ease;
+  }
+  .albums-shell .upload-grid .img-box[data-album-image]:hover .album-cover-btn {
+    opacity: 1;
+  }
+  .album-cover-btn:hover {
+    background: var(--primary);
+  }
+  /* 当前封面:高亮边框 + 常驻品牌色星标 + 「封面」角标 */
+  .albums-shell .upload-grid .img-box.is-cover {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 30%, transparent);
+  }
+  .albums-shell .upload-grid .img-box.is-cover .album-cover-btn {
+    opacity: 1;
+    background: var(--primary);
+  }
+  .albums-shell .upload-grid .img-box.is-cover::after {
+    content: "封面";
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    z-index: 2;
+    padding: 3px 8px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 600;
+    border-top-right-radius: 6px;
+  }
+
   /* 编辑页 slug 提示里的"打开公开页"链接 */
   .album-share-link {
     display: inline-flex;
@@ -796,5 +845,186 @@
   }
   html[data-theme="dark"] .public-album-tile {
     background: rgba(255,255,255,0.04);
+  }
+
+  /* ============================================================
+   * 公开相册 v2 —— 独立沉浸式照片墙(无站点导航,参考 TimePlus)
+   * ============================================================ */
+  body.public-album-page .site-header { display: none !important; }
+  body.public-album-page #notification { z-index: 100000; }
+
+  .pa-standalone { width: 100%; max-width: none; margin: 0; padding: 0; }
+  .pa-album { width: 100%; margin: 0; padding: 0; }
+
+  .pa-head { padding: 40px 24px 18px; text-align: center; }
+  .pa-album-name {
+    margin: 0;
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .pa-album-desc {
+    margin: 8px auto 0;
+    max-width: 640px;
+    color: var(--gray);
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+  .pa-album-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px 16px;
+    margin-top: 14px;
+    color: var(--gray);
+    font-size: 0.86rem;
+  }
+  .pa-album-meta i { margin-right: 4px; opacity: 0.7; }
+  .pa-admin-link { display: inline-flex; align-items: center; gap: 5px; color: var(--primary); text-decoration: none; }
+
+  /* 照片墙 —— 全幅均匀网格 */
+  .pa-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    /* 照片铺满整屏、无缝粘连、到底不留白;半透明磨砂条直接浮在最底部照片之上 */
+    padding: 0;
+  }
+  @media (max-width: 1100px) { .pa-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 760px)  { .pa-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .pa-tile {
+    position: relative;
+    margin: 0;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    cursor: zoom-in;
+    background: color-mix(in srgb, var(--dark) 6%, transparent);
+  }
+  .pa-tile img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    opacity: 0;
+    transition: opacity 500ms ease, transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .pa-tile img.is-loaded { opacity: 1; }
+  .pa-tile:hover img.is-loaded { transform: scale(1.04); }
+  .pa-tile-cap {
+    position: absolute;
+    inset: auto 0 0 0;
+    padding: 24px 12px 10px;
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: linear-gradient(180deg, transparent, rgba(0,0,0,0.62));
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 240ms ease, transform 240ms ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pa-tile:hover .pa-tile-cap { opacity: 1; transform: translateY(0); }
+
+  .pa-empty { padding: 80px 24px; text-align: center; color: var(--gray); }
+  .pa-empty i { font-size: 2.4rem; opacity: 0.4; }
+  .pa-empty p { margin-top: 10px; }
+
+  /* 底部 fixed 磨砂条 —— 黑色磨砂,浮在照片墙之上 */
+  .pa-foot {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 26px;
+    background: rgba(10, 11, 13, 0.78);
+    backdrop-filter: blur(22px) saturate(1.4);
+    -webkit-backdrop-filter: blur(22px) saturate(1.4);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 0.88rem;
+  }
+  .pa-foot-left { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+  .pa-foot-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pa-foot-meta { color: rgba(255, 255, 255, 0.6); font-size: 0.82rem; white-space: nowrap; }
+  .pa-foot-right { display: flex; align-items: center; gap: 16px; flex: 0 0 auto; }
+  .pa-foot-right a { display: inline-flex; align-items: center; gap: 4px; color: rgba(255, 255, 255, 0.62); text-decoration: none; }
+  .pa-foot-right a:hover { color: #fff; }
+
+  /* ===== 灯箱:大图 + 翻页 + 说明,模糊深色背景 ===== */
+  .pa-lb {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 12, 16, 0.82);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+  .pa-lb[hidden] { display: none; }
+  .pa-lb-stage { margin: 0; max-width: 92vw; max-height: 92vh; display: flex; flex-direction: column; align-items: center; }
+  .pa-lb-img {
+    max-width: 92vw;
+    max-height: 84vh;
+    object-fit: contain;
+    border-radius: 10px;
+    box-shadow: 0 1em 3em 0.5em rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    transform: scale(0.9);
+    transition: opacity 360ms ease, transform 440ms cubic-bezier(0.2, 0.85, 0.25, 1);
+  }
+  /* 打开/翻页:图片从 0.9 缩放放大到 1 + 淡入(参考 poptrox 的开图动效) */
+  .pa-lb-img.is-loaded { opacity: 1; transform: scale(1); }
+
+  /* 灯箱加载旋转圈 */
+  .pa-lb-spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    margin: -22px 0 0 -22px;
+    width: 44px;
+    height: 44px;
+    border: 3px solid rgba(255, 255, 255, 0.22);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: pa-spin 0.8s linear infinite;
+  }
+  .pa-lb-spinner[hidden] { display: none; }
+  @keyframes pa-spin { to { transform: rotate(360deg); } }
+  .pa-lb-cap { margin-top: 14px; text-align: center; color: rgba(255,255,255,0.92); }
+  .pa-lb-title { display: block; font-size: 1rem; font-weight: 600; }
+  .pa-lb-date { display: block; margin-top: 2px; font-size: 0.8rem; color: rgba(255,255,255,0.6); }
+  .pa-lb-close, .pa-lb-nav {
+    position: fixed;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: background 160ms ease;
+  }
+  .pa-lb-close { top: 20px; right: 24px; width: 42px; height: 42px; font-size: 1.1rem; }
+  .pa-lb-nav { top: 50%; transform: translateY(-50%); width: 48px; height: 48px; font-size: 1.4rem; }
+  .pa-lb-prev { left: 20px; }
+  .pa-lb-next { right: 20px; }
+  .pa-lb-close:hover, .pa-lb-nav:hover { background: rgba(255,255,255,0.2); }
+  @media (max-width: 760px) {
+    .pa-lb-nav { width: 40px; height: 40px; }
+    .pa-lb-prev { left: 8px; }
+    .pa-lb-next { right: 8px; }
   }
 }
