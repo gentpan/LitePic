@@ -603,6 +603,20 @@
   border-bottom: 0;
 }
 
+/* TinyPNG Key 表:表头与「状态」列(启用中/已禁用)不换行 —— 列太窄时
+   2 字表头(总调用/成功/失败)和 3 字状态会被挤断成两行。「最近结果」列
+   (第 7 列)不在范围内,长错误信息仍可自动换行。 */
+.settings-page .compression-keys-table th,
+.settings-page .compression-keys-table td:nth-child(2) {
+  white-space: nowrap;
+}
+
+/* 操作列:禁用/删除 两个按钮并排一行(并排两列),不要堆成上下 ——
+   列一窄 flex-wrap 会把「删除」挤到第二行。 */
+.settings-page .compression-keys-table td:last-child > .flex {
+  flex-wrap: nowrap;
+}
+
 .settings-page .settings-empty-row td {
   height: 76px;
   text-align: center;

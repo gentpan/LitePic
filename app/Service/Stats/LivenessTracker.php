@@ -73,6 +73,54 @@ final class LivenessTracker
     }
 
     /**
+     * Pick the range to show by default, stepping up as more data accrues:
+     *   - more than 30 days of data → '90d'
+     *   - at least 30 days          → '30d'
+     *   - otherwise                 → '1d'
+     *
+     * "Data" is sourced exactly the way {@see series()} sources it: the OS
+     * uptime span (boot → now) on hosts where OS uptime is available, else the
+     * span since the first recorded ping. All are valid {@see RANGES} values.
+     */
+    public static function defaultRange(): string
+    {
+        $now = time();
+        $dataStart = 0; // unix ts of the earliest point the strip can show
+
+        try {
+            $serverUptime = (new ServerInfo())->uptimeSeconds();
+        } catch (\Throwable $_) {
+            $serverUptime = null;
+        }
+
+        if ($serverUptime !== null && $serverUptime >= 0) {
+            // OS-uptime path: data spans boot → now.
+            $dataStart = $now - (int)$serverUptime;
+        } else {
+            // Ping-based path: data spans first-ever ping → now.
+            try {
+                $stmt = Database::connection()->query('SELECT MIN(bucket_at) FROM liveness_pings');
+                $dataStart = $stmt ? (int)($stmt->fetchColumn() ?: 0) : 0;
+            } catch (\Throwable $_) {
+                $dataStart = 0;
+            }
+        }
+
+        if ($dataStart <= 0) {
+            return '1d';
+        }
+
+        $span = $now - $dataStart;
+        if ($span > 30 * 86400) {
+            return '90d';   // 超过 30 天 → 默认 90D
+        }
+        if ($span >= 30 * 86400) {
+            return '30d';   // 满 30 天 → 默认 30D
+        }
+        return '1d';        // 不足 30 天 → 默认 1D
+    }
+
+    /**
      * One-shot per-process probe: does OS uptime work on this host?
      * If yes, {@see series()} reads from there instead of the table,
      * and {@see recordOnce()} can stop writing entirely.
@@ -204,8 +252,9 @@ final class LivenessTracker
     }
 
     /**
-     * Build strip segments from OS uptime. A segment is up for the portion
-     * after the current boot timestamp; time before boot is treated as down.
+     * Build strip segments from OS uptime. Time from the current boot onward is
+     * "up"; time before boot is "no_data" (grey) — not downtime — because we have
+     * no liveness data for it, and it's excluded from the uptime percentage.
      *
      * @return array{
      *   range:string, start_at:int, end_at:int,
@@ -233,23 +282,23 @@ final class LivenessTracker
             $effectiveEnd = min($segEnd, $now);
 
             if ($segStart >= $now) {
+                // 尚未到来的时间段
                 $status = 'future';
                 $percent = 0.0;
-            } elseif ($effectiveEnd <= $segStart) {
+            } elseif ($effectiveEnd <= $bootAt) {
+                // 本次开机(= 已知最早的运行数据点 / 建站起点)之前 —— 这段时间
+                // 没有任何运行数据,标记为「无数据」(灰色)且不计入在线率,
+                // 而不是当成离线(红色)。
                 $status = 'no_data';
                 $percent = 0.0;
             } else {
-                $expected = $effectiveEnd - $segStart;
-                $upSeconds = max(0, $effectiveEnd - max($segStart, $bootAt));
-                $percent = $expected > 0 ? round(($upSeconds / $expected) * 100, 2) : 0.0;
-
-                if ($percent >= 100) {
-                    $status = 'up';
-                } elseif ($percent <= 0) {
-                    $status = 'down';
-                } else {
-                    $status = 'partial';
-                }
+                // 开机之后到现在系统持续在线;开机前那部分不算(无数据),
+                // 所以只把「开机后」的时长计入期望与在线时间。
+                $observedStart = max($segStart, $bootAt);
+                $expected = $effectiveEnd - $observedStart;
+                $upSeconds = $expected;
+                $percent = 100.0;
+                $status = 'up';
 
                 $totalUp += $upSeconds;
                 $totalExpected += $expected;
