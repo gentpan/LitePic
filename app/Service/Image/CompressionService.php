@@ -27,16 +27,42 @@ final class CompressionService
     }
 
     /**
+     * TinyPNG 对大图常常超时(把整张图 POST 上去后收不到响应)。超过这个大小
+     * 就直接走本地 Imagick,不再白等 TinyPNG 的网络超时。TinyPNG 网页端上限
+     * 即 5MB,取同值作为快速跳过阈值;真正的兜底是下面任何失败都转 Imagick。
+     */
+    private const TINYPNG_MAX_BYTES = 5 * 1024 * 1024;
+
+    /**
      * Run lossy compression in-place. Returns the backend that won.
+     *
+     * mode=tinypng 时:≤5MB 且启用才走在线 TinyPNG;超大图 / TinyPNG 失败 /
+     * 超时一律回退本地 Imagick —— 保证大图也能压缩,不会因上游超时变 500。
      *
      * @return array{success:bool, method:?string, mode:string}
      */
     public function compress(string $path, int $quality = 85): array
     {
         $mode = $this->mode();
+
+        if ($mode === 'tinypng') {
+            $enabled = defined('ENABLE_COMPRESSION') && ENABLE_COMPRESSION;
+            $size = @filesize($path);
+            $withinTinyPngLimit = $size !== false && $size <= self::TINYPNG_MAX_BYTES;
+
+            // 在线 TinyPNG 优先(需启用且未超大);成功即返回。
+            if ($enabled && $withinTinyPngLimit && self::compressWithTinyPng($path)) {
+                return ['success' => true, 'method' => 'tinypng', 'mode' => $mode];
+            }
+            // 超大 / 失败 / 超时 / 未启用 → 本地 Imagick 兜底。
+            if (self::compressWithImagick($path, $quality)) {
+                return ['success' => true, 'method' => 'imagemagick', 'mode' => $mode];
+            }
+            return ['success' => false, 'method' => null, 'mode' => $mode];
+        }
+
         $ok = match ($mode) {
             'gd' => self::compressWithGd($path, $quality),
-            'tinypng' => (defined('ENABLE_COMPRESSION') && ENABLE_COMPRESSION) && self::compressWithTinyPng($path),
             default => self::compressWithImagick($path, $quality),
         };
         return ['success' => $ok, 'method' => $ok ? $mode : null, 'mode' => $mode];

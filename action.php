@@ -340,7 +340,18 @@ switch ($action) {
             $used = $compress_result['method'];
 
             if ($used === null) {
-                throw new Exception('压缩失败（当前压缩模式未成功）');
+                // 压缩没成功通常是上游压缩服务(TinyPNG)不可用或超时 —— 大图尤其
+                // 容易超时(TinyPNG 对大图常常没有响应)。这不是服务器内部 bug,
+                // 所以返回一个明确可读的 502,而不是被 safeMessage 脱敏成通用 500。
+                $sizeMb = round($before_size / 1048576, 1);
+                $mode = \LitePic\Service\Image\ImageFormat::compressionMode();
+                error_log("Compression failed for {$file}: mode={$mode} size={$sizeMb}MB (service unavailable/timeout)");
+                \LitePic\Core\Response::error(
+                    "压缩未成功:压缩服务（{$mode}）暂时不可用或超时"
+                    . ($sizeMb >= 5 ? "，该图约 {$sizeMb} MB 偏大,TinyPNG 处理大图容易超时" : "")
+                    . "。请稍后重试。",
+                    502
+                );
             }
 
             clearstatcache(true, $path);
