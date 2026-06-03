@@ -108,9 +108,8 @@
     @apply block w-full h-auto max-h-[360px] flex-1;
   }
 
-  #typeChart {
-    max-height: 260px !important;
-  }
+  /* 类型环形与大小饼图统一高度(此前 #typeChart 被压到 260px 是为给已移除的
+     占比明细列表留位,现已解除,两图同高同大) */
 
   /* ===== 表格区域 ===== */
   .stats-tables {
