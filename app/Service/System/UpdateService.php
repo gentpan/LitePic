@@ -12,6 +12,13 @@ final class UpdateService
 {
     private const REPO = 'gentpan/LitePic';
 
+    /** 独立版本源 —— 由 litepic.io 落地页构建时生成,避免直打 GitHub API 的 60/h 限速。
+     *  GitHub Release API 仅作兜底。 */
+    private const VERSION_URL = 'https://litepic.io/version.json';
+
+    /** 版本信息缓存时长(秒)—— 自动检测频繁,缓存避免每次都走网络。 */
+    private const VERSION_CACHE_TTL = 21600; // 6h
+
     /** @var string[] */
     private const MANAGED_DIRS = [
         'api',
@@ -181,13 +188,72 @@ final class UpdateService
      */
     private function latestRelease(): array
     {
-        $url = 'https://api.github.com/repos/' . self::REPO . '/releases/latest';
-        $json = $this->httpGet($url);
+        $cached = $this->readVersionCache();
+        if ($cached !== null) {
+            return $cached;
+        }
+        $release = $this->fetchVersionInfo();
+        $this->writeVersionCache($release);
+        return $release;
+    }
+
+    /**
+     * 优先查独立源 litepic.io/version.json(无 GitHub 限速),失败再兜底 GitHub Release API。
+     * @return array<string,mixed>
+     */
+    private function fetchVersionInfo(): array
+    {
+        try {
+            $json = $this->httpGet(self::VERSION_URL);
+            $data = json_decode($json, true);
+            if (is_array($data) && !empty($data['tag_name'])) {
+                return [
+                    'tag_name'     => (string)$data['tag_name'],
+                    'name'         => (string)($data['name'] ?? $data['tag_name']),
+                    'html_url'     => (string)($data['html_url'] ?? ''),
+                    'published_at' => (string)($data['published_at'] ?? ''),
+                    'body'         => (string)($data['body'] ?? ''),
+                    'zip_url'      => (string)($data['zip_url'] ?? ''),
+                    'source'       => 'litepic.io',
+                ];
+            }
+        } catch (Throwable $_) {
+            // 独立源不可用 → 落到 GitHub 兜底
+        }
+
+        $json = $this->httpGet('https://api.github.com/repos/' . self::REPO . '/releases/latest');
         $data = json_decode($json, true);
         if (!is_array($data) || empty($data['tag_name'])) {
-            throw new RuntimeException('GitHub Release 返回内容无效');
+            throw new RuntimeException('无法获取版本信息(独立源与 GitHub 均失败)');
         }
+        $data['source'] = 'github';
         return $data;
+    }
+
+    private function versionCacheFile(): string
+    {
+        return APP_ROOT . '/data/update-cache/version.json';
+    }
+
+    /** @return array<string,mixed>|null */
+    private function readVersionCache(): ?array
+    {
+        $f = $this->versionCacheFile();
+        if (!is_file($f) || (time() - (int)@filemtime($f)) > self::VERSION_CACHE_TTL) {
+            return null;
+        }
+        $data = json_decode((string)@file_get_contents($f), true);
+        return (is_array($data) && !empty($data['tag_name'])) ? $data : null;
+    }
+
+    /** @param array<string,mixed> $release */
+    private function writeVersionCache(array $release): void
+    {
+        $dir = APP_ROOT . '/data/update-cache';
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+        @file_put_contents($this->versionCacheFile(), json_encode($release, JSON_UNESCAPED_UNICODE));
     }
 
     /**
@@ -195,6 +261,11 @@ final class UpdateService
      */
     private function releaseZipUrl(array $release): string
     {
+        // 独立源(version.json)直接给了 zip_url
+        $direct = (string)($release['zip_url'] ?? '');
+        if ($direct !== '') {
+            return $direct;
+        }
         foreach (($release['assets'] ?? []) as $asset) {
             if (!is_array($asset)) continue;
             $name = (string)($asset['name'] ?? '');

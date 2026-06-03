@@ -747,18 +747,19 @@ require_once APP_ROOT . '/header.php';
                                 return data;
                             };
 
-                            checkBtn?.addEventListener('click', async () => {
+                            const runCheck = async (manual) => {
+                                if (!checkBtn) return;
                                 checkBtn.disabled = true;
-                                installBtn.disabled = true;
-                                setStatus('正在连接版本服务器...');
+                                if (installBtn) installBtn.disabled = true;
+                                setStatus(manual ? '正在连接版本服务器...' : '自动检测更新中...');
                                 try {
                                     const data = await fetch('/api/v1/update/check', {
                                         credentials: 'same-origin',
                                         headers: { 'X-Requested-With': 'XMLHttpRequest' },
                                     }).then(parseJson);
-                                    latestEl.textContent = data.latest ? `v${data.latest}` : '未发现';
+                                    if (latestEl) latestEl.textContent = data.latest ? `v${data.latest}` : '未发现';
                                     if (data.has_update) {
-                                        installBtn.disabled = false;
+                                        if (installBtn) installBtn.disabled = false;
                                         setStatus(`发现新版本 v${data.latest}`, 'is-warn');
                                     } else if (data.current_ahead) {
                                         setStatus(`当前版本 v${data.current} 高于服务器最新版本 v${data.latest}`, 'is-warn');
@@ -770,7 +771,11 @@ require_once APP_ROOT . '/header.php';
                                 } finally {
                                     checkBtn.disabled = false;
                                 }
-                            });
+                            };
+
+                            checkBtn?.addEventListener('click', () => runCheck(true));
+                            // 自动检测 —— 设置页打开即查一次(后端 6h 缓存,廉价,无需手动点)
+                            runCheck(false);
 
                             installBtn?.addEventListener('click', async () => {
                                 const ok = window.ImgEt?.DialogManager?.confirm
