@@ -250,6 +250,8 @@ $distro_icon_map = [
 ];
 $server_distro_icon = $distro_icon_map[$server_distro_id] ?? 'fa-linux';
 $server_uptime = (string)($metrics['uptime_text'] ?? '-');
+// UPTIME 条默认范围随数据量递增:>30 天→90D,满 30 天→30D,不足→1D。
+$uptime_default_range = \LitePic\Service\Stats\LivenessTracker::defaultRange();
 $availability_24h_percent = isset($metrics['availability_24h_percent']) && is_numeric($metrics['availability_24h_percent'])
     ? max(0.0, min(100.0, (float)$metrics['availability_24h_percent']))
     : 0.0;
@@ -395,16 +397,16 @@ require_once APP_ROOT . '/header.php';
 
                         <!-- ====== 整行 UPTIME 条 ====== -->
                         <div class="runtime-section runtime-uptime-section">
-                            <div class="runtime-uptime-strip" data-uptime-strip data-uptime-default="1d">
+                            <div class="runtime-uptime-strip" data-uptime-strip data-uptime-default="<?= htmlspecialchars($uptime_default_range, ENT_QUOTES) ?>">
                                 <div class="runtime-uptime-head">
                                     <span class="runtime-uptime-title">UPTIME</span>
                                     <div class="runtime-uptime-ranges" role="tablist" aria-label="Uptime range">
                                         <?php foreach (['90d' => '90D', '30d' => '30D', '1d' => '1D', '1h' => '1H'] as $rangeKey => $rangeLabel): ?>
                                             <button type="button"
-                                                    class="runtime-uptime-range<?= $rangeKey === '1d' ? ' is-active' : '' ?>"
+                                                    class="runtime-uptime-range<?= $rangeKey === $uptime_default_range ? ' is-active' : '' ?>"
                                                     data-uptime-range="<?= $rangeKey ?>"
                                                     role="tab"
-                                                    aria-selected="<?= $rangeKey === '1d' ? 'true' : 'false' ?>">
+                                                    aria-selected="<?= $rangeKey === $uptime_default_range ? 'true' : 'false' ?>">
                                                 <?= $rangeLabel ?>
                                             </button>
                                         <?php endforeach; ?>
@@ -2473,7 +2475,7 @@ require_once APP_ROOT . '/header.php';
                     <p class="m-0 text-sm text-gray" data-compression-stats>已配置 <span data-compression-total><?= count($compression_api_keys) ?></span> 个，启用中 <span data-compression-active><?= $compression_api_active_count ?></span> 个。系统优先使用调用次数较少的 Key，并记录每个 Key 的调用统计。</p>
 
                     <div class="overflow-auto border border-border">
-                        <table class="w-full border-collapse">
+                        <table class="w-full border-collapse compression-keys-table">
                             <thead>
                                 <tr>
                                     <th>API Key</th>
