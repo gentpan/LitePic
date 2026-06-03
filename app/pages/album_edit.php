@@ -408,12 +408,16 @@ if (!$isNew && !empty($album)) {
     // ------ 加载图库 ------
     async function loadLibraryPage() {
         try {
-            const res = await fetch(`/api/v1/list?page=${Math.floor(pickerOffset / pickerPageSize) + 1}&limit=${pickerPageSize}`, {
+            const res = await fetch(`/api/v1/list?page=${Math.floor(pickerOffset / pickerPageSize) + 1}&per_page=${pickerPageSize}`, {
                 credentials: 'same-origin',
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
             });
             const data = await res.json().catch(() => ({}));
-            const list = Array.isArray(data?.images) ? data.images : (Array.isArray(data?.data) ? data.data : []);
+            // /api/v1/list 返回 {status, data:{items:[...], pagination:{...}}} —— 列表在
+            // data.data.items;保留旧的 data.images / data.data 兜底以防别处复用。
+            const list = Array.isArray(data?.data?.items) ? data.data.items
+                       : (Array.isArray(data?.images) ? data.images
+                       : (Array.isArray(data?.data) ? data.data : []));
             // 去掉初次的 loading 占位
             if (pickerOffset === 0) pickerBox.innerHTML = '';
             for (const img of list) {
