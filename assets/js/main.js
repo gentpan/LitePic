@@ -5274,6 +5274,49 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // ===== v2 清爽仪表盘：统一图表主题 =====
+    const _css = getComputedStyle(document.documentElement);
+    const _isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const THEME = {
+        primary: '#0052D9',
+        // 类目分类配色 — 和谐的现代调色板,替换 Chart.js 出厂色
+        palette: ['#0052D9', '#00A6A6', '#7C5CFC', '#F5A623', '#E5618B', '#34C759', '#2DB7F5', '#9AA0AA'],
+        surface: (_css.getPropertyValue('--surface').trim() || (_isDark ? '#161616' : '#ffffff')),
+        muted: _isDark ? 'rgba(233,233,234,0.55)' : 'rgba(12,12,12,0.5)',
+        grid: _isDark ? 'rgba(255,255,255,0.07)' : 'rgba(15,23,42,0.06)',
+    };
+    function hexToRgba(hex, a) {
+        const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r},${g},${b},${a})`;
+    }
+    // 竖向渐变(面积/柱)——从浓到淡
+    function vGradient(ctx, hex, a0 = 0.22, a1 = 0.012, h = 240) {
+        const grad = ctx.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, hexToRgba(hex, a0));
+        grad.addColorStop(1, hexToRgba(hex, a1));
+        return grad;
+    }
+    if (window.Chart) {
+        const C = window.Chart;
+        C.defaults.font.family = "'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif";
+        C.defaults.font.size = 12;
+        C.defaults.color = THEME.muted;
+        C.defaults.borderColor = THEME.grid;
+        if (C.defaults.plugins?.legend?.labels) {
+            Object.assign(C.defaults.plugins.legend.labels, { usePointStyle: true, pointStyle: 'circle', boxWidth: 8, padding: 14 });
+        }
+        if (C.defaults.plugins?.tooltip) {
+            Object.assign(C.defaults.plugins.tooltip, {
+                backgroundColor: _isDark ? 'rgba(0,0,0,0.9)' : 'rgba(15,18,28,0.92)',
+                padding: 10, cornerRadius: 8, boxPadding: 6, usePointStyle: true,
+                titleColor: '#fff', bodyColor: '#fff', titleFont: { weight: '600', size: 12 },
+            });
+        }
+        Object.assign(C.defaults.elements.bar, { borderRadius: 0, borderSkipped: false });
+        Object.assign(C.defaults.elements.line, { tension: 0.35, borderWidth: 2.5 });
+        Object.assign(C.defaults.elements.point, { radius: 0, hoverRadius: 5, hitRadius: 12, hoverBorderWidth: 2 });
+    }
+
     // 规范化所有可能的 series 来源（兼容旧/新结构）
     const rawMonthly = safeGet(statsData, 'monthly') ?? safeGet(statsData, 'months') ?? safeGet(statsData, 'by_month') ?? statsData.monthly;
     const rawYearly = safeGet(statsData, 'yearly') ?? safeGet(statsData, 'years') ?? safeGet(statsData, 'by_year') ?? statsData.yearly;
@@ -5310,18 +5353,22 @@ document.addEventListener('DOMContentLoaded', function () {
                         {
                             label: '月度上传（张）',
                             data: m.data,
-                            borderColor: 'rgb(54,162,235)',
-                            backgroundColor: 'rgba(54,162,235,0.08)',
-                            tension: 0.12,
+                            borderColor: THEME.primary,
+                            backgroundColor: hexToRgba(THEME.primary, 0.10),
+                            fill: true,
+                            pointBackgroundColor: THEME.primary,
+                            pointHoverBackgroundColor: '#fff',
+                            pointHoverBorderColor: THEME.primary,
                             yAxisID: 'y'
                         },
                         {
                             label: '累计上传（张）',
                             data: cumulativeArray(m.data),
-                            borderColor: 'rgb(75,192,192)',
-                            backgroundColor: 'rgba(75,192,192,0.06)',
-                            tension: 0.12,
-                            borderDash: [6, 4],
+                            borderColor: 'rgba(0,166,166,0.85)',
+                            backgroundColor: 'transparent',
+                            borderDash: [5, 4],
+                            borderWidth: 2,
+                            fill: false,
                             yAxisID: 'y'
                         }
                     ]
@@ -5329,9 +5376,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
-                    plugins: { legend: { position: 'top' } },
+                    plugins: { legend: { position: 'top', align: 'end' } },
                     interaction: { mode: 'index', intersect: false },
-                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                    scales: {
+                        x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 12 } },
+                        y: { beginAtZero: true, ticks: { precision: 0, padding: 8 }, grid: { color: THEME.grid, drawTicks: false } }
+                    }
                 }
             });
         }
@@ -5349,16 +5399,20 @@ document.addEventListener('DOMContentLoaded', function () {
                     datasets: [{
                         label: '年度上传（张）',
                         data: y.data,
-                        backgroundColor: 'rgba(76,175,80,0.6)',
-                        borderColor: 'rgb(76,175,80)',
-                        borderWidth: 1
+                        backgroundColor: THEME.primary,
+                        borderWidth: 0,
+                        borderRadius: 0,
+                        maxBarThickness: 52
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
                     plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                    scales: {
+                        x: { grid: { display: false } },
+                        y: { beginAtZero: true, ticks: { precision: 0, padding: 8 }, grid: { color: THEME.grid, drawTicks: false } }
+                    }
                 }
             });
         }
@@ -5375,16 +5429,17 @@ document.addEventListener('DOMContentLoaded', function () {
                     labels: t.labels,
                     datasets: [{
                         data: t.data,
-                        backgroundColor: [
-                            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#8DD3C7', '#FB8072', '#A8A8A8'
-                        ],
-                        radius: '76%'
+                        backgroundColor: THEME.palette,
+                        borderColor: THEME.surface,
+                        borderWidth: 2,
+                        hoverOffset: 6,
+                        radius: '78%'
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    cutout: '56%',
+                    cutout: '62%',
                     layout: {
                         padding: { top: 4, right: 8, bottom: 4, left: 8 }
                     },
@@ -5437,22 +5492,35 @@ document.addEventListener('DOMContentLoaded', function () {
         if (el && s.labels.length) {
             const ctx = el.getContext('2d');
             createChart(ctx, {
-                type: 'bar',
+                type: 'pie',
                 data: {
                     labels: s.labels,
                     datasets: [{
                         label: '文件数量',
                         data: s.data,
-                        backgroundColor: 'rgba(54,162,235,0.5)',
-                        borderColor: 'rgb(54,162,235)',
-                        borderWidth: 1
+                        backgroundColor: THEME.palette,
+                        borderColor: THEME.surface,
+                        borderWidth: 2,
+                        hoverOffset: 6,
+                        radius: '92%'
                     }]
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: true,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                    maintainAspectRatio: false,
+                    layout: { padding: { top: 4, right: 8, bottom: 4, left: 8 } },
+                    plugins: {
+                        legend: { position: 'right' },
+                        tooltip: {
+                            callbacks: {
+                                label: function (ctx) {
+                                    const value = Number(ctx.raw) || 0;
+                                    const total = (s.data || []).reduce((a, b) => a + Number(b || 0), 0) || 1;
+                                    return `${ctx.label}: ${value} (${formatPercent(value / total)})`;
+                                }
+                            }
+                        }
+                    }
                 }
             });
         }
