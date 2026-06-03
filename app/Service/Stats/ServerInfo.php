@@ -273,8 +273,8 @@ final class ServerInfo
             'capability' => [
                 'gd' => extension_loaded('gd'),
                 'imagick' => extension_loaded('imagick'),
-                'avif' => function_exists('imagecreatefromavif') && function_exists('imageavif'),
-                'webp' => function_exists('imagewebp'),
+                'avif' => (function_exists('imagecreatefromavif') && function_exists('imageavif')) || self::imagickFormatSupported(['AVIF']),
+                'webp' => function_exists('imagewebp') || self::imagickFormatSupported(['WEBP']),
                 'heic' => self::imagickFormatSupported(['HEIC', 'HEIF']),
             ],
         ];

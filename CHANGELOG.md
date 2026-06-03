@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.4.2] - 2026-06-04
+
+### Fixed
+
+- **AVIF / WebP 能力检测漏掉 Imagick** — 系统状态的「AVIF 支持」徽章、以及导入/上传的「自动转 AVIF」开关,原本只检测 GD 的 `imageavif()`;在「GD 没编 libavif 但 Imagick 支持 AVIF」的服务器上会误报「未启用」并强制关闭自动转换(实际转换器是 Imagick 优先、能正常产出合法 AVIF)。`ServerInfo` 的 avif/webp 检测改为同时认 Imagick `queryFormats`(与 heic 检测一致),徽章与自动转换开关恢复正常。
+
 ## [3.4.1] - 2026-06-04
 
 ### Fixed
