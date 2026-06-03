@@ -837,30 +837,58 @@
     color: var(--accent);
     font-size: 1rem;
   }
-  .batch-progress__title {
+  /* 第 2 列:标题 + 数字 竖排(占满中间剩余宽度) */
+  .batch-progress__main {
     flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .batch-progress__title {
     min-width: 0;
     font-weight: 600;
     color: var(--dark);
-    /* 标题太长就截 — 操作行业内一般不会超,这是兜底 */
+    /* 标题太长就截 — 兜底 */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .batch-progress__count {
-    flex: 0 0 auto;
-    color: color-mix(in srgb, var(--dark) 65%, transparent);
+    color: color-mix(in srgb, var(--dark) 60%, transparent);
     font-variant-numeric: tabular-nums;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
+    line-height: 1.2;
   }
+  /* 第 3 列:百分比(靠右,不再单独占一行) */
   .batch-progress__percent {
     flex: 0 0 auto;
-    min-width: 3.2em;
+    min-width: 3em;
     text-align: right;
     color: var(--accent);
     font-weight: 700;
     font-variant-numeric: tabular-nums;
-    font-size: 0.82rem;
+    font-size: 0.9rem;
+  }
+  /* 第 4 列:关闭按钮 */
+  .batch-progress__close {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: color-mix(in srgb, var(--dark) 45%, transparent);
+    cursor: pointer;
+    transition: background 120ms ease, color 120ms ease;
+  }
+  .batch-progress__close:hover {
+    background: color-mix(in srgb, var(--dark) 8%, transparent);
+    color: var(--dark);
   }
 
   .batch-progress__bar {

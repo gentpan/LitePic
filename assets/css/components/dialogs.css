@@ -54,6 +54,56 @@
     line-height: 1.72;
   }
 
+  /* 确认弹窗里的开关(如「保留原图」) */
+  .confirm-dialog-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 2px 0 0;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--dark);
+    user-select: none;
+  }
+  .confirm-dialog-toggle-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+  .confirm-dialog-toggle-track {
+    flex: 0 0 auto;
+    position: relative;
+    width: 38px;
+    height: 22px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--dark) 22%, transparent);
+    transition: background 160ms ease;
+  }
+  .confirm-dialog-toggle-track::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    transition: transform 160ms ease;
+  }
+  .confirm-dialog-toggle-input:checked + .confirm-dialog-toggle-track {
+    background: var(--primary, #0052d9);
+  }
+  .confirm-dialog-toggle-input:checked + .confirm-dialog-toggle-track::after {
+    transform: translateX(16px);
+  }
+  .confirm-dialog-toggle-input:focus-visible + .confirm-dialog-toggle-track {
+    outline: 2px solid var(--primary, #0052d9);
+    outline-offset: 2px;
+  }
+
   .confirm-dialog-actions {
     display: flex;
     justify-content: flex-end;

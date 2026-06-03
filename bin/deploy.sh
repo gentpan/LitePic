@@ -82,10 +82,12 @@ ts() { date +%Y%m%d-%H%M%S; }
 say() { printf '\n==> %s\n' "$*"; }
 
 if [[ $SKIP_BUILD -eq 0 ]]; then
-    say "本地 CSS bundle 重建"
+    say "本地 CSS + JS bundle 重建"
     npm run build:css >/dev/null
     cp assets/css/main.css assets/css/main.min.css
-    echo "  ✓ rebuilt + mirrored"
+    # main.min.js 从 main.js 真压(esbuild)—— 防止两者脱节,生产跑旧 JS
+    npm run build:js >/dev/null 2>&1
+    echo "  ✓ rebuilt + mirrored (css + js)"
 fi
 
 if [[ $DRY_RUN -eq 1 ]]; then
