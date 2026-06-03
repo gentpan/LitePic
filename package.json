@@ -5,7 +5,9 @@
   "scripts": {
     "build:css": "npx @tailwindcss/cli -i ./assets/css/tailwind.css -o ./assets/css/main.css --minify",
     "build:css:dev": "npx @tailwindcss/cli -i ./assets/css/tailwind.css -o ./assets/css/main.css",
-    "watch:css": "npx @tailwindcss/cli -i ./assets/css/tailwind.css -o ./assets/css/main.css --watch"
+    "watch:css": "npx @tailwindcss/cli -i ./assets/css/tailwind.css -o ./assets/css/main.css --watch",
+    "build:js": "npx --yes esbuild assets/js/main.js --minify --charset=utf8 --outfile=assets/js/main.min.js",
+    "build": "npm run build:css && npm run build:js"
   },
   "repository": {
     "type": "git",

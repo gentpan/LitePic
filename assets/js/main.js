@@ -545,15 +545,22 @@ if (!window.ImgEt.BatchProgress) {
             el.innerHTML = `
                 <div class="batch-progress__head">
                     <i class="batch-progress__icon fa-light fa-spinner-third fa-spin" aria-hidden="true"></i>
-                    <span class="batch-progress__title"></span>
-                    <span class="batch-progress__count"></span>
+                    <div class="batch-progress__main">
+                        <span class="batch-progress__title"></span>
+                        <span class="batch-progress__count"></span>
+                    </div>
                     <span class="batch-progress__percent">0%</span>
+                    <button type="button" class="batch-progress__close" aria-label="关闭" title="关闭">
+                        <i class="fa-light fa-xmark" aria-hidden="true"></i>
+                    </button>
                 </div>
                 <div class="batch-progress__bar">
                     <div class="batch-progress__bar-fill"></div>
                 </div>
             `;
             document.body.appendChild(el);
+            // 关闭按钮 — 手动收起进度卡(不影响后台已入队的任务)
+            el.querySelector('.batch-progress__close')?.addEventListener('click', () => this.hide());
             this._el = el;
             return el;
         },
@@ -715,6 +722,14 @@ if (!window.ImgEt.DialogManager) {
             const cancelText = escapeHtml(normalizedOptions.cancelText || '取消');
             const confirmText = escapeHtml(normalizedOptions.confirmText || (isDanger ? '删除' : '确认'));
             const iconClass = isDanger ? 'fa-trash' : 'fa-check';
+            // 可选 toggle(如「保留原图」)。其状态在确认时回传给 onConfirm(checked)。
+            const toggleOpt = normalizedOptions.toggle && typeof normalizedOptions.toggle === 'object' ? normalizedOptions.toggle : null;
+            const toggleHtml = toggleOpt ? `
+                        <label class="confirm-dialog-toggle">
+                            <input type="checkbox" class="confirm-dialog-toggle-input" ${toggleOpt.checked === false ? '' : 'checked'}>
+                            <span class="confirm-dialog-toggle-track" aria-hidden="true"></span>
+                            <span class="confirm-dialog-toggle-label">${escapeHtml(toggleOpt.label || '')}</span>
+                        </label>` : '';
             const dialog = document.createElement('div');
             dialog.className = `confirm-dialog${isDanger ? ' confirm-dialog-danger' : ''}`;
             dialog.innerHTML = `
@@ -722,6 +737,7 @@ if (!window.ImgEt.DialogManager) {
                     <div class="confirm-dialog-body">
                         <h3 class="confirm-dialog-title">${safeTitle}</h3>
                         <p class="confirm-dialog-message">${safeMessage}</p>
+                        ${toggleHtml}
                         <div class="confirm-dialog-actions">
                             <button type="button" class="confirm-dialog-btn confirm-dialog-cancel">
                                 ${cancelText}
@@ -760,7 +776,8 @@ if (!window.ImgEt.DialogManager) {
             dialog.querySelector('.confirm-dialog-submit').addEventListener('click', () => {
                 if (typeof onConfirm === 'function' && !dialog.confirmed) {
                     dialog.confirmed = true;
-                    onConfirm();
+                    const toggleInput = dialog.querySelector('.confirm-dialog-toggle-input');
+                    onConfirm(toggleInput ? toggleInput.checked : undefined);
                 }
                 closeDialog(true);
             });
@@ -2856,16 +2873,31 @@ class BatchProcessor extends BaseProcessor {
             ? `确定要将选中的 ${selectedFiles.length} 张图片加入 AVIF 异步任务队列吗？`
             : `确定要批量${actionText}选中的 ${selectedFiles.length} 张图片吗？`;
         const title = action === 'delete' ? '批量删除图片' : `批量${actionText}确认`;
+        // 转换会新建目标格式文件、原图保留 —— 给「保留原图」开关(默认保留),
+        // 关掉则转换成功后自动删除原图。AVIF 多张走异步队列、compress 为原地
+        // 覆盖,都没有可删的独立原图,故不显示该开关。
+        const isSyncConvert = ['webp', 'jpg', 'png'].includes(action)
+            || (action === 'avif' && selectedFiles.length <= 1);
         const confirmOptions = action === 'delete'
             ? { danger: true, confirmText: '删除' }
-            : {};
+            : (isSyncConvert ? { toggle: { label: '保留原图(关闭则转换后自动删除原图)', checked: true } } : {});
 
-        ImgEt.DialogManager.showConfirmDialog(title, message, () => {
-            this.process(action, selectedFiles);
+        ImgEt.DialogManager.showConfirmDialog(title, message, (keepOriginal) => {
+            const deleteOriginal = isSyncConvert && keepOriginal === false;
+            this.process(action, selectedFiles, deleteOriginal);
         }, confirmOptions);
     }
 
-    static async process(action, files) {
+    // 转换成功后删除原图。删除失败不应让整批判失败 —— 转换已成功,仅告警。
+    static async #deleteOriginalAfterConvert(filename, imgCard) {
+        try {
+            await DeleteManager.processSingle(filename, true, { notifySuccess: false, notifyError: false });
+        } catch (e) {
+            console.warn('转换后删除原图失败:', filename, e);
+        }
+    }
+
+    static async process(action, files, deleteOriginal = false) {
         if (action === 'avif' && files.length > 1) {
             this.startProcessing();
             try {
@@ -2908,13 +2940,16 @@ class BatchProcessor extends BaseProcessor {
                         break;
                     case 'webp':
                         await ImageProcessor.processSingleWebP(filename, imgCard, { notify: false, notifyError: false, dialog: false });
+                        if (deleteOriginal) await this.#deleteOriginalAfterConvert(filename, imgCard);
                         break;
                     case 'avif':
                         await ImageProcessor.processSingleAvif(filename, imgCard, { notify: false, notifyError: false, dialog: false });
+                        if (deleteOriginal) await this.#deleteOriginalAfterConvert(filename, imgCard);
                         break;
                     case 'jpg':
                     case 'png':
                         await ImageProcessor.processSingleConvert(filename, imgCard, action, { notify: false, notifyError: false, dialog: false });
+                        if (deleteOriginal) await this.#deleteOriginalAfterConvert(filename, imgCard);
                         break;
                     case 'delete':
                         await DeleteManager.processSingle(filename, true, {
