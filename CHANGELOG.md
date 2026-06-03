@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.4.0] - 2026-06-03
+
+### Added
+
+- **相册封面** — 相册编辑页每张图 hover 出现「设为封面」星标,点击即设为封面(当前封面高亮边框 + 「封面」角标,复用 `update` 接口的 `cover_filename`)。未显式设封面时,`AlbumRepository` 用关联子查询派生 `cover_effective`(相册第一张图)兜底,相册列表页和公开页不再显示空占位。
+- **公开相册沉浸式重构(参考 TimePlus)** — 公开相册页 `/a/<key>` 改为独立全屏体验:隐藏站点导航,照片墙全幅铺满、无缝粘连(`gap: 0`);移除顶部头部,改为底部黑色磨砂 fixed 信息条(`backdrop-filter`,显示相册名 + 张数/日期 + 版权)。网格缩略图加载淡入;点图灯箱支持加载转圈 → 缩放放大 + 淡入(参考 poptrox 动效)、左右翻页、键盘 `← → Esc`、标题/日期说明、模糊深色背景。
+- **批量转换「保留原图」开关** — 批量转 WebP / AVIF / JPG / PNG 的确认弹窗新增「保留原图」开关(默认保留),关闭则每张转换成功后自动删除原图(复用现有删除逻辑)。`DialogManager.showConfirmDialog` 支持可选 toggle 并回传状态。
+- **大图本地 Imagick 压缩兜底** — `mode=tinypng` 时,超过 5MB 的大图直接走本地 Imagick(TinyPNG 对大图常超时),且 TinyPNG 任何失败/超时也自动回退 Imagick,保证大图也能压缩。
+- **数据统计 v2 图表** — 清爽仪表盘风格:统一品牌配色主题(替换 Chart.js 出厂色)、极淡网格、圆角深色 tooltip、平滑折线、隐藏坐标轴边框。月度=纯色面积图、年度=直角柱、类型=环形、大小=饼图;两图等高等大、统一右侧分类图例。
+
+### Changed
+
+- **图库挑选器交互** — 相册编辑页「从图库挑选」改为整图点击即选中(去掉「选中」按钮),选中用品牌色高亮边框 + 「✓ 已选」角标;网格 8 张/行(平板 6 / 手机 4),默认加载 4 行(32 张),「加载更多」再加 4 行。
+- **批量进度 toast 改 4 列布局** — `icon | 标题+数字 | 百分比 | 关闭(✕)`,百分比移到右侧不再单独占行,新增可手动收起的关闭按钮。
+- **压缩失败返回明确错误** — 单图压缩失败时返回可读的 502(含压缩模式与体积提示),不再被脱敏成通用「服务器内部错误」500。
+
+### Fixed
+
+- **相册创建/列表经 PJAX 进入时操作失效** — `album_edit.php` / `albums.php` 的内联 `<script>` 原本在 `[data-pjax-container]` 之外,PJAX 只重跑容器内脚本,导致经 `data-pjax` 链接进入时表单 submit 不绑定 → 退回原生 GET、相册创建不了。脚本移入容器内修复。
+- **图库挑选器空白无法选图** — `/api/v1/list` 返回 `{data:{items:[...]}}`,前端原本读 `data.data`(对象)→ 列表永远为空;改读 `data.data.items`,并把请求参数 `limit` 改为接口实际使用的 `per_page`。
+- **批量上传文件名溢出容器** — `.progress-item` 为 grid,网格子项默认 `min-width:auto` 不收缩,长文件名撑破容器;`.progress-header/.progress-status` 加 `min-width:0` 让省略号截断生效。
+- **UPTIME 配色与默认范围** — 系统 uptime 路径下,建站(开机)之前的时段标记为「无数据」灰色而非「离线」红色且不计入在线率;`is-no_data` 类名与 JS 对齐修复无数据段显示绿色;默认范围随数据量递增(>30 天→90D / 满 30 天→30D / 不足→1D)。
+- **设置页 TinyPNG 表格** — 表头与状态列不再被挤成两行(`nowrap`),操作列「禁用/删除」按钮并排。
+- **数据统计两图大小不一** — 移除遗留的 `#typeChart max-height:260px` 覆盖(早期给已删除的占比明细列表留位),类型环形与大小饼图恢复等大。
+
+### Tooling
+
+- **JS 构建管线** — 新增 `npm run build:js`(esbuild `--minify --charset=utf8`),`bin/deploy.sh` 部署时一并重建 `main.min.js`。此前 `main.min.js` 与源码 `main.js` 脱节(未真正压缩、缺当前组件),生产长期在跑旧 JS;现已真正压缩(231KB → ~132KB)并随部署自动同步。`main.min.js` 自此为构建产物,请勿手改。
+
 ## [3.3.8] - 2026-05-29
 
 ### Added
