@@ -227,8 +227,10 @@ if (!$isNew && !empty($album)) {
 
         </div><!-- /.page-shell-body -->
     </section><!-- /.page-shell -->
-</main>
 
+<!-- 脚本必须放在 [data-pjax-container] 内部 —— PJAX 只重跑容器内的 <script>;
+     放到 </main> 外面会导致经 PJAX 进入本页时不执行,表单 submit 不绑定,
+     退回原生 GET 提交(创建相册失效)。 -->
 <script>
 (function () {
     // 重构后 .albums-shell 是 <section>,<main> 只挂 [data-pjax-container]。
@@ -521,5 +523,6 @@ if (!$isNew && !empty($album)) {
 
 })();
 </script>
+</main>
 
 <?php require_once APP_ROOT . '/footer.php'; ?>

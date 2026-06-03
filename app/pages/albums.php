@@ -123,8 +123,9 @@ require_once APP_ROOT . '/header.php';
 
         </div>
     </section>
-</main>
 
+<!-- 脚本须放在 [data-pjax-container] 内 —— PJAX 只重跑容器内 <script>;
+     放在 </main> 外会导致经 PJAX 进入列表页时删除等操作不绑定。 -->
 <script>
 (function () {
     const root = document.querySelector('[data-pjax-container]');
@@ -188,5 +189,6 @@ require_once APP_ROOT . '/header.php';
     });
 })();
 </script>
+</main>
 
 <?php require_once APP_ROOT . '/footer.php'; ?>

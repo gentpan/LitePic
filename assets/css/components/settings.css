@@ -2218,7 +2218,7 @@ html[data-theme="dark"] .settings-page .queue-stat__icon {
  *   .is-partial 琥珀 1-99%
  *   .is-down    红  0%
  *   .is-future  灰  还没到的桶(浅 → 浅灰; 深 → 深灰)
- *   .is-nodata  虚线灰 在第一次记录之前
+ *   .is-no_data 灰(虚线边)数据起点之前 — 类名须与 JS 的 is-${status} 对齐
  * ============================================================= */
 .runtime-uptime-section {
   /* 抢占整行；不进 grid */
@@ -2346,8 +2346,8 @@ html[data-theme="dark"] .runtime-uptime-section {
 .runtime-uptime-seg.is-partial { background: #f59e0b; }
 .runtime-uptime-seg.is-down    { background: #ef4444; }
 .runtime-uptime-seg.is-future  { background: var(--uptime-future-bg); }
-.runtime-uptime-seg.is-nodata  {
-  background: transparent;
+.runtime-uptime-seg.is-no_data {
+  background: var(--uptime-future-bg);
   border: 1px dashed var(--uptime-range-border);
 }
 
