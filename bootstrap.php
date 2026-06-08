@@ -76,6 +76,15 @@ try {
 // loads from SQLite without any caller changes.
 require_once APP_ROOT . '/config.php';
 
+// All /api/* responses are auth- or state-sensitive — forbid CDN caching.
+if (PHP_SAPI !== 'cli') {
+    $bootstrapUriPath = parse_url((string)($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
+    $bootstrapPath = is_string($bootstrapUriPath) && $bootstrapUriPath !== '' ? $bootstrapUriPath : '/';
+    if (str_starts_with($bootstrapPath, '/api/')) {
+        \LitePic\Core\HttpCache::preventPrivateCaching();
+    }
+}
+
 // Idle-site safety net for the worker queue. Arms a shutdown hook on
 // every web request that fires a drain at most once per 24h (default)
 // when no real cron is configured. No-op on CLI.

@@ -21,13 +21,13 @@ final class LoginAttemptRepository
     /** Convenience: check the current request's IP. */
     public function isAllowedForCurrentIp(): bool
     {
-        return $this->isAllowed((string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+        return $this->isAllowed(\LitePic\Core\RequestContext::clientIp());
     }
 
     /** Convenience: record a failure against the current request's IP. */
     public function recordFailureForCurrentIp(): void
     {
-        $this->recordFailure((string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+        $this->recordFailure(\LitePic\Core\RequestContext::clientIp());
     }
 
     public function isAllowed(string $ip): bool

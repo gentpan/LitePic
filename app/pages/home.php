@@ -21,9 +21,8 @@ if (!$is_logged_in) {
     try {
         $rpId = preg_replace('/:\d+$/', '', (string)($_SERVER['HTTP_HOST'] ?? 'localhost'));
         if ($rpId === '127.0.0.1') $rpId = 'localhost';
-        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
         $passkey_available = (new \LitePic\Service\Auth\Passkey\WebAuthn(
-            SITE_NAME, $rpId, $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost')
+            SITE_NAME, $rpId, \LitePic\Core\RequestContext::requestOrigin()
         ))->hasCredentials();
     } catch (\Throwable $_) {
         // Schema not yet migrated, table missing, etc — fail safe (hide button).

@@ -7,6 +7,7 @@ error_reporting(E_ALL);
 
 require_once __DIR__ . '/../bootstrap.php';
 
+\LitePic\Core\HttpCache::preventPrivateCaching();
 header('Content-Type: application/json');
 
 $action = (string)($_REQUEST['action'] ?? '');
@@ -19,8 +20,7 @@ $rpId = preg_replace('/:\d+$/', '', $host);
 if ($rpId === '127.0.0.1') {
     $rpId = 'localhost';
 }
-$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-$origin = $scheme . '://' . $host;
+$origin = \LitePic\Core\RequestContext::requestOrigin();
 
 $webauthn = new \LitePic\Service\Auth\Passkey\WebAuthn($rpName, $rpId, $origin);
 

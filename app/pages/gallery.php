@@ -33,9 +33,8 @@ class GalleryManager {
         $this->is_admin = (new \LitePic\Service\Auth\AuthService())->isAdmin();
                          
         if (!$this->is_admin) {
-            error_log("Unauthorized access attempt to gallery.php from " . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
-            header('Location: /upload');
-            exit;
+            error_log("Unauthorized access attempt to gallery.php from " . \LitePic\Core\RequestContext::clientIp());
+            \LitePic\Core\HttpCache::redirect('/upload');
         }
     }
 

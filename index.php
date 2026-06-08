@@ -69,4 +69,7 @@ if (!is_file($pageFile)) {
     exit;
 }
 
+// Dynamic pages (and their auth redirects) must never be cached at the CDN edge.
+\LitePic\Core\HttpCache::preventPrivateCaching();
+
 require $pageFile;

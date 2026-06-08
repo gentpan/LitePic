@@ -14,8 +14,7 @@ if (!(new \LitePic\Service\Auth\AuthService())->isAdmin()) {
             'message' => '登录状态已失效，请重新登录后再保存设置',
         ], 401);
     }
-    header('Location: /upload');
-    exit;
+    \LitePic\Core\HttpCache::redirect('/upload');
 }
 
 const SETTINGS_FLASH_COOKIE = 'settings_flash_once';
@@ -104,7 +103,7 @@ if (!empty($_COOKIE[SETTINGS_FLASH_COOKIE])) {
     setcookie(SETTINGS_FLASH_COOKIE, '', [
         'expires' => time() - 3600,
         'path' => '/',
-        'secure' => (!empty($_SERVER['HTTPS']) && (string)$_SERVER['HTTPS'] !== 'off'),
+        'secure' => \LitePic\Core\RequestContext::isHttps(),
         'httponly' => true,
         'samesite' => 'Lax',
     ]);
@@ -189,7 +188,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         setcookie(SETTINGS_FLASH_COOKIE, $flashPayload, [
             'expires' => time() + SETTINGS_FLASH_TTL,
             'path' => '/',
-            'secure' => (!empty($_SERVER['HTTPS']) && (string)$_SERVER['HTTPS'] !== 'off'),
+            'secure' => \LitePic\Core\RequestContext::isHttps(),
             'httponly' => true,
             'samesite' => 'Lax',
         ]);
@@ -198,8 +197,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         if ($posted_settings_tab !== '' && $posted_settings_tab !== 'basic') {
             $redirect .= '/' . rawurlencode($posted_settings_tab);
         }
-        header('Location: ' . $redirect);
-        exit;
+        \LitePic\Core\HttpCache::redirect($redirect);
     }
 }
 
@@ -619,7 +617,7 @@ require_once APP_ROOT . '/header.php';
                             </div>
                             <div class="grid gap-2">
                                 <label for="uploadMaxConcurrent">上传并发数</label>
-                                <input id="uploadMaxConcurrent" type="number" name="upload_max_concurrent" min="1" max="10" step="1" value="<?= (int)(defined('UPLOAD_MAX_CONCURRENT') ? UPLOAD_MAX_CONCURRENT : 3) ?>">
+                                <input id="uploadMaxConcurrent" type="number" name="upload_max_concurrent" min="1" max="20" step="1" value="<?= (int)(defined('UPLOAD_MAX_CONCURRENT') ? UPLOAD_MAX_CONCURRENT : 20) ?>">
                                 <span class="settings-field-hint">推荐 2-4；服务器性能强可以调高，过高会增加网络错误概率。</span>
                             </div>
                             <div class="grid gap-2 col-span-2">
