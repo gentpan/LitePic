@@ -8,8 +8,7 @@ if (!defined('APP_ROOT')) {
 // 检查登录状态
 $is_logged_in = (new \LitePic\Service\Auth\AuthService())->isAdmin();
 if (!$is_logged_in) {
-    header('Location: /');
-    exit;
+    \LitePic\Core\HttpCache::redirect('/');
 }
 
 // 相册下拉所需:把所有非 private 相册列出来
@@ -255,7 +254,7 @@ require_once APP_ROOT . '/header.php';
                         id="imageInput"
                         data-max-size="<?= (int)$effective_max_upload_bytes ?>"
                         data-max-files="<?= (int)(defined('UPLOAD_MAX_FILES') ? UPLOAD_MAX_FILES : 100) ?>"
-                        data-max-concurrent="<?= (int)(defined('UPLOAD_MAX_CONCURRENT') ? UPLOAD_MAX_CONCURRENT : 3) ?>"
+                        data-max-concurrent="<?= (int)(defined('UPLOAD_MAX_CONCURRENT') ? UPLOAD_MAX_CONCURRENT : 20) ?>"
                         data-auto-compress="<?= AUTO_COMPRESS_ON_UPLOAD ? '1' : '0' ?>"
                         data-auto-convert="<?= $conversion_enabled ? '1' : '0' ?>"
                         data-convert-format="<?= htmlspecialchars(strtolower($conversion_format)) ?>"

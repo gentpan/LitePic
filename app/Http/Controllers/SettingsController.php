@@ -552,7 +552,7 @@ final class SettingsController
         $siteDescription = trim((string)($_POST['site_description'] ?? SITE_DESCRIPTION));
         $maxFileSizeMb = max(1, min(2048, (int)($_POST['max_file_size_mb'] ?? (int)round(MAX_FILE_SIZE / 1024 / 1024))));
         $uploadMaxFiles = max(1, min(500, (int)($_POST['upload_max_files'] ?? (defined('UPLOAD_MAX_FILES') ? UPLOAD_MAX_FILES : 100))));
-        $uploadMaxConcurrent = max(1, min(10, (int)($_POST['upload_max_concurrent'] ?? (defined('UPLOAD_MAX_CONCURRENT') ? UPLOAD_MAX_CONCURRENT : 3))));
+        $uploadMaxConcurrent = max(1, min(20, (int)($_POST['upload_max_concurrent'] ?? (defined('UPLOAD_MAX_CONCURRENT') ? UPLOAD_MAX_CONCURRENT : 20))));
         $allowedTypes = $this->parseAllowedUploadTypes($warnings);
         $isHttps = (
             (!empty($_SERVER['HTTPS']) && (string)$_SERVER['HTTPS'] !== 'off') ||

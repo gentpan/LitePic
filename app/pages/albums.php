@@ -6,8 +6,7 @@ if (!defined('APP_ROOT')) {
 }
 
 if (!(new \LitePic\Service\Auth\AuthService())->isAdmin()) {
-    header('Location: /upload');
-    exit;
+    \LitePic\Core\HttpCache::redirect('/upload');
 }
 
 $page_title = '相册管理';

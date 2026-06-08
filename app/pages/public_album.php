@@ -106,14 +106,13 @@ if ($visibility !== 'password' || $isAdmin) {
                     [
                         'expires'  => $exp,
                         'path'     => '/',
-                        'secure'   => (!empty($_SERVER['HTTPS']) && (string)$_SERVER['HTTPS'] !== 'off'),
+                        'secure'   => \LitePic\Core\RequestContext::isHttps(),
                         'httponly' => true,
                         'samesite' => 'Lax',
                     ]
                 );
                 // PRG 防刷新重提 — 跳回访客实际访问的 URL key（保留 /a/3 vs /a/slug 选择）
-                header('Location: /a/' . rawurlencode($albumKey));
-                exit;
+                \LitePic\Core\HttpCache::redirect('/a/' . rawurlencode($albumKey));
             }
             $loginRepo->recordFailureForCurrentIp();
             $passwordError = $candidate === '' ? '请输入密码' : '密码错误';
@@ -177,7 +176,7 @@ if (!isset($_COOKIE[$visitCookieName])) {
     setcookie($visitCookieName, '1', [
         'expires'  => time() + 1800,
         'path'     => '/',
-        'secure'   => (!empty($_SERVER['HTTPS']) && (string)$_SERVER['HTTPS'] !== 'off'),
+        'secure'   => \LitePic\Core\RequestContext::isHttps(),
         'httponly' => true,
         'samesite' => 'Lax',
     ]);

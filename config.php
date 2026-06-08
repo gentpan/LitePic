@@ -139,7 +139,7 @@ if (empty($allowed_upload_types)) {
 define('ALLOWED_UPLOAD_TYPES', $allowed_upload_types);
 define('MAX_FILE_SIZE', max(1, (int)env_value('MAX_FILE_SIZE_MB', 20)) * 1024 * 1024);
 define('UPLOAD_MAX_FILES', max(1, min(500, (int)env_value('UPLOAD_MAX_FILES', 100))));
-define('UPLOAD_MAX_CONCURRENT', max(1, min(10, (int)env_value('UPLOAD_MAX_CONCURRENT', 3))));
+define('UPLOAD_MAX_CONCURRENT', max(1, min(20, (int)env_value('UPLOAD_MAX_CONCURRENT', 20))));
 define('MIN_IMAGE_WIDTH', 20);
 define('MIN_IMAGE_HEIGHT', 20);
 // 单张图最大像素数 — 转换 / 压缩流水线的安全阀。超过这个值的图直接跳过

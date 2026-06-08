@@ -3495,7 +3495,7 @@ class UploadManager {
         TIMEOUT_SMALL_THRESHOLD: 2 * 1024 * 1024,
         TIMEOUT_MEDIUM_THRESHOLD: 10 * 1024 * 1024,
         MAX_FILES: 100,
-        MAX_CONCURRENT: 3, // 批量上传并发数；本地 php -S 和低配 PHP-FPM 更稳
+        MAX_CONCURRENT: 20, // 单人自托管图床默认 20 并发
         FADE_DURATION: 300, // 动画过渡时间
     };
 
@@ -3550,7 +3550,7 @@ class UploadManager {
         if (this.elements.imageInput && this.elements.imageInput.dataset.maxConcurrent) {
             const parsed = parseInt(this.elements.imageInput.dataset.maxConcurrent, 10);
             if (Number.isFinite(parsed) && parsed > 0) {
-                this.maxConcurrent = Math.max(1, Math.min(10, parsed));
+                this.maxConcurrent = Math.max(1, Math.min(20, parsed));
             }
         }
         if (this.elements.imageInput) {
