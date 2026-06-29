@@ -9,8 +9,8 @@
 #   3. 维护模式 on (touch .maintenance)
 #   4. tar 流式同步代码,排除 data/ uploads/ logs/ .env / .user.ini /
 #      .git / node_modules / 已知 macOS 元数据垃圾 (._*, .DS_Store)
-#   5. chown -R www:www
-#   6. 触发迁移(让 bootstrap.php 跑 Migration::run)
+#   5. chown -R ${LITEPIC_OWNER}
+#   6. 触发迁移(让 bootstrap.php 跑 Migration::run, 以 ${LITEPIC_OWNER} 用户)
 #   7. 维护模式 off
 #   8. HTTP 自检
 #   9. 打印一键回滚命令
@@ -128,7 +128,7 @@ echo "  (从 ${ROOT} 推到 ${USER}@${HOST}:${REMOTE})"
 # chown 必须跳过 BT 面板 / cPanel 这类控制面板锁住的 root-owned 文件
 # (.user.ini、.env)—— 它们要么有 immutable 位,要么有面板的
 # kernel-level 保护。`find -prune` 把这些路径完全排除在 chown 之外,
-# 剩下的 tree 一次性 chown -R 给 www。
+# 剩下的 tree 一次性 chown -R 给 ${OWNER}。
 COPYFILE_DISABLE=1 tar -cz "${TAR_EXCLUDES[@]}" -f - . | \
     SSH "cd ${REMOTE} && tar -xz 2>/dev/null && \
          find . \( -path './.git' -o -name '.user.ini' -o -name '.env' \) -prune \
@@ -136,7 +136,9 @@ COPYFILE_DISABLE=1 tar -cz "${TAR_EXCLUDES[@]}" -f - . | \
          echo '  ✓ extracted + chowned (.user.ini/.env 被面板保护,跳过)'"
 
 say "运行迁移(触发 bootstrap.php)"
-SSH "cd ${REMOTE} && sudo -u www php -r 'require __DIR__.\"/bootstrap.php\"; echo \"  ✓ bootstrap OK\n\";'"
+# 从 OWNER (如 www-data:www-data) 提取用户名, 避免硬编码 www
+MIGRATE_USER="${OWNER%%:*}"
+SSH "cd ${REMOTE} && sudo -u ${MIGRATE_USER} php -r 'require __DIR__.\"/bootstrap.php\"; echo \"  ✓ bootstrap OK\n\";'"
 
 say "维护模式 OFF"
 SSH "rm -f ${REMOTE}/.maintenance && echo '  ✓ .maintenance removed'"
