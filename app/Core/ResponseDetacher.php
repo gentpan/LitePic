@@ -13,20 +13,9 @@ use Throwable;
  * the response goes out immediately and the worker drains the queue
  * in the same PHP process while the browser sees the upload as done.
  *
- * Two execution paths:
- *
- *   • PHP-FPM (most modern shared-hosting and server-panel setups):
- *     `fastcgi_finish_request()` is the official, clean way to detach.
- *     The TCP / unix socket to the FPM worker is closed; PHP keeps
- *     running until the script ends.
- *
- *   • mod_php / built-in server (fallback):
- *     Force a `Content-Length` header and `Connection: close`, then
- *     flush the output buffers and close the session — the client
- *     gets the full response and disconnects, but PHP keeps running
- *     to do background work. Less reliable than fastcgi_finish_request
- *     (HTTP/1.1 keep-alive, intermediate proxies can interfere) but
- *     it's the best we can do without FPM.
+ * On nginx + PHP-FPM, `fastcgi_finish_request()` is the clean detach path:
+ * the FastCGI connection closes, PHP keeps running until the deferred
+ * worker finishes.
  *
  * Both paths set `ignore_user_abort(true)` and remove the time limit
  * so the worker keeps running even if the browser disconnects.
@@ -47,8 +36,8 @@ final class ResponseDetacher
      */
     public static function runAfterResponse(callable $work): void
     {
-        // CLI: no HTTP response to flush, just run inline
-        if (PHP_SAPI === 'cli' || PHP_SAPI === 'cli-server') {
+        // CLI: no HTTP response to flush, just run inline.
+        if (PHP_SAPI === 'cli') {
             self::invoke($work);
             return;
         }
@@ -67,7 +56,7 @@ final class ResponseDetacher
             return;
         }
 
-        // mod_php fallback — manually close the connection
+        // Generic fallback for unusual SAPIs — manually close the connection.
         self::flushAndCloseConnection();
         self::invoke($work);
     }

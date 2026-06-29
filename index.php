@@ -37,12 +37,10 @@ if ($_storageDir !== 'uploads' && str_starts_with($requestPath, '/uploads/')) {
 unset($_storageDir);
 
 /*
- * Image URL prefix fallback — 让所有 web server 都支持自定义 URL 前缀。
+ * Image URL prefix fallback — 让 nginx 支持自定义 URL 前缀。
  *
- * .htaccess 里有 catch-all rewrite 把 `/<prefix>/yyyy/mm/file` 重写到
- * image.php — 但这只在 Apache 上有效。Nginx / Caddy / php -S 不读
- * .htaccess，请求会按 try_files 兜底落到 index.php，到这里被识别 +
- * dispatch 给 image.php。
+ * nginx try_files 会把未命中静态文件的请求兜底到 index.php，到这里识别
+ * `/<prefix>/yyyy/mm/file` 并 dispatch 给 image.php。
  *
  * 排除前缀：STORAGE_DIR（物理目录直连）、i（已上面拦截）、
  * api / static / assets / data / logs（框架路径）。

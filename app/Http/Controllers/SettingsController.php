@@ -537,9 +537,9 @@ final class SettingsController
     }
 
     /**
-     * The big one — saves the bulk of /settings into .env, .user.ini,
-     * and .htaccess. Returns extras the page render needs to refresh
-     * client-side state (e.g. updated background URL).
+     * Saves the bulk of /settings into .env and .user.ini. Returns extras
+     * the page render needs to refresh client-side state (e.g. updated
+     * background URL).
      */
     private function handleSaveSettings(): array
     {
@@ -552,7 +552,7 @@ final class SettingsController
         $siteDescription = trim((string)($_POST['site_description'] ?? SITE_DESCRIPTION));
         $maxFileSizeMb = max(1, min(2048, (int)($_POST['max_file_size_mb'] ?? (int)round(MAX_FILE_SIZE / 1024 / 1024))));
         $uploadMaxFiles = max(1, min(500, (int)($_POST['upload_max_files'] ?? (defined('UPLOAD_MAX_FILES') ? UPLOAD_MAX_FILES : 100))));
-        $uploadMaxConcurrent = max(1, min(20, (int)($_POST['upload_max_concurrent'] ?? (defined('UPLOAD_MAX_CONCURRENT') ? UPLOAD_MAX_CONCURRENT : 20))));
+        $uploadMaxConcurrent = max(1, min(20, (int)($_POST['upload_max_concurrent'] ?? (defined('UPLOAD_MAX_CONCURRENT') ? UPLOAD_MAX_CONCURRENT : 3))));
         $allowedTypes = $this->parseAllowedUploadTypes($warnings);
         $isHttps = (
             (!empty($_SERVER['HTTPS']) && (string)$_SERVER['HTTPS'] !== 'off') ||
@@ -578,11 +578,8 @@ final class SettingsController
          $watermarkPanelEnabled, $watermarkPanelOpacity, $watermarkPanelPadding,
          $watermarkPanelRadius] = $this->resolveWatermarkSettings($warnings);
 
-        // Hotlink — PHP-only path now. The toggle was historically called
-        // "apache_hotlink_*" because it wrote .htaccess; we now flip
-        // HOTLINK_PROTECTION_ENABLED instead, which routes images through
-        // /i/<id> where ImageServeService runs the referer check. Form
-        // field renamed accordingly.
+        // Hotlink protection routes images through /i/<id>, where
+        // ImageServeService runs the referer check.
         $hotlinkProtectionEnabled = self::boolFromPost('hotlink_protection_enabled');
         $hotlinkAllowedDomains = trim((string)($_POST['hotlink_allowed_domains'] ?? implode(',', HOTLINK_ALLOWED_DOMAINS)));
         $hotlinkAllowEmptyReferer = self::boolFromPost('hotlink_allow_empty_referer');
@@ -725,10 +722,9 @@ final class SettingsController
             'memory_limit' => '256M',
         ]);
 
-        // Hotlink protection is now PHP-only — no .htaccess writes. The
-        // HOTLINK_PROTECTION_ENABLED env above is the single source of
-        // truth; ImageServeService::serve() consults it on every /i/<id>
-        // request and 403s on disallowed referers.
+        // HOTLINK_PROTECTION_ENABLED is the single source of truth;
+        // ImageServeService::serve() consults it on every /i/<id> request
+        // and 403s on disallowed referers.
 
         if (!$envWritten) {
             $message = '写入 .env 失败，请检查文件权限';
@@ -773,7 +769,7 @@ final class SettingsController
             $raw = explode(',', (string)$raw);
         }
 
-        // 任何会被服务端 / Apache / Nginx 当成可执行 / 模板 / 配置 / 脚本
+        // 任何会被 nginx / PHP 当成可执行 / 模板 / 配置 / 脚本
         // 处理的扩展名都拉黑（防止用户脚滑写错把 .php 当图片格式加进白名单）。
         // 即使 MIME 校验也会再拦一道，这里属于"双保险"。
         $blacklist = [
@@ -782,7 +778,7 @@ final class SettingsController
             'sh', 'bash', 'zsh', 'cgi', 'pl', 'py', 'rb',
             'exe', 'bat', 'cmd', 'com', 'msi', 'dll',
             'js', 'mjs', 'html', 'htm', 'xhtml',
-            'htaccess', 'ini', 'env', 'conf',
+            'ini', 'env', 'conf',
         ];
 
         $cleaned = [];

@@ -351,40 +351,12 @@
     background: transparent;
   }
 
-  .footer-outside-left {
-    @apply flex items-center gap-4 text-sm text-gray;
-  }
-
-  .footer-outside-left a {
-    @apply text-gray no-underline transition-colors duration-200;
-  }
-
-  .footer-outside-left a:hover {
-    @apply text-dark;
-  }
-
   .footer-content {
     @apply w-full max-w-[1280px] px-4 mx-auto flex gap-6 items-center justify-between box-border;
   }
 
   .footer-copyright {
     @apply text-sm shrink-0;
-  }
-
-  .stat-item {
-    @apply flex items-center gap-2 text-gray text-sm;
-  }
-
-  .stat-item i {
-    @apply text-base text-primary;
-  }
-
-  .stat-value {
-    @apply font-medium text-dark;
-  }
-
-  .stat-label {
-    @apply text-gray;
   }
 
   .site-footer .login-btn {
@@ -894,23 +866,14 @@
     filter: brightness(1.1);
   }
 
-  body.home-guest .footer-outside-left,
-  body.home-guest .footer-outside-left a,
   body.home-guest .footer-copyright,
   body.home-guest .footer-copyright a,
-  body.home-guest .stat-item,
-  body.home-guest .stat-label,
   body.home-guest .footer-link {
     color: rgba(246, 249, 255, 0.8);
   }
 
-  body.home-guest .footer-outside-left a:hover,
   body.home-guest .footer-copyright a:hover,
   body.home-guest .footer-link:hover {
-    color: #f6f9ff;
-  }
-
-  body.home-guest .stat-value {
     color: #f6f9ff;
   }
 
@@ -941,15 +904,6 @@
   body.home-guest .home-hero-description {
     @apply m-0 text-base;
     color: var(--hero-muted);
-  }
-
-  body.home-guest .format-tag {
-    @apply inline-flex items-center justify-center min-w-[70px] h-[34px] px-2.5 font-semibold rounded-md border text-[0.92rem];
-    background: var(--hero-format-bg);
-    border-color: var(--hero-format-border);
-    color: var(--hero-format-text);
-    backdrop-filter: blur(10px) saturate(140%);
-    -webkit-backdrop-filter: blur(10px) saturate(140%);
   }
 
   body.home-guest .site-header {
@@ -1330,21 +1284,11 @@
       font-size: 0.9rem;
     }
 
-    body.home-guest .format-tag {
-      @apply min-w-[62px] h-8 text-[0.85rem];
-    }
-
   }
 
   @media (max-width: 576px) {
     .header-right {
       @apply justify-start;
-    }
-  }
-
-  @media (max-width: 480px) {
-    .stat-item {
-      @apply justify-center;
     }
   }
 

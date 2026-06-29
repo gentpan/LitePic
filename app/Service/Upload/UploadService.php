@@ -13,10 +13,11 @@ use LitePic\Service\Image\WatermarkService;
 use LitePic\Service\Storage\RemoteStorage;
 
 /**
- * Receives uploaded files (`$_FILES` rows), validates them, writes to
- * disk, runs the post-process pipeline (compress + convert + thumbnail +
- * watermark + remote sync), and returns the result array the upload
- * UI / API renders.
+ * Receives uploaded files (`$_FILES` rows), validates them, writes them
+ * to disk, records metadata, enqueues post-processing work (thumbnail +
+ * compress + convert + watermark + remote sync), and returns the result
+ * array the upload UI / API renders. Upload success means the original
+ * file is safely stored; optimization work happens after that.
  *
  * MIME validation reads the real file type using `finfo` (or
  * `mime_content_type` / `getimagesize` fallbacks). If a safe raster image
@@ -201,25 +202,12 @@ final class UploadService
         }
         $imageRepo->update($identifier, $imageMeta);
 
-        // 同步生成缩略图 — 把它从异步队列里抽出来同步做。
-        // 决策依据:缩略图是 99% 情况下用户「最先想看到的东西」,异步走轮询要等
-        // 至少 400ms。同步生成虽然会让上传响应慢 30-200ms(中等图),但换来
-        // 「响应一返回就能显示缩略图」,体感反而快。失败时静默退回到队列流程。
-        // 把上面已经算过的 $dimensions(getimagesize 结果)透传下去,避免
-        // ThumbnailService::create 再读一次同一文件的图片头。
+        // 上传路径只保存原图并入队。缩略图 / 压缩 / 转换 / 水印 /
+        // 远程同步统一交给 ImageProcessor 队列，避免大批量上传时每个
+        // 请求都在响应前解码图片。
         $thumbnailReady = false;
-        try {
-            $thumbnailReady = (new ThumbnailService())->create($identifier, false, is_array($dimensions) ? $dimensions : null);
-        } catch (\Throwable $_) {
-            // 任何异常都退到异步路径 — 缩略图失败不能阻断上传成功
-            $thumbnailReady = false;
-        }
-
-        // Same post-processing pipeline as the browser path — thumbnail,
-        // optional auto-compress / convert / watermark, optional remote sync.
-        // 同步生成成功就跳过 create_thumbnail,worker 不再重复做工。
         $queueOptions = [
-            'create_thumbnail'    => !$thumbnailReady,
+            'create_thumbnail'    => ThumbnailService::canGenerate($identifier),
             'auto_compress'       => defined('AUTO_COMPRESS_ON_UPLOAD') && AUTO_COMPRESS_ON_UPLOAD,
             'auto_convert'        => defined('AUTO_CONVERT_ON_UPLOAD') && AUTO_CONVERT_ON_UPLOAD,
             'auto_convert_target' => defined('CONVERT_PREFERRED_FORMAT') ? CONVERT_PREFERRED_FORMAT : 'webp',
@@ -232,18 +220,13 @@ final class UploadService
         $hasWork = \LitePic\Repository\ImportQueueRepository::hasWork($queueOptions);
         if ($hasWork) $queue->enqueue($identifier, $queueOptions);
 
-        // 缩略图就绪时直接给前端真实的 thumbnail URL,失败/异常时回退到原图
-        $thumbUrl = $thumbnailReady
-            ? ImageUrl::thumbnailUrl($identifier)
-            : ImageUrl::forIdentifier($identifier);
-
         return [
             'status' => 'success',
             'filename' => $identifier,
             'original_name' => $originalName,
             'url' => ImageUrl::forIdentifier($identifier),
-            'thumbnail_url' => $thumbUrl,
-            'has_thumbnail' => $thumbnailReady, // 前端可据此跳过轮询「等缩略图」
+            'thumbnail_url' => ImageUrl::forIdentifier($identifier),
+            'has_thumbnail' => false,
             'processing' => [
                 'queued' => $hasWork,
                 'queue_options' => $queueOptions,
@@ -423,22 +406,11 @@ final class UploadService
         }
         $imageRepo->update($identifier, $imageMeta);
 
-        // 同步生成缩略图(从队列里抽出来同步做)。
-        // 缩略图通常 <200ms,代价小,但能换来「响应一返回前端就能秒显示缩略图」,
-        // 比异步 + 轮询体感快好几倍。失败时静默退回到队列流程,不阻断上传成功。
-        // 重活(压缩/WebP/AVIF/水印/远程同步)仍走异步,不影响上传响应。
-        // 透传 $dimensions 避免 ThumbnailService 再调一次 getimagesize。
-        $thumbnailReady = false;
-        try {
-            $thumbnailReady = (new ThumbnailService())->create($identifier, false, is_array($dimensions) ? $dimensions : null);
-        } catch (\Throwable $_) {
-            $thumbnailReady = false;
-        }
-
         // 根据全局设置决定要做哪些重活(沿用之前同步流程的开关含义)。
-        // create_thumbnail 视上面的同步生成结果而定 — 成功就跳过,失败重新入队。
+        // 缩略图也走同一个队列，上传响应只代表原图已保存。
+        $thumbnailReady = false;
         $queueOptions = [
-            'create_thumbnail' => !$thumbnailReady,
+            'create_thumbnail' => ThumbnailService::canGenerate($identifier),
             'auto_compress'    => defined('AUTO_COMPRESS_ON_UPLOAD') && AUTO_COMPRESS_ON_UPLOAD,
             'auto_convert'     => defined('AUTO_CONVERT_ON_UPLOAD') && AUTO_CONVERT_ON_UPLOAD,
             'auto_convert_target' => defined('CONVERT_PREFERRED_FORMAT') ? CONVERT_PREFERRED_FORMAT : 'webp',
@@ -454,20 +426,13 @@ final class UploadService
             $queue->enqueue($identifier, $queueOptions);
         }
 
-        // 上传成功立即返回;URL 已可访问(原图直接 serve)。
-        // 缩略图如果同步生成成功,直接给真实 thumbnail URL;否则回退到原图,
-        // 客户端轮询 /api/image-status 等异步处理完再升级到优化版本。
-        $thumbUrl = $thumbnailReady
-            ? ImageUrl::thumbnailUrl($identifier)
-            : ImageUrl::forIdentifier($identifier);
-
         return [
             'status' => 'success',
             'filename' => $identifier,
             'original_name' => $originalName,
             'url' => ImageUrl::forIdentifier($identifier),
-            'thumbnail_url' => $thumbUrl,
-            'has_thumbnail' => $thumbnailReady, // 前端可据此跳过「等缩略图」轮询
+            'thumbnail_url' => ImageUrl::forIdentifier($identifier),
+            'has_thumbnail' => false,
             'processing' => [
                 'queued'           => $hasWork,
                 'queue_options'    => $queueOptions,

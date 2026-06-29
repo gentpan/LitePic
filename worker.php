@@ -6,21 +6,19 @@ declare(strict_types=1);
  *
  * What it does
  *   Drains the SQLite `import_queue` table: thumbnail, compress,
- *   WebP / AVIF conversion, watermark, S3 sync. Same code path as
- *   the in-request worker that fires after every upload via
- *   ResponseDetacher — so this is just a safety-net / catchup
- *   mechanism for when the in-request drain didn't run (FPM not
- *   available, request killed mid-flight, server reboot left items
- *   stuck pending, etc.).
+ *   WebP / AVIF conversion, watermark, S3 sync. Upload requests only
+ *   save the original file and enqueue this work; a tiny response-after
+ *   drain handles light traffic, while this worker is the preferred path
+ *   for batches and production sites.
  *
  * How to schedule
  *   Cron (preferred):
  *     * * * * * cd /var/www/html && /usr/bin/php worker.php >> logs/worker.log 2>&1
  *
- *   Without cron: the in-request drain that runs after every upload
- *   already covers the common case. Stuck items get picked up the
- *   next time anyone uploads anything. Cron is for the "no upload
- *   for hours" tail.
+ *   Without cron: LitePic still runs a small response-after drain after
+ *   uploads and has a heartbeat fallback. Cron is recommended for large
+ *   batches so upload requests stay fast and image processing keeps
+ *   moving independently.
  *
  * Flags / env
  *   --max-items=N    process at most N tasks this run (default 200)

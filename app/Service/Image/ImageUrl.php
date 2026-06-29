@@ -79,8 +79,8 @@ final class ImageUrl
      *   1. 防盗链 / 图片请求统计 任一开启 → 强制走 /i/ (PHP 端可校验 / 计数)
      *      — URL_PREFIX 设置在这种情况下不生效（功能 trump 美观）
      *   2. 否则按 URL_PREFIX 拼接：<URL_PREFIX><identifier>
-     *      物理文件路径不变，.htaccess 里的 catch-all rewrite 会把任何单词
-     *      前缀 + /yyyy/mm/file 自动指向 uploads/yyyy/mm/file
+     *      物理文件路径不变，nginx try_files 会把任意公开前缀
+     *      + /yyyy/mm/file 回退到 index.php，由 PHP 定位真实文件。
      */
     private static function buildLocalUrl(string $identifier): string
     {
@@ -95,7 +95,7 @@ final class ImageUrl
             return rtrim(SITE_URL, '/') . '/i/' . PathService::encodeForUrl($identifier);
         }
         // 其它前缀（包括 /uploads/、/、/img/、/photo/ 等）都拼接成
-        // <SITE_URL><prefix><identifier>，由 Apache 直接 serve
+        // <SITE_URL><prefix><identifier>，由 nginx try_files / PHP fallback 解析。
         return rtrim(SITE_URL, '/') . $prefix . $identifier;
     }
 

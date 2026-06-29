@@ -44,7 +44,6 @@ final class UpdateService
         'nginx-litepic.conf',
         'package-lock.json',
         'package.json',
-        'router.php',
         'worker.php',
         'static/logo.png',
         'static/logo-dark.png',
@@ -66,7 +65,6 @@ final class UpdateService
     private const PROTECTED_PATHS = [
         '.env',
         '.user.ini',
-        '.htaccess',
         'data',
         'uploads', // see STORAGE_DIR — actual dir name is configurable
         'logs',
@@ -78,7 +76,6 @@ final class UpdateService
     private const CRITICAL_BACKUP_PATHS = [
         '.env',
         '.user.ini',
-        '.htaccess',
         'data/litepic.sqlite',
         'data/litepic.sqlite-wal',
         'data/litepic.sqlite-shm',

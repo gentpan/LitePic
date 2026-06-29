@@ -278,9 +278,7 @@ $hotlink_enabled = defined('HOTLINK_PROTECTION_ENABLED') && HOTLINK_PROTECTION_E
 $web_server = (new \LitePic\Service\Stats\ServerInfo())->webServer();
 $server_software = (string)$web_server['raw'];
 $server_label = (string)$web_server['label'];
-$server_uses_htaccess = !empty($web_server['uses_htaccess']);
 $server_uses_nginx_rules = !empty($web_server['uses_nginx_rules']);
-$server_uses_caddyfile = !empty($web_server['uses_caddyfile']);
 
 require_once APP_ROOT . '/header.php';
 ?>
@@ -294,7 +292,7 @@ require_once APP_ROOT . '/header.php';
             <?php
             $is_active = $tab_key === $active_settings_tab;
             // 路径化 URL — /settings = basic（默认），/settings/<tab> = 其它 tab
-            // 由 .htaccess 和 router.php 把 /settings/<tab> 重写到 index.php?tab=<tab>
+            // 由 nginx try_files 兜底到 index.php 后解析。
             $href = '/settings' . ($tab_key === 'basic' ? '' : '/' . rawurlencode($tab_key));
             ?>
             <a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>"
@@ -442,9 +440,7 @@ require_once APP_ROOT . '/header.php';
                                     <span class="text-base text-dark break-all runtime-meta-value" id="metricPhpVersion"><?= htmlspecialchars((string)($metrics['php_version'] ?? PHP_VERSION)) ?></span>
                                 </article>
                                 <?php
-                                // 从 SERVER_SOFTWARE 抽出第一段版本号（"Apache/2.4.58 (Debian)" -> "2.4.58"）。
-                                // PHP 内置开发服务器的 SERVER_SOFTWARE 是 "PHP/x.y.z Development Server"，
-                                // 抽出来就是 PHP 版本本身 — 也是合理可读的信息。
+                                // 从 SERVER_SOFTWARE 抽出第一段版本号（"nginx/1.26.3" -> "1.26.3"）。
                                 $server_version = '';
                                 if ($server_software !== '' && preg_match('#/([0-9]+(?:\.[0-9]+)*)#', $server_software, $vm)) {
                                     $server_version = $vm[1];
@@ -617,7 +613,7 @@ require_once APP_ROOT . '/header.php';
                             </div>
                             <div class="grid gap-2">
                                 <label for="uploadMaxConcurrent">上传并发数</label>
-                                <input id="uploadMaxConcurrent" type="number" name="upload_max_concurrent" min="1" max="20" step="1" value="<?= (int)(defined('UPLOAD_MAX_CONCURRENT') ? UPLOAD_MAX_CONCURRENT : 20) ?>">
+                                <input id="uploadMaxConcurrent" type="number" name="upload_max_concurrent" min="1" max="20" step="1" value="<?= (int)(defined('UPLOAD_MAX_CONCURRENT') ? UPLOAD_MAX_CONCURRENT : 3) ?>">
                                 <span class="settings-field-hint">推荐 2-4；服务器性能强可以调高，过高会增加网络错误概率。</span>
                             </div>
                             <div class="grid gap-2 col-span-2">
@@ -1439,8 +1435,7 @@ require_once APP_ROOT . '/header.php';
                         </div>
 
                         <p class="m-0 text-xs text-gray">
-                            正常情况下不需要点这个按钮 — 每次上传成功后 PHP 会在响应送达后自动 drain 一次。
-                            想保险的话给服务器加一行 cron：
+                            上传接口只保存原图并把后处理入队，响应后会轻量处理少量任务；大批量上传建议给服务器加一行 cron 持续消费队列：
                             <code>* * * * * cd <?= htmlspecialchars(dirname(__DIR__, 2)) ?> &amp;&amp; php worker.php &gt;&gt; logs/worker.log 2&gt;&amp;1</code>
                         </p>
 
@@ -2707,7 +2702,7 @@ require_once APP_ROOT . '/header.php';
                         </div>
                     </div>
 
-                    <p class="m-0 text-xs text-gray">说明：开启后图片公网链接强制走 <code>/i/&lt;文件&gt;</code> 由 PHP 校验 Referer，跨服务器（Apache / Nginx / Caddy）通用，无需写 .htaccess 或 vhost。允许无来源请求表示直接打开图片、隐私浏览器或预览类应用访问时不拦截；关闭后这类请求也会被拒绝。</p>
+                    <p class="m-0 text-xs text-gray">说明：开启后图片公网链接强制走 <code>/i/&lt;文件&gt;</code> 由 PHP 校验 Referer，nginx 下无需额外 rewrite。允许无来源请求表示直接打开图片、隐私浏览器或预览类应用访问时不拦截；关闭后这类请求也会被拒绝。</p>
                 </section>
 <?php endif; // tab: image (水印 + 防盗链 section) ?>
 
