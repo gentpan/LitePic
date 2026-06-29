@@ -3495,7 +3495,9 @@ class UploadManager {
         TIMEOUT_SMALL_THRESHOLD: 2 * 1024 * 1024,
         TIMEOUT_MEDIUM_THRESHOLD: 10 * 1024 * 1024,
         MAX_FILES: 100,
-        MAX_CONCURRENT: 20, // 单人自托管图床默认 20 并发
+        MAX_CONCURRENT: 3, // 默认 3 并发；后台可调高，避免 PHP/SQLite 被批量上传打满
+        DUPLICATE_HASH_MAX_FILES: 20,
+        DUPLICATE_HASH_MAX_TOTAL_BYTES: 200 * 1024 * 1024,
         FADE_DURATION: 300, // 动画过渡时间
     };
 
@@ -3866,15 +3868,48 @@ class UploadManager {
     }
 
     async filterDuplicateFiles(files) {
+        const cheapUnique = [];
+        const localKeys = new Set();
+        let skipped = 0;
+
+        files.forEach(file => {
+            const key = [
+                file.name || '',
+                file.size || 0,
+                file.lastModified || 0,
+                file.type || ''
+            ].join('|');
+            if (localKeys.has(key)) {
+                skipped++;
+                return;
+            }
+            localKeys.add(key);
+            cheapUnique.push(file);
+        });
+
+        const totalBytes = cheapUnique.reduce((sum, file) => sum + (file.size || 0), 0);
+        const shouldHashBeforeUpload = cheapUnique.length <= UploadManager.CONFIG.DUPLICATE_HASH_MAX_FILES
+            && totalBytes <= UploadManager.CONFIG.DUPLICATE_HASH_MAX_TOTAL_BYTES;
+
+        if (!shouldHashBeforeUpload) {
+            if (skipped > 0) {
+                const message = skipped === 1 ? '已跳过 1 个队列内重复文件' : `已跳过 ${skipped} 个队列内重复文件`;
+                ImgEt.Utils.showNotification(message, 'warning', {
+                    variant: 'upload',
+                    title: message
+                });
+            }
+            return cheapUnique;
+        }
+
         if (!window.crypto?.subtle || typeof File.prototype.arrayBuffer !== 'function') {
-            return files;
+            return cheapUnique;
         }
 
         const candidates = [];
         const localHashes = new Set();
-        let skipped = 0;
 
-        for (const file of files) {
+        for (const file of cheapUnique) {
             const hash = await this.computeFileHash(file);
             if (!hash) {
                 candidates.push({ file, hash: '' });

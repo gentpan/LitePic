@@ -12,49 +12,8 @@
     @apply mt-4.5;
   }
 
-  .settings-block-runtime .runtime-metric-card,
-  .settings-block-runtime .runtime-overview,
-  .settings-block-runtime .runtime-upload-card {
-    @apply bg-white border border-[#e2e8f0] shadow-none;
-  }
-
-  .settings-block-runtime .runtime-overview {
-    @apply p-5 mb-4.5;
-    background: #f8fbff;
-  }
-
-  .settings-block-runtime .runtime-overview-main {
-    @apply grid items-stretch gap-4;
-    grid-template-columns: minmax(280px, 0.9fr) minmax(560px, 1.4fr);
-  }
-
-  .settings-block-runtime .runtime-overview-copy h4 {
-    @apply mt-1.5 mb-2 text-[#0f172a];
-    font-size: 1.35rem;
-  }
-
-  .settings-block-runtime .runtime-overview-copy p {
-    @apply m-0 text-[#334155] text-base leading-relaxed;
-    font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  }
-
-  .settings-block-runtime .runtime-overview-stats {
-    @apply grid grid-cols-3 gap-3;
-  }
-
-  .settings-block-runtime .runtime-overview-stat {
-    @apply p-4 border border-[#e2e8f0] bg-white;
-  }
-
-  .settings-block-runtime .runtime-overview-stat-label,
   .settings-block-runtime .runtime-section-label {
     @apply block text-[#64748b] text-sm tracking-wide;
-  }
-
-  .settings-block-runtime .runtime-overview-stat strong {
-    @apply block mt-2 text-[#0f172a];
-    font-size: 1.1rem;
-    font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   }
 
   .settings-block-runtime .runtime-resource-grid {
@@ -138,49 +97,9 @@
     @apply text-gray;
   }
 
-  .settings-block-terminal .runtime-gauge-card {
-    @apply bg-[#111827] border border-[#243041] shadow-none;
-  }
-
-  .settings-block-terminal .runtime-gauge-track {
-    stroke: #0b1220;
-  }
-
-  .settings-block-terminal .runtime-gauge-fill-memory { stroke: #f59e0b; }
-  .settings-block-terminal .runtime-gauge-fill-cpu    { stroke: #06b6d4; }
-  .settings-block-terminal .runtime-gauge-fill-disk   { stroke: #22c55e; }
-
-  .settings-block-terminal .runtime-gauge-value {
-    @apply text-[#d8e4f5];
-    font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  }
-
-  .settings-block-terminal .runtime-gauge-label {
-    @apply text-[#7f8ea3];
-    font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  }
-
-  .settings-block-terminal .runtime-gauge-detail {
-    @apply text-[#5a6a82];
-    font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  }
-
   .settings-block-runtime .runtime-meta-grid {
     /* 4 列：PHP 版本 / 系统版本 / 服务器 IP / Web 服务器 */
     @apply grid grid-cols-4 gap-3.5;
-  }
-
-  .settings-block-runtime .runtime-upload-card {
-    @apply p-4 mb-3.5 border border-[#e2e8f0] bg-white shadow-none;
-  }
-
-  .settings-block-runtime .runtime-upload-head {
-    @apply flex items-center justify-between gap-4;
-  }
-
-  .settings-block-runtime .runtime-upload-value {
-    @apply block mt-2 text-[#0f172a] text-base;
-    font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   }
 
   @media (max-width: 992px) {
@@ -196,7 +115,6 @@
   }
 
   @media (max-width: 640px) {
-    .settings-block-runtime .runtime-overview-main,
     .settings-block-runtime .runtime-resource-grid,
     .settings-block-runtime .runtime-meta-grid {
       @apply grid-cols-1;
@@ -206,13 +124,6 @@
       @apply grid-cols-1;
     }
 
-    .settings-block-runtime .runtime-overview-stats {
-      @apply grid-cols-1;
-    }
-
-    .settings-block-runtime .runtime-upload-head {
-      @apply items-start flex-col;
-    }
   }
 
 }

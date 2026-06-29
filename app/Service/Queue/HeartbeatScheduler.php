@@ -15,9 +15,9 @@ use Throwable;
  * Why
  *   Self-hosted LitePic instances often run on shared hosting or behind
  *   admin panels (BT / 1Panel / aaPanel / cPanel / …) where wiring up a
- *   real cron is fiddly and panel-specific. The in-request drain that
- *   fires after every upload covers active sites; this class covers
- *   the "owner uploads occasionally and otherwise no traffic" case.
+ *   real cron is fiddly and panel-specific. Upload requests run only a
+ *   tiny response-after drain; this class covers the "owner uploads
+ *   occasionally and otherwise no traffic" case.
  *
  * How
  *   Every web request arms a shutdown hook. If the last successful
@@ -30,8 +30,7 @@ use Throwable;
  *   races with a real cron worker if both happen to fire at once.
  *
  * Disabled when
- *   • SAPI is cli / cli-server (worker.php loads bootstrap.php; we
- *     must not recurse).
+ *   • SAPI is cli (worker.php loads bootstrap.php; we must not recurse).
  *   • LITEPIC_HEARTBEAT_DISABLED setting truthy (1 / true / yes / on).
  *   • Last drain (any source) was within the interval window.
  *
@@ -47,7 +46,7 @@ final class HeartbeatScheduler
 
     public static function arm(): void
     {
-        if (PHP_SAPI === 'cli' || PHP_SAPI === 'cli-server') {
+        if (PHP_SAPI === 'cli') {
             return;
         }
         if (self::isDisabled()) {

@@ -339,8 +339,7 @@
    * 复用 page-shell 容器,但同款表单控件需要这里再定义一遍。
    *
    * 跟 settings 风格保持视觉一致(直角 + 浅色),改 settings 那套时
-   * 这里也要同步。后续若要彻底统一,把这两套迁到一个共享 .form-shell
-   * scope 即可。
+   * 这里也要同步。后续若要彻底统一,把这两套迁到一个共享表单作用域即可。
    * ============================================================= */
 
   .albums-shell input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
@@ -539,206 +538,6 @@
 
 @layer components {
 
-  /* =============================================================
-   * 公开相册页 /a/<slug> — 访客视图 + 密码门
-   *
-   * 跟全站 .page-shell 卡片对齐,但 hero 有大封面图 + 标题区。
-   * 图片网格用 .public-album-grid (跟 admin 编辑页的 .upload-grid 不同
-   * 因为公开页要更大的瓷砖 + 极简 lightbox)。
-   * ============================================================= */
-  .public-album-shell {
-    overflow: hidden;
-  }
-
-  .public-album-hero {
-    position: relative;
-    padding: 28px 28px 22px;
-    border-bottom: 1px solid var(--border-color);
-    background: color-mix(in srgb, var(--surface) 96%, var(--light) 4%);
-  }
-
-  .public-album-hero-cover {
-    position: absolute;
-    inset: 0;
-    background-size: cover;
-    background-position: center;
-    opacity: 0.18;
-    filter: blur(2px) saturate(110%);
-  }
-
-  .public-album-hero-body {
-    position: relative;
-    display: grid;
-    gap: 8px;
-    z-index: 1;
-  }
-
-  .public-album-name {
-    margin: 0;
-    color: var(--dark);
-    font-size: 1.6rem;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-  }
-
-  .public-album-desc {
-    margin: 0;
-    max-width: 680px;
-    color: color-mix(in srgb, var(--gray) 70%, var(--dark) 30%);
-    font-size: 0.95rem;
-    line-height: 1.7;
-  }
-
-  .public-album-meta {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px 16px;
-    margin-top: 6px;
-    color: var(--gray);
-    font-size: 0.82rem;
-  }
-  .public-album-meta > span {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-  }
-  .public-album-meta .status-pill {
-    padding: 2px 8px;
-    border: 1px solid var(--border-color);
-    background: var(--surface);
-    color: var(--dark);
-    font-size: 0.72rem;
-    font-weight: 600;
-  }
-  .public-album-meta .status-pill.is-on   { background: rgba(34,197,94,0.12); color: #15803d; border-color: rgba(34,197,94,0.32); }
-  .public-album-meta .status-pill.is-warn { background: rgba(245,158,11,0.12); color: #b45309; border-color: rgba(245,158,11,0.32); }
-  .public-album-meta .status-pill.is-off  { background: rgba(100,116,139,0.12); color: #475569; border-color: rgba(100,116,139,0.32); }
-
-  .public-album-admin-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    margin-left: auto;
-    padding: 4px 10px;
-    border: 1px solid var(--border-color);
-    background: var(--surface);
-    color: var(--gray);
-    font-size: 0.78rem;
-    text-decoration: none;
-    transition: color 120ms ease, border-color 120ms ease;
-  }
-  .public-album-admin-link:hover {
-    color: var(--primary);
-    border-color: color-mix(in srgb, var(--primary) 36%, var(--border-color) 64%);
-  }
-
-  /* ----- 网格 ----- */
-  .public-album-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 4px;
-    padding: 4px;
-    background: color-mix(in srgb, var(--light) 50%, var(--surface) 50%);
-  }
-
-  .public-album-tile {
-    margin: 0;
-    aspect-ratio: 1 / 1;
-    overflow: hidden;
-    background: var(--light);
-    position: relative;
-  }
-
-  .public-album-tile a {
-    display: block;
-    width: 100%;
-    height: 100%;
-  }
-
-  .public-album-tile img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    transition: transform 320ms ease;
-  }
-
-  .public-album-tile:hover img {
-    transform: scale(1.05);
-  }
-
-  /* ----- 空状态 ----- */
-  .public-album-empty {
-    padding: 80px 20px;
-    text-align: center;
-    color: var(--gray);
-  }
-  .public-album-empty > i {
-    display: block;
-    font-size: 48px;
-    margin-bottom: 12px;
-    color: color-mix(in srgb, var(--gray) 60%, var(--border-color) 40%);
-  }
-  .public-album-empty > p { margin: 0; }
-
-  .public-album-foot {
-    padding: 14px 22px;
-    border-top: 1px solid var(--border-color);
-    text-align: center;
-    color: var(--gray);
-    font-size: 0.78rem;
-  }
-  .public-album-foot a {
-    color: inherit;
-    text-decoration: none;
-    transition: color 120ms ease;
-  }
-  .public-album-foot a:hover { color: var(--primary); }
-
-  /* ----- 极简 lightbox ----- */
-  .public-album-lightbox {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    background: rgba(0, 0, 0, 0.92);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    cursor: zoom-out;
-  }
-  .public-album-lightbox[hidden] { display: none; }
-
-  .public-album-lightbox img {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-    cursor: default;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-  }
-
-  .public-album-lightbox-close {
-    position: absolute;
-    top: 18px;
-    right: 18px;
-    width: 40px;
-    height: 40px;
-    border: 1px solid rgba(255,255,255,0.18);
-    background: rgba(0,0,0,0.4);
-    color: #fff;
-    font-size: 18px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 120ms ease, border-color 120ms ease;
-  }
-  .public-album-lightbox-close:hover {
-    background: rgba(255,255,255,0.12);
-    border-color: rgba(255,255,255,0.4);
-  }
-
   /* ----- 密码门 ----- */
   .public-album-gate {
     min-height: 60vh;
@@ -823,30 +622,6 @@
     gap: 6px;
   }
 
-  /* ----- 响应式 ----- */
-  @media (max-width: 600px) {
-    .public-album-hero {
-      padding: 20px;
-    }
-    .public-album-name {
-      font-size: 1.3rem;
-    }
-    .public-album-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
-  }
-
-  /* ----- 深色主题 ----- */
-  html[data-theme="dark"] .public-album-hero {
-    background: color-mix(in srgb, var(--surface) 100%, transparent);
-  }
-  html[data-theme="dark"] .public-album-grid {
-    background: var(--light);
-  }
-  html[data-theme="dark"] .public-album-tile {
-    background: rgba(255,255,255,0.04);
-  }
-
   /* ============================================================
    * 公开相册 v2 —— 独立沉浸式照片墙(无站点导航,参考 TimePlus)
    * ============================================================ */
@@ -855,33 +630,6 @@
 
   .pa-standalone { width: 100%; max-width: none; margin: 0; padding: 0; }
   .pa-album { width: 100%; margin: 0; padding: 0; }
-
-  .pa-head { padding: 40px 24px 18px; text-align: center; }
-  .pa-album-name {
-    margin: 0;
-    font-size: clamp(1.5rem, 3vw, 2.1rem);
-    font-weight: 700;
-    letter-spacing: -0.01em;
-  }
-  .pa-album-desc {
-    margin: 8px auto 0;
-    max-width: 640px;
-    color: var(--gray);
-    font-size: 0.95rem;
-    line-height: 1.6;
-  }
-  .pa-album-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 8px 16px;
-    margin-top: 14px;
-    color: var(--gray);
-    font-size: 0.86rem;
-  }
-  .pa-album-meta i { margin-right: 4px; opacity: 0.7; }
-  .pa-admin-link { display: inline-flex; align-items: center; gap: 5px; color: var(--primary); text-decoration: none; }
 
   /* 照片墙 —— 全幅均匀网格 */
   .pa-grid {

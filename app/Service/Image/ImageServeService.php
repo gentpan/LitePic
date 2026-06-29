@@ -11,7 +11,7 @@ use LitePic\Service\Hotlink\HotlinkProtection;
 /**
  * Streams an uploaded image through PHP for the `/i/<identifier>` route.
  *
- * Two reasons we route through PHP instead of letting Apache/Nginx serve
+ * Two reasons we route through PHP instead of letting nginx serve
  * uploads/ directly:
  *   1. View counting — every successful serve increments
  *      `images.view_count`, which feeds the stats page.

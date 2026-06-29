@@ -20,7 +20,7 @@ function resolve_page_for_path(string $path): ?string
     // long-form docs in every install.
     // 注：/docs 和 /api 都已迁移到 litepic.io，本地不再路由。
     // /api/v1/* 是 REST API 入口，跟这里的 /api 文档页是两件事，
-    // 由 .htaccess / nginx 直接转给 api/v1.php，不走这个路由表。
+    // 由 nginx 直接转给 api/v1.php，不走这个路由表。
     $routes = [
         '/' => 'home',
         '/upload' => 'upload',

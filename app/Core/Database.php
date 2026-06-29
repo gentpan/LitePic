@@ -9,7 +9,7 @@ use PDOException;
 /**
  * SQLite connection singleton.
  *
- * The database file lives under `data/litepic.sqlite` (denied by `.htaccess`).
+ * The database file lives under `data/litepic.sqlite` (denied by nginx rules).
  * WAL journaling is enabled so reads don't block during writes from PHP-FPM
  * workers running in parallel.
  */

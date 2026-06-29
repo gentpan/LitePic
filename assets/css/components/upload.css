@@ -141,66 +141,6 @@
     }
   }
 
-  .upload-info {
-    flex: 1 1 auto;
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-  }
-
-  .upload-info .hint {
-    height: 44px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    max-width: 100%;
-    padding: 0 10px;
-    border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
-    border-radius: 0;
-    background: color-mix(in srgb, var(--surface) 88%, var(--light) 12%);
-    color: var(--gray);
-    font-size: 0.78rem;
-    line-height: 1;
-  }
-
-  .upload-info .hint > i {
-    width: 22px;
-    height: 22px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--primary);
-    font-size: 0.95rem;
-  }
-
-  .upload-info .hint > span {
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-end;
-    flex-wrap: nowrap;
-    gap: 6px;
-    min-width: 0;
-    overflow: hidden;
-    white-space: nowrap;
-  }
-
-  .format-pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 26px;
-    min-height: 26px;
-    padding: 0 8px;
-    border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border-color) 78%);
-    border-radius: 0;
-    background: color-mix(in srgb, var(--primary) 6%, var(--surface) 94%);
-    color: var(--primary);
-    font-weight: 650;
-    line-height: 1;
-  }
-
   .upload-processing-controls {
     display: flex;
     align-items: center;
@@ -958,7 +898,6 @@
     border-bottom-color: rgba(255,255,255,0.12);
   }
 
-  html[data-theme="dark"] .upload-info .hint,
   html[data-theme="dark"] .upload-setting-toggle,
   html[data-theme="dark"] .upload-queue,
   html[data-theme="dark"] .upload-queue-item,
@@ -995,55 +934,6 @@
     border-color: rgba(0,82,217,0.36);
   }
 
-  html[data-theme="dark"] .format-pill {
-    background: rgba(0,82,217,0.14);
-    border-color: rgba(0,82,217,0.36);
-  }
-
-  html[data-theme="dark"] .upload-status-pill {
-    background: var(--upload-status-bg);
-    border-color: var(--upload-status-border);
-  }
-
-  html[data-theme="dark"] .upload-status-pill > i {
-    background: color-mix(in srgb, var(--upload-status-color) 14%, transparent);
-    border-color: var(--upload-status-border);
-  }
-
-  html[data-theme="dark"] .upload-status-pill > span {
-    color: color-mix(in srgb, var(--dark) 76%, var(--gray) 24%);
-  }
-
-  html[data-theme="dark"] .upload-status-on {
-    --upload-status-color: #86efac;
-    --upload-status-bg: rgba(21,128,61,0.16);
-    --upload-status-border: rgba(134,239,172,0.34);
-  }
-
-  html[data-theme="dark"] .upload-status-convert {
-    --upload-status-color: #93c5fd;
-    --upload-status-bg: rgba(37,99,235,0.15);
-    --upload-status-border: rgba(147,197,253,0.34);
-  }
-
-  html[data-theme="dark"] .upload-status-api {
-    --upload-status-color: #c4b5fd;
-    --upload-status-bg: rgba(124,58,237,0.16);
-    --upload-status-border: rgba(196,181,253,0.34);
-  }
-
-  html[data-theme="dark"] .upload-status-warn {
-    --upload-status-color: #fcd34d;
-    --upload-status-bg: rgba(180,83,9,0.18);
-    --upload-status-border: rgba(252,211,77,0.34);
-  }
-
-  html[data-theme="dark"] .upload-status-muted {
-    --upload-status-color: #94a3b8;
-    --upload-status-bg: rgba(148,163,184,0.08);
-    --upload-status-border: rgba(148,163,184,0.18);
-  }
-
   html[data-theme="dark"] .drop-zone:hover,
   html[data-theme="dark"] .drop-zone.dragover {
     background: rgba(0,82,217,0.12);
@@ -1054,27 +944,6 @@
     .upload-header {
       grid-template-columns: 1fr;
       align-items: stretch;
-    }
-
-    .upload-info {
-      justify-content: flex-start;
-    }
-
-    .upload-info .hint,
-    .upload-info .hint > span {
-      justify-content: flex-start;
-    }
-
-    .upload-info .hint {
-      width: 100%;
-      height: auto;
-      min-height: 44px;
-      padding: 8px 10px;
-    }
-
-    .upload-info .hint > span {
-      flex-wrap: wrap;
-      white-space: normal;
     }
 
     .upload-processing-controls {

@@ -139,7 +139,7 @@ if (empty($allowed_upload_types)) {
 define('ALLOWED_UPLOAD_TYPES', $allowed_upload_types);
 define('MAX_FILE_SIZE', max(1, (int)env_value('MAX_FILE_SIZE_MB', 20)) * 1024 * 1024);
 define('UPLOAD_MAX_FILES', max(1, min(500, (int)env_value('UPLOAD_MAX_FILES', 100))));
-define('UPLOAD_MAX_CONCURRENT', max(1, min(20, (int)env_value('UPLOAD_MAX_CONCURRENT', 20))));
+define('UPLOAD_MAX_CONCURRENT', max(1, min(20, (int)env_value('UPLOAD_MAX_CONCURRENT', 3))));
 define('MIN_IMAGE_WIDTH', 20);
 define('MIN_IMAGE_HEIGHT', 20);
 // 单张图最大像素数 — 转换 / 压缩流水线的安全阀。超过这个值的图直接跳过
@@ -239,8 +239,8 @@ define('IMAGE_VIEW_COUNTER_ENABLED', env_bool('IMAGE_VIEW_COUNTER_ENABLED', true
 //   /           — 根目录直链 /2026/05/abc.webp（短，仍由 Web server serve）
 //   /i/         — PHP 代理前缀 /i/2026/05/abc.webp（每次走 image.php，可统计 view_count）
 //   /img/       — 用户自定义短前缀，等同 default 但 URL 看起来不像默认安装
-//   /<任意名>/  — 用户随便起 — .htaccess 里的 catch-all rewrite 会把任何
-//                 单词前缀 + /yyyy/mm/file 路径自动 serve 出 uploads/yyyy/mm/file
+//   /<任意名>/  — 用户随便起 — nginx try_files 兜底到 index.php 后会把任何
+//                 单词前缀 + /yyyy/mm/file 路径送到 image.php
 //
 // 物理文件永远在 uploads/yyyy/mm/，URL 前缀只是显示层皮肤。切换前缀**绝对安全**：
 // 老的 /uploads/... 链接和新的 /<前缀>/... 链接都能 serve 同一个文件。

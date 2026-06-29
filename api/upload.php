@@ -95,13 +95,13 @@ if ($albumSlug !== '' && (new \LitePic\Service\Auth\AuthService())->isAdmin()) {
     }
 }
 
-// 异步流水线：响应送达后继续在同一 PHP 进程跑 ImageProcessor::drain()
-// 把队列里的缩略图 / 压缩 / WebP / AVIF / 水印 / 远程同步任务做完。
-// register_shutdown_function 保证 Response::success() 里的 exit 之后还能跑。
-// drain() 自带 25 秒 wall-time 上限和 20 个任务上限，不会卡住请求生命周期。
+// 异步流水线：响应送达后继续在同一 PHP 进程跑一小段 ImageProcessor::drain()。
+// 上传接口只负责校验、保存、入库、入队；缩略图 / 压缩 / 转换 / 水印 /
+// 远程同步属于队列工作。这里故意只 drain 少量任务，避免批量上传时每个
+// 上传请求都占住 FPM worker 太久。大量图片请用 worker.php cron 兜底。
 register_shutdown_function(static function () {
     \LitePic\Core\ResponseDetacher::runAfterResponse(static function () {
-        (new \LitePic\Service\Image\ImageProcessor())->drain(20, 25);
+        (new \LitePic\Service\Image\ImageProcessor())->drain(3, 8);
     });
 });
 
