@@ -148,7 +148,7 @@ final class ServerInfo
     }
 
     /**
-     * @return array{type:string,label:string,raw:string,uses_htaccess:bool,uses_nginx_rules:bool,uses_caddyfile:bool}
+     * @return array{type:string,label:string,raw:string,uses_nginx_rules:bool}
      */
     public function webServer(?string $software = null): array
     {
@@ -160,22 +160,13 @@ final class ServerInfo
         if ($lower !== '') {
             if (str_contains($lower, 'openresty')) { $type = 'openresty'; $label = 'OpenResty'; }
             elseif (str_contains($lower, 'nginx')) { $type = 'nginx'; $label = 'Nginx'; }
-            elseif (str_contains($lower, 'caddy')) { $type = 'caddy'; $label = 'Caddy'; }
-            elseif (str_contains($lower, 'apache') || str_contains($lower, 'httpd')) { $type = 'apache'; $label = 'Apache'; }
-            elseif (str_contains($lower, 'litespeed')) { $type = 'litespeed'; $label = 'LiteSpeed'; }
-            elseif (str_contains($lower, 'php') && str_contains($lower, 'development')) {
-                $type = 'php-built-in';
-                $label = 'PHP 内置开发服务器';
-            }
         }
 
         return [
             'type' => $type,
             'label' => $label,
             'raw' => $raw,
-            'uses_htaccess' => in_array($type, ['apache', 'litespeed'], true),
             'uses_nginx_rules' => in_array($type, ['nginx', 'openresty'], true),
-            'uses_caddyfile' => $type === 'caddy',
         ];
     }
 
@@ -642,6 +633,36 @@ final class ServerInfo
 
     private static function serverIp(): string
     {
+        // NAT/CDN 架构下优先返回公网IP (内网IP无意义), 带文件缓存避免频繁查询
+        $cacheFile = sys_get_temp_dir() . '/litepic_public_ip.cache';
+        if (is_file($cacheFile) && (time() - filemtime($cacheFile) < 3600)) {
+            $cached = trim((string)file_get_contents($cacheFile));
+            if ($cached !== '' && filter_var($cached, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                return $cached;
+            }
+        }
+        // 查询公网IP (从云厂商元数据或外部服务)
+        if (function_exists('shell_exec')) {
+            foreach ([
+                // 阿里云元数据
+                'curl -s --max-time 3 http://100.100.100.200/latest/meta-data/eipv4 2>/dev/null',
+                // 腾讯云元数据
+                'curl -s --max-time 3 http://metadata.tencentyun.com/latest/meta-data/public-ipv4 2>/dev/null',
+                // 通用公网IP服务
+                'curl -s --max-time 3 https://api.ipify.org 2>/dev/null',
+                'curl -s --max-time 3 https://ifconfig.me 2>/dev/null',
+            ] as $cmd) {
+                $ip = @shell_exec($cmd);
+                if (is_string($ip)) {
+                    $trimmed = trim($ip);
+                    if ($trimmed !== '' && filter_var($trimmed, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                        @file_put_contents($cacheFile, $trimmed);
+                        return $trimmed;
+                    }
+                }
+            }
+        }
+        // 公网IP获取失败时, 回退到原来的内网IP逻辑
         if (function_exists('shell_exec')) {
             if (PHP_OS_FAMILY === 'Darwin') {
                 foreach (['en0', 'en1', 'en2', 'en3'] as $iface) {
