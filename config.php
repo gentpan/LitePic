@@ -70,7 +70,7 @@ $default_host = $_SERVER['HTTP_HOST'] ?? 'localhost:8080';
 $default_scheme = $is_https ? 'https' : 'http';
 
 // 基础配置
-define('LITEPIC_VERSION', '3.4.3');
+define('LITEPIC_VERSION', '3.4.4');
 define('SITE_NAME', env_value('SITE_NAME', 'LitePic'));
 define('SITE_DESCRIPTION', env_value('SITE_DESCRIPTION', '轻量级图床程序'));
 define('SITE_VERSION', LITEPIC_VERSION);
@@ -239,8 +239,8 @@ define('IMAGE_VIEW_COUNTER_ENABLED', env_bool('IMAGE_VIEW_COUNTER_ENABLED', true
 //   /           — 根目录直链 /2026/05/abc.webp（短，仍由 Web server serve）
 //   /i/         — PHP 代理前缀 /i/2026/05/abc.webp（每次走 image.php，可统计 view_count）
 //   /img/       — 用户自定义短前缀，等同 default 但 URL 看起来不像默认安装
-//   /<任意名>/  — 用户随便起 — nginx try_files 兜底到 index.php 后会把任何
-//                 单词前缀 + /yyyy/mm/file 路径送到 image.php
+//   /<任意名>/  — 用户随便起 — Web 服务器 try_files / php_server 兜底到
+//                 index.php 后会把任何单词前缀 + /yyyy/mm/file 路径送到 image.php
 //
 // 物理文件永远在 uploads/yyyy/mm/，URL 前缀只是显示层皮肤。切换前缀**绝对安全**：
 // 老的 /uploads/... 链接和新的 /<前缀>/... 链接都能 serve 同一个文件。

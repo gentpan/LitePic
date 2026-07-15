@@ -1,0 +1,61 @@
+# LitePic — FrankenPHP / Caddy 参考配置
+# ======================================
+#
+# 推荐：经典模式（每请求独立 boot，等价 Nginx + PHP-FPM）。
+# 不要开 worker mode —— LitePic 的配置缓存 / Session 未按常驻内存设计。
+#
+# 启动示例：
+#   frankenphp run --config ./Caddyfile
+#   # 或 Docker：
+#   docker run --rm -v "$PWD":/app -p 80:80 -p 443:443 \
+#     -e SERVER_NAME=img.example.com \
+#     dunglas/frankenphp
+#
+# 环境变量（可选）：
+#   SERVER_NAME   监听域名，默认 :8080（本地无 TLS）
+#   LITEPIC_ROOT  站点根目录，默认本文件所在目录
+
+{
+	frankenphp {
+		# 与 .user.ini / nginx-litepic.conf 对齐的上传与内存上限
+		php_ini {
+			upload_max_filesize 200M
+			post_max_size 220M
+			max_file_uploads 50
+			memory_limit 256M
+			max_input_time 600
+		}
+	}
+
+	# 大图上传：读 body 超时放到 10 分钟
+	servers {
+		timeouts {
+			read_body 10m
+			read_header 30s
+			write 5m
+			idle 5m
+		}
+	}
+}
+
+{$SERVER_NAME::8080} {
+	root * {$LITEPIC_ROOT:.}
+	encode zstd br gzip
+	request_body {
+		max_size 200MB
+	}
+
+	# 敏感路径与 uploads 下 PHP 禁止访问（对齐 nginx-litepic.conf）
+	@denied {
+		path /.env* /.git* /.user.ini /data/* /logs/* /app/* /bin/*
+		path_regexp php_in_uploads (?i)^/uploads/.*\.php$
+	}
+	respond @denied 403
+
+	# 静态资源长缓存（图片由 file_server 直出；动态页/API 由 PHP 自己写 no-store）
+	@static path *.js *.css *.png *.jpg *.jpeg *.gif *.ico *.svg *.webp *.avif *.woff *.woff2 *.ttf *.eot
+	header @static Cache-Control "public, max-age=31536000, immutable"
+
+	# try_files 等价：存在文件则直出，否则落到 index.php（自定义图床前缀依赖此兜底）
+	php_server
+}

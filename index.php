@@ -37,10 +37,10 @@ if ($_storageDir !== 'uploads' && str_starts_with($requestPath, '/uploads/')) {
 unset($_storageDir);
 
 /*
- * Image URL prefix fallback — 让 nginx 支持自定义 URL 前缀。
+ * Image URL prefix fallback — 让 Web 服务器支持自定义 URL 前缀。
  *
- * nginx try_files 会把未命中静态文件的请求兜底到 index.php，到这里识别
- * `/<prefix>/yyyy/mm/file` 并 dispatch 给 image.php。
+ * nginx try_files / FrankenPHP php_server 会把未命中静态文件的请求兜底到
+ * index.php，到这里识别 `/<prefix>/yyyy/mm/file` 并 dispatch 给 image.php。
  *
  * 排除前缀：STORAGE_DIR（物理目录直连）、i（已上面拦截）、
  * api / static / assets / data / logs（框架路径）。

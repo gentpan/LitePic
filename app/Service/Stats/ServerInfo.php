@@ -148,24 +148,79 @@ final class ServerInfo
     }
 
     /**
-     * @return array{type:string,label:string,raw:string,uses_nginx_rules:bool}
+     * Detect the front web server from CGI meta + FrankenPHP-specific signals.
+     *
+     * FrankenPHP sets $_SERVER['SERVER_SOFTWARE'] to the bare string "FrankenPHP"
+     * (no "Name/x.y" suffix). Older code only matched nginx/openresty, so the
+     * settings card showed「未知服务器」even when FrankenPHP was correctly
+     * advertising itself. Prefer phpversion('frankenphp') for the version when
+     * the SERVER_SOFTWARE string has none.
+     *
+     * @return array{type:string,label:string,raw:string,version:string,display:string,uses_nginx_rules:bool}
      */
     public function webServer(?string $software = null): array
     {
         $raw = trim((string)($software ?? ($_SERVER['SERVER_SOFTWARE'] ?? '')));
         $lower = strtolower($raw);
+        $sapi = strtolower((string)PHP_SAPI);
+
+        $frankenVersion = '';
+        if (function_exists('phpversion')) {
+            $extVer = phpversion('frankenphp');
+            if (is_string($extVer) && $extVer !== '') {
+                $frankenVersion = $extVer;
+            }
+        }
+        $isFranken = (
+            str_contains($lower, 'frankenphp')
+            || str_contains($sapi, 'frankenphp')
+            || $frankenVersion !== ''
+            || function_exists('frankenphp_handle_request')
+            || function_exists('frankenphp_finish_request')
+        );
+
         $type = 'unknown';
         $label = '未知服务器';
+        $version = '';
 
-        if ($lower !== '') {
-            if (str_contains($lower, 'openresty')) { $type = 'openresty'; $label = 'OpenResty'; }
-            elseif (str_contains($lower, 'nginx')) { $type = 'nginx'; $label = 'Nginx'; }
+        if ($isFranken) {
+            $type = 'frankenphp';
+            $label = 'FrankenPHP';
+            $version = $frankenVersion;
+            if ($raw === '') {
+                $raw = 'FrankenPHP';
+            }
+        } elseif ($lower !== '') {
+            if (str_contains($lower, 'openresty')) {
+                $type = 'openresty';
+                $label = 'OpenResty';
+            } elseif (str_contains($lower, 'nginx')) {
+                $type = 'nginx';
+                $label = 'Nginx';
+            } elseif (str_contains($lower, 'caddy')) {
+                $type = 'caddy';
+                $label = 'Caddy';
+            } elseif (str_contains($lower, 'apache') || str_contains($lower, 'httpd')) {
+                $type = 'apache';
+                $label = 'Apache';
+            } elseif (str_contains($lower, 'litespeed') || str_contains($lower, 'lsws')) {
+                $type = 'litespeed';
+                $label = 'LiteSpeed';
+            }
         }
+
+        if ($version === '' && $raw !== '' && preg_match('#/([0-9]+(?:\.[0-9]+)*)#', $raw, $vm)) {
+            $version = $vm[1];
+        }
+
+        $display = $version !== '' ? ($label . ' ' . $version) : $label;
 
         return [
             'type' => $type,
             'label' => $label,
             'raw' => $raw,
+            'version' => $version,
+            'display' => $display,
             'uses_nginx_rules' => in_array($type, ['nginx', 'openresty'], true),
         ];
     }

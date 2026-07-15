@@ -42,6 +42,7 @@ final class UpdateService
         'image.php',
         'index.php',
         'nginx-litepic.conf',
+        'Caddyfile',
         'package-lock.json',
         'package.json',
         'worker.php',

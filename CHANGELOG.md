@@ -2,11 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.4.4] - 2026-07-15
+
+### Changed
+
+- **默认推荐 FrankenPHP** — 新增根目录 `Caddyfile`（经典模式，对齐原 nginx 敏感路径拒绝 / 上传上限 / try_files 兜底）；README 环境要求改为优先 FrankenPHP，Nginx 配置保留作可选。
+
+### Fixed
+
+- **后台 Web 服务器显示「未知服务器」** — `ServerInfo::webServer()` 原先只认 Nginx/OpenResty；FrankenPHP 的 `SERVER_SOFTWARE` 为纯字符串 `FrankenPHP`（无 `Name/x.y`），导致误判。现同时认 `SERVER_SOFTWARE` / SAPI / `phpversion('frankenphp')` / `frankenphp_*` 函数，并回填版本显示；设置页轮询也会刷新该卡片。
+
 ## [3.4.3] - 2026-07-15
 
 ### Changed
 
-- **上传 / 路由 / Worker 精简** — 上传服务与响应后 detach 逻辑收敛；移除 PHP 内置服务器 `router.php`，文档与部署统一指向 Nginx；CSS 组件层清理冗余样式。
+- **上传 / 路由 / Worker 精简** — 上传服务与响应后 detach 逻辑收敛；移除 PHP 内置服务器 `router.php`；CSS 组件层清理冗余样式。
 - **上传并发上限** — `UPLOAD_MAX_CONCURRENT` 上限调整为 20（默认仍为 3）。
 
 ### Fixed

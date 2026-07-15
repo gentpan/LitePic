@@ -279,6 +279,7 @@ $web_server = (new \LitePic\Service\Stats\ServerInfo())->webServer();
 $server_software = (string)$web_server['raw'];
 $server_label = (string)$web_server['label'];
 $server_uses_nginx_rules = !empty($web_server['uses_nginx_rules']);
+$server_display = (string)($web_server['display'] ?? $server_label);
 
 require_once APP_ROOT . '/header.php';
 ?>
@@ -439,16 +440,6 @@ require_once APP_ROOT . '/header.php';
                                     </span>
                                     <span class="text-base text-dark break-all runtime-meta-value" id="metricPhpVersion"><?= htmlspecialchars((string)($metrics['php_version'] ?? PHP_VERSION)) ?></span>
                                 </article>
-                                <?php
-                                // 从 SERVER_SOFTWARE 抽出第一段版本号（"nginx/1.26.3" -> "1.26.3"）。
-                                $server_version = '';
-                                if ($server_software !== '' && preg_match('#/([0-9]+(?:\.[0-9]+)*)#', $server_software, $vm)) {
-                                    $server_version = $vm[1];
-                                }
-                                $server_display = $server_version !== ''
-                                    ? $server_label . ' ' . $server_version
-                                    : $server_label;
-                                ?>
                                 <article class="border border-border p-4 grid gap-2 relative">
                                     <!-- 「如何配置」定位到卡片右上角红框位置：
                                          父级 .runtime-meta-grid > article 是 flex
@@ -3914,6 +3905,14 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
                     el.dataset.distroId = id;
                     const osText = String((s.distro && s.distro.pretty) || s.os || '-');
                     el.textContent = osText;
+                })();
+                (() => {
+                    const el = document.getElementById('metricWebServer');
+                    if (!el) return;
+                    const ws = s.web_server || {};
+                    const display = String(ws.display || ws.label || '-');
+                    el.textContent = display;
+                    el.title = String(ws.raw || ws.label || 'SERVER_SOFTWARE 未提供');
                 })();
                 setText('metricServerIp', String(s.server_ip ?? '-'));
                 updateUptimeDisplay(String(s.uptime_text ?? '-'));
