@@ -1820,6 +1820,13 @@ window.ApiManager = {
                 if (!resp.ok || data.status !== 'success') {
                     throw new Error(data.message || `请求失败 (${resp.status})`);
                 }
+                // Password change rotates ADMIN_SESSION_SECRET → CSRF HMAC changes.
+                if (typeof data.csrf_token === 'string' && data.csrf_token !== '') {
+                    window.CSRF_TOKEN = data.csrf_token;
+                    document.querySelectorAll('input[name="csrf_token"]').forEach((el) => {
+                        el.value = data.csrf_token;
+                    });
+                }
                 msg.textContent = '密码已修改';
                 msg.classList.add('is-success');
                 ImgEt.Utils.showNotification('密码修改成功', 'success', { variant: 'auth' });

@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 .maintenance
+.user.ini
 .user.ini.bak.*
 *.log
 tmp/

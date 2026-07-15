@@ -26,7 +26,10 @@ final class Session
                 'lifetime' => $cookieParams['lifetime'] ?? 0,
                 'path' => $cookieParams['path'] ?? '/',
                 'domain' => $cookieParams['domain'] ?? '',
-                'secure' => Config::bool('COOKIE_SECURE', false),
+                // Prefer explicit COOKIE_SECURE; also mark Secure when the
+                // current request is HTTPS so session cookies stick behind CDN.
+                'secure' => (defined('COOKIE_SECURE') ? (bool)COOKIE_SECURE : false)
+                    || RequestContext::isHttps(),
                 'httponly' => true,
                 'samesite' => 'Lax',
             ]);

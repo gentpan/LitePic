@@ -98,6 +98,8 @@ if ($action === 'change_password') {
     \LitePic\Core\Response::success([
         'message' => '密码修改成功',
         'must_change_password' => false,
+        // Secret rotated — client must refresh CSRF so subsequent settings saves work.
+        'csrf_token' => \LitePic\Core\Csrf::token(),
     ]);
     exit;
 }

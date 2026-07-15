@@ -1,0 +1,13 @@
+; LitePic — PHP-FPM / CGI 目录 ini 模板（仅 Nginx + PHP-FPM 场景需要）
+; 复制为 .user.ini 后按机器修改；后台「设置 → 基础 → 上传限制」保存时也会写回本文件。
+; FrankenPHP 部署请改 Caddyfile 的 php_ini，不必依赖本文件。
+;
+; open_basedir 含本机绝对路径，切勿把含真实路径的 .user.ini 提交进 Git。
+; 需要时取消下一行注释，并把路径改成站点根目录：
+; open_basedir=/path/to/LitePic/:/tmp/:/proc/cpuinfo:/proc/meminfo:/proc/uptime:/etc/os-release
+
+upload_max_filesize=200M
+post_max_size=220M
+max_file_uploads=50
+memory_limit=256M
+max_input_time=600

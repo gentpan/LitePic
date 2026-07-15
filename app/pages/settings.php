@@ -110,7 +110,7 @@ if (!empty($_COOKIE[SETTINGS_FLASH_COOKIE])) {
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-    $csrfToken = (string)($_POST['csrf_token'] ?? '');
+    $csrfToken = \LitePic\Core\Csrf::requestToken();
     $is_ajax_request = \LitePic\Http\Controllers\SettingsController::isAjaxRequest();
     if (!\LitePic\Core\Csrf::verify($csrfToken)) {
         $message = '安全令牌无效或已过期，请刷新页面后重试';
@@ -3103,13 +3103,24 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
 
         const setButtonBusy = (button, busy) => {
             if (!button) return;
+            const icon = button.querySelector(':scope > i');
             if (busy) {
                 button.dataset.originalDisabled = button.disabled ? '1' : '0';
                 button.disabled = true;
                 button.classList.add('is-loading');
+                // 原始图标（如软盘）整颗旋转观感差；换成圆形 spinner 再转。
+                if (icon && button.dataset.originalIconClass === undefined) {
+                    button.dataset.originalIconClass = icon.className;
+                    icon.className = 'fa-light fa-spinner-third fa-spin';
+                    icon.setAttribute('aria-hidden', 'true');
+                }
             } else {
                 button.disabled = button.dataset.originalDisabled === '1';
                 button.classList.remove('is-loading');
+                if (icon && button.dataset.originalIconClass !== undefined) {
+                    icon.className = button.dataset.originalIconClass;
+                    delete button.dataset.originalIconClass;
+                }
                 delete button.dataset.originalDisabled;
             }
         };
@@ -3478,6 +3489,17 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
             if (options.autosave) {
                 formData.set('autosave', '1');
             }
+            // Prefer form field, then window token; always re-assert so a
+            // missing hidden input can't silently drop CSRF on AJAX posts.
+            const csrf = String(
+                formData.get('csrf_token')
+                || window.CSRF_TOKEN
+                || document.querySelector('input[name="csrf_token"]')?.value
+                || ''
+            ).trim();
+            if (csrf !== '') {
+                formData.set('csrf_token', csrf);
+            }
             const action = String(formData.get('form_action') || 'save_settings');
             const busyText = submitter?.getAttribute('data-busy-text') || '';
             if (busyText && !options.silentSuccess) {
@@ -3488,14 +3510,18 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
             setButtonBusy(submitter, true);
 
             try {
+                const headers = {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                };
+                if (csrf !== '') {
+                    headers['X-CSRF-Token'] = csrf;
+                }
                 const response = await fetch(form.getAttribute('action') || window.location.href, {
                     method: 'POST',
                     body: formData,
                     credentials: 'same-origin',
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
+                    headers,
                 });
                 const raw = await response.text();
                 let data = null;

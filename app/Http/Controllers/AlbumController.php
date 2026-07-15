@@ -255,9 +255,7 @@ final class AlbumController
 
     private function requireCsrf(): void
     {
-        $token = (string)($_POST['csrf_token']
-                       ?? $_SERVER['HTTP_X_CSRF_TOKEN']
-                       ?? '');
+        $token = Csrf::requestToken();
         if (!Csrf::verify($token)) {
             Response::error('CSRF 令牌无效或已过期', 403);
             exit;

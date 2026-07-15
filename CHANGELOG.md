@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.4.5] - 2026-07-15
+
+### Changed
+
+- **README 对齐 FrankenPHP 部署** — 修正默认密码登录表述、本地 `:8080` 地址、worker cron、`build:js`、目录树；`.user.ini` 改为示例模板，真实文件不再入库。
+- **保存按钮加载态** — 点击保存时改为圆形 spinner，不再旋转软盘图标。
+
+### Fixed
+
+- **设置保存「安全令牌无效」** — CSRF 优先绑定 `ADMIN_SESSION_SECRET`（与登录 cookie 同信任域），避免 PHP session cookie 在 CDN / FrankenPHP / Secure 不一致时丢失导致误判；同时认 `X-CSRF-Token`，改密后刷新页面令牌。
+
 ## [3.4.4] - 2026-07-15
 
 ### Changed

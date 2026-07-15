@@ -151,16 +151,22 @@
   color: #ffffff;
 }
 
-/* Settings buttons use .btn family below. Loading state still works
- * as a generic addon since it just toggles opacity / pointer-events. */
+/* Settings buttons use .btn family below. Loading state: swap to a
+ * circular spinner via JS (setButtonBusy) — do NOT spin the original
+ * glyph (floppy-disk etc.), which looked like a broken icon. */
 .settings-page button.is-loading {
   opacity: .72;
   cursor: progress;
   pointer-events: none;
 }
 
-.settings-page button.is-loading i {
-  animation: spin .8s linear infinite;
+.settings-page button.is-loading > i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  line-height: 1;
 }
 
 .settings-inline-form {

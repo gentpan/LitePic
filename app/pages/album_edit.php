@@ -311,7 +311,16 @@ if (!$isNew && !empty($album)) {
         if (!isNew) payload.form_action = 'update';
 
         const submitBtn = form.querySelector('button[type="submit"]');
-        if (submitBtn) submitBtn.disabled = true;
+        const submitIcon = submitBtn?.querySelector(':scope > i');
+        const originalIconClass = submitIcon?.className || '';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.classList.add('is-loading');
+            if (submitIcon) {
+                submitIcon.className = 'fa-light fa-spinner-third fa-spin';
+                submitIcon.setAttribute('aria-hidden', 'true');
+            }
+        }
         try {
             const res = await fetch(url, {
                 method: 'POST',
@@ -346,7 +355,13 @@ if (!$isNew && !empty($album)) {
             console.error('Album save error:', err);
             window.ImgEt?.Utils?.showNotification?.(err.message || '保存失败', 'error');
         } finally {
-            if (submitBtn) submitBtn.disabled = false;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('is-loading');
+                if (submitIcon && originalIconClass) {
+                    submitIcon.className = originalIconClass;
+                }
+            }
         }
     });
 
