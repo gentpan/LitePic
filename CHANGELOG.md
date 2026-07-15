@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.4.3] - 2026-07-15
+
+### Changed
+
+- **上传 / 路由 / Worker 精简** — 上传服务与响应后 detach 逻辑收敛；移除 PHP 内置服务器 `router.php`，文档与部署统一指向 Nginx；CSS 组件层清理冗余样式。
+- **上传并发上限** — `UPLOAD_MAX_CONCURRENT` 上限调整为 20（默认仍为 3）。
+
+### Fixed
+
+- **CDN 缓存鉴权重定向** — 动态页与 API 统一 `Cache-Control: no-store`；新增 `HttpCache` / `RequestContext`，Passkey 与登录限流正确读取 `X-Forwarded-Proto` 与真实客户端 IP，避免边缘缓存导致已登录用户进不了上传页。
+- **系统信息公网 IP** — NAT/CDN 架构下 `serverIp()` 优先通过云厂商元数据/外部服务取公网 IP（带缓存），不再误显内网地址。
+- **部署脚本迁移用户** — `bin/deploy.sh` 迁移步骤跟 `LITEPIC_OWNER` 提取 web 用户（兼容 `www` / `www-data` 等），并恢复脚本可执行权限。
+
 ## [3.4.2] - 2026-06-04
 
 ### Fixed
