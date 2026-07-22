@@ -7,7 +7,7 @@
 
 **轻量级自托管图床 · SQLite 单文件 · 异步处理 · S3 / R2 远程存储**
 
-[![Version](https://img.shields.io/badge/version-3.4.5-0052D9?style=flat-square)](https://github.com/gentpan/LitePic/releases)
+[![Version](https://img.shields.io/badge/version-3.4.6-0052D9?style=flat-square)](https://github.com/gentpan/LitePic/releases)
 [![PHP](https://img.shields.io/badge/PHP-8.0%2B-777bb4?style=flat-square)](https://www.php.net/)
 [![License](https://img.shields.io/badge/license-MIT-111827?style=flat-square)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-litepic.io-0052D9?style=flat-square)](https://litepic.io/docs)

@@ -35,8 +35,8 @@ $document_title = isset($html_title) && trim((string)$html_title) !== ''
     $home_background_path = parse_url($home_background_url, PHP_URL_PATH);
     $home_background_file = is_string($home_background_path) && str_starts_with($home_background_path, '/') ? __DIR__ . $home_background_path : '';
     if ($home_background_file === '' || !is_file($home_background_file)) {
-        $home_background_url = '/static/images/background.jpg';
-        $home_background_file = __DIR__ . '/static/images/background.jpg';
+        $home_background_url = '/static/images/background.webp';
+        $home_background_file = __DIR__ . '/static/images/background.webp';
     }
     $home_background_ver = is_file($home_background_file) ? (string)filemtime($home_background_file) : '1';
     $home_background_url .= (str_contains($home_background_url, '?') ? '&' : '?') . 'v=' . rawurlencode($home_background_ver);
@@ -65,8 +65,9 @@ $document_title = isset($html_title) && trim((string)$html_title) !== ''
             }
         })();
     </script>
-    <link rel="stylesheet" href="https://static.litepic.io/fonts/noto-sans-sc/result.css">
-    <link rel="stylesheet" href="https://static.litepic.io/libs/fontawesome/7.2.0/css/all.min.css">
+    <link rel="stylesheet" href="https://static.bluecdn.com/fonts/ubuntu.css">
+    <link rel="stylesheet" href="https://static.bluecdn.com/fonts/google-sans.css">
+    <link rel="stylesheet" href="https://static.bluecdn.com/libs/fontawesome/7.3.1/css/all.min.css">
     <?php if ($force_dark_theme): ?>
         <style>
             :root {

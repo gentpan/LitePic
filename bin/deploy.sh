@@ -25,8 +25,8 @@
 #   LITEPIC_HOST     远端主机 (默认 170.168.6.148)
 #   LITEPIC_USER     SSH 用户 (默认 root)
 #   LITEPIC_KEY      SSH key 路径 (默认 ~/.ssh/gentpan.pem)
-#   LITEPIC_REMOTE   远端站点目录 (默认 /www/wwwroot/126.uz)
-#   LITEPIC_OWNER    远端 chown 目标 (默认 www:www)
+#   LITEPIC_REMOTE   远端站点目录 (默认 /var/www/126.uz)
+#   LITEPIC_OWNER    远端 chown 目标 (默认 www-data:www-data)
 #   LITEPIC_URL      自检 URL (默认 https://126.uz)
 
 set -euo pipefail
@@ -34,8 +34,8 @@ set -euo pipefail
 HOST="${LITEPIC_HOST:-170.168.6.148}"
 USER="${LITEPIC_USER:-root}"
 KEY="${LITEPIC_KEY:-$HOME/.ssh/gentpan.pem}"
-REMOTE="${LITEPIC_REMOTE:-/www/wwwroot/126.uz}"
-OWNER="${LITEPIC_OWNER:-www:www}"
+REMOTE="${LITEPIC_REMOTE:-/var/www/126.uz}"
+OWNER="${LITEPIC_OWNER:-www-data:www-data}"
 URL="${LITEPIC_URL:-https://126.uz}"
 
 DRY_RUN=0
@@ -68,9 +68,11 @@ TAR_EXCLUDES=(
     --exclude='./.env.example'
     --exclude='./.user.ini'
     --exclude='./.git'
+    --exclude='./.claude'
+    --exclude='./.cursor'
     --exclude='./node_modules'
     --exclude='./bin/deploy.sh'
-    --exclude='./static/images/background.jpg'
+    --exclude='./static/images/background.webp'
     --exclude='./.maintenance'
     --exclude='*.pem'
     --exclude='./backup'
@@ -136,9 +138,15 @@ COPYFILE_DISABLE=1 tar -cz "${TAR_EXCLUDES[@]}" -f - . | \
          echo '  ✓ extracted + chowned (.user.ini/.env 被面板保护,跳过)'"
 
 say "运行迁移(触发 bootstrap.php)"
-# 从 OWNER (如 www-data:www-data) 提取用户名, 避免硬编码 www
+# 从 OWNER (如 www-data:www-data) 提取用户名；无 sudo 时回退 runuser/su
 MIGRATE_USER="${OWNER%%:*}"
-SSH "cd ${REMOTE} && sudo -u ${MIGRATE_USER} php -r 'require __DIR__.\"/bootstrap.php\"; echo \"  ✓ bootstrap OK\n\";'"
+SSH "cd ${REMOTE} && if command -v sudo >/dev/null 2>&1; then
+         sudo -u ${MIGRATE_USER} php -r 'require __DIR__.\"/bootstrap.php\"; echo \"  ✓ bootstrap OK\\n\";'
+     elif command -v runuser >/dev/null 2>&1; then
+         runuser -u ${MIGRATE_USER} -- php -r 'require __DIR__.\"/bootstrap.php\"; echo \"  ✓ bootstrap OK\\n\";'
+     else
+         su -s /bin/bash ${MIGRATE_USER} -c \"php -r 'require __DIR__.\\\"/bootstrap.php\\\"; echo \\\"  ✓ bootstrap OK\\\\n\\\";'\"
+     fi"
 
 say "维护模式 OFF"
 SSH "rm -f ${REMOTE}/.maintenance && echo '  ✓ .maintenance removed'"

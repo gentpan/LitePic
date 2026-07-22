@@ -854,7 +854,7 @@ function initLicenseDialog() {
     trigger.dataset.licenseBound = '1';
     trigger.addEventListener('click', () => {
         if (!window.ImgEt?.DialogManager) return;
-        const version = String(window.LITEPIC_VERSION || '3.3.7');
+        const version = String(window.LITEPIC_VERSION || '3.4.6');
 
         const content = `
             <div class="litepic-license-dialog">

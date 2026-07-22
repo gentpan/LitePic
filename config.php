@@ -70,14 +70,14 @@ $default_host = $_SERVER['HTTP_HOST'] ?? 'localhost:8080';
 $default_scheme = $is_https ? 'https' : 'http';
 
 // 基础配置
-define('LITEPIC_VERSION', '3.4.5');
+define('LITEPIC_VERSION', '3.4.6');
 define('SITE_NAME', env_value('SITE_NAME', 'LitePic'));
 define('SITE_DESCRIPTION', env_value('SITE_DESCRIPTION', '轻量级图床程序'));
 define('SITE_VERSION', LITEPIC_VERSION);
-// 首页背景固定从 static/images/background.jpg 读取。源码部署，要换背景
+// 首页背景固定从 static/images/background.webp 读取。源码部署，要换背景
 // 直接替换这个文件即可，无需通过设置后台上传 — 这跟整个项目的 "源码即配置"
 // 哲学一致。常量保留是给 header.php 用，不再支持 .env / DB 覆盖。
-define('HOME_BACKGROUND_IMAGE', '/static/images/background.jpg');
+define('HOME_BACKGROUND_IMAGE', '/static/images/background.webp');
 
 // 网站路径配置
 define('SITE_URL', env_value('SITE_URL', $default_scheme . '://' . $default_host));

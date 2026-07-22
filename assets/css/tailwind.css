@@ -1,37 +1,5 @@
 @import "tailwindcss";
 
-/* Ubuntu font for logo */
-@font-face {
-  font-family: "Ubuntu";
-  src: url("https://static.litepic.io/fonts/ubuntu-400.woff2") format("woff2");
-  font-weight: 400;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Ubuntu";
-  src: url("https://static.litepic.io/fonts/ubuntu-500.woff2") format("woff2");
-  font-weight: 500;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Ubuntu";
-  src: url("https://static.litepic.io/fonts/ubuntu-700.woff2") format("woff2");
-  font-weight: 700;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Google Sans Code";
-  src: url("https://static.litepic.io/fonts/google-sans-code-400.woff2") format("woff2");
-  font-weight: 400;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Google Sans Code";
-  src: url("https://static.litepic.io/fonts/google-sans-code-700.woff2") format("woff2");
-  font-weight: 700;
-  font-display: swap;
-}
-
 /* ==========================================================================
    Tailwind CSS v4 — CSS-first configuration
    ========================================================================== */
@@ -64,11 +32,11 @@
   --radius-md: 4px;
   --radius-lg: 8px;
 
-  /* Typography */
-  --font-sans: "Noto Sans SC", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft JhengHei", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
-  --font-family-sans: "Noto Sans SC", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft JhengHei", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
-  --font-mono: "Google Sans Code", Menlo, Monaco, Consolas, monospace;
-  --font-family-mono: "Google Sans Code", Menlo, Monaco, Consolas, monospace;
+  /* Typography — 系统中文：macOS 苹方，Windows 微软正黑体 → 微软雅黑 */
+  --font-sans: "PingFang SC", "Microsoft JhengHei", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --font-family-sans: "PingFang SC", "Microsoft JhengHei", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Google Sans", Menlo, Monaco, Consolas, monospace;
+  --font-family-mono: "Google Sans", Menlo, Monaco, Consolas, monospace;
   --font-logo: "Ubuntu", sans-serif;
 }
 
@@ -109,7 +77,7 @@
   --home-overlay-opacity: 0;
   --nav-cta-bg: #0052D9;
   --nav-cta-color: #ffffff;
-  --font-code: "Google Sans Code", Menlo, Monaco, Consolas, monospace;
+  --font-code: "Google Sans", Menlo, Monaco, Consolas, monospace;
 }
 
 html[data-theme="dark"] {

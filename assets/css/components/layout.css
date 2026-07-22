@@ -705,7 +705,7 @@
 
   /* =====================================================================
      Powered by LitePic 徽章 — Plan A 直角风格
-     左半 "LitePic"（Ubuntu）黑底白字 + 右半版本号（mono）品牌蓝白字。
+     左半 "LitePic"（Ubuntu）黑底白字 + 右半版本号（Google Sans）品牌蓝白字。
      0 圆角 跟 LitePic 全站设计系统统一。
      ===================================================================== */
 
@@ -795,7 +795,7 @@
   body.home-guest::before {
     content: "";
     @apply fixed inset-0 z-0 pointer-events-none;
-    background: var(--home-background-image, url('/static/images/background.jpg')) center center / cover no-repeat;
+    background: var(--home-background-image, url('/static/images/background.webp')) center center / cover no-repeat;
     transform-origin: center center;
     animation: home-bg-zoom 35s ease-in-out infinite alternate;
     will-change: transform;
