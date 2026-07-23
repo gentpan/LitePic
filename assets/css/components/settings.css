@@ -356,7 +356,7 @@
   }
 
   .settings-block-runtime .runtime-meta-grid > article {
-    @apply min-h-[86px] flex items-center justify-center gap-3.5 p-4;
+    @apply min-h-[86px] flex items-center justify-start gap-3.5 p-4;
   }
 
   .settings-block-runtime .runtime-meta-label,
@@ -369,8 +369,24 @@
   }
 
   .settings-block-runtime .runtime-meta-label > i {
-    @apply w-7 h-7 rounded-[var(--radius-md)] inline-flex items-center justify-center shrink-0 text-primary;
+    @apply size-9 shrink-0 inline-flex items-center justify-center rounded-md text-primary leading-none;
+    width: 2.25rem;
+    height: 2.25rem;
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    max-width: 2.25rem;
+    max-height: 2.25rem;
+    aspect-ratio: 1 / 1;
+    box-sizing: border-box;
+    font-size: 1rem;
     background: color-mix(in srgb, var(--primary) 10%, var(--surface) 90%);
+  }
+
+  .settings-block-runtime .runtime-meta-label > i::before {
+    line-height: 1;
+    width: 1em;
+    height: 1em;
+    display: block;
   }
 
   .settings-block-runtime .runtime-meta-value {

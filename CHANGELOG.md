@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.4.7] - 2026-07-23
+
+### Changed
+
+- **组件 CSS 迁移到 Tailwind `@apply`** — 保留语义 class（`.img-card`、`.drop-zone` 等）与渐变/毛玻璃/伪元素/关键帧等手写规则；去掉与 `@apply` 重复的模板 utility。
+- **设置「环境信息」图标** — 元信息卡片图标改为左对齐的固定正方形（36×36），避免被拉成竖长 pill。
+
+### Fixed
+
+- **移动端底栏避让** — 页脚、批量操作条、批量进度卡避开底部导航与 `safe-area-inset-bottom`；能力网格改为断点响应（大屏 6 → 平板 3 → 窄屏 2 → 极窄 1）。
+
+## [3.4.6] - 2026-07-23
+
+### Changed
+
+- **系统中文字体与首页背景** — 统一中文字体栈；首页背景改为 `static/images/background.webp`（源码即配置，不再走设置上传覆盖）。
+- **部署适配** — `bin/deploy.sh` 与 126.uz / FrankenPHP 场景对齐；清理旧 JPG 背景与无用 favicon 产物。
+
 ## [3.4.5] - 2026-07-15
 
 ### Changed

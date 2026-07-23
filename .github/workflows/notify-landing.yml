@@ -1,0 +1,47 @@
+name: Notify litepic-landing
+
+# After a GitHub Release is published, tell litepic-landing to rebuild so
+# version.json / changelog / hero badge pick up the new tag immediately.
+# Requires repo secret LANDING_DISPATCH_TOKEN (PAT with access to
+# gentpan/litepic-landing). If the secret is missing, this job is skipped.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Optional tag to include in client_payload'
+        required: false
+        default: ''
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check token
+        id: check
+        env:
+          TOKEN: ${{ secrets.LANDING_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "has_token=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::LANDING_DISPATCH_TOKEN not set; skip landing dispatch"
+          else
+            echo "has_token=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: repository_dispatch → litepic-landing
+        if: steps.check.outputs.has_token == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.LANDING_DISPATCH_TOKEN }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          payload='{"event_type":"litepic-released","client_payload":{"tag":"'"${TAG}"'"}}'
+          curl -fsS -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/gentpan/litepic-landing/dispatches \
+            -d "$payload"
+          echo "Dispatched litepic-released (tag=${TAG:-none})"
