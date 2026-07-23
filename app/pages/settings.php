@@ -440,22 +440,19 @@ require_once APP_ROOT . '/header.php';
                                     </span>
                                     <span class="break-all runtime-meta-value" id="metricPhpVersion"><?= htmlspecialchars((string)($metrics['php_version'] ?? PHP_VERSION)) ?></span>
                                 </article>
-                                <article class="relative">
-                                    <!-- 「如何配置」定位到卡片右上角红框位置：
-                                         父级 .runtime-meta-grid > article 是 flex
-                                         items-center justify-center 横向居中布局，
-                                         链接如果作为普通 flex item 会挤在中间垂直折行。
-                                         absolute + top-2 right-2 让它脱流，不影响主 row。 -->
-                                    <a href="https://litepic.io/docs" target="_blank" rel="noopener noreferrer" class="absolute top-2 right-2 z-10 text-xs text-primary no-underline hover:underline inline-flex items-center gap-1 leading-none" title="查看 LitePic 推荐的 Web 服务器配置">
-                                        <span>如何配置</span>
-                                        <i class="fa-light fa-arrow-up-right-from-square text-[10px]" aria-hidden="true"></i>
-                                    </a>
+                                <article>
                                     <span class="runtime-meta-label">
                                         <i class="fa-light fa-server" aria-hidden="true"></i>
                                         <span>Web 服务器</span>
                                     </span>
-                                    <span class="break-all runtime-meta-value" id="metricWebServer" title="<?= htmlspecialchars($server_software ?: 'SERVER_SOFTWARE 未提供') ?>">
-                                        <?= htmlspecialchars($server_display) ?>
+                                    <span class="runtime-meta-aside">
+                                        <a href="https://litepic.io/docs" target="_blank" rel="noopener noreferrer" class="runtime-meta-help" title="查看 LitePic 推荐的 Web 服务器配置">
+                                            <span>如何配置</span>
+                                            <i class="fa-light fa-arrow-up-right-from-square text-[10px]" aria-hidden="true"></i>
+                                        </a>
+                                        <span class="break-all runtime-meta-value" id="metricWebServer" title="<?= htmlspecialchars($server_software ?: 'SERVER_SOFTWARE 未提供') ?>">
+                                            <?= htmlspecialchars($server_display) ?>
+                                        </span>
                                     </span>
                                 </article>
                                 <article>
