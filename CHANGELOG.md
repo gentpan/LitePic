@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **设置页卡顿（公网 IP 探测）** — HTTP 请求路径不再串行 curl 云厂商元数据/外部 IP 服务（缓存未命中时曾卡 3–12s）；公网 IP 改由 worker 短超时刷新并写入 `data/cache/`，页面只读缓存或本地地址。Imagick 能力位落盘缓存；系统状态轮询 3s→15s；上传校验改走轻量 `compressionCapability()`。
 - **移动端底栏避让** — 页脚、批量操作条、批量进度卡避开底部导航与 `safe-area-inset-bottom`；能力网格改为断点响应（大屏 6 → 平板 3 → 窄屏 2 → 极窄 1）。
 
 ## [3.4.6] - 2026-07-23

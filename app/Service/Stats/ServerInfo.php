@@ -24,15 +24,8 @@ final class ServerInfo
      */
     public static function compressionCapability(): array
     {
-        $metrics = (new self())->runtimeMetrics();
-        $cap = is_array($metrics['capability'] ?? null) ? $metrics['capability'] : [];
-        return [
-            'gd' => !empty($cap['gd']),
-            'imagick' => !empty($cap['imagick']),
-            'avif' => !empty($cap['avif']),
-            'webp' => !empty($cap['webp']),
-            'heic' => !empty($cap['heic']),
-        ];
+        // 不要走 runtimeMetrics() —— 那条路径会采 IP / 磁盘 / load，上传校验只需要能力位。
+        return self::capabilityFlags();
     }
 
     /**
@@ -316,14 +309,51 @@ final class ServerInfo
                 'text' => $fmt($diskUsedBytes) . ' / ' . $fmt($diskTotalBytes > 0 ? $diskTotalBytes : $diskUsedBytes),
                 'free_text' => $fmt($diskFreeBytes),
             ],
-            'capability' => [
-                'gd' => extension_loaded('gd'),
-                'imagick' => extension_loaded('imagick'),
-                'avif' => (function_exists('imagecreatefromavif') && function_exists('imageavif')) || self::imagickFormatSupported(['AVIF']),
-                'webp' => function_exists('imagewebp') || self::imagickFormatSupported(['WEBP']),
-                'heic' => self::imagickFormatSupported(['HEIC', 'HEIF']),
-            ],
+            'capability' => self::capabilityFlags(),
         ];
+    }
+
+    /**
+     * @return array{gd:bool,imagick:bool,avif:bool,webp:bool,heic:bool}
+     */
+    private static function capabilityFlags(): array
+    {
+        static $cached = null;
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        // Imagick::queryFormats 首次约数十毫秒；进程内缓存 + 落盘，避免设置页每 3s 轮询反复打。
+        $fileCache = self::capabilityCacheFile();
+        if (is_file($fileCache) && (time() - (int)@filemtime($fileCache) < 86400)) {
+            $decoded = json_decode((string)@file_get_contents($fileCache), true);
+            if (is_array($decoded) && isset($decoded['gd'], $decoded['imagick'])) {
+                return $cached = [
+                    'gd' => !empty($decoded['gd']),
+                    'imagick' => !empty($decoded['imagick']),
+                    'avif' => !empty($decoded['avif']),
+                    'webp' => !empty($decoded['webp']),
+                    'heic' => !empty($decoded['heic']),
+                ];
+            }
+        }
+
+        $flags = [
+            'gd' => extension_loaded('gd'),
+            'imagick' => extension_loaded('imagick'),
+            'avif' => (function_exists('imagecreatefromavif') && function_exists('imageavif')) || self::imagickFormatSupported(['AVIF']),
+            'webp' => function_exists('imagewebp') || self::imagickFormatSupported(['WEBP']),
+            'heic' => self::imagickFormatSupported(['HEIC', 'HEIF']),
+        ];
+        @mkdir(dirname($fileCache), 0775, true);
+        @file_put_contents($fileCache, (string)json_encode($flags, JSON_UNESCAPED_UNICODE));
+        return $cached = $flags;
+    }
+
+    private static function capabilityCacheFile(): string
+    {
+        $root = defined('APP_ROOT') ? APP_ROOT : dirname(__DIR__, 3);
+        return $root . '/data/cache/capability.json';
     }
 
     private static function imagickFormatSupported(array $formats): bool
@@ -553,6 +583,13 @@ final class ServerInfo
             $snapshot['load15'] = (float)($load[2] ?? 0);
         }
 
+        // 公网 IP 只在 CLI worker 里刷新，避免 HTTP 请求串行 curl 卡住设置页。
+        $publicIp = self::probePublicIpFast();
+        if ($publicIp !== null) {
+            $snapshot['public_ip'] = $publicIp;
+            self::writePublicIpCache($publicIp);
+        }
+
         // Always write — even an "empty-ish" snapshot is useful (it tells
         // the UI when the last probe ran). Skip only if NOTHING new beyond
         // captured_at (e.g. all reads failed → no point overwriting good
@@ -688,37 +725,128 @@ final class ServerInfo
 
     private static function serverIp(): string
     {
-        // NAT/CDN 架构下优先返回公网IP (内网IP无意义), 带文件缓存避免频繁查询
-        $cacheFile = sys_get_temp_dir() . '/litepic_public_ip.cache';
-        if (is_file($cacheFile) && (time() - filemtime($cacheFile) < 3600)) {
-            $cached = trim((string)file_get_contents($cacheFile));
-            if ($cached !== '' && filter_var($cached, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+        // HTTP 路径绝不串行 curl 外部服务（曾导致设置页卡 3–12s）。
+        // 优先读 data/ 缓存 / worker snapshot，再回退本地地址。
+        $cached = self::readPublicIpCache();
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $snap = self::readSnapshot();
+        $fromSnap = trim((string)($snap['public_ip'] ?? ''));
+        if ($fromSnap !== '' && self::isPublicIp($fromSnap)) {
+            self::writePublicIpCache($fromSnap);
+            return $fromSnap;
+        }
+
+        return self::localServerIp();
+    }
+
+    private static function publicIpCacheFile(): string
+    {
+        $root = defined('APP_ROOT') ? APP_ROOT : dirname(__DIR__, 3);
+        return $root . '/data/cache/public_ip.txt';
+    }
+
+    private static function readPublicIpCache(): ?string
+    {
+        $file = self::publicIpCacheFile();
+        if (is_file($file) && (time() - (int)@filemtime($file) < 86400)) {
+            $cached = trim((string)@file_get_contents($file));
+            if (self::isPublicIp($cached)) {
                 return $cached;
             }
         }
-        // 查询公网IP (从云厂商元数据或外部服务)
-        if (function_exists('shell_exec')) {
-            foreach ([
-                // 阿里云元数据
-                'curl -s --max-time 3 http://100.100.100.200/latest/meta-data/eipv4 2>/dev/null',
-                // 腾讯云元数据
-                'curl -s --max-time 3 http://metadata.tencentyun.com/latest/meta-data/public-ipv4 2>/dev/null',
-                // 通用公网IP服务
-                'curl -s --max-time 3 https://api.ipify.org 2>/dev/null',
-                'curl -s --max-time 3 https://ifconfig.me 2>/dev/null',
-            ] as $cmd) {
-                $ip = @shell_exec($cmd);
-                if (is_string($ip)) {
-                    $trimmed = trim($ip);
-                    if ($trimmed !== '' && filter_var($trimmed, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-                        @file_put_contents($cacheFile, $trimmed);
-                        return $trimmed;
-                    }
-                }
+        // 兼容旧 /tmp 缓存（升级后第一次请求可立刻命中）
+        $legacy = sys_get_temp_dir() . '/litepic_public_ip.cache';
+        if (is_file($legacy) && (time() - (int)@filemtime($legacy) < 86400)) {
+            $cached = trim((string)@file_get_contents($legacy));
+            if (self::isPublicIp($cached)) {
+                self::writePublicIpCache($cached);
+                return $cached;
             }
         }
-        // 公网IP获取失败时, 回退到原来的内网IP逻辑
-        if (function_exists('shell_exec')) {
+        return null;
+    }
+
+    private static function writePublicIpCache(string $ip): void
+    {
+        if (!self::isPublicIp($ip)) {
+            return;
+        }
+        $file = self::publicIpCacheFile();
+        @mkdir(dirname($file), 0775, true);
+        @file_put_contents($file, $ip);
+        // 兼容旧路径，避免其它进程仍读 /tmp
+        @file_put_contents(sys_get_temp_dir() . '/litepic_public_ip.cache', $ip);
+    }
+
+    private static function isPublicIp(string $ip): bool
+    {
+        return $ip !== ''
+            && (bool)filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+    }
+
+    /**
+     * CLI / worker 专用：单次短超时探测公网 IP。失败返回 null，不拖慢调用方。
+     */
+    private static function probePublicIpFast(): ?string
+    {
+        $existing = self::readPublicIpCache();
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        // 仅一条通道路径，超时 1s；云厂商元数据在非对应云上会空耗，不再串行尝试。
+        $candidates = [];
+        if (function_exists('curl_init')) {
+            $candidates[] = 'curl';
+        }
+        if (self::canShellExec()) {
+            $candidates[] = 'shell';
+        }
+
+        foreach ($candidates as $mode) {
+            $ip = null;
+            if ($mode === 'curl') {
+                $ch = curl_init('https://api.ipify.org');
+                if ($ch !== false) {
+                    curl_setopt_array($ch, [
+                        CURLOPT_RETURNTRANSFER => true,
+                        CURLOPT_CONNECTTIMEOUT => 1,
+                        CURLOPT_TIMEOUT => 1,
+                        CURLOPT_FOLLOWLOCATION => true,
+                        CURLOPT_USERAGENT => 'LitePic-ServerInfo',
+                    ]);
+                    $body = curl_exec($ch);
+                    if (PHP_VERSION_ID < 80500) {
+                        curl_close($ch);
+                    }
+                    if (is_string($body)) {
+                        $ip = trim($body);
+                    }
+                }
+            } else {
+                $raw = @shell_exec('curl -fsS --connect-timeout 1 --max-time 1 https://api.ipify.org 2>/dev/null');
+                if (is_string($raw)) {
+                    $ip = trim($raw);
+                }
+            }
+            if (is_string($ip) && self::isPublicIp($ip)) {
+                return $ip;
+            }
+        }
+        return null;
+    }
+
+    private static function localServerIp(): string
+    {
+        $addr = (string)($_SERVER['SERVER_ADDR'] ?? '');
+        if ($addr !== '' && $addr !== '127.0.0.1' && $addr !== '::1' && $addr !== 'localhost') {
+            return $addr;
+        }
+
+        if (self::canShellExec()) {
             if (PHP_OS_FAMILY === 'Darwin') {
                 foreach (['en0', 'en1', 'en2', 'en3'] as $iface) {
                     $ip = @shell_exec('ipconfig getifaddr ' . $iface . ' 2>/dev/null');
@@ -734,22 +862,25 @@ final class ServerInfo
                 $ip = @shell_exec("hostname -I 2>/dev/null | awk '{print \$1}'");
                 if (is_string($ip)) {
                     $trimmed = trim($ip);
-                    if ($trimmed !== '' && $trimmed !== '127.0.0.1') return $trimmed;
+                    if ($trimmed !== '' && $trimmed !== '127.0.0.1') {
+                        return $trimmed;
+                    }
                 }
-                $ip = @shell_exec("ip route get 1.1.1.1 2>/dev/null | awk '/src/ {print \$7; exit}'");
+                $ip = @shell_exec("ip -4 route get 1.1.1.1 2>/dev/null | awk '/src/ {for(i=1;i<=NF;i++) if(\$i==\"src\"){print \$(i+1); exit}}'");
                 if (is_string($ip)) {
                     $trimmed = trim($ip);
-                    if ($trimmed !== '' && $trimmed !== '127.0.0.1') return $trimmed;
+                    if ($trimmed !== '' && $trimmed !== '127.0.0.1') {
+                        return $trimmed;
+                    }
                 }
             }
         }
-        $addr = (string)($_SERVER['SERVER_ADDR'] ?? '');
-        if ($addr !== '' && $addr !== '127.0.0.1' && $addr !== '::1' && $addr !== 'localhost') {
-            return $addr;
-        }
+
         $host = gethostbyname((string)gethostname());
-        if ($host !== (string)gethostname() && $host !== '127.0.0.1') return $host;
-        return $addr ?: '127.0.0.1';
+        if ($host !== (string)gethostname() && $host !== '127.0.0.1') {
+            return $host;
+        }
+        return $addr !== '' ? $addr : '127.0.0.1';
     }
 
     /**

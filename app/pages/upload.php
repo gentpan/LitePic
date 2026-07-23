@@ -44,8 +44,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && (string)($_POST['form_actio
         $convert_format = 'webp';
     }
 
-    $metrics = (new \LitePic\Service\Stats\ServerInfo())->runtimeMetrics();
-    $capability = is_array($metrics['capability'] ?? null) ? $metrics['capability'] : [];
+    $metrics = null;
+    $capability = \LitePic\Service\Stats\ServerInfo::compressionCapability();
     if ($auto_convert && $convert_format === 'webp' && empty($capability['webp'])) {
         http_response_code(422);
         echo json_encode([

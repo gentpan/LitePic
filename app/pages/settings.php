@@ -4000,7 +4000,7 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
                 }
             }
         };
-        setInterval(updateSystemStatus, 3000);
+        setInterval(updateSystemStatus, 15000);
 
         // ==================== 整行 UPTIME 条 ====================
         // 来自 /api/v1/uptime?range=1h|1d|30d|90d。每次切换 range 拉一次,
