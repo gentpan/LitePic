@@ -1,12 +1,10 @@
 @layer components {
   .gallery-main {
-    gap: 22px;
+    @apply gap-[22px];
   }
 
   .gallery-shell {
-    overflow: hidden;
-    border-radius: var(--radius-md);
-    background: var(--surface);
+    @apply overflow-hidden rounded-[var(--radius-md)] bg-surface;
     background:
       linear-gradient(180deg,
         color-mix(in srgb, var(--surface) 96%, var(--light) 4%),
@@ -15,9 +13,7 @@
   }
 
   .gallery-shell .page-shell-body {
-    display: grid;
-    gap: 16px;
-    padding: 22px;
+    @apply grid gap-4 p-[22px];
   }
 
   .gallery-card {
@@ -25,61 +21,44 @@
   }
 
   .gallery-main.is-pjax-loading {
-    opacity: 0.55;
+    @apply opacity-55 pointer-events-none;
     transition: opacity 0.12s ease-out;
-    pointer-events: none;
   }
 
   .gallery-card-header.page-shell-header {
-    align-items: center;
+    @apply items-center;
   }
 
   .gallery-card-header .header-left {
-    min-width: 0;
+    @apply min-w-0;
   }
 
   .gallery-card-header .header-right {
-    display: flex;
-    flex: 1 1 auto;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
-    min-width: 280px;
+    @apply flex flex-[1_1_auto] items-center justify-end gap-2.5 min-w-[280px];
   }
 
   .gallery-card-header .page-shell-title {
-    min-width: 0;
-    flex-wrap: wrap;
+    @apply min-w-0 flex-wrap;
   }
 
   .total-count {
-    color: var(--gray);
-    font-size: 0.82rem;
-    font-weight: 500;
+    @apply text-gray text-[0.82rem] font-medium;
   }
 
   .gallery-filters {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    @apply flex items-center gap-2;
   }
 
   .gallery-filters select,
   .gallery-search input[type="text"] {
-    min-height: 38px;
+    @apply min-h-[38px] rounded-none text-dark text-[0.88rem] outline-none;
     border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
-    border-radius: 0;
     background: color-mix(in srgb, var(--surface) 92%, var(--light) 8%);
-    color: var(--dark);
-    font-size: 0.88rem;
-    outline: none;
     transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
   }
 
   .gallery-filters select {
-    min-width: 122px;
-    padding: 0 32px 0 12px;
-    appearance: none;
+    @apply min-w-[122px] py-0 pr-8 pl-3 appearance-none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236c757d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 10px center;
@@ -95,103 +74,59 @@
   }
 
   .gallery-search {
-    position: relative;
-    flex: 0 1 260px;
-    min-width: 220px;
-    height: 38px;
+    @apply relative flex-[0_1_260px] min-w-[220px] h-[38px];
   }
 
   .gallery-search input[type="text"] {
-    width: 100%;
-    height: 38px;
-    padding: 0 12px 0 36px;
+    @apply w-full h-[38px] py-0 pr-3 pl-9;
   }
 
   .gallery-search i {
-    position: absolute;
-    top: 50%;
-    left: 13px;
-    display: inline-flex;
-    color: var(--gray);
-    font-size: 0.86rem;
-    line-height: 1;
-    pointer-events: none;
-    transform: translateY(-50%);
+    @apply absolute top-1/2 left-[13px] inline-flex text-gray text-[0.86rem] leading-none pointer-events-none -translate-y-1/2;
   }
 
   .batch-controls {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    width: 100%;
-    padding: 12px 14px;
+    @apply flex items-center justify-between gap-3 w-full py-3 px-3.5 rounded-none;
     border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
-    border-radius: 0;
     background: color-mix(in srgb, var(--surface) 88%, var(--light) 12%);
     transition: background var(--theme-transition), color var(--theme-transition), border-color var(--theme-transition);
   }
 
   .batch-left,
   .batch-right {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
+    @apply inline-flex items-center gap-2.5 min-w-0;
   }
 
   .batch-left {
-    color: var(--gray);
+    @apply text-gray;
   }
 
   .select-all {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    user-select: none;
-    white-space: nowrap;
+    @apply inline-flex items-center gap-2 cursor-pointer select-none whitespace-nowrap;
   }
 
   .select-all input[type="checkbox"],
   .select-img {
-    width: 18px;
-    height: 18px;
-    margin: 0;
+    @apply w-[18px] h-[18px] m-0 rounded-none bg-surface cursor-pointer;
     border: 2px solid color-mix(in srgb, var(--border-color) 76%, transparent);
-    border-radius: 0;
-    background: var(--surface);
     accent-color: var(--primary);
-    cursor: pointer;
   }
 
   .selected-count {
-    color: var(--gray);
-    font-size: 0.86rem;
+    @apply text-gray text-[0.86rem];
   }
 
   .batch-btn {
-    min-height: 36px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 0 12px;
+    @apply min-h-9 inline-flex items-center justify-center gap-2 px-3 py-0 rounded-none bg-surface text-dark text-[0.86rem] cursor-pointer;
     border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
-    border-radius: 0;
-    background: var(--surface);
-    color: var(--dark);
-    font-size: 0.86rem;
     font-weight: 650;
-    cursor: pointer;
     transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease, opacity 160ms ease;
   }
 
   .batch-btn:hover:not([disabled]) {
+    @apply text-primary -translate-y-px;
     border-color: color-mix(in srgb, var(--primary) 42%, var(--border-color) 58%);
     background: color-mix(in srgb, var(--primary) 6%, var(--surface) 94%);
-    color: var(--primary);
-    transform: translateY(-1px);
   }
 
   /* 批量按钮颜色规范 — 跟单卡片操作按钮(.compress-btn / .webp-btn /
@@ -201,74 +136,61 @@
        删除 = danger 红
      批量按钮跟单卡片 hover 态不同:它们 ALWAYS 着色,所以醒目。*/
   .batch-btn[data-action="compress"] {
-    border-color: var(--success);
-    background: var(--success);
-    color: #fff;
+    @apply border-success bg-success text-white;
   }
   .batch-btn[data-action="compress"]:hover:not([disabled]) {
+    @apply text-white -translate-y-px;
     border-color: color-mix(in srgb, var(--success) 86%, #000 14%);
     background: color-mix(in srgb, var(--success) 92%, #000 8%);
-    color: #fff;
-    transform: translateY(-1px);
   }
 
   .batch-btn[data-action="webp"],
   .batch-btn[data-action="avif"],
   .batch-btn[data-action="jpg"],
   .batch-btn[data-action="png"] {
-    border-color: #6f42c1;
-    background: #6f42c1;
-    color: #fff;
+    @apply border-[#6f42c1] bg-[#6f42c1] text-white;
   }
   .batch-btn[data-action="webp"]:hover:not([disabled]),
   .batch-btn[data-action="avif"]:hover:not([disabled]),
   .batch-btn[data-action="jpg"]:hover:not([disabled]),
   .batch-btn[data-action="png"]:hover:not([disabled]) {
+    @apply text-white -translate-y-px;
     border-color: color-mix(in srgb, #6f42c1 86%, #000 14%);
     background: color-mix(in srgb, #6f42c1 92%, #000 8%);
-    color: #fff;
-    transform: translateY(-1px);
   }
 
   .batch-btn.delete {
-    border-color: var(--danger);
-    background: var(--danger);
-    color: #fff;
+    @apply border-danger bg-danger text-white;
   }
 
   .batch-btn.delete:hover:not([disabled]) {
+    @apply text-white;
     border-color: color-mix(in srgb, var(--danger) 86%, #000 14%);
     background: color-mix(in srgb, var(--danger) 92%, #000 8%);
-    color: #fff;
     filter: none;
   }
 
   .batch-btn[disabled] {
-    opacity: 0.48;
-    cursor: not-allowed;
-    pointer-events: none;
+    @apply opacity-[0.48] cursor-not-allowed pointer-events-none;
   }
 
   .gallery {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 16px;
+    @apply grid grid-cols-4 gap-4;
   }
 
   .img-card {
-    position: relative;
-    display: grid;
-    grid-template-rows: 60fr 25fr 15fr;
-    aspect-ratio: 1 / 1;
-    min-width: 0;
-    overflow: hidden;
+    @apply relative grid grid-rows-[60fr_25fr_15fr] aspect-square min-w-0 overflow-hidden rounded-none;
     border: 1px solid color-mix(in srgb, var(--border-color) 66%, transparent);
-    border-radius: 0;
     background:
       linear-gradient(180deg,
         color-mix(in srgb, var(--surface) 92%, transparent),
         color-mix(in srgb, var(--surface) 82%, var(--light) 18%));
-    transition: border-color 160ms ease, box-shadow 160ms ease, background var(--theme-transition);
+    transition:
+      opacity 0.28s ease-out,
+      transform 0.28s ease-out,
+      border-color 0.15s ease,
+      box-shadow 0.15s ease,
+      background var(--theme-transition);
   }
 
   .img-card:hover,
@@ -281,52 +203,48 @@
     animation: deleteCard 0.3s ease forwards;
   }
 
+  /* =============================================================
+   * 删除卡片 + 补位动画 — 配合 main.js 里 .deleting / .appearing 切换
+   *
+   * 流程：
+   *   1. 用户点删除 → 卡片加 .deleting → 0.3s 淡出缩小（@keyframes deleteCard）
+   *   2. 卡片从 DOM 移除（grid 自动 reflow，剩下的卡片向左/上"挤"过去）
+   *   3. 服务端拿一张新图，HTML 插到末尾
+   *   4. 新卡片初始 opacity:0 + translateY(8px)（来自 .appearing 类）
+   *   5. JS 下一帧移除 .appearing → 触发 transition 淡入归位
+   *
+   * 不重新加载整页 / 不重新 decode 全部 <img>，单卡操作 < 50ms 完成。
+   * ============================================================= */
+  .img-card.appearing {
+    @apply opacity-0;
+    transform: translateY(8px) scale(0.985);
+  }
+
   .img-preview {
-    position: relative;
-    min-height: 0;
-    height: 100%;
-    overflow: hidden;
+    @apply relative min-h-0 h-full overflow-hidden;
     background: color-mix(in srgb, var(--surface) 82%, var(--light) 18%);
   }
 
   .img-preview img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    opacity: 0;
+    @apply block w-full h-full object-cover opacity-0;
     animation: galleryFadeIn 260ms ease forwards;
     transition: transform 260ms ease, opacity 260ms ease;
   }
 
   .img-card:hover .img-preview img {
-    transform: scale(1.045);
+    @apply scale-[1.045];
   }
 
   .img-time-overlay {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    z-index: 2;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    height: 22px;
-    padding: 0 7px;
-    border-radius: 0;
+    @apply absolute top-3 right-3 z-[2] inline-flex items-center gap-[5px] h-[22px] px-[7px] py-0 rounded-none text-white text-[0.68rem] whitespace-nowrap opacity-0 pointer-events-none;
     background: rgba(0,0,0,0.42);
-    color: #fff;
-    font-size: 0.68rem;
-    white-space: nowrap;
-    opacity: 0;
-    pointer-events: none;
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
     transition: opacity 160ms ease;
   }
 
   .img-card:hover .img-time-overlay {
-    opacity: 1;
+    @apply opacity-100;
   }
 
   @keyframes galleryFadeIn {
@@ -341,30 +259,16 @@
   }
 
   .img-info {
-    display: grid;
-    grid-template-rows: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 6px;
-    min-height: 0;
-    padding: 9px 0 0;
+    @apply grid grid-rows-[minmax(0,1fr)_auto] items-center gap-1.5 min-h-0 pt-[9px] pb-0 px-0;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 66%, transparent);
   }
 
   .img-name-row {
-    display: block;
-    min-width: 0;
-    padding: 0 12px;
+    @apply block min-w-0 px-3 py-0;
   }
 
   .img-name {
-    min-width: 0;
-    overflow: hidden;
-    color: var(--dark);
-    font-size: 0.8rem;
-    font-weight: 400;
-    line-height: 1.28;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    @apply min-w-0 overflow-hidden text-dark text-[0.8rem] font-normal leading-[1.28] text-ellipsis whitespace-nowrap;
     /* 双击可改 — hover 时给个虚线下划线提示。光标只在 hover 时变 text,
        否则点删除按钮的瞬间扫过文件名时光标会闪。 */
     border-bottom: 1px dashed transparent;
@@ -372,23 +276,19 @@
   }
 
   .img-name:hover {
-    cursor: text;
+    @apply cursor-text;
     border-bottom-color: color-mix(in srgb, var(--border-color) 80%, transparent);
   }
 
   /* 编辑态:contenteditable=true。允许横向滚动看长名,加 primary 色描边 */
   .img-name[contenteditable="true"] {
-    overflow-x: auto;
-    overflow-y: hidden;
-    text-overflow: clip;
+    @apply overflow-x-auto overflow-y-hidden text-clip outline-none cursor-text;
     background: rgba(22, 119, 255, 0.06);
     border-bottom: 1px solid var(--primary);
-    outline: none;
-    cursor: text;
   }
 
   .img-name[contenteditable="true"]::-webkit-scrollbar {
-    height: 2px;
+    @apply h-0.5;
   }
 
   html[data-theme="dark"] .img-name[contenteditable="true"] {
@@ -399,50 +299,23 @@
     --badge-bg: #f8fafc;
     --badge-color: #64748b;
     --badge-border: #dbe4ef;
-    min-width: 0;
-    height: 26px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    gap: 3px;
-    padding: 0 4px;
+    @apply min-w-0 h-[26px] inline-flex items-center justify-center shrink-0 gap-[3px] px-1 py-0 rounded-none font-mono text-[0.6rem] font-semibold tracking-normal leading-none whitespace-nowrap overflow-hidden text-ellipsis;
     border: 1px solid var(--badge-border);
-    border-radius: 0;
     background: var(--badge-bg);
     color: var(--badge-color);
-    font-family: var(--font-mono);
-    font-size: 0.6rem;
-    font-weight: 600;
-    letter-spacing: 0;
-    line-height: 1;
-    white-space: nowrap;
   }
 
   .img-meta-badge i {
-    flex: none;
-    width: 12px;
-    font-size: 0.64rem;
-    line-height: 1;
-    text-align: center;
-  }
-
-  .img-meta-badge {
-    overflow: hidden;
-    text-overflow: ellipsis;
+    @apply flex-none w-3 text-[0.64rem] leading-none text-center;
   }
 
   .img-meta-badge span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    @apply min-w-0 overflow-hidden text-ellipsis;
   }
 
   .img-size-badge span,
   .img-format-tag span {
-    flex: none;
-    overflow: visible;
-    text-overflow: clip;
+    @apply flex-none overflow-visible text-clip;
   }
 
   .img-size-badge {
@@ -476,268 +349,160 @@
   .img-format-tag.fmt-tif { --badge-color: #0e7490; --badge-border: #a5f3fc; --badge-bg: #ecfeff; }
 
   .img-meta {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    align-items: center;
-    gap: 0;
-    min-width: 0;
-    overflow: hidden;
-    font-size: 0.68rem;
-    white-space: nowrap;
+    @apply grid grid-cols-3 items-center gap-0 min-w-0 overflow-hidden text-[0.68rem] whitespace-nowrap;
   }
 
   .img-meta > span {
-    width: 100%;
+    @apply w-full;
   }
 
   .img-meta > span + span {
-    border-left: 0;
+    @apply border-l-0;
   }
 
   .img-actions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    min-height: 0;
-    padding: 8px 12px;
+    @apply flex items-center justify-end gap-2 min-h-0 py-2 px-3;
   }
 
   .img-overlay {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    padding: 12px;
+    @apply flex justify-end gap-2 p-3;
   }
 
   .action-btn,
   .img-actions > button,
   .img-overlay > button {
-    position: relative;
-    width: 32px;
-    height: 32px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    @apply relative w-8 h-8 inline-flex items-center justify-center rounded-none text-gray cursor-pointer;
     border: 1px solid color-mix(in srgb, var(--border-color) 66%, transparent);
-    border-radius: 0;
     background: color-mix(in srgb, var(--surface) 90%, var(--light) 10%);
-    color: var(--gray);
-    cursor: pointer;
     transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
   }
 
   .action-btn:hover,
   .img-actions > button:hover,
   .img-overlay > button:hover {
-    transform: translateY(-1px);
+    @apply -translate-y-px;
   }
 
   .copy-btn:hover {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: #fff;
+    @apply bg-primary border-primary text-white;
   }
 
   .compress-btn:hover {
-    background: var(--success);
-    border-color: var(--success);
-    color: #fff;
+    @apply bg-success border-success text-white;
   }
 
   .webp-btn:hover,
   .avif-btn:hover {
-    background: #6f42c1;
-    border-color: #6f42c1;
-    color: #fff;
+    @apply bg-[#6f42c1] border-[#6f42c1] text-white;
   }
 
   .delete-btn:hover {
-    background: var(--danger);
-    border-color: var(--danger);
-    color: #fff;
+    @apply bg-danger border-danger text-white;
   }
 
   .action-btn::after {
     content: attr(title);
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    z-index: 5;
-    padding: 4px 8px;
-    border-radius: 0;
+    @apply absolute bottom-full left-1/2 z-[5] py-1 px-2 rounded-none text-white text-[0.72rem] whitespace-nowrap opacity-0 invisible -translate-x-1/2 -translate-y-1.5;
     background: rgba(0,0,0,0.82);
-    color: #fff;
-    font-size: 0.72rem;
-    white-space: nowrap;
-    opacity: 0;
-    visibility: hidden;
-    transform: translateX(-50%) translateY(-6px);
     transition: opacity 160ms ease, visibility 160ms ease;
   }
 
   .action-btn:hover::after {
-    opacity: 1;
-    visibility: visible;
+    @apply opacity-100 visible;
   }
 
   .img-select {
-    position: absolute;
-    top: 12px;
-    left: 12px;
-    z-index: 3;
-    opacity: 0;
+    @apply absolute top-3 left-3 z-[3] opacity-0;
     transition: opacity 160ms ease;
   }
 
   .img-card:hover .img-select,
   .img-card:has(.select-img:checked) .img-select {
-    opacity: 1;
+    @apply opacity-100;
   }
 
   .pagination {
-    display: flex;
-    justify-content: center;
-    margin: 2px 0 0;
+    @apply flex justify-center mt-0.5 mb-0 mx-0;
   }
 
   .pagination-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
+    @apply flex flex-wrap gap-1.5 m-0 p-0 list-none;
   }
 
   .page-link {
-    min-width: 36px;
-    height: 36px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 10px;
+    @apply min-w-9 h-9 inline-flex items-center justify-center px-2.5 py-0 rounded-none bg-surface text-dark text-[0.86rem] no-underline cursor-pointer;
     border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-    border-radius: 0;
-    background: var(--surface);
-    color: var(--dark);
-    font-size: 0.86rem;
-    text-decoration: none;
-    cursor: pointer;
     transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
   }
 
   .page-link:hover:not([aria-disabled="true"]):not(.active) {
+    @apply text-primary -translate-y-px;
     border-color: color-mix(in srgb, var(--primary) 42%, var(--border-color) 58%);
-    color: var(--primary);
-    transform: translateY(-1px);
   }
 
   .page-link.active,
   .page-link[aria-current="page"] {
-    border-color: var(--primary);
-    background: var(--primary);
-    color: #fff;
-    pointer-events: none;
+    @apply border-primary bg-primary text-white pointer-events-none;
   }
 
   .page-link[aria-disabled="true"],
   .page-link[tabindex="-1"] {
-    opacity: 0.48;
-    pointer-events: none;
+    @apply opacity-[0.48] pointer-events-none;
   }
 
   .page-ellipsis {
-    min-width: 20px;
-    height: 36px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--gray);
+    @apply min-w-5 h-9 inline-flex items-center justify-center text-gray;
+  }
+
+  /* 分页导航 — 上一页/下一页/首尾页 4 个方向按钮的图标放大
+   * 数字按钮保持 0.86rem text，方向按钮的 FA icon 用 16px 看着更"指引性" */
+  .page-link--nav > i {
+    @apply text-base leading-none;
   }
 
   .copy-options {
-    width: 100%;
-    max-width: 640px;
-    display: grid;
-    gap: 14px;
-    box-sizing: border-box;
+    @apply w-full max-w-[640px] grid gap-3.5 box-border;
   }
 
   .copy-option {
-    display: grid;
-    gap: 10px;
-    padding: 14px 16px;
+    @apply grid gap-2.5 py-3.5 px-4 rounded;
     border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-    border-radius: 4px;
     background: color-mix(in srgb, var(--surface) 88%, var(--light) 12%);
   }
 
   .copy-option-header {
-    color: var(--gray);
-    font-size: 0.84rem;
-    font-weight: 700;
+    @apply text-gray text-[0.84rem] font-bold;
   }
 
   .copy-option-content {
     --copy-control-height: 38px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    @apply flex items-center gap-2.5;
   }
 
   .copy-option-content input[type="text"] {
-    flex: 1;
-    min-width: 0;
+    @apply flex-1 min-w-0 px-2.5 py-0 rounded-none bg-surface text-dark font-mono text-[0.82rem] font-normal leading-[1.3] tracking-normal outline-none;
     height: var(--copy-control-height);
     min-height: var(--copy-control-height);
-    padding: 0 10px;
     border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-    border-radius: 0;
-    background: var(--surface);
-    color: var(--dark);
-    font-family: var(--font-mono);
-    font-size: 0.82rem;
-    font-weight: 400;
-    line-height: 1.3;
-    letter-spacing: 0;
-    outline: none;
   }
 
   .copy-option-content input[type="text"]:focus {
-    border-color: var(--primary);
+    @apply border-primary;
   }
 
   .copy-option-content .copy-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    @apply inline-flex items-center justify-center p-0 flex-none bg-primary border border-primary text-white text-[0.92rem] leading-none;
     width: var(--copy-control-height);
     height: var(--copy-control-height);
     min-height: var(--copy-control-height);
-    padding: 0;
-    flex: none;
-    background: var(--primary);
-    border: 1px solid var(--primary);
-    color: #fff;
-    font-size: 0.92rem;
-    line-height: 1;
   }
 
   .copy-option-content .copy-btn i {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1em;
-    height: 1em;
-    margin: 0;
-    line-height: 1;
+    @apply inline-flex items-center justify-center w-[1em] h-[1em] m-0 leading-none;
   }
 
   .copy-option-content .copy-btn.success {
-    background: var(--success);
-    border-color: var(--success);
-    transform: scale(0.96);
+    @apply bg-success border-success scale-95;
   }
 
   @keyframes checkmark {
@@ -748,6 +513,41 @@
 
   .copy-option-content .copy-btn.success i {
     animation: checkmark 0.3s ease forwards;
+  }
+
+  /* =============================================================
+   * 图库卡片右键菜单
+   * 浮在最顶层、毛玻璃感、Plan A 直角风格
+   * ============================================================= */
+  .img-context-menu {
+    @apply fixed z-[9999] min-w-[180px] p-1 bg-surface select-none;
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    box-shadow:
+      0 12px 32px -10px rgba(15, 23, 42, 0.22),
+      0 4px 10px -4px rgba(15, 23, 42, 0.14);
+  }
+
+  .img-context-menu__item {
+    @apply w-full flex items-center gap-2.5 py-2 px-3 bg-transparent border-0 text-dark text-[0.86rem] text-left cursor-pointer;
+    transition: background 120ms ease, color 120ms ease;
+  }
+
+  .img-context-menu__item:hover {
+    @apply text-primary;
+    background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
+  }
+
+  .img-context-menu__item > i {
+    @apply shrink-0 w-4 text-sm text-center text-gray;
+  }
+
+  .img-context-menu__item:hover > i {
+    @apply text-primary;
+  }
+
+  .img-context-menu__sep {
+    @apply h-px my-1 mx-1.5;
+    background: color-mix(in srgb, var(--border-color) 60%, transparent);
   }
 
   html[data-theme="dark"] .gallery-shell {
@@ -866,98 +666,81 @@
   }
 
   html[data-theme="dark"] .batch-btn.delete:hover:not([disabled]) {
-    background: var(--danger);
-    border-color: var(--danger);
-    color: #fff;
+    @apply bg-danger border-danger text-white;
     filter: brightness(1.04);
   }
 
   html[data-theme="dark"] .copy-btn:hover {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: #fff;
+    @apply bg-primary border-primary text-white;
   }
 
   html[data-theme="dark"] .compress-btn:hover {
-    background: var(--success);
-    border-color: var(--success);
-    color: #fff;
+    @apply bg-success border-success text-white;
   }
 
   html[data-theme="dark"] .webp-btn:hover,
   html[data-theme="dark"] .avif-btn:hover {
-    background: #6f42c1;
-    border-color: #6f42c1;
-    color: #fff;
+    @apply bg-[#6f42c1] border-[#6f42c1] text-white;
   }
 
   html[data-theme="dark"] .delete-btn:hover {
-    background: var(--danger);
-    border-color: var(--danger);
-    color: #fff;
+    @apply bg-danger border-danger text-white;
+  }
+
+  html[data-theme="dark"] .img-context-menu {
+    background: color-mix(in srgb, var(--surface) 92%, #fff 8%);
+    border-color: rgba(255, 255, 255, 0.10);
+    box-shadow:
+      0 12px 32px -10px rgba(0, 0, 0, 0.6),
+      0 4px 10px -4px rgba(0, 0, 0, 0.4);
   }
 
   @media (max-width: 992px) {
     .gallery-card-header.page-shell-header {
-      align-items: stretch;
-      flex-direction: column;
+      @apply items-stretch flex-col;
     }
 
     .gallery-card-header .header-right {
-      width: 100%;
-      min-width: 0;
-      justify-content: stretch;
-      flex-wrap: wrap;
+      @apply w-full min-w-0 justify-stretch flex-wrap;
     }
 
     .gallery-search {
-      order: -1;
-      flex: 1 1 100%;
-      min-width: 0;
+      @apply order-first flex-[1_1_100%] min-w-0;
     }
 
     .gallery-filters {
-      flex: 1 1 auto;
+      @apply flex-[1_1_auto];
     }
 
     .gallery-filters select {
-      flex: 1;
-      min-width: 0;
+      @apply flex-1 min-w-0;
     }
 
     .batch-controls {
-      align-items: stretch;
-      flex-direction: column;
+      @apply items-stretch flex-col;
     }
 
     .batch-left,
     .batch-right {
-      justify-content: space-between;
-      width: 100%;
+      @apply justify-between w-full;
     }
   }
 
   @media (max-width: 768px) {
     .gallery-shell .page-shell-body {
-      padding: 14px;
+      @apply p-3.5;
     }
 
     .gallery {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
+      @apply grid-cols-4 gap-3;
     }
 
     .batch-controls {
-      position: sticky;
-      bottom: 0;
-      z-index: 20;
+      @apply sticky bottom-0 z-20;
     }
 
     .page-link {
-      min-width: 32px;
-      height: 32px;
-      padding: 0 8px;
-      font-size: 0.8rem;
+      @apply min-w-8 h-8 px-2 py-0 text-[0.8rem];
     }
   }
 
@@ -965,172 +748,61 @@
     .gallery-card-header .header-right,
     .gallery-filters,
     .batch-right {
-      flex-direction: column;
-      align-items: stretch;
+      @apply flex-col items-stretch;
     }
 
     .batch-left {
-      align-items: flex-start;
-      flex-direction: column;
+      @apply items-start flex-col;
     }
 
     .gallery {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 8px;
+      @apply grid-cols-4 gap-2;
     }
 
     .img-info {
-      gap: 4px;
-      padding: 6px 0 0;
+      @apply gap-1 pt-1.5 pb-0 px-0;
     }
 
     .img-name-row {
-      padding: 0 6px;
+      @apply px-1.5 py-0;
     }
 
     .img-name {
-      font-size: 0.68rem;
+      @apply text-[0.68rem];
     }
 
     .img-meta {
-      gap: 0;
-      font-size: 0.56rem;
+      @apply gap-0 text-[0.56rem];
     }
 
     .img-meta-badge {
-      height: 19px;
-      gap: 3px;
-      padding: 0 2px;
+      @apply h-[19px] gap-[3px] px-0.5 py-0;
     }
 
     .img-meta-badge i {
-      font-size: 0.58rem;
+      @apply text-[0.58rem];
     }
 
     .img-actions {
-      justify-content: flex-end;
-      gap: 4px;
-      padding: 5px 6px;
+      @apply justify-end gap-1 py-[5px] px-1.5;
     }
 
     .action-btn,
     .img-actions > button,
     .img-overlay > button {
-      width: 24px;
-      height: 24px;
-      font-size: 0.72rem;
+      @apply w-6 h-6 text-[0.72rem];
     }
   }
 
   @media (max-width: 420px) {
     .img-actions {
-      gap: 2px;
-      padding: 4px;
+      @apply gap-0.5 p-1;
     }
 
     .action-btn,
     .img-actions > button,
     .img-overlay > button {
-      width: 18px;
-      height: 18px;
-      font-size: 0.58rem;
+      @apply w-[18px] h-[18px] text-[0.58rem];
     }
   }
-}
-
-  /* =============================================================
-   * 删除卡片 + 补位动画 — 配合 main.js 里 .deleting / .appearing 切换
-   *
-   * 流程：
-   *   1. 用户点删除 → 卡片加 .deleting → 0.3s 淡出缩小（@keyframes deleteCard）
-   *   2. 卡片从 DOM 移除（grid 自动 reflow，剩下的卡片向左/上"挤"过去）
-   *   3. 服务端拿一张新图，HTML 插到末尾
-   *   4. 新卡片初始 opacity:0 + translateY(8px)（来自 .appearing 类）
-   *   5. JS 下一帧移除 .appearing → 触发 transition 淡入归位
-   *
-   * 不重新加载整页 / 不重新 decode 全部 <img>，单卡操作 < 50ms 完成。
-   * ============================================================= */
-  .img-card.appearing {
-    opacity: 0;
-    transform: translateY(8px) scale(0.985);
-  }
-
-  .img-card {
-    transition:
-      opacity 0.28s ease-out,
-      transform 0.28s ease-out,
-      border-color 0.15s ease,
-      box-shadow 0.15s ease;
-  }
-
-/* =============================================================
- * 分页导航 — 上一页/下一页/首尾页 4 个方向按钮的图标放大
- * 数字按钮保持 0.86rem text，方向按钮的 FA icon 用 16px 看着更"指引性"
- * ============================================================= */
-.page-link--nav > i {
-  font-size: 16px;
-  line-height: 1;
-}
-
-/* =============================================================
- * 图库卡片右键菜单
- * 浮在最顶层、毛玻璃感、Plan A 直角风格
- * ============================================================= */
-.img-context-menu {
-  position: fixed;
-  z-index: 9999;
-  min-width: 180px;
-  padding: 4px;
-  background: var(--surface);
-  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-  box-shadow:
-    0 12px 32px -10px rgba(15, 23, 42, 0.22),
-    0 4px 10px -4px rgba(15, 23, 42, 0.14);
-  user-select: none;
-}
-
-.img-context-menu__item {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  background: transparent;
-  border: 0;
-  color: var(--dark);
-  font-size: 0.86rem;
-  text-align: left;
-  cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
-}
-
-.img-context-menu__item:hover {
-  background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
-  color: var(--primary);
-}
-
-.img-context-menu__item > i {
-  flex-shrink: 0;
-  width: 16px;
-  font-size: 14px;
-  text-align: center;
-  color: var(--gray);
-}
-
-.img-context-menu__item:hover > i {
-  color: var(--primary);
-}
-
-.img-context-menu__sep {
-  height: 1px;
-  margin: 4px 6px;
-  background: color-mix(in srgb, var(--border-color) 60%, transparent);
-}
-
-html[data-theme="dark"] .img-context-menu {
-  background: color-mix(in srgb, var(--surface) 92%, #fff 8%);
-  border-color: rgba(255, 255, 255, 0.10);
-  box-shadow:
-    0 12px 32px -10px rgba(0, 0, 0, 0.6),
-    0 4px 10px -4px rgba(0, 0, 0, 0.4);
 }

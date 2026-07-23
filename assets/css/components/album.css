@@ -9,112 +9,72 @@
 
   /* Header: 标题在左,操作按钮在右(返回列表 / 新建相册) */
   .albums-shell-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
+    @apply flex items-center justify-between gap-4 flex-wrap;
   }
 
   .albums-shell-header-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
+    @apply inline-flex items-center gap-2 flex-wrap;
   }
 
   /* ----- 列表页空状态 ----- */
   .albums-empty {
-    @apply flex flex-col items-center justify-center text-center;
-    min-height: 320px;
-    padding: 40px 20px;
-    color: var(--gray);
-    gap: 12px;
+    @apply flex flex-col items-center justify-center text-center min-h-80 py-10 px-5 text-gray gap-3;
   }
 
   .albums-empty > i {
-    font-size: 48px;
+    @apply text-[48px];
     color: color-mix(in srgb, var(--primary) 30%, var(--border-color) 70%);
   }
 
   .albums-empty h3 {
-    margin: 8px 0 0;
-    color: var(--dark);
-    font-size: 1.1rem;
-    font-weight: 700;
+    @apply mt-2 mb-0 mx-0 text-dark text-[1.1rem] font-bold;
   }
 
   .albums-empty p {
-    margin: 0 0 16px;
-    max-width: 420px;
-    font-size: 0.88rem;
-    line-height: 1.6;
+    @apply mt-0 mb-4 mx-0 max-w-[420px] text-[0.88rem] leading-relaxed;
   }
 
   /* ----- 列表页:相册卡片网格 ----- */
   .albums-grid {
-    display: grid;
+    @apply grid gap-4;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 16px;
   }
 
   .album-card {
-    display: flex;
-    flex-direction: column;
+    @apply flex flex-col bg-surface overflow-hidden;
     border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent);
-    background: var(--surface);
-    overflow: hidden;
     transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
   }
 
   .album-card:hover {
+    @apply -translate-y-0.5;
     border-color: color-mix(in srgb, var(--primary) 36%, var(--border-color) 64%);
-    transform: translateY(-2px);
     box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
   }
 
   .album-card-cover {
-    position: relative;
-    display: block;
-    aspect-ratio: 16 / 9;
+    @apply relative block aspect-video overflow-hidden;
     background: color-mix(in srgb, var(--surface) 82%, var(--light) 18%);
-    overflow: hidden;
   }
 
   .album-card-cover > img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
+    @apply w-full h-full object-cover block;
     transition: transform 280ms ease;
   }
 
   .album-card:hover .album-card-cover > img {
-    transform: scale(1.03);
+    @apply scale-[1.03];
   }
 
   .album-card-cover-empty {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    @apply absolute inset-0 flex items-center justify-center text-[32px];
     color: color-mix(in srgb, var(--gray) 60%, var(--border-color) 40%);
-    font-size: 32px;
   }
 
   /* 可见性徽章浮在封面右上角 */
   .album-card-vis {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    padding: 3px 8px;
+    @apply absolute top-2 right-2 py-[3px] px-2 text-white border-0 text-[0.7rem] font-semibold tracking-[0.02em];
     background: rgba(0, 0, 0, 0.55);
-    color: #fff;
-    border: none;
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
     backdrop-filter: blur(4px);
   }
   .album-card-vis.is-on    { background: rgba(34, 197, 94, 0.85); }
@@ -122,82 +82,60 @@
   .album-card-vis.is-off   { background: rgba(100, 116, 139, 0.9); }
 
   .album-card-body {
-    display: grid;
-    gap: 8px;
-    padding: 14px 16px 16px;
+    @apply grid gap-2 pt-3.5 px-4 pb-4;
   }
 
   .album-card-name {
-    color: var(--dark);
-    font-size: 1rem;
-    font-weight: 700;
-    text-decoration: none;
-    line-height: 1.3;
+    @apply text-dark text-base font-bold no-underline leading-[1.3];
   }
-  .album-card-name:hover { color: var(--primary); }
+  .album-card-name:hover { @apply text-primary; }
 
   .album-card-desc {
-    margin: 0;
+    @apply m-0 text-[0.82rem] leading-normal overflow-hidden;
     color: color-mix(in srgb, var(--gray) 80%, var(--dark) 20%);
-    font-size: 0.82rem;
-    line-height: 1.5;
     /* 限制 2 行 */
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
-    overflow: hidden;
   }
 
   .album-card-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 12px;
-    color: var(--gray);
-    font-size: 0.78rem;
+    @apply flex flex-wrap gap-x-3 gap-y-1 text-gray text-[0.78rem];
   }
 
   .album-card-meta > span {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
+    @apply inline-flex items-center gap-1;
   }
 
   .album-card-meta code {
-    font-size: 0.74rem;
+    @apply text-[0.74rem];
   }
 
   .album-card-actions {
-    display: flex;
-    gap: 6px;
-    margin-top: 4px;
+    @apply flex gap-1.5 mt-1;
   }
 
   /* 编辑页内的"相册内 / 从图库挑选"网格用通用 .upload-grid 即可,
      额外只补一些 picker 卡片态 */
   .albums-shell .upload-grid {
-    grid-template-columns: repeat(8, 1fr);
-    gap: 10px;
+    @apply grid-cols-8 gap-2.5;
   }
 
   /* 窄屏回退,避免 8 列把缩略图挤得太小 */
   @media (max-width: 1024px) {
     .albums-shell .upload-grid {
-      grid-template-columns: repeat(6, 1fr);
+      @apply grid-cols-6;
     }
   }
   @media (max-width: 768px) {
     .albums-shell .upload-grid {
-      grid-template-columns: repeat(4, 1fr);
+      @apply grid-cols-4;
     }
   }
 
   .albums-shell .upload-grid .img-box {
-    position: relative;
-    aspect-ratio: 1 / 1;
-    overflow: hidden;
-    border: 1px solid var(--border-color);
+    @apply relative aspect-square overflow-hidden border border-border cursor-pointer;
     background: color-mix(in srgb, var(--surface) 90%, var(--light) 10%);
-    cursor: pointer;
     transition: border-color 140ms ease, box-shadow 140ms ease;
   }
 
@@ -206,14 +144,11 @@
   }
 
   .albums-shell .upload-grid .img-box > img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
+    @apply w-full h-full object-cover block;
   }
 
   .albums-shell .upload-grid .img-box.is-selected {
-    border-color: var(--primary);
+    @apply border-primary;
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 30%, transparent);
   }
 
@@ -221,110 +156,67 @@
      共用 ::after 不冲突) */
   .albums-shell .upload-grid .img-box.is-selected::after {
     content: "✓ 已选";
-    position: absolute;
-    top: 0;
-    left: 0;
-    padding: 3px 8px;
-    background: var(--primary);
-    color: #fff;
-    font-size: 0.72rem;
-    font-weight: 600;
+    @apply absolute top-0 left-0 py-[3px] px-2 bg-primary text-white text-[0.72rem] font-semibold z-[2];
     border-bottom-right-radius: 6px;
-    z-index: 2;
   }
 
   .albums-shell .upload-grid .img-box.is-in-album {
-    opacity: 0.55;
+    @apply opacity-55 cursor-default;
     filter: grayscale(60%);
-    cursor: default;
   }
 
   .albums-shell .upload-grid .img-box.is-in-album::after {
     content: "已在相册";
-    position: absolute;
-    inset: auto 0 0 0;
-    padding: 4px 6px;
+    @apply absolute inset-x-0 bottom-0 top-auto py-1 px-1.5 text-white text-[0.7rem] font-semibold text-center;
     background: rgba(34, 197, 94, 0.85);
-    color: #fff;
-    font-size: 0.7rem;
-    font-weight: 600;
-    text-align: center;
   }
 
   /* ===== 相册图片卡:设为封面按钮 + 当前封面标记 ===== */
   .album-cover-btn {
-    position: absolute;
-    top: 6px;
-    left: 6px;
-    z-index: 3;
-    width: 26px;
-    height: 26px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: 0;
-    border-radius: 6px;
+    @apply absolute top-1.5 left-1.5 z-[3] w-[26px] h-[26px] inline-flex items-center justify-center border-0 rounded-md text-white text-[0.78rem] cursor-pointer opacity-0;
     background: rgba(0, 0, 0, 0.48);
-    color: #fff;
-    font-size: 0.78rem;
-    cursor: pointer;
-    opacity: 0;
     transition: opacity 140ms ease, background 140ms ease;
   }
   .albums-shell .upload-grid .img-box[data-album-image]:hover .album-cover-btn {
-    opacity: 1;
+    @apply opacity-100;
   }
   .album-cover-btn:hover {
-    background: var(--primary);
+    @apply bg-primary;
   }
   /* 当前封面:高亮边框 + 常驻品牌色星标 + 「封面」角标 */
   .albums-shell .upload-grid .img-box.is-cover {
-    border-color: var(--primary);
+    @apply border-primary;
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 30%, transparent);
   }
   .albums-shell .upload-grid .img-box.is-cover .album-cover-btn {
-    opacity: 1;
-    background: var(--primary);
+    @apply opacity-100 bg-primary;
   }
   .albums-shell .upload-grid .img-box.is-cover::after {
     content: "封面";
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    z-index: 2;
-    padding: 3px 8px;
-    background: var(--primary);
-    color: #fff;
-    font-size: 0.72rem;
-    font-weight: 600;
+    @apply absolute left-0 bottom-0 z-[2] py-[3px] px-2 bg-primary text-white text-[0.72rem] font-semibold;
     border-top-right-radius: 6px;
   }
 
   /* 编辑页 slug 提示里的"打开公开页"链接 */
   .album-share-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    color: var(--primary);
-    text-decoration: none;
+    @apply inline-flex items-center gap-1 text-primary no-underline;
     transition: color 120ms ease;
   }
   .album-share-link:hover {
+    @apply underline;
     color: color-mix(in srgb, var(--primary) 80%, #000 20%);
-    text-decoration: underline;
   }
   .album-share-link > i {
-    font-size: 0.78rem;
-    opacity: 0.7;
+    @apply text-[0.78rem] opacity-70;
   }
 
   /* 响应式收紧 */
   @media (max-width: 600px) {
     .albums-grid {
-      grid-template-columns: 1fr;
+      @apply grid-cols-1;
     }
     .albums-shell-header {
-      align-items: flex-start;
+      @apply items-start;
     }
   }
 }
@@ -345,25 +237,16 @@
   .albums-shell input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
   .albums-shell select,
   .albums-shell textarea {
-    width: 100%;
-    min-height: 44px;
-    padding: 8px 12px;
+    @apply w-full min-h-11 py-2 px-3 rounded-none text-dark text-[0.92rem] leading-[1.4];
     border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
-    border-radius: 0;
     background: color-mix(in srgb, var(--surface) 92%, var(--light) 8%);
-    color: var(--dark);
     font-family: inherit;
-    font-size: 0.92rem;
-    line-height: 1.4;
     box-shadow: 0 1px 0 rgba(255, 255, 255, 0.72) inset;
     transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
   }
 
   .albums-shell textarea {
-    min-height: 88px;
-    padding: 10px 12px;
-    line-height: 1.6;
-    resize: vertical;
+    @apply min-h-[88px] py-2.5 px-3 leading-relaxed resize-y;
   }
 
   .albums-shell input:focus,
@@ -372,53 +255,28 @@
   .albums-shell select:focus-visible,
   .albums-shell textarea:focus,
   .albums-shell textarea:focus-visible {
-    border-color: var(--primary);
-    outline: none;
+    @apply border-primary outline-none;
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
   }
 
   .albums-shell label {
-    display: block;
-    margin-bottom: 4px;
-    color: var(--dark);
-    font-size: 0.85rem;
-    font-weight: 600;
+    @apply block mb-1 text-dark text-[0.85rem] font-semibold;
   }
 
   .albums-shell .settings-field-hint {
-    margin: 4px 0 0;
-    color: var(--gray);
-    font-size: 0.78rem;
-    line-height: 1.5;
+    @apply mt-1 mb-0 mx-0 text-gray text-[0.78rem] leading-normal;
   }
 
   /* ---- 按钮基础(跟 settings.css 的 .btn 体系等价) ---- */
   .albums-shell .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    height: 38px;
-    padding: 0 16px;
-    border: 1px solid transparent;
-    border-radius: 0;
-    background: var(--surface);
-    color: var(--dark);
-    font-size: 0.9rem;
-    font-weight: 500;
-    line-height: 1;
-    white-space: nowrap;
-    cursor: pointer;
-    text-decoration: none;
+    @apply inline-flex items-center justify-center gap-1.5 h-[38px] px-4 py-0 border border-transparent rounded-none bg-surface text-dark text-[0.9rem] font-medium leading-none whitespace-nowrap cursor-pointer no-underline m-0;
     appearance: none;
     -webkit-appearance: none;
-    margin: 0;
     transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
   }
 
   .albums-shell .btn > i {
-    font-size: 0.95em;
-    line-height: 1;
+    @apply text-[0.95em] leading-none;
   }
 
   .albums-shell .btn:focus-visible {
@@ -428,14 +286,11 @@
 
   .albums-shell .btn:disabled,
   .albums-shell .btn[aria-disabled="true"] {
-    opacity: 0.5;
-    cursor: not-allowed;
+    @apply opacity-50 cursor-not-allowed;
   }
 
   .albums-shell .btn--primary {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: #fff;
+    @apply bg-primary border-primary text-white;
   }
   .albums-shell .btn--primary:hover {
     background: color-mix(in srgb, var(--primary) 88%, #000 12%);
@@ -443,9 +298,8 @@
   }
 
   .albums-shell .btn--secondary {
-    background: var(--surface);
+    @apply bg-surface text-dark;
     border-color: color-mix(in srgb, var(--border-color) 70%, transparent);
-    color: var(--dark);
   }
   .albums-shell .btn--secondary:hover {
     background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
@@ -453,9 +307,7 @@
   }
 
   .albums-shell .btn--danger {
-    background: var(--danger);
-    border-color: var(--danger);
-    color: #fff;
+    @apply bg-danger border-danger text-white;
   }
   .albums-shell .btn--danger:hover {
     background: color-mix(in srgb, var(--danger) 88%, #000 12%);
@@ -463,55 +315,35 @@
   }
 
   .albums-shell .btn--lg {
-    height: 44px;
-    padding: 0 22px;
-    font-size: 0.95rem;
-    font-weight: 600;
+    @apply h-11 px-[22px] py-0 text-[0.95rem] font-semibold;
   }
 
   /* sm 变体 — 列表卡片操作行用 */
   .albums-shell .btn--sm {
-    height: 30px;
-    padding: 0 10px;
-    font-size: 0.78rem;
-    gap: 4px;
+    @apply h-[30px] px-2.5 py-0 text-[0.78rem] gap-1;
   }
   .albums-shell .btn--sm > i {
-    font-size: 11px;
+    @apply text-[11px];
   }
 
   /* settings-grid 子区域(基本信息表单) */
   .albums-shell .settings-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 14px;
+    @apply grid grid-cols-1 gap-3.5;
   }
 
   /* settings-save-actions(保存按钮容器) */
   .albums-shell .settings-save-actions {
-    display: flex;
-    justify-content: flex-end;
-    padding: 6px 0 0;
+    @apply flex justify-end pt-1.5 pb-0 px-0;
   }
 
   /* settings-inline-form(添加按钮 + 清空按钮 等行) */
   .albums-shell .settings-inline-form {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
+    @apply flex items-center gap-2 flex-wrap;
   }
 
   /* "无图片" 空状态行(覆盖 recent.css 的窄场景版) */
   .albums-shell .recent-empty {
-    grid-column: 1 / -1;
-    min-height: 120px;
-    border: 1px dashed var(--border-color);
-    color: var(--gray);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
+    @apply col-span-full min-h-[120px] border border-dashed border-border text-gray flex items-center justify-center gap-2.5;
     background: color-mix(in srgb, var(--surface) 96%, var(--light) 4%);
   }
 
@@ -540,72 +372,42 @@
 
   /* ----- 密码门 ----- */
   .public-album-gate {
-    min-height: 60vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    @apply min-h-[60vh] flex items-center justify-center;
   }
 
   .public-album-gate .page-shell-body {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 40px 20px;
+    @apply w-full flex items-center justify-center py-10 px-5;
   }
 
   .public-album-gate-card {
-    width: min(420px, 100%);
-    text-align: center;
-    display: grid;
-    gap: 14px;
+    @apply w-[min(420px,100%)] text-center grid gap-3.5;
   }
 
   .public-album-gate-icon {
-    font-size: 48px;
+    @apply text-[48px];
     color: color-mix(in srgb, var(--primary) 60%, var(--border-color) 40%);
   }
 
   .public-album-gate-card h2 {
-    margin: 0;
-    color: var(--dark);
-    font-size: 1.25rem;
-    font-weight: 700;
+    @apply m-0 text-dark text-[1.25rem] font-bold;
   }
 
   .public-album-gate-form {
-    display: grid;
-    gap: 10px;
-    margin-top: 8px;
+    @apply grid gap-2.5 mt-2;
   }
 
   .public-album-gate-form input[type="password"] {
-    width: 100%;
-    height: 44px;
-    padding: 8px 14px;
-    border: 1px solid var(--border-color);
-    background: var(--surface);
-    color: var(--dark);
-    font-size: 0.95rem;
-    text-align: center;
-    letter-spacing: 0.05em;
+    @apply w-full h-11 py-2 px-3.5 border border-border bg-surface text-dark text-[0.95rem] text-center tracking-wider;
   }
 
   .public-album-gate-form input[type="password"]:focus,
   .public-album-gate-form input[type="password"]:focus-visible {
-    border-color: var(--primary);
-    outline: none;
+    @apply border-primary outline-none;
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
   }
 
   .public-album-gate-form button {
-    height: 44px;
-    border: none;
-    background: var(--primary);
-    color: #fff;
-    font-size: 0.95rem;
-    font-weight: 600;
-    cursor: pointer;
+    @apply h-11 border-0 bg-primary text-white text-[0.95rem] font-semibold cursor-pointer;
     transition: background 120ms ease;
   }
   .public-album-gate-form button:hover {
@@ -613,166 +415,103 @@
   }
 
   .public-album-gate-error {
-    margin: 0;
-    color: var(--danger);
-    font-size: 0.85rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
+    @apply m-0 text-danger text-[0.85rem] inline-flex items-center justify-center gap-1.5;
   }
 
   /* ============================================================
    * 公开相册 v2 —— 独立沉浸式照片墙(无站点导航,参考 TimePlus)
    * ============================================================ */
-  body.public-album-page .site-header { display: none !important; }
-  body.public-album-page #notification { z-index: 100000; }
+  body.public-album-page .site-header { @apply !hidden; }
+  body.public-album-page #notification { @apply z-[100000]; }
 
-  .pa-standalone { width: 100%; max-width: none; margin: 0; padding: 0; }
-  .pa-album { width: 100%; margin: 0; padding: 0; }
+  .pa-standalone { @apply w-full max-w-none m-0 p-0; }
+  .pa-album { @apply w-full m-0 p-0; }
 
   /* 照片墙 —— 全幅均匀网格 */
   .pa-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 0;
+    @apply grid grid-cols-4 gap-0 p-0;
     /* 照片铺满整屏、无缝粘连、到底不留白;半透明磨砂条直接浮在最底部照片之上 */
-    padding: 0;
   }
-  @media (max-width: 1100px) { .pa-grid { grid-template-columns: repeat(3, 1fr); } }
-  @media (max-width: 760px)  { .pa-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 1100px) { .pa-grid { @apply grid-cols-3; } }
+  @media (max-width: 760px)  { .pa-grid { @apply grid-cols-2; } }
 
   .pa-tile {
-    position: relative;
-    margin: 0;
-    aspect-ratio: 4 / 3;
-    overflow: hidden;
-    cursor: zoom-in;
+    @apply relative m-0 aspect-[4/3] overflow-hidden cursor-zoom-in;
     background: color-mix(in srgb, var(--dark) 6%, transparent);
   }
   .pa-tile img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    opacity: 0;
+    @apply w-full h-full object-cover block opacity-0;
     transition: opacity 500ms ease, transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
   }
-  .pa-tile img.is-loaded { opacity: 1; }
-  .pa-tile:hover img.is-loaded { transform: scale(1.04); }
+  .pa-tile img.is-loaded { @apply opacity-100; }
+  .pa-tile:hover img.is-loaded { @apply scale-[1.04]; }
   .pa-tile-cap {
-    position: absolute;
-    inset: auto 0 0 0;
-    padding: 24px 12px 10px;
-    color: #fff;
-    font-size: 0.85rem;
-    font-weight: 600;
+    @apply absolute inset-x-0 bottom-0 top-auto pt-6 px-3 pb-2.5 text-white text-[0.85rem] font-semibold opacity-0 translate-y-1.5 whitespace-nowrap overflow-hidden text-ellipsis;
     background: linear-gradient(180deg, transparent, rgba(0,0,0,0.62));
-    opacity: 0;
-    transform: translateY(6px);
     transition: opacity 240ms ease, transform 240ms ease;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
-  .pa-tile:hover .pa-tile-cap { opacity: 1; transform: translateY(0); }
+  .pa-tile:hover .pa-tile-cap { @apply opacity-100 translate-y-0; }
 
-  .pa-empty { padding: 80px 24px; text-align: center; color: var(--gray); }
-  .pa-empty i { font-size: 2.4rem; opacity: 0.4; }
-  .pa-empty p { margin-top: 10px; }
+  .pa-empty { @apply py-20 px-6 text-center text-gray; }
+  .pa-empty i { @apply text-[2.4rem] opacity-40; }
+  .pa-empty p { @apply mt-2.5; }
 
   /* 底部 fixed 磨砂条 —— 黑色磨砂,浮在照片墙之上 */
   .pa-foot {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 50;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 18px 26px;
+    @apply fixed left-0 right-0 bottom-0 z-50 flex items-center justify-between gap-3 py-[18px] px-[26px] text-[0.88rem];
     background: rgba(10, 11, 13, 0.78);
     backdrop-filter: blur(22px) saturate(1.4);
     -webkit-backdrop-filter: blur(22px) saturate(1.4);
     border-top: 1px solid rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.92);
-    font-size: 0.88rem;
   }
-  .pa-foot-left { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
-  .pa-foot-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .pa-foot-meta { color: rgba(255, 255, 255, 0.6); font-size: 0.82rem; white-space: nowrap; }
-  .pa-foot-right { display: flex; align-items: center; gap: 16px; flex: 0 0 auto; }
-  .pa-foot-right a { display: inline-flex; align-items: center; gap: 4px; color: rgba(255, 255, 255, 0.62); text-decoration: none; }
-  .pa-foot-right a:hover { color: #fff; }
+  .pa-foot-left { @apply flex items-baseline gap-2.5 min-w-0; }
+  .pa-foot-name { @apply font-bold whitespace-nowrap overflow-hidden text-ellipsis; }
+  .pa-foot-meta { @apply text-[0.82rem] whitespace-nowrap; color: rgba(255, 255, 255, 0.6); }
+  .pa-foot-right { @apply flex items-center gap-4 flex-[0_0_auto]; }
+  .pa-foot-right a { @apply inline-flex items-center gap-1 no-underline; color: rgba(255, 255, 255, 0.62); }
+  .pa-foot-right a:hover { @apply text-white; }
 
   /* ===== 灯箱:大图 + 翻页 + 说明,模糊深色背景 ===== */
   .pa-lb {
-    position: fixed;
-    inset: 0;
-    z-index: 99999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    @apply fixed inset-0 z-[99999] flex items-center justify-center;
     background: rgba(10, 12, 16, 0.82);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
   }
-  .pa-lb[hidden] { display: none; }
-  .pa-lb-stage { margin: 0; max-width: 92vw; max-height: 92vh; display: flex; flex-direction: column; align-items: center; }
+  .pa-lb[hidden] { @apply hidden; }
+  .pa-lb-stage { @apply m-0 max-w-[92vw] max-h-[92vh] flex flex-col items-center; }
   .pa-lb-img {
-    max-width: 92vw;
-    max-height: 84vh;
-    object-fit: contain;
-    border-radius: 10px;
+    @apply max-w-[92vw] max-h-[84vh] object-contain rounded-[10px] opacity-0 scale-90;
     box-shadow: 0 1em 3em 0.5em rgba(0, 0, 0, 0.35);
-    opacity: 0;
-    transform: scale(0.9);
     transition: opacity 360ms ease, transform 440ms cubic-bezier(0.2, 0.85, 0.25, 1);
   }
   /* 打开/翻页:图片从 0.9 缩放放大到 1 + 淡入(参考 poptrox 的开图动效) */
-  .pa-lb-img.is-loaded { opacity: 1; transform: scale(1); }
+  .pa-lb-img.is-loaded { @apply opacity-100 scale-100; }
 
   /* 灯箱加载旋转圈 */
   .pa-lb-spinner {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    margin: -22px 0 0 -22px;
-    width: 44px;
-    height: 44px;
-    border: 3px solid rgba(255, 255, 255, 0.22);
-    border-top-color: #fff;
-    border-radius: 50%;
+    @apply absolute top-1/2 left-1/2 -mt-[22px] ml-[-22px] w-11 h-11 border-[3px] border-white/20 border-t-white rounded-full;
     animation: pa-spin 0.8s linear infinite;
   }
-  .pa-lb-spinner[hidden] { display: none; }
+  .pa-lb-spinner[hidden] { @apply hidden; }
   @keyframes pa-spin { to { transform: rotate(360deg); } }
-  .pa-lb-cap { margin-top: 14px; text-align: center; color: rgba(255,255,255,0.92); }
-  .pa-lb-title { display: block; font-size: 1rem; font-weight: 600; }
-  .pa-lb-date { display: block; margin-top: 2px; font-size: 0.8rem; color: rgba(255,255,255,0.6); }
+  .pa-lb-cap { @apply mt-3.5 text-center; color: rgba(255,255,255,0.92); }
+  .pa-lb-title { @apply block text-base font-semibold; }
+  .pa-lb-date { @apply block mt-0.5 text-[0.8rem]; color: rgba(255,255,255,0.6); }
   .pa-lb-close, .pa-lb-nav {
-    position: fixed;
-    z-index: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: 0;
+    @apply fixed z-[1] inline-flex items-center justify-center border-0 text-white cursor-pointer rounded-full;
     background: rgba(255,255,255,0.08);
-    color: #fff;
-    cursor: pointer;
-    border-radius: 50%;
     transition: background 160ms ease;
   }
-  .pa-lb-close { top: 20px; right: 24px; width: 42px; height: 42px; font-size: 1.1rem; }
-  .pa-lb-nav { top: 50%; transform: translateY(-50%); width: 48px; height: 48px; font-size: 1.4rem; }
-  .pa-lb-prev { left: 20px; }
-  .pa-lb-next { right: 20px; }
+  .pa-lb-close { @apply top-5 right-6 w-[42px] h-[42px] text-[1.1rem]; }
+  .pa-lb-nav { @apply top-1/2 -translate-y-1/2 w-12 h-12 text-[1.4rem]; }
+  .pa-lb-prev { @apply left-5; }
+  .pa-lb-next { @apply right-5; }
   .pa-lb-close:hover, .pa-lb-nav:hover { background: rgba(255,255,255,0.2); }
   @media (max-width: 760px) {
-    .pa-lb-nav { width: 40px; height: 40px; }
-    .pa-lb-prev { left: 8px; }
-    .pa-lb-next { right: 8px; }
+    .pa-lb-nav { @apply w-10 h-10; }
+    .pa-lb-prev { @apply left-2; }
+    .pa-lb-next { @apply right-2; }
   }
 }

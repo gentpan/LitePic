@@ -5,25 +5,16 @@
      ========================================================================== */
 
   .notification-container {
-    @apply fixed z-[9999] flex flex-col pointer-events-none;
+    @apply fixed z-[9999] right-5 flex flex-col gap-2 pointer-events-none;
     top: calc(var(--header-offset) + 12px);
-    right: 20px;
-    gap: 8px;
     width: min(340px, calc(100vw - 40px));
   }
 
   .auth-toast-container {
-    position: fixed;
+    @apply fixed left-1/2 right-auto flex flex-col items-center gap-2 pointer-events-none;
     z-index: 10000;
     top: 20vh;
-    left: 50%;
-    right: auto;
     transform: translateX(-50%);
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    pointer-events: none;
-    align-items: center;
     width: min(320px, calc(100vw - 32px));
   }
 
@@ -32,40 +23,27 @@
      ========================================================================== */
 
   .notification-item {
-    @apply flex items-center pointer-events-auto rounded-md;
-    width: 100%;
+    @apply flex items-center w-full gap-2.5 py-2.5 px-3 pointer-events-auto rounded-md bg-white opacity-0;
     min-height: 52px;
-    gap: 10px;
-    padding: 10px 12px;
-    background: white;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     --tw-translate-x: 100%;
     translate: var(--tw-translate-x) var(--tw-translate-y);
-    opacity: 0;
     transition: all 0.3s ease;
     border-left: 3px solid transparent;
   }
 
   .notification-item.show {
+    @apply opacity-100;
     --tw-translate-x: 0;
     translate: var(--tw-translate-x) var(--tw-translate-y);
-    opacity: 1;
   }
 
   .notification-item i {
-    @apply flex items-center justify-center flex-shrink-0 text-lg;
-    width: 28px;
-    height: 28px;
-    font-size: 1.05rem;
+    @apply flex items-center justify-center shrink-0 w-7 h-7 text-[1.05rem];
   }
 
   .notification-item span {
-    @apply flex-1 text-sm text-dark;
-    min-width: 0;
-    line-height: 1.4;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    @apply flex-1 min-w-0 text-sm leading-[1.4] text-dark overflow-hidden text-ellipsis whitespace-nowrap;
   }
 
   /* ==========================================================================
@@ -73,9 +51,7 @@
      ========================================================================== */
 
   .notification-close {
-    @apply flex items-center justify-center border-0 bg-transparent rounded-sm cursor-pointer opacity-50 flex-shrink-0;
-    width: 28px;
-    height: 28px;
+    @apply flex items-center justify-center w-7 h-7 border-0 bg-transparent rounded-sm cursor-pointer opacity-50 shrink-0;
     transition: all 0.2s ease;
   }
 
@@ -84,9 +60,7 @@
   }
 
   .notification-close i {
-    width: 16px;
-    height: 16px;
-    font-size: 0.9rem;
+    @apply w-4 h-4 text-[0.9rem];
   }
 
   /* ==========================================================================
@@ -130,95 +104,49 @@
   }
 
   .notification-item.notification-process {
-    align-items: center;
-    width: 100%;
+    @apply items-center w-full gap-2.5 py-2.5 px-3;
     min-height: 64px;
-    padding: 10px 12px;
-    gap: 10px;
     border-left: 0;
     border: 1px solid rgba(22, 119, 255, 0.18);
     background: linear-gradient(135deg, rgba(22, 119, 255, 0.08), rgba(255, 255, 255, 0.96));
   }
 
   .notification-item.notification-process > i {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    @apply inline-flex items-center justify-center self-center shrink-0 w-8 h-8 min-w-8 max-w-8 min-h-8 max-h-8 p-0 overflow-hidden text-base leading-none box-border;
     flex: 0 0 32px;
-    width: 32px;
-    height: 32px;
-    min-width: 32px;
-    max-width: 32px;
-    min-height: 32px;
-    max-height: 32px;
     aspect-ratio: 1 / 1;
-    padding: 0;
-    line-height: 1;
-    align-self: center;
-    overflow: hidden;
-    box-sizing: border-box;
     border-radius: var(--radius-sm);
     border: 1px solid rgba(22, 119, 255, 0.16);
     background: rgba(22, 119, 255, 0.1);
     color: var(--primary);
-    font-size: 1rem;
   }
 
   .notification-item.notification-process > i::before {
-    display: block;
-    width: 1em;
-    height: 1em;
-    line-height: 1;
-    text-align: center;
+    @apply block w-[1em] h-[1em] leading-none text-center;
   }
 
   .notification-copy {
-    min-width: 0;
-    flex: 1;
-    display: grid;
-    gap: 3px;
-    padding-top: 1px;
+    @apply min-w-0 flex-1 grid gap-[3px] pt-px;
   }
 
   .notification-copy strong,
   .notification-copy span,
   .notification-copy em {
-    min-width: 0;
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    @apply min-w-0 block overflow-hidden text-ellipsis;
   }
 
   .notification-copy strong {
-    color: var(--dark);
-    font-size: 0.9rem;
-    font-weight: 700;
-    line-height: 1.25;
-    white-space: nowrap;
+    @apply text-dark text-[0.9rem] font-bold leading-[1.25] whitespace-nowrap;
   }
 
   .notification-copy span {
-    color: var(--gray);
-    font-family: var(--font-mono, monospace);
-    font-size: 0.8rem;
-    font-weight: 600;
-    line-height: 1.35;
-    white-space: nowrap;
+    @apply text-gray font-mono text-[0.8rem] font-semibold leading-[1.35] whitespace-nowrap;
   }
 
   .notification-copy em {
-    width: fit-content;
-    max-width: 100%;
-    padding: 2px 7px;
+    @apply w-fit max-w-full py-0.5 px-[7px] text-primary font-mono text-[0.72rem] not-italic font-bold leading-[1.25] whitespace-nowrap;
     border: 1px solid rgba(22, 119, 255, 0.16);
     background: rgba(22, 119, 255, 0.08);
-    color: var(--primary);
-    font-family: var(--font-mono, monospace);
-    font-size: 0.72rem;
-    font-style: normal;
-    font-weight: 700;
-    line-height: 1.25;
-    white-space: nowrap;
   }
 
   .notification-item.notification-compress {
@@ -244,82 +172,62 @@
   }
 
   .notification-item.notification-batch {
-    width: 100%;
+    @apply w-full;
   }
 
   .notification-item.notification-batch .notification-copy strong {
-    font-size: 0.92rem;
+    @apply text-[0.92rem];
   }
 
   .notification-item.notification-upload {
-    align-items: center;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
+    @apply items-center w-full max-w-full min-w-0 py-2.5 px-3 rounded-none overflow-hidden;
     min-height: 56px;
-    padding: 10px 12px;
-    border-radius: 0;
-    overflow: hidden;
   }
 
   .notification-item.notification-upload > i {
-    width: 32px;
-    height: 32px;
-    font-size: 1.15rem;
+    @apply w-8 h-8 text-[1.15rem];
   }
 
   .notification-item.notification-upload .notification-copy {
-    min-width: 0;
-    overflow: hidden;
-    gap: 4px;
+    @apply min-w-0 overflow-hidden gap-1;
   }
 
   .notification-item.notification-upload .notification-copy strong,
   .notification-item.notification-upload .notification-copy span {
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    @apply max-w-full overflow-hidden text-ellipsis whitespace-nowrap;
   }
 
   .notification-item.notification-upload .notification-copy strong {
-    font-size: 0.9rem;
-    font-weight: 500;
+    @apply text-[0.9rem] font-medium;
   }
 
   .notification-item.notification-upload .notification-copy span {
-    color: var(--dark);
+    @apply text-dark text-[0.82rem] font-medium;
     font-family: inherit;
-    font-size: 0.82rem;
-    font-weight: 500;
   }
 
   .notification-item.upload-queue-toast {
-    min-height: 52px;
+    @apply min-h-[52px];
   }
 
   .notification-item.upload-queue-toast .notification-copy strong {
-    font-size: 0.9rem;
+    @apply text-[0.9rem];
   }
 
   .notification-item.upload-batch-toast {
-    min-height: 58px;
+    @apply min-h-[58px];
   }
 
   .notification-item.batch-delete-progress {
-    min-height: 52px;
+    @apply min-h-[52px];
   }
 
   .notification-item.batch-delete-progress .batch-delete-text {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.9rem;
+    @apply min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[0.9rem];
   }
 
   .notification-item.notification-upload .notification-close {
-    border-radius: 0;
+    @apply rounded-none;
   }
 
   /* ==========================================================================
@@ -337,7 +245,7 @@
   }
 
   html[data-theme="dark"] .notification-item span {
-    color: var(--dark);
+    @apply text-dark;
   }
 
   /* 类型色卡 — 用主色的深色变体打底,左边硬边框带醒目色 */
@@ -445,18 +353,13 @@
      ========================================================================== */
 
   .notification-container .notification-item {
+    @apply w-full gap-3 grid items-center border-0 rounded-none;
     --toast-accent: var(--info);
     --toast-tint: rgba(23, 162, 184, 0.1);
-    width: 100%;
     min-height: 64px;
     padding: 0 14px 0 18px;
-    gap: 12px;
-    display: grid;
     grid-template-columns: 36px minmax(0, 1fr) 32px;
-    align-items: center;
-    border: 0;
     border-left: 4px solid var(--toast-accent);
-    border-radius: 0;
     background:
       linear-gradient(90deg,
         var(--toast-tint) 0%,
@@ -499,24 +402,10 @@
   }
 
   .notification-container .notification-item > i {
-    grid-column: 1;
-    justify-self: center;
-    align-self: center;
-    flex: none;
+    @apply col-start-1 justify-self-center self-center shrink-0 w-8 h-8 min-w-8 max-w-8 min-h-8 max-h-8 p-0 border-0 rounded-none bg-transparent text-[1.18rem];
     display: inline-grid !important;
     place-items: center;
-    width: 32px;
-    height: 32px;
-    min-width: 32px;
-    max-width: 32px;
-    min-height: 32px;
-    max-height: 32px;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
     color: var(--toast-accent);
-    font-size: 1.18rem;
     line-height: 1 !important;
     --fa-display: inline-grid;
     --fa-width: auto;
@@ -532,30 +421,21 @@
   }
 
   .notification-container .notification-item > span {
-    grid-column: 2;
-    align-self: center;
-    display: flex;
-    align-items: center;
-    height: 100%;
+    @apply col-start-2 self-center flex items-center h-full;
   }
 
   .notification-container .notification-copy {
-    grid-column: 2;
-    align-self: center;
-    padding-top: 0;
-    gap: 2px;
+    @apply col-start-2 self-center pt-0 gap-0.5;
   }
 
   .notification-container .notification-copy strong {
+    @apply text-[0.94rem] font-semibold leading-[1.35];
     color: #2b2f36;
-    font-size: 0.94rem;
-    font-weight: 600;
-    line-height: 1.35;
   }
 
   .notification-container .notification-copy span {
+    @apply text-[0.78rem];
     color: #69717d;
-    font-size: 0.78rem;
   }
 
   .notification-container .notification-copy em {
@@ -565,15 +445,8 @@
   }
 
   .notification-container .notification-close {
-    grid-column: 3;
-    justify-self: center;
-    align-self: center;
-    width: 32px;
-    height: 32px;
-    margin-left: auto;
-    border-radius: 0;
+    @apply col-start-3 justify-self-center self-center w-8 h-8 ml-auto rounded-none opacity-100;
     color: #2b2f36;
-    opacity: 1;
   }
 
   .notification-container .notification-close:hover {
@@ -582,9 +455,7 @@
   }
 
   .notification-container .notification-close i {
-    width: 18px;
-    height: 18px;
-    font-size: 1.05rem;
+    @apply w-[18px] h-[18px] text-[1.05rem];
   }
 
   /* 深色模式侧边 toast:浅色模式那条 90deg 渐变在深色下会渐变到 #ffffff
@@ -619,24 +490,16 @@
      ========================================================================== */
 
   .auth-toast-container .notification-auth {
-    width: 100%;
+    @apply w-full max-w-full h-14 min-h-14 rounded grid items-center box-border text-white;
     min-width: 220px;
-    max-width: 100%;
-    height: 56px;
-    min-height: 56px;
     padding: 0 12px;
     border: 1px solid transparent;
     border-left: 0;
-    border-radius: 4px;
-    color: #fff;
     box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
     --tw-translate-x: 0;
     --tw-translate-y: -10px;
-    display: grid;
     grid-template-columns: 44px minmax(0, 1fr) 44px;
     column-gap: 0;
-    align-items: center;
-    box-sizing: border-box;
   }
 
   .auth-toast-container .notification-auth.show {
@@ -658,19 +521,9 @@
   }
 
   .auth-toast-container .notification-auth-icon {
+    @apply inline-flex items-center justify-center col-start-1 justify-self-center self-center w-8 h-8 rounded-none bg-transparent leading-none;
     color: #fff !important;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    grid-column: 1;
-    justify-self: center;
-    align-self: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 0;
-    background: transparent;
     font-size: 1.28rem;
-    line-height: 1;
     --fa-primary-color: #fff;
     --fa-secondary-color: #fff;
     --fa-primary-opacity: 1;
@@ -678,9 +531,8 @@
   }
 
   .auth-toast-container .notification-auth-icon i {
+    @apply items-center justify-center;
     display: inline-flex !important;
-    align-items: center;
-    justify-content: center;
     width: 100% !important;
     height: 100% !important;
     color: #fff !important;
@@ -689,55 +541,22 @@
   }
 
   .auth-toast-container .notification-auth-icon i::before {
-    display: block;
-    width: 1em;
-    height: 1em;
-    line-height: 1;
-    margin: 0;
-    text-align: center;
+    @apply block w-[1em] h-[1em] leading-none m-0 text-center;
   }
 
   .auth-toast-container .notification-auth > span:not(.notification-auth-icon) {
-    min-width: 0;
-    width: 100%;
-    height: auto;
-    grid-column: 2;
+    @apply min-w-0 w-full h-auto col-start-2 inline-flex items-center justify-center text-center text-[0.9rem] font-semibold leading-[1.35] whitespace-nowrap overflow-hidden text-ellipsis;
     flex: initial;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    font-size: 0.9rem;
-    font-weight: 600;
-    line-height: 1.35;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   .auth-toast-container .notification-auth .notification-close {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    grid-column: 3;
-    justify-self: center;
-    align-self: center;
-    width: 32px;
-    height: 32px;
-    font-size: 1rem;
-    line-height: 1;
-    padding: 0;
+    @apply inline-flex items-center justify-center col-start-3 justify-self-center self-center w-8 h-8 text-base leading-none p-0;
   }
 
   .auth-toast-container .notification-auth .notification-close i {
+    @apply inline-flex items-center justify-center w-[1em] h-[1em] leading-none;
     color: #fff !important;
     opacity: 1 !important;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1em;
-    height: 1em;
-    line-height: 1;
   }
 
   .auth-toast-container .notification-auth.success {
@@ -799,110 +618,68 @@
      三种 variant 用 --accent 切色:压缩绿、转换紫、删除红。
      ========================================================================== */
   .batch-progress {
-    position: fixed;
-    left: 50%;
+    @apply fixed left-1/2 z-[9999] opacity-0 pointer-events-none bg-surface;
     bottom: 24px;
     transform: translate(-50%, calc(100% + 40px)); /* 默认藏在屏幕外 */
     width: min(440px, calc(100vw - 32px));
-    background: var(--surface);
     border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
     border-left: 3px solid var(--accent, var(--primary));
     box-shadow: 0 12px 32px -10px rgba(0, 0, 0, 0.18),
                 0 4px 12px -4px rgba(0, 0, 0, 0.08);
     padding: 12px 16px 14px;
-    z-index: 9999;
-    opacity: 0;
-    pointer-events: none;
     transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
                 opacity 200ms ease;
     /* CSS 自定义属性 — 由 .batch-progress--<variant> 改写 */
     --accent: var(--primary);
   }
   .batch-progress.is-visible {
+    @apply opacity-100 pointer-events-auto;
     transform: translate(-50%, 0);
-    opacity: 1;
-    pointer-events: auto;
   }
 
   .batch-progress__head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 0;
-    font-size: 0.86rem;
-    line-height: 1.3;
+    @apply flex items-center gap-2.5 m-0 text-[0.86rem] leading-[1.3];
   }
   .batch-progress__icon {
-    flex: 0 0 auto;
+    @apply shrink-0 text-base;
     color: var(--accent);
-    font-size: 1rem;
   }
   /* 第 2 列:标题 + 数字 竖排(占满中间剩余宽度) */
   .batch-progress__main {
-    flex: 1 1 auto;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
+    @apply flex-1 min-w-0 flex flex-col gap-px;
   }
   .batch-progress__title {
-    min-width: 0;
-    font-weight: 600;
-    color: var(--dark);
-    /* 标题太长就截 — 兜底 */
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    @apply min-w-0 font-semibold text-dark overflow-hidden text-ellipsis whitespace-nowrap;
   }
   .batch-progress__count {
+    @apply text-[0.8rem] leading-[1.2];
     color: color-mix(in srgb, var(--dark) 60%, transparent);
     font-variant-numeric: tabular-nums;
-    font-size: 0.8rem;
-    line-height: 1.2;
   }
   /* 第 3 列:百分比(靠右,不再单独占一行) */
   .batch-progress__percent {
-    flex: 0 0 auto;
-    min-width: 3em;
-    text-align: right;
+    @apply shrink-0 min-w-[3em] text-right font-bold text-[0.9rem];
     color: var(--accent);
-    font-weight: 700;
     font-variant-numeric: tabular-nums;
-    font-size: 0.9rem;
   }
   /* 第 4 列:关闭按钮 */
   .batch-progress__close {
-    flex: 0 0 auto;
-    width: 24px;
-    height: 24px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: 0;
-    border-radius: 6px;
-    background: transparent;
+    @apply shrink-0 w-6 h-6 inline-flex items-center justify-center p-0 border-0 rounded-md bg-transparent cursor-pointer;
     color: color-mix(in srgb, var(--dark) 45%, transparent);
-    cursor: pointer;
     transition: background 120ms ease, color 120ms ease;
   }
   .batch-progress__close:hover {
+    @apply text-dark;
     background: color-mix(in srgb, var(--dark) 8%, transparent);
-    color: var(--dark);
   }
 
   .batch-progress__bar {
-    margin-top: 10px;
-    height: 4px;
+    @apply mt-2.5 h-1 rounded-sm overflow-hidden;
     background: color-mix(in srgb, var(--dark) 10%, transparent);
-    border-radius: 2px;
-    overflow: hidden;
   }
   .batch-progress__bar-fill {
-    height: 100%;
-    width: 0%;
+    @apply h-full w-0 rounded-[inherit];
     background: var(--accent);
-    border-radius: inherit;
     /* 进度条变化用稍长的过渡,跳动更柔和 */
     transition: width 260ms ease;
   }
@@ -932,11 +709,8 @@
   /* 移动端:进度卡贴着屏幕底,留出系统手势区 */
   @media (max-width: 600px) {
     .batch-progress {
-      left: 12px;
-      right: 12px;
-      bottom: 16px;
+      @apply left-3 right-3 bottom-4 w-auto;
       transform: translateY(calc(100% + 40px));
-      width: auto;
     }
     .batch-progress.is-visible {
       transform: translateY(0);

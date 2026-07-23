@@ -5,9 +5,7 @@
      ========================================================================== */
 
   .page-container {
-    @apply flex-1 w-full max-w-[1280px] mx-auto mb-[45px] px-4 flex flex-col;
-    margin-top: var(--header-offset);
-    gap: var(--spacing-lg);
+    @apply flex-1 w-full max-w-[1280px] mx-auto mb-[45px] px-4 flex flex-col mt-[var(--header-offset)] gap-[var(--page-gap)];
   }
 
 }

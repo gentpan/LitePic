@@ -5,12 +5,10 @@
      ========================================================================== */
 
   .confirm-dialog {
-    @apply fixed top-0 left-0 w-screen h-screen items-center justify-center z-[9999];
+    @apply fixed top-0 left-0 w-screen h-screen items-center justify-center z-[9999] opacity-0 invisible;
     background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(6px);
     display: none;
-    opacity: 0;
-    visibility: hidden;
     transition: all 0.3s ease;
   }
 
@@ -19,14 +17,12 @@
   }
 
   .confirm-dialog-content {
+    @apply bg-surface overflow-hidden rounded;
     width: min(88vw, 460px);
-    border-radius: 4px;
-    background: var(--surface);
     border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
     box-shadow: var(--shadow-lg);
     transform: translateY(-20px);
     transition: transform 0.3s ease;
-    overflow: hidden;
   }
 
   .confirm-dialog.active .confirm-dialog-content {
@@ -34,62 +30,33 @@
   }
 
   .confirm-dialog-body {
-    display: grid;
-    gap: 14px;
-    padding: 24px;
+    @apply grid gap-3.5 p-6;
   }
 
   .confirm-dialog-title {
-    margin: 0;
-    color: var(--dark);
-    font-size: 1.1rem;
-    font-weight: 700;
-    line-height: 1.28;
+    @apply m-0 text-dark text-[1.1rem] font-bold leading-[1.28];
   }
 
   .confirm-dialog-message {
-    margin: 0;
+    @apply m-0 text-[0.9rem] leading-[1.72];
     color: color-mix(in srgb, var(--dark) 78%, var(--gray) 22%);
-    font-size: 0.9rem;
-    line-height: 1.72;
   }
 
   /* 确认弹窗里的开关(如「保留原图」) */
   .confirm-dialog-toggle {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 2px 0 0;
-    cursor: pointer;
-    font-size: 0.9rem;
-    color: var(--dark);
-    user-select: none;
+    @apply flex items-center gap-2.5 mt-0.5 mb-0 cursor-pointer text-[0.9rem] text-dark select-none;
   }
   .confirm-dialog-toggle-input {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-    pointer-events: none;
+    @apply absolute opacity-0 w-0 h-0 pointer-events-none;
   }
   .confirm-dialog-toggle-track {
-    flex: 0 0 auto;
-    position: relative;
-    width: 38px;
-    height: 22px;
-    border-radius: 999px;
+    @apply relative shrink-0 w-[38px] h-[22px] rounded-full;
     background: color-mix(in srgb, var(--dark) 22%, transparent);
     transition: background 160ms ease;
   }
   .confirm-dialog-toggle-track::after {
     content: '';
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: #fff;
+    @apply absolute top-0.5 left-0.5 w-[18px] h-[18px] rounded-full bg-white;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
     transition: transform 160ms ease;
   }
@@ -105,27 +72,12 @@
   }
 
   .confirm-dialog-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    padding-top: 2px;
+    @apply flex justify-end gap-2 pt-0.5;
   }
 
   .confirm-dialog-btn {
-    min-width: 92px;
-    height: 42px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
+    @apply min-w-[92px] h-[42px] inline-flex items-center justify-center gap-2 rounded-none bg-surface text-dark text-[0.9rem] font-semibold leading-none cursor-pointer;
     border: 1px solid color-mix(in srgb, var(--border-color) 74%, transparent);
-    border-radius: 0;
-    background: var(--surface);
-    color: var(--dark);
-    font-size: 0.9rem;
-    font-weight: 600;
-    line-height: 1;
-    cursor: pointer;
     transition:
       color 160ms ease,
       background 160ms ease,
@@ -138,9 +90,8 @@
   }
 
   .confirm-dialog-submit {
+    @apply bg-primary text-white;
     border-color: var(--primary);
-    background: var(--primary);
-    color: #fff;
   }
 
   .confirm-dialog-submit:hover {
@@ -149,9 +100,8 @@
   }
 
   .confirm-dialog-danger .confirm-dialog-submit {
+    @apply bg-danger text-white;
     border-color: var(--danger);
-    background: var(--danger);
-    color: #fff;
   }
 
   .confirm-dialog-danger .confirm-dialog-submit:hover {
@@ -160,7 +110,7 @@
   }
 
   .confirm-dialog-submit i {
-    font-size: 0.86rem;
+    @apply text-[0.86rem];
   }
 
   /* ==========================================================================
@@ -168,12 +118,10 @@
      ========================================================================== */
 
   .custom-dialog {
-    @apply fixed top-0 left-0 w-screen h-screen items-center justify-center z-[9999];
+    @apply fixed top-0 left-0 w-screen h-screen items-center justify-center z-[9999] opacity-0 invisible;
     background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(5px);
     display: none;
-    opacity: 0;
-    visibility: hidden;
     transition: all 0.3s ease;
   }
 
@@ -182,9 +130,7 @@
   }
 
   .custom-dialog-content {
-    @apply bg-surface w-[90%];
-    max-width: 500px;
-    border-radius: 4px;
+    @apply bg-surface w-[90%] max-w-[500px] rounded;
     border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
     box-shadow: var(--shadow-lg);
     transform: translateY(-20px);
@@ -200,16 +146,12 @@
      ========================================================================== */
 
   .dialog-header {
-    @apply flex items-center justify-between;
-    min-height: 58px;
-    padding: 14px 18px;
+    @apply flex items-center justify-between min-h-[58px] py-3.5 px-[18px];
     border-bottom: 1px solid var(--border-color);
   }
 
   .dialog-header h3 {
-    @apply flex items-center gap-2 m-0;
-    font-size: 1.1rem;
-    color: var(--dark);
+    @apply flex items-center gap-2 m-0 text-[1.1rem] text-dark;
   }
 
   .dialog-header h3 i {
@@ -218,10 +160,7 @@
 
   /* 关闭按钮 */
   .dialog-close {
-    @apply flex items-center justify-center border-0 bg-transparent cursor-pointer text-gray;
-    width: 32px;
-    height: 32px;
-    border-radius: 0;
+    @apply flex items-center justify-center w-8 h-8 border-0 bg-transparent cursor-pointer text-gray rounded-none;
     transition: all 0.3s ease;
   }
 
@@ -235,8 +174,7 @@
      ========================================================================== */
 
   .dialog-body {
-    @apply text-dark;
-    padding: 24px;
+    @apply text-dark p-6;
   }
 
   /* =========================================================
@@ -244,86 +182,51 @@
      重构自老的 label/value 表格列表，视觉更接近 Plan A 的卡片风格。
      ========================================================= */
   .litepic-license-dialog {
-    display: grid;
-    gap: 16px;
-    color: var(--dark);
+    @apply grid gap-4 text-dark;
   }
 
   .litepic-license-dialog p {
-    margin: 0;
+    @apply m-0;
   }
 
   /* Hero — 品牌区块，logo + 名称 + 版本 + tagline */
   .license-hero {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 14px 16px;
+    @apply flex items-center gap-3.5 py-3.5 px-4;
     border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border-color) 82%);
     background: color-mix(in srgb, var(--primary) 5%, var(--surface) 95%);
   }
 
   .license-hero-logo {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 48px;
-    height: 48px;
+    @apply shrink-0 inline-flex items-center justify-center w-12 h-12;
   }
 
   .license-hero-text {
-    min-width: 0;
-    flex: 1;
-    display: grid;
-    gap: 4px;
+    @apply min-w-0 flex-1 grid gap-1;
   }
 
   .license-hero-title {
-    margin: 0;
-    color: var(--dark);
-    font-size: 1.05rem;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    display: inline-flex;
-    align-items: baseline;
-    gap: 8px;
+    @apply m-0 text-dark text-[1.05rem] font-bold tracking-tight inline-flex items-baseline gap-2;
   }
 
   .license-hero-version {
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 7px;
+    @apply inline-flex items-center py-0.5 px-[7px] text-primary font-mono text-[0.7rem] font-bold tracking-normal;
     background: color-mix(in srgb, var(--primary) 12%, var(--surface) 88%);
-    color: var(--primary);
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0;
   }
 
   .license-hero-tagline {
+    @apply text-[0.82rem] leading-normal;
     color: color-mix(in srgb, var(--dark) 70%, var(--gray) 30%);
-    font-size: 0.82rem;
-    line-height: 1.5;
   }
 
   /* 信息卡片 2x2 网格 */
   .license-cards {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    @apply grid grid-cols-2 gap-2;
   }
 
   .license-card {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 14px;
+    @apply flex items-center gap-2.5 py-3 px-3.5 text-dark no-underline;
     border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent);
     background: color-mix(in srgb, var(--surface) 94%, var(--light) 6%);
-    color: var(--dark);
-    text-decoration: none;
     transition: border-color 160ms ease, background 160ms ease;
   }
 
@@ -333,78 +236,50 @@
   }
 
   .license-card > i {
-    flex-shrink: 0;
-    color: var(--primary);
-    font-size: 18px;
-    line-height: 1;
+    @apply shrink-0 text-primary text-[18px] leading-none;
   }
 
   .license-card-body {
-    min-width: 0;
-    display: grid;
-    gap: 1px;
+    @apply min-w-0 grid gap-px;
   }
 
   .license-card-label {
+    @apply text-[0.72rem] font-semibold tracking-wide uppercase;
     color: color-mix(in srgb, var(--gray) 70%, var(--dark) 30%);
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
   }
 
   .license-card-value {
-    min-width: 0;
-    color: var(--dark);
-    font-family: var(--font-mono);
-    font-size: 0.86rem;
-    font-weight: 700;
+    @apply min-w-0 text-dark font-mono text-[0.86rem] font-bold;
     overflow-wrap: anywhere;
   }
 
   /* 法律提示框 — 主色 tint + 信息图标 */
   .license-note {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 12px 14px;
+    @apply flex items-start gap-2.5 py-3 px-3.5 text-[0.82rem] leading-[1.65];
     border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border-color) 78%);
     background: color-mix(in srgb, var(--primary) 7%, var(--surface) 93%);
     color: color-mix(in srgb, var(--dark) 76%, var(--gray) 24%);
-    font-size: 0.82rem;
-    line-height: 1.65;
   }
 
   .license-note > i {
-    flex-shrink: 0;
-    margin-top: 2px;
-    color: var(--primary);
-    font-size: 14px;
+    @apply shrink-0 mt-0.5 text-primary text-sm;
   }
 
   /* 官网入口 — 横铺一条按钮，hover 反白 */
   .license-footer {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 11px 14px;
+    @apply inline-flex items-center justify-center gap-2 py-[11px] px-3.5 text-primary text-[0.88rem] no-underline;
     border: 1px solid var(--primary);
     background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
-    color: var(--primary);
-    font-size: 0.88rem;
     font-weight: 650;
-    text-decoration: none;
     transition: background 160ms ease, color 160ms ease;
   }
 
   .license-footer:hover {
-    background: var(--primary);
-    color: #fff;
+    @apply bg-primary text-white;
   }
 
   .license-footer > i {
-    font-size: 12px;
+    @apply text-xs;
   }
 
   /* ==========================================================================
@@ -414,108 +289,70 @@
   .process-result-dialog-content,
   .convert-dialog-content,
   .compress-dialog-content {
-    max-width: 680px;
+    @apply max-w-[680px];
   }
 
   .process-result-dialog-content .dialog-header,
   .convert-dialog-content .dialog-header,
   .compress-dialog-content .dialog-header {
-    display: grid;
+    @apply grid items-center;
     grid-template-columns: 32px minmax(0, 1fr) 32px;
-    align-items: center;
   }
 
   .process-result-dialog-content .dialog-header::before,
   .convert-dialog-content .dialog-header::before,
   .compress-dialog-content .dialog-header::before {
     content: "";
-    width: 32px;
-    height: 32px;
+    @apply w-8 h-8;
   }
 
   .process-result-dialog-content .dialog-header h3,
   .convert-dialog-content .dialog-header h3,
   .compress-dialog-content .dialog-header h3 {
-    justify-content: center;
-    min-width: 0;
-    text-align: center;
+    @apply justify-center min-w-0 text-center;
   }
 
   .convert-result {
-    display: grid;
-    gap: 14px;
+    @apply grid gap-3.5;
   }
 
   .convert-result-preview {
-    position: relative;
+    @apply relative overflow-hidden bg-light border border-border;
     aspect-ratio: 16 / 9;
-    overflow: hidden;
-    background: var(--light);
-    border: 1px solid var(--border-color);
   }
 
   .convert-result-preview img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+    @apply w-full h-full object-cover;
   }
 
   .convert-result-format {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    min-height: 28px;
-    padding: 0 10px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    @apply absolute top-3 right-3 min-h-7 px-2.5 inline-flex items-center justify-center text-white text-[0.78rem] font-bold tracking-normal;
     border: 1px solid rgba(255, 255, 255, 0.26);
     background: rgba(15, 23, 42, 0.62);
-    color: #fff;
     font-family: var(--font-logo, inherit);
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0;
     backdrop-filter: blur(10px);
   }
 
   .convert-result-stats {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    border: 1px solid var(--border-color);
-    background: var(--surface);
+    @apply grid grid-cols-3 border border-border bg-surface;
   }
 
   .convert-stat {
-    min-width: 0;
-    min-height: 74px;
-    padding: 12px 14px;
-    display: grid;
+    @apply min-w-0 min-h-[74px] py-3 px-3.5 grid gap-1;
     align-content: center;
-    gap: 4px;
     border-right: 1px solid var(--border-color);
   }
 
   .convert-stat:last-child {
-    border-right: 0;
+    @apply border-r-0;
   }
 
   .convert-stat span {
-    color: var(--gray);
-    font-size: 0.78rem;
-    font-weight: 500;
-    line-height: 1.2;
+    @apply text-gray text-[0.78rem] font-medium leading-tight;
   }
 
   .convert-stat strong {
-    color: var(--dark);
-    font-family: var(--font-mono, monospace);
-    font-size: 1.08rem;
-    font-weight: 700;
-    line-height: 1.25;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    @apply text-dark font-mono text-[1.08rem] font-bold leading-[1.25] whitespace-nowrap overflow-hidden text-ellipsis;
   }
 
   .convert-stat.is-current {
@@ -523,7 +360,7 @@
   }
 
   .convert-stat.is-current strong {
-    color: var(--primary);
+    @apply text-primary;
   }
 
   .convert-stat.is-saved {
@@ -535,89 +372,48 @@
   }
 
   .convert-saved-value {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
+    @apply flex items-baseline gap-2;
   }
 
   .convert-saved-value span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    @apply min-w-0 overflow-hidden text-ellipsis;
   }
 
   .convert-stat em {
-    flex: none;
-    width: fit-content;
-    padding: 2px 8px;
+    @apply shrink-0 w-fit py-0.5 px-2 font-mono text-[0.72rem] not-italic font-bold leading-[1.25];
     border: 1px solid rgba(34, 197, 94, 0.28);
     background: rgba(34, 197, 94, 0.12);
     color: #15803d;
-    font-family: var(--font-mono, monospace);
-    font-size: 0.72rem;
-    font-style: normal;
-    font-weight: 700;
-    line-height: 1.25;
   }
 
   .convert-result-file {
-    display: grid;
-    gap: 10px;
-    padding: 14px;
-    border: 1px solid var(--border-color);
-    background: var(--surface);
+    @apply grid gap-2.5 p-3.5 border border-border bg-surface;
   }
 
   .convert-file-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--gray);
-    font-size: 0.82rem;
+    @apply inline-flex items-center gap-2 text-gray text-[0.82rem] leading-tight;
     font-weight: 650;
-    line-height: 1.2;
   }
 
   .convert-file-label i {
-    color: var(--primary);
+    @apply text-primary;
   }
 
   .convert-file-copy {
-    display: flex;
-    min-width: 0;
+    @apply flex min-w-0;
   }
 
   .convert-file-copy input {
-    width: 100%;
-    min-width: 0;
-    height: 42px;
-    padding: 0 12px;
-    border: 1px solid var(--border-color);
-    border-right: 0;
-    background: var(--light);
-    color: var(--dark);
-    font-family: var(--font-mono, monospace);
-    font-size: 0.86rem;
-    outline: none;
+    @apply w-full min-w-0 h-[42px] px-3 border border-border border-r-0 bg-light text-dark font-mono text-[0.86rem] outline-none;
   }
 
   .convert-copy-btn {
-    width: 46px;
-    height: 42px;
-    flex: 0 0 46px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--primary);
-    background: var(--primary);
-    color: #fff;
-    cursor: pointer;
+    @apply w-[46px] h-[42px] shrink-0 inline-flex items-center justify-center border border-primary bg-primary text-white cursor-pointer;
     transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
   }
 
   .convert-copy-btn i {
-    font-size: 1rem;
-    line-height: 1;
+    @apply text-base leading-none;
   }
 
   .convert-copy-btn:hover {
@@ -626,8 +422,7 @@
   }
 
   .convert-copy-btn.success {
-    background: var(--success);
-    border-color: var(--success);
+    @apply bg-success border-success;
   }
 
   /* ==========================================================================
@@ -664,15 +459,13 @@
   }
 
   html[data-theme="dark"] .confirm-dialog-submit {
+    @apply bg-primary text-white;
     border-color: var(--primary);
-    background: var(--primary);
-    color: #fff;
   }
 
   html[data-theme="dark"] .confirm-dialog-danger .confirm-dialog-submit {
+    @apply bg-danger text-white;
     border-color: var(--danger);
-    background: var(--danger);
-    color: #fff;
   }
 
   html[data-theme="dark"] .dialog-header {
@@ -680,8 +473,8 @@
   }
 
   html[data-theme="dark"] .dialog-close:hover {
+    @apply text-white;
     background: rgba(255, 255, 255, 0.05);
-    color: #fff;
   }
 
   html[data-theme="dark"] .convert-result-preview,
@@ -725,46 +518,41 @@
     }
 
     .confirm-dialog-content {
+      @apply rounded;
       width: min(92vw, 460px);
-      border-radius: 4px;
     }
 
     .confirm-dialog-body {
-      padding: 22px;
-      gap: 16px;
+      @apply p-[22px] gap-4;
     }
 
     .confirm-dialog-title {
-      font-size: 1.1rem;
+      @apply text-[1.1rem];
     }
 
     .confirm-dialog-message {
-      font-size: 0.92rem;
-      line-height: 1.7;
+      @apply text-[0.92rem] leading-[1.7];
     }
 
     .confirm-dialog-actions {
-      gap: 10px;
+      @apply gap-2.5;
     }
 
     .confirm-dialog-btn {
-      min-width: 84px;
-      height: 40px;
-      font-size: 0.86rem;
+      @apply min-w-[84px] h-10 text-[0.86rem];
     }
 
     .convert-result-stats {
-      grid-template-columns: 1fr;
+      @apply grid-cols-1;
     }
 
     .convert-stat {
-      min-height: auto;
-      border-right: 0;
+      @apply min-h-0 border-r-0;
       border-bottom: 1px solid var(--border-color);
     }
 
     .convert-stat:last-child {
-      border-bottom: 0;
+      @apply border-b-0;
     }
   }
 
@@ -777,197 +565,134 @@
  * 关闭，必须改密成功才放行；主动模式下右上角有取消按钮、ESC / 外部
  * 点击都可关闭。
  * ============================================================= */
-.change-password-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: rgba(15, 23, 42, 0.55);
-  backdrop-filter: blur(6px);
-  animation: changePasswordFadeIn 0.18s ease-out;
-}
-
-@keyframes changePasswordFadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-.change-password-dialog {
-  width: 100%;
-  max-width: 420px;
-  background: var(--surface);
-  color: var(--dark);
-  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-  border-radius: 4px;
-  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.28);
-  padding: 22px 24px 18px;
-  display: grid;
-  gap: 14px;
-}
-
-.change-password-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: var(--dark);
-}
-
-.change-password-header > i {
-  color: var(--primary);
-  font-size: 1.2em;
-}
-
-.change-password-notice {
-  margin: 0;
-  padding: 10px 12px;
-  background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
-  border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border-color) 75%);
-  border-radius: 4px;
-  font-size: 0.85rem;
-  line-height: 1.55;
-  color: var(--dark);
-}
-
-.change-password-notice code {
-  padding: 1px 6px;
-  background: color-mix(in srgb, var(--dark) 8%, transparent);
-  border-radius: 4px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.85em;
-}
-
-.change-password-form {
-  display: grid;
-  gap: 12px;
-}
-
-.change-password-field {
-  display: grid;
-  gap: 6px;
-  font-size: 0.85rem;
-  color: var(--gray);
-}
-
-.change-password-field > input {
-  height: 38px;
-  padding: 0 12px;
-  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-  border-radius: 0;
-  background: var(--surface);
-  color: var(--dark);
-  font-size: 0.95rem;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.change-password-field > input:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
-}
-
-.change-password-field > input[readonly] {
-  background: color-mix(in srgb, var(--light) 60%, var(--surface) 40%);
-  color: var(--gray);
-  cursor: not-allowed;
-}
-
-.change-password-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.change-password-cancel,
-.change-password-submit {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 38px;
-  padding: 0 16px;
-  border-radius: 0;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.change-password-cancel {
-  background: transparent;
-  color: var(--gray);
-  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-}
-
-.change-password-cancel:hover {
-  background: color-mix(in srgb, var(--gray) 8%, transparent);
-  color: var(--dark);
-}
-
-.change-password-submit {
-  background: var(--primary);
-  color: #fff;
-  border: 1px solid var(--primary);
-}
-
-.change-password-submit:hover {
-  background: color-mix(in srgb, var(--primary) 88%, #000 12%);
-}
-
-.change-password-submit:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-}
-
-.change-password-msg {
-  margin: 0;
-  min-height: 1.2em;
-  font-size: 0.85rem;
-}
-
-.change-password-msg.is-error   { color: #d73a49; }
-.change-password-msg.is-success { color: #1f8f4f; }
-
-html[data-theme="dark"] .change-password-overlay {
-  background: rgba(0, 0, 0, 0.65);
-}
-
 @layer components {
+  .change-password-overlay {
+    @apply fixed inset-0 z-[9999] flex items-center justify-center p-6;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(6px);
+    animation: changePasswordFadeIn 0.18s ease-out;
+  }
+
+  @keyframes changePasswordFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  .change-password-dialog {
+    @apply w-full max-w-[420px] bg-surface text-dark rounded grid gap-3.5;
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    box-shadow: 0 24px 64px rgba(15, 23, 42, 0.28);
+    padding: 22px 24px 18px;
+  }
+
+  .change-password-header {
+    @apply flex items-center gap-2.5 text-[1.05rem] font-semibold text-dark;
+  }
+
+  .change-password-header > i {
+    @apply text-primary text-[1.2em];
+  }
+
+  .change-password-notice {
+    @apply m-0 py-2.5 px-3 rounded text-[0.85rem] leading-[1.55] text-dark;
+    background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
+    border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border-color) 75%);
+  }
+
+  .change-password-notice code {
+    @apply py-px px-1.5 rounded text-[0.85em];
+    background: color-mix(in srgb, var(--dark) 8%, transparent);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  .change-password-form {
+    @apply grid gap-3;
+  }
+
+  .change-password-field {
+    @apply grid gap-1.5 text-[0.85rem] text-gray;
+  }
+
+  .change-password-field > input {
+    @apply h-[38px] px-3 rounded-none bg-surface text-dark text-[0.95rem];
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .change-password-field > input:focus {
+    @apply outline-none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
+  }
+
+  .change-password-field > input[readonly] {
+    @apply text-gray cursor-not-allowed;
+    background: color-mix(in srgb, var(--light) 60%, var(--surface) 40%);
+  }
+
+  .change-password-actions {
+    @apply flex justify-end gap-2 mt-1;
+  }
+
+  .change-password-cancel,
+  .change-password-submit {
+    @apply inline-flex items-center gap-1.5 h-[38px] px-4 rounded-none text-[0.9rem] font-medium cursor-pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .change-password-cancel {
+    @apply bg-transparent text-gray;
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  .change-password-cancel:hover {
+    @apply text-dark;
+    background: color-mix(in srgb, var(--gray) 8%, transparent);
+  }
+
+  .change-password-submit {
+    @apply bg-primary text-white border border-primary;
+  }
+
+  .change-password-submit:hover {
+    background: color-mix(in srgb, var(--primary) 88%, #000 12%);
+  }
+
+  .change-password-submit:disabled {
+    @apply cursor-not-allowed;
+    opacity: 0.65;
+  }
+
+  .change-password-msg {
+    @apply m-0 min-h-[1.2em] text-[0.85rem];
+  }
+
+  .change-password-msg.is-error   { color: #d73a49; }
+  .change-password-msg.is-success { color: #1f8f4f; }
+
+  html[data-theme="dark"] .change-password-overlay {
+    background: rgba(0, 0, 0, 0.65);
+  }
+
   /* ============== /upload 页内的"新建相册"快速表单弹窗 ============== */
   .album-quick-form {
-    display: grid;
-    gap: 14px;
-    margin: 0;
+    @apply grid gap-3.5 m-0;
   }
 
   .album-quick-field {
-    display: grid;
-    gap: 6px;
+    @apply grid gap-1.5;
   }
-  .album-quick-field[hidden] { display: none; }
+  .album-quick-field[hidden] { @apply hidden; }
 
   .album-quick-field label {
-    color: var(--dark);
-    font-size: 0.85rem;
-    font-weight: 600;
-    margin: 0;
+    @apply text-dark text-[0.85rem] font-semibold m-0;
   }
 
   .album-quick-field input,
   .album-quick-field select {
-    width: 100%;
-    height: 40px;
-    padding: 0 12px;
+    @apply w-full h-10 px-3 rounded-none bg-surface text-dark text-[0.92rem];
     border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-    border-radius: 0;
-    background: var(--surface);
-    color: var(--dark);
     font-family: inherit;
-    font-size: 0.92rem;
     transition: border-color 160ms ease, box-shadow 160ms ease;
   }
 
@@ -975,41 +700,24 @@ html[data-theme="dark"] .change-password-overlay {
   .album-quick-field select:focus,
   .album-quick-field input:focus-visible,
   .album-quick-field select:focus-visible {
+    @apply outline-none;
     border-color: var(--primary);
-    outline: none;
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
   }
 
   .album-quick-error {
-    margin: 0;
-    padding: 8px 10px;
+    @apply m-0 py-2 px-2.5 text-danger text-[0.82rem];
     background: color-mix(in srgb, var(--danger) 10%, transparent);
     border-left: 3px solid var(--danger);
-    color: var(--danger);
-    font-size: 0.82rem;
   }
-  .album-quick-error[hidden] { display: none; }
+  .album-quick-error[hidden] { @apply hidden; }
 
   .album-quick-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    padding-top: 4px;
+    @apply flex justify-end gap-2 pt-1;
   }
 
   .album-quick-btn {
-    height: 38px;
-    padding: 0 16px;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    border: 1px solid transparent;
-    border-radius: 0;
-    background: var(--surface);
-    color: var(--dark);
-    font-size: 0.88rem;
-    font-weight: 600;
-    cursor: pointer;
+    @apply h-[38px] px-4 inline-flex items-center gap-1.5 border border-transparent rounded-none bg-surface text-dark text-[0.88rem] font-semibold cursor-pointer;
     transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
   }
 
@@ -1022,17 +730,15 @@ html[data-theme="dark"] .change-password-overlay {
   }
 
   .album-quick-btn-submit {
-    background: var(--primary);
+    @apply bg-primary text-white;
     border-color: var(--primary);
-    color: #fff;
   }
   .album-quick-btn-submit:hover:not(:disabled) {
     background: color-mix(in srgb, var(--primary) 88%, #000 12%);
     border-color: color-mix(in srgb, var(--primary) 88%, #000 12%);
   }
   .album-quick-btn-submit:disabled {
-    opacity: 0.6;
-    cursor: progress;
+    @apply opacity-60 cursor-progress;
   }
 
   /* dark theme */

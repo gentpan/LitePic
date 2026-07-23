@@ -8,9 +8,9 @@ $footer_is_home_guest = isset($body_class)
 
 <!-- 页脚 -->
 <footer class="site-footer">
-    <div class="footer-content w-full max-w-[1280px] px-4 mx-auto flex gap-6 items-center justify-between box-border">
+    <div class="footer-content">
         <!-- 左侧：版权 + 站点名称 + Powered by LitePic 徽章 -->
-        <div class="footer-copyright text-gray text-sm inline-flex items-center gap-2 flex-wrap">
+        <div class="footer-copyright">
             <span>&copy; <?= date('Y') ?></span>
             <span class="font-logo"><?= htmlspecialchars(SITE_NAME, ENT_QUOTES, 'UTF-8') ?></span>
             <span class="opacity-60">&middot;</span>

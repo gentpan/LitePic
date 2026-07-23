@@ -424,23 +424,23 @@ require_once APP_ROOT . '/header.php';
                         <div class="runtime-section">
                             <h4 class="runtime-section-label">环境信息</h4>
                             <div class="runtime-meta-grid">
-                                <article class="border border-border p-4 grid gap-2">
-                                    <span class="text-sm text-gray runtime-meta-label">
+                                <article>
+                                    <span class="runtime-meta-label">
                                         <i class="fa-light fa-desktop" aria-hidden="true"></i>
                                         <span>系统版本</span>
                                     </span>
-                                    <span class="text-base text-dark break-all runtime-meta-value" id="metricOs" data-distro-id="<?= htmlspecialchars($server_distro_id) ?>">
+                                    <span class="break-all runtime-meta-value" id="metricOs" data-distro-id="<?= htmlspecialchars($server_distro_id) ?>">
                                         <?= htmlspecialchars($server_os) ?>
                                     </span>
                                 </article>
-                                <article class="border border-border p-4 grid gap-2">
-                                    <span class="text-sm text-gray runtime-meta-label">
+                                <article>
+                                    <span class="runtime-meta-label">
                                         <i class="fa-brands fa-php" aria-hidden="true"></i>
                                         <span>PHP 版本</span>
                                     </span>
-                                    <span class="text-base text-dark break-all runtime-meta-value" id="metricPhpVersion"><?= htmlspecialchars((string)($metrics['php_version'] ?? PHP_VERSION)) ?></span>
+                                    <span class="break-all runtime-meta-value" id="metricPhpVersion"><?= htmlspecialchars((string)($metrics['php_version'] ?? PHP_VERSION)) ?></span>
                                 </article>
-                                <article class="border border-border p-4 grid gap-2 relative">
+                                <article class="relative">
                                     <!-- 「如何配置」定位到卡片右上角红框位置：
                                          父级 .runtime-meta-grid > article 是 flex
                                          items-center justify-center 横向居中布局，
@@ -450,20 +450,20 @@ require_once APP_ROOT . '/header.php';
                                         <span>如何配置</span>
                                         <i class="fa-light fa-arrow-up-right-from-square text-[10px]" aria-hidden="true"></i>
                                     </a>
-                                    <span class="text-sm text-gray runtime-meta-label">
+                                    <span class="runtime-meta-label">
                                         <i class="fa-light fa-server" aria-hidden="true"></i>
                                         <span>Web 服务器</span>
                                     </span>
-                                    <span class="text-base text-dark break-all runtime-meta-value" id="metricWebServer" title="<?= htmlspecialchars($server_software ?: 'SERVER_SOFTWARE 未提供') ?>">
+                                    <span class="break-all runtime-meta-value" id="metricWebServer" title="<?= htmlspecialchars($server_software ?: 'SERVER_SOFTWARE 未提供') ?>">
                                         <?= htmlspecialchars($server_display) ?>
                                     </span>
                                 </article>
-                                <article class="border border-border p-4 grid gap-2">
-                                    <span class="text-sm text-gray runtime-meta-label">
+                                <article>
+                                    <span class="runtime-meta-label">
                                         <i class="fa-light fa-network-wired" aria-hidden="true"></i>
                                         <span>服务器 IP</span>
                                     </span>
-                                    <span class="text-base text-dark break-all runtime-meta-value" id="metricServerIp"><?= htmlspecialchars($server_ip) ?></span>
+                                    <span class="break-all runtime-meta-value" id="metricServerIp"><?= htmlspecialchars($server_ip) ?></span>
                                 </article>
                             </div>
                         </div>
@@ -498,8 +498,8 @@ require_once APP_ROOT . '/header.php';
                             // ml-2 留 8px 间距，再加自身约 16px 宽就紧贴右侧。
                             $cap_badge_help = 'absolute top-1/2 -translate-y-1/2 left-[80%] ml-2 capability-help-icon inline-flex items-center justify-center text-primary no-underline hover:opacity-70 transition-opacity';
                             ?>
-                            <div class="grid grid-cols-6 gap-3.5 runtime-capability-grid">
-                                <article class="border border-border p-4 grid gap-2">
+                            <div class="grid grid-cols-6 runtime-capability-grid">
+                                <article>
                                     <span class="text-sm text-gray">上传上限</span>
                                     <div class="relative w-full">
                                         <span class="<?= $cap_badge_cls ?> is-on" id="metricUploadStatus" title="PHP 与 Web 服务器配置允许的最大单文件上传大小">
@@ -510,7 +510,7 @@ require_once APP_ROOT . '/header.php';
                                         </a>
                                     </div>
                                 </article>
-                                <article class="border border-border p-4 grid gap-2">
+                                <article>
                                     <span class="text-sm text-gray">GD 扩展</span>
                                     <div class="relative w-full">
                                         <span class="<?= $cap_badge_cls ?> <?= $compression_capability['gd'] ? 'is-on' : 'is-off' ?>" id="metricCapGd">
@@ -523,7 +523,7 @@ require_once APP_ROOT . '/header.php';
                                         <?php endif; ?>
                                     </div>
                                 </article>
-                                <article class="border border-border p-4 grid gap-2">
+                                <article>
                                     <span class="text-sm text-gray">ImageMagick 扩展</span>
                                     <div class="relative w-full">
                                         <span class="<?= $cap_badge_cls ?> <?= $compression_capability['imagick'] ? 'is-on' : 'is-off' ?>" id="metricCapImagick">
@@ -536,7 +536,7 @@ require_once APP_ROOT . '/header.php';
                                         <?php endif; ?>
                                     </div>
                                 </article>
-                                <article class="border border-border p-4 grid gap-2">
+                                <article>
                                     <span class="text-sm text-gray">AVIF 支持</span>
                                     <div class="relative w-full">
                                         <span class="<?= $cap_badge_cls ?> <?= $compression_capability['avif'] ? 'is-on' : 'is-off' ?>" id="metricCapAvif">
@@ -549,7 +549,7 @@ require_once APP_ROOT . '/header.php';
                                         <?php endif; ?>
                                     </div>
                                 </article>
-                                <article class="border border-border p-4 grid gap-2">
+                                <article>
                                     <span class="text-sm text-gray">WebP 支持</span>
                                     <div class="relative w-full">
                                         <span class="<?= $cap_badge_cls ?> <?= $compression_capability['webp'] ? 'is-on' : 'is-off' ?>" id="metricCapWebp">
@@ -562,7 +562,7 @@ require_once APP_ROOT . '/header.php';
                                         <?php endif; ?>
                                     </div>
                                 </article>
-                                <article class="border border-border p-4 grid gap-2">
+                                <article>
                                     <span class="text-sm text-gray">HEIC 支持</span>
                                     <div class="relative w-full">
                                         <span class="<?= $cap_badge_cls ?> <?= $compression_capability['heic'] ? 'is-on' : 'is-off' ?>" id="metricCapHeic">

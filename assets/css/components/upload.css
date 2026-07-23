@@ -1,22 +1,17 @@
 @layer components {
   .page-main.upload-main {
-    gap: 22px;
-    height: auto;
-    overflow: visible;
+    @apply gap-[22px] h-auto overflow-visible;
   }
 
   .page-main.upload-main > .upload-box,
   .page-main.upload-main > .recent-uploads {
-    flex: initial;
+    @apply flex-initial min-h-0;
     min-height: initial;
   }
 
   .upload-box {
-    display: grid;
-    gap: 16px;
-    padding: 22px 24px;
+    @apply grid gap-4 py-[22px] px-6 rounded-[var(--radius-md)];
     border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
-    border-radius: var(--radius-md);
     background:
       linear-gradient(180deg,
         color-mix(in srgb, var(--surface) 94%, transparent),
@@ -28,74 +23,40 @@
   }
 
   .upload-header {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 14px;
-    min-height: 46px;
-    padding-bottom: 14px;
+    @apply grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3.5 min-h-[46px] pb-3.5;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 74%, transparent);
   }
 
   .upload-brand-icon {
-    height: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--primary);
+    @apply h-12 flex items-center justify-center text-primary;
   }
 
   .upload-brand-icon > i {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2.1rem;
-    line-height: 1;
+    @apply inline-flex items-center justify-center text-[2.1rem] leading-none;
   }
 
   .upload-toolbar-row {
-    flex-wrap: nowrap;
+    @apply flex-nowrap;
   }
 
   /* ============== 相册选择器 (顶部工具栏左侧) ==============
      跟右边的 .upload-processing-controls 共用一行;窄屏 wrap 成两行。 */
   .upload-album-picker {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-    flex: 1 1 auto;
+    @apply inline-flex items-center gap-2 min-w-0 flex-[1_1_auto];
   }
 
   .upload-album-picker-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin: 0;
-    padding: 0 4px;
-    color: var(--gray);
-    font-size: 0.78rem;
-    font-weight: 600;
-    white-space: nowrap;
+    @apply inline-flex items-center gap-1.5 m-0 py-0 px-1 text-gray text-[0.78rem] font-semibold whitespace-nowrap;
   }
 
   .upload-album-picker-label > i {
-    font-size: 0.92rem;
-    color: var(--primary);
+    @apply text-[0.92rem] text-primary;
   }
 
   .upload-album-picker-select {
-    flex: 1 1 auto;
-    min-width: 140px;
-    max-width: 320px;
-    height: 36px;
-    padding: 0 28px 0 10px;
+    @apply flex-[1_1_auto] min-w-[140px] max-w-[320px] h-9 py-0 pr-7 pl-2.5 rounded-none text-dark text-[0.82rem] cursor-pointer;
     border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-    border-radius: 0;
     background: color-mix(in srgb, var(--surface) 92%, var(--light) 8%);
-    color: var(--dark);
-    font-size: 0.82rem;
-    cursor: pointer;
     transition: border-color 160ms ease;
   }
 
@@ -103,25 +64,19 @@
   .upload-album-picker-select:focus,
   .upload-album-picker-select:focus-visible {
     border-color: color-mix(in srgb, var(--primary) 40%, var(--border-color) 60%);
-    outline: none;
+    @apply outline-none;
   }
 
   /* "+" 新建相册 — 紧凑按钮,不抢眼 */
   .upload-album-picker-new {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
+    @apply inline-flex items-center justify-center w-9 h-9 text-gray no-underline;
     border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
     background: color-mix(in srgb, var(--surface) 92%, var(--light) 8%);
-    color: var(--gray);
-    text-decoration: none;
     transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
   }
 
   .upload-album-picker-new:hover {
-    color: var(--primary);
+    @apply text-primary;
     border-color: color-mix(in srgb, var(--primary) 40%, var(--border-color) 60%);
     background: color-mix(in srgb, var(--primary) 6%, var(--surface) 94%);
   }
@@ -129,44 +84,29 @@
   /* 窄屏:相册选择 + 3 toggle 折成两行,picker 占满宽 */
   @media (max-width: 720px) {
     .upload-toolbar-row {
-      flex-wrap: wrap;
-      grid-template-columns: 1fr;
+      @apply flex-wrap grid-cols-1;
     }
     .upload-album-picker,
     .upload-processing-controls {
-      width: 100%;
+      @apply w-full;
     }
     .upload-album-picker-select {
-      max-width: none;
+      @apply max-w-none;
     }
   }
 
   .upload-processing-controls {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    flex: 0 0 auto;
-    gap: 8px;
-    min-width: 0;
+    @apply flex items-center justify-end flex-[0_0_auto] gap-2 min-w-0;
   }
 
   .upload-setting-toggle {
     --upload-setting-color: var(--gray);
     --upload-setting-bg: color-mix(in srgb, var(--surface) 88%, var(--light) 12%);
     --upload-setting-border: color-mix(in srgb, var(--border-color) 70%, transparent);
-    position: relative;
-    width: 172px;
-    height: 44px;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    align-items: center;
-    gap: 8px;
-    padding: 0 10px;
+    @apply relative w-[172px] h-11 grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 px-2.5 py-0 rounded-none cursor-pointer;
     border: 1px solid var(--upload-setting-border);
-    border-radius: 0;
     background: var(--upload-setting-bg);
     color: var(--upload-setting-color);
-    cursor: pointer;
     transition: border-color 160ms ease, background 160ms ease, color 160ms ease, box-shadow 160ms ease;
   }
 
@@ -178,25 +118,16 @@
   }
 
   .upload-setting-toggle.is-saving {
-    opacity: 0.72;
-    pointer-events: none;
+    @apply opacity-[0.72] pointer-events-none;
   }
 
   /* Same bulletproof pattern as .upload-queue-title (see comment
      above). font-size:0 + per-child explicit font-size + fixed-
      height inline-flex containers + !important on i overrides. */
   .upload-setting-main {
-    min-width: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    overflow: hidden;
+    @apply min-w-0 inline-flex items-center gap-[7px] overflow-hidden leading-none whitespace-nowrap text-ellipsis text-[0];
     color: color-mix(in srgb, var(--dark) 76%, var(--gray) 24%);
     font-weight: 650;
-    line-height: 1;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    font-size: 0;
   }
 
   .upload-setting-main > i,
@@ -206,99 +137,60 @@
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    flex-shrink: 0;
+    @apply shrink-0 text-center;
     width: 20px !important;
     height: 20px !important;
     color: var(--upload-setting-color);
     font-size: 15px !important;
     line-height: 1 !important;
-    text-align: center;
     /* See .upload-queue-title > i — same FA glyph offset calibration. */
     transform: translateY(1px);
   }
 
   .upload-setting-main > span {
-    display: inline-flex;
-    align-items: center;
-    height: 20px;
-    font-size: 13px;
-    line-height: 1;
+    @apply inline-flex items-center h-5 text-[13px] leading-none;
   }
 
   .upload-setting-toggle > strong {
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-start;
-    max-width: 58px;
-    height: 20px;
-    overflow: hidden;
+    @apply inline-flex items-center justify-start max-w-[58px] h-5 overflow-hidden font-mono text-xs font-bold leading-none text-ellipsis whitespace-nowrap;
     color: var(--upload-setting-color);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    font-weight: 700;
-    line-height: 1;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .upload-setting-toggle > input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    opacity: 0;
-    pointer-events: none;
+    @apply absolute w-px h-px opacity-0 pointer-events-none;
   }
 
   .upload-setting-switch {
-    width: 40px;
-    height: 24px;
-    display: inline-flex;
-    align-items: center;
-    flex: 0 0 auto;
-    padding: 2px;
+    @apply w-10 h-6 inline-flex items-center flex-[0_0_auto] p-0.5 rounded-full;
     border: 1px solid color-mix(in srgb, var(--gray) 22%, var(--border-color) 78%);
-    border-radius: 999px;
     background: color-mix(in srgb, var(--gray) 20%, var(--surface) 80%);
     transition: background 160ms ease, border-color 160ms ease;
   }
 
   .upload-setting-switch > span {
-    width: 18px;
-    height: 18px;
-    display: block;
-    border-radius: 999px;
-    background: #fff;
+    @apply w-[18px] h-[18px] block rounded-full bg-white;
     box-shadow: 0 2px 6px rgba(15, 23, 42, 0.22);
     transition: transform 160ms ease;
   }
 
   .upload-setting-toggle > input:checked + .upload-setting-switch {
-    border-color: var(--primary);
-    background: var(--primary);
+    @apply border-primary bg-primary;
   }
 
   .upload-setting-toggle > input:checked + .upload-setting-switch > span {
-    transform: translateX(16px);
+    @apply translate-x-4;
   }
 
   .drop-zone {
-    position: relative;
-    min-height: 345px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    @apply relative min-h-[345px] flex flex-col items-center justify-center rounded-none text-center cursor-pointer;
     border: 1px dashed color-mix(in srgb, var(--primary) 28%, var(--border-color) 72%);
-    border-radius: 0;
     background: color-mix(in srgb, var(--surface) 90%, var(--light) 10%);
-    text-align: center;
-    cursor: pointer;
     transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
   }
 
   .drop-zone.dragover,
   .drop-zone:hover {
-    border-color: var(--primary);
+    @apply border-primary;
     background: color-mix(in srgb, var(--primary) 5%, var(--surface) 95%);
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 10%, transparent);
   }
@@ -306,33 +198,17 @@
   /* 支持格式 — 低调浮动在 dropZone 底部,不抢主视觉。
      用绝对定位避免拉高内容区域,影响居中。 */
   .drop-zone-formats {
-    position: absolute;
-    left: 50%;
-    bottom: 14px;
-    transform: translateX(-50%);
-    display: inline-flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 4px 6px;
-    max-width: calc(100% - 32px);
-    padding: 0;
+    @apply absolute left-1/2 bottom-3.5 -translate-x-1/2 inline-flex flex-wrap justify-center gap-x-1.5 gap-y-1 max-w-[calc(100%-32px)] p-0 font-mono text-[0.7rem] tracking-[0.02em] pointer-events-none opacity-70;
     color: color-mix(in srgb, var(--gray) 70%, transparent);
-    font-size: 0.7rem;
-    font-family: var(--font-mono, monospace);
-    letter-spacing: 0.02em;
-    pointer-events: none;
-    opacity: 0.7;
     transition: opacity 160ms ease;
   }
 
   .drop-zone:hover .drop-zone-formats {
-    opacity: 1;
+    @apply opacity-100;
   }
 
   .drop-zone-format {
-    display: inline-block;
-    padding: 1px 5px;
-    border-radius: 2px;
+    @apply inline-block py-px px-[5px] rounded-sm;
     background: color-mix(in srgb, var(--gray) 8%, transparent);
   }
 
@@ -341,89 +217,52 @@
   }
 
   .file-input-wrapper {
-    position: relative;
-    width: 100%;
-    max-width: 980px;
-    height: 100%;
-    min-height: inherit;
-    margin: 0 auto;
+    @apply relative w-full max-w-[980px] h-full min-h-[inherit] mx-auto;
   }
 
   .file-input-wrapper input[type="file"] {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-    width: 100%;
-    height: 100%;
-    opacity: 0;
-    cursor: pointer;
+    @apply absolute inset-0 z-[2] w-full h-full opacity-0 cursor-pointer;
   }
 
   .file-input-wrapper label {
-    position: relative;
-    z-index: 1;
-    min-height: inherit;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    padding: 32px;
-    color: var(--dark);
-    cursor: pointer;
+    @apply relative z-[1] min-h-[inherit] flex flex-col items-center justify-center gap-2.5 p-8 text-dark cursor-pointer;
   }
 
   .file-input-wrapper i {
-    display: inline-flex;
-    color: var(--gray);
-    font-size: 42px;
-    line-height: 1;
+    @apply inline-flex text-gray text-[42px] leading-none;
     transition: color 160ms ease, transform 160ms ease;
   }
 
   .file-input-wrapper:hover i,
   .drop-zone:hover .file-input-wrapper i {
-    color: var(--primary);
+    @apply text-primary;
     transform: translateY(-1px) scale(1.08);
   }
 
   .upload-tips {
-    display: grid;
-    gap: 4px;
+    @apply grid gap-1;
   }
 
   .upload-tips .text {
-    color: var(--dark);
-    font-size: 1.05rem;
-    font-weight: 600;
-    line-height: 1.35;
+    @apply text-dark text-[1.05rem] font-semibold leading-[1.35];
   }
 
   .upload-tips .hint {
-    color: var(--gray);
-    font-size: 0.82rem;
-    line-height: 1.45;
+    @apply text-gray text-[0.82rem] leading-[1.45];
   }
 
   .upload-queue {
-    display: grid;
-    gap: 10px;
+    @apply grid gap-2.5 rounded-none;
     border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
-    border-radius: 0;
     background: color-mix(in srgb, var(--surface) 92%, var(--light) 8%);
   }
 
   .upload-queue.is-empty {
-    display: none;
+    @apply hidden;
   }
 
   .upload-queue-header {
-    min-height: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    padding: 10px 12px;
+    @apply min-h-12 flex items-center justify-between gap-3.5 py-2.5 px-3;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
   }
 
@@ -444,14 +283,8 @@
      1.25em)` on every .fa-* element, and we don't want to depend on
      CSS variable cascade order. */
   .upload-queue-title {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-    color: var(--dark);
+    @apply inline-flex items-center gap-2 min-w-0 text-dark leading-none text-[0];
     font-weight: 650;
-    line-height: 1;
-    font-size: 0;
   }
 
   .upload-queue-title > i,
@@ -461,13 +294,11 @@
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    flex-shrink: 0;
+    @apply shrink-0 text-primary text-center;
     width: 20px !important;
     height: 20px !important;
-    color: var(--primary);
     font-size: 16px !important;
     line-height: 1 !important;
-    text-align: center;
     /* FA glyphs render with their visual content offset ~1px above
        the em-box geometric center (font's ascender region is taller
        than descender). Calibrated nudge to bring the glyph visually
@@ -477,58 +308,25 @@
   }
 
   .upload-queue-title > span {
-    display: inline-flex;
-    align-items: center;
-    height: 20px;
-    font-size: 14px;
-    line-height: 1;
+    @apply inline-flex items-center h-5 text-sm leading-none;
   }
 
   .upload-queue-title > strong {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 24px;
-    height: 20px;
-    padding: 0 7px;
+    @apply shrink-0 inline-flex items-center justify-center min-w-6 h-5 px-[7px] py-0 text-primary font-mono text-xs font-bold leading-none;
     border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border-color) 76%);
-    color: var(--primary);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    font-weight: 700;
-    line-height: 1;
   }
 
   .upload-queue-actions {
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    flex: 0 0 auto;
+    @apply inline-flex items-center justify-end gap-2 flex-[0_0_auto];
   }
 
   .upload-queue-btn {
-    height: 36px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    padding: 0 13px;
+    @apply h-9 inline-flex items-center justify-center gap-[7px] px-[13px] py-0 rounded-none text-dark leading-none cursor-pointer text-[0];
     border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
-    border-radius: 0;
     background: color-mix(in srgb, var(--surface) 90%, var(--light) 10%);
-    color: var(--dark);
-    font-size: 0.82rem;
     font-weight: 650;
-    line-height: 1;
-    cursor: pointer;
     transition: border-color 160ms ease, background 160ms ease, color 160ms ease, opacity 160ms ease;
   }
-
-  /* Same bulletproof pattern as .upload-queue-title (see comment
-     above). font-size:0 on the button kills inline baseline gap. */
-  .upload-queue-btn { font-size: 0; }
 
   .upload-queue-btn > i,
   .upload-queue-btn > i.fa-light,
@@ -537,131 +335,79 @@
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    flex-shrink: 0;
+    @apply shrink-0 text-center;
     width: 18px !important;
     height: 18px !important;
     font-size: 14px !important;
     line-height: 1 !important;
-    text-align: center;
     /* See .upload-queue-title > i — same FA glyph offset calibration. */
     transform: translateY(1px);
   }
 
   .upload-queue-btn > span {
-    display: inline-flex;
-    align-items: center;
-    height: 18px;
-    font-size: 13px;
-    line-height: 1;
+    @apply inline-flex items-center h-[18px] text-[13px] leading-none;
   }
 
   .upload-queue-btn-primary {
-    border-color: var(--primary);
-    background: var(--primary);
-    color: #fff;
+    @apply border-primary bg-primary text-white;
   }
 
   .upload-queue-btn-muted:hover {
+    @apply text-primary;
     border-color: color-mix(in srgb, var(--primary) 35%, var(--border-color) 65%);
-    color: var(--primary);
   }
 
   .upload-queue-btn:disabled {
-    opacity: 0.48;
-    cursor: not-allowed;
+    @apply opacity-[0.48] cursor-not-allowed;
   }
 
   .upload-queue-list {
-    display: grid;
-    gap: 0;
+    @apply grid gap-0;
   }
 
   .upload-queue-empty {
-    min-height: 56px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 12px;
-    color: var(--gray);
-    font-size: 0.84rem;
-    line-height: 1.4;
+    @apply min-h-14 flex items-center justify-center gap-2 p-3 text-gray text-[0.84rem] leading-[1.4];
   }
 
   .upload-queue-empty > i {
-    color: var(--primary);
-    font-size: 1rem;
+    @apply text-primary text-base;
   }
 
   .upload-queue-item {
-    position: relative;
-    min-height: 64px;
-    display: grid;
-    grid-template-columns: 46px minmax(0, 1fr) minmax(140px, auto) auto;
-    align-items: center;
-    gap: 12px;
-    padding: 9px 12px 11px;
+    @apply relative min-h-16 grid grid-cols-[46px_minmax(0,1fr)_minmax(140px,auto)_auto] items-center gap-3 pt-[9px] px-3 pb-[11px];
     border-top: 1px solid color-mix(in srgb, var(--border-color) 62%, transparent);
     background: color-mix(in srgb, var(--surface) 94%, var(--light) 6%);
   }
 
   .upload-queue-item:first-child {
-    border-top: 0;
+    @apply border-t-0;
   }
 
   .upload-queue-thumb {
-    width: 46px;
-    height: 46px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
+    @apply w-[46px] h-[46px] flex items-center justify-center overflow-hidden text-primary;
     border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
     background: color-mix(in srgb, var(--light) 70%, var(--surface) 30%);
-    color: var(--primary);
   }
 
   .upload-queue-thumb > img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+    @apply w-full h-full object-cover;
   }
 
   .upload-queue-meta {
-    min-width: 0;
-    display: grid;
-    gap: 4px;
+    @apply min-w-0 grid gap-1;
   }
 
   .upload-queue-meta > strong {
-    min-width: 0;
-    overflow: hidden;
-    color: var(--dark);
-    font-size: 0.86rem;
-    font-weight: 500;
-    line-height: 1.25;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    @apply min-w-0 overflow-hidden text-dark text-[0.86rem] font-medium leading-[1.25] text-ellipsis whitespace-nowrap;
   }
 
   .upload-queue-meta > span {
-    color: var(--gray);
-    font-family: var(--font-mono);
-    font-size: 0.74rem;
-    font-weight: 600;
-    line-height: 1.2;
+    @apply text-gray font-mono text-[0.74rem] font-semibold leading-[1.2];
   }
 
   .upload-queue-state {
-    min-width: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 12px;
-    color: var(--gray);
-    font-size: 0.78rem;
+    @apply min-w-0 inline-flex items-center justify-end gap-3 text-gray text-[0.78rem] whitespace-nowrap;
     font-weight: 650;
-    white-space: nowrap;
   }
 
   /* Per-row state (等待上传 / 上传中 / 已完成 …) — equal-height
@@ -669,139 +415,98 @@
      box, so the box dimensions need to be square and stable to avoid
      wobble. Both icon box and text-content alignment baseline at 16px. */
   .upload-queue-state > span {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-width: 0;
-    height: 16px;
-    overflow: hidden;
-    line-height: 1;
-    text-overflow: ellipsis;
+    @apply inline-flex items-center gap-1.5 min-w-0 h-4 overflow-hidden leading-none text-ellipsis;
   }
 
   .upload-queue-state > span i {
-    flex: 0 0 16px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 16px;
-    height: 16px;
-    font-size: 0.88rem;
-    line-height: 1;
+    @apply flex-[0_0_16px] inline-flex items-center justify-center w-4 h-4 text-[0.88rem] leading-none;
     /* See .upload-queue-title > i — same FA glyph offset calibration. */
     transform: translateY(1px);
   }
 
   .upload-queue-state > em {
-    color: var(--gray);
-    font-family: var(--font-mono);
-    font-style: normal;
-    font-weight: 700;
+    @apply text-gray font-mono not-italic font-bold;
   }
 
   .upload-queue-progress {
-    position: absolute;
-    inset: auto 0 0 0;
-    height: 3px;
-    overflow: hidden;
+    @apply absolute inset-x-0 bottom-0 top-auto h-[3px] overflow-hidden;
     background: color-mix(in srgb, var(--border-color) 52%, transparent);
   }
 
   .upload-queue-progress > span {
-    display: block;
-    width: 0;
-    height: 100%;
-    background: var(--primary);
+    @apply block w-0 h-full bg-primary;
     transition: width 220ms ease;
   }
 
   .upload-queue-row-actions {
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 6px;
+    @apply inline-flex items-center justify-end gap-1.5;
   }
 
   .upload-queue-row-actions > button {
-    width: 34px;
-    height: 34px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    @apply w-[34px] h-[34px] inline-flex items-center justify-center rounded-none text-gray cursor-pointer;
     border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
-    border-radius: 0;
     background: color-mix(in srgb, var(--surface) 88%, var(--light) 12%);
-    color: var(--gray);
-    cursor: pointer;
     transition: border-color 160ms ease, background 160ms ease, color 160ms ease, opacity 160ms ease;
   }
 
   .upload-queue-row-actions > button:hover:not(:disabled) {
+    @apply text-primary;
     border-color: color-mix(in srgb, var(--primary) 35%, var(--border-color) 65%);
-    color: var(--primary);
   }
 
   .upload-queue-row-actions > button:disabled {
-    opacity: 0.38;
-    cursor: not-allowed;
+    @apply opacity-[0.38] cursor-not-allowed;
   }
 
   .upload-queue-item.is-uploading .upload-queue-state,
   .upload-queue-item.is-processing .upload-queue-state {
-    color: var(--primary);
+    @apply text-primary;
   }
 
   .upload-queue-item.is-done .upload-queue-state {
-    color: var(--success);
+    @apply text-success;
   }
 
   .upload-queue-item.is-done .upload-queue-progress > span {
-    background: var(--success);
+    @apply bg-success;
   }
 
   .upload-queue-item.is-duplicate .upload-queue-state {
-    color: var(--warning);
+    @apply text-warning;
   }
 
   .upload-queue-item.is-duplicate .upload-queue-progress > span {
-    background: var(--warning);
+    @apply bg-warning;
   }
 
   .upload-queue-item.is-failed .upload-queue-state {
-    color: var(--danger);
+    @apply text-danger;
   }
 
   .upload-queue-item.is-failed .upload-queue-progress > span {
-    background: var(--danger);
+    @apply bg-danger;
   }
 
   .upload-progress {
-    display: grid;
-    gap: 9px;
-    opacity: 0;
-    transform: translateY(12px);
+    @apply grid gap-[9px] opacity-0 translate-y-3;
     transition: opacity 180ms ease, transform 180ms ease;
   }
 
   .upload-progress.is-hidden {
-    display: none;
+    @apply hidden;
   }
 
   .upload-progress.active {
-    opacity: 1;
-    transform: translateY(0);
+    @apply opacity-100 translate-y-0;
   }
 
   .progress-item-batch {
-    min-height: 92px;
+    @apply min-h-[92px];
   }
 
   .progress-item {
-    display: grid;
-    gap: 9px;
-    padding: 12px;
+    @apply grid gap-[9px] p-3 rounded-none;
     border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
-    border-radius: 0;
     background: color-mix(in srgb, var(--surface) 90%, var(--light) 10%);
   }
 
@@ -817,74 +522,50 @@
 
   .progress-header,
   .progress-status {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    @apply flex items-center justify-between gap-3 min-w-0;
     /* 父级 .progress-item 是 grid,网格子项默认 min-width:auto 不会收缩;
        长文件名(并发多时拼接一长串)会撑破容器。归零后 .filename 的
        overflow/ellipsis 才能生效,文件名不再溢出。 */
-    min-width: 0;
   }
 
   .filename {
-    min-width: 0;
-    overflow: hidden;
-    color: var(--dark);
-    font-size: 0.88rem;
-    font-weight: 600;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    @apply min-w-0 overflow-hidden text-dark text-[0.88rem] font-semibold text-ellipsis whitespace-nowrap;
   }
 
   .progress-bar {
-    position: relative;
-    height: 6px;
-    overflow: hidden;
-    border-radius: 0;
+    @apply relative h-1.5 overflow-hidden rounded-none;
     background: color-mix(in srgb, var(--border-color) 52%, transparent);
   }
 
   .progress-bar-inner {
-    position: absolute;
-    inset: 0 auto 0 0;
-    width: 0;
-    height: 100%;
-    border-radius: 0;
-    background: var(--success);
+    @apply absolute inset-y-0 left-0 right-auto w-0 h-full rounded-none bg-success;
     transition: width 300ms ease;
   }
 
   .progress-bar-inner.success {
-    background: var(--success);
+    @apply bg-success;
   }
 
   .progress-bar-inner.danger {
-    background: var(--danger);
+    @apply bg-danger;
   }
 
   .progress-text,
   .progress-percent,
   .progress-count {
-    color: var(--success);
-    font-size: 0.86rem;
-    font-weight: 600;
+    @apply text-success text-[0.86rem] font-semibold;
   }
 
   .progress-count {
-    color: var(--gray);
-    font-family: var(--font-mono);
-    white-space: nowrap;
+    @apply text-gray font-mono whitespace-nowrap;
   }
 
   .progress-text {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+    @apply inline-flex items-center gap-2;
   }
 
   .progress-text i {
-    color: var(--success);
+    @apply text-success;
     animation: spin 1s linear infinite;
   }
 
@@ -942,74 +623,64 @@
 
   @media (max-width: 900px) {
     .upload-header {
-      grid-template-columns: 1fr;
-      align-items: stretch;
+      @apply grid-cols-1 items-stretch;
     }
 
     .upload-processing-controls {
-      justify-content: flex-start;
-      flex-wrap: wrap;
+      @apply justify-start flex-wrap;
     }
   }
 
   @media (max-width: 768px) {
     .page-main.upload-main {
-      gap: 16px;
+      @apply gap-4;
     }
 
     .upload-box {
-      border-radius: var(--radius-md);
-      padding: 18px;
+      @apply rounded-[var(--radius-md)] p-[18px];
     }
 
     .drop-zone {
-      min-height: 315px;
+      @apply min-h-[315px];
     }
 
     .upload-queue-header {
-      align-items: stretch;
-      flex-direction: column;
+      @apply items-stretch flex-col;
     }
 
     .upload-queue-actions {
-      width: 100%;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+      @apply w-full grid grid-cols-2;
     }
 
     .upload-queue-item {
-      grid-template-columns: 42px minmax(0, 1fr);
-      align-items: start;
+      @apply grid-cols-[42px_minmax(0,1fr)] items-start;
     }
 
     .upload-queue-thumb {
-      width: 42px;
-      height: 42px;
+      @apply w-[42px] h-[42px];
     }
 
     .upload-queue-state,
     .upload-queue-row-actions {
-      grid-column: 2;
-      justify-content: flex-start;
+      @apply col-start-2 justify-start;
     }
   }
 
   @media (max-width: 480px) {
     .file-input-wrapper label {
-      padding: 24px 18px;
+      @apply py-6 px-[18px];
     }
 
     .upload-processing-controls {
-      display: grid;
-      grid-template-columns: 1fr;
+      @apply grid grid-cols-1;
     }
 
     .upload-setting-toggle {
-      min-width: 0;
+      @apply min-w-0;
     }
 
     .drop-zone {
-      min-height: 300px;
+      @apply min-h-[300px];
     }
   }
 }

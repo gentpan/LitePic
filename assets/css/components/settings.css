@@ -1,2373 +1,1965 @@
-/* Settings page card grouping */
-.settings-page {
-  max-width: 1280px;
-  --settings-control-height: 50px;
-}
+@layer components {
+  /* Settings page card grouping */
 
-.settings-layout,
+  .settings-page {
+    @apply max-w-[1280px];
+    --settings-control-height: 50px;
+  }
+
+  .settings-layout,
 .settings-panel {
-  width: 100%;
-  display: grid;
-  gap: 22px;
-}
+    @apply w-full grid gap-[22px];
+  }
 
-/* Inner sections inside the shell get a uniform row layout — no
- * per-section card chrome (the .settings-shell carries the frame).
- * Targets BOTH in-form sections (under .settings-panel) and
- * out-of-form sections (e.g. API Token, Passkey, TinyPNG) so every
- * tab's header looks identical. */
-.settings-page .settings-panel > section,
+  /* Inner sections inside the shell get a uniform row layout — no
+   * per-section card chrome (the .settings-shell carries the frame).
+   * Targets BOTH in-form sections (under .settings-panel) and
+   * out-of-form sections (e.g. API Token, Passkey, TinyPNG) so every
+   * tab's header looks identical. */
+
+  .settings-page .settings-panel > section,
 .settings-page .settings-shell > section {
-  display: grid;
-  gap: 14px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: none;
-  box-shadow: none;
-}
+    @apply grid gap-3.5 p-0 border-0 rounded-none bg-none shadow-none;
+  }
 
-/* (header styling is owned by .settings-section-header below — see the
- * `Semantic helpers` block at the bottom of this file. The previous
- * `> div:first-child { min-height:44px; padding-bottom:14px }` rule
- * fired only on direct-child sections of .settings-page and gave
- * in-form headers a different height than out-of-form headers — that
- * was the source of the per-tab inconsistency.) */
+  /* (header styling is owned by .settings-section-header below — see the
+   * `Semantic helpers` block at the bottom of this file. The previous
+   * `> div:first-child { min-height:44px; padding-bottom:14px }` rule
+   * fired only on direct-child sections of .settings-page and gave
+   * in-form headers a different height than out-of-form headers — that
+   * was the source of the per-tab inconsistency.) */
 
-.settings-page h3 {
-  font-size: 1rem;
-  font-weight: 650;
-  letter-spacing: 0;
-}
+  .settings-page h3 {
+    @apply text-base font-[650] tracking-normal;
+  }
 
-.settings-page .settings-card-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
+  .settings-page .settings-card-title {
+    @apply inline-flex items-center gap-2 min-w-0;
+  }
 
-.settings-page .settings-card-title > i {
-  width: 22px;
-  min-width: 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--primary);
-  font-size: 0.98rem;
-}
+  .settings-page .settings-card-title > i {
+    @apply w-[22px] min-w-[22px] inline-flex items-center justify-center text-primary text-[0.98rem];
+  }
 
-.settings-page .settings-card-title > span {
-  min-width: 0;
-}
+  .settings-page .settings-card-title > span {
+    @apply min-w-0;
+  }
 
-.settings-page .settings-title-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--primary);
-  text-decoration: none;
-}
+  .settings-page .settings-title-link {
+    @apply inline-flex items-center gap-1 text-primary no-underline;
+  }
 
-.settings-page .settings-title-link:hover {
-  text-decoration: underline;
-}
+  .settings-page .settings-title-link:hover {
+    @apply underline;
+  }
 
-.settings-page .settings-title-link i {
-  font-size: 0.78em;
-  line-height: 1;
-}
+  .settings-page .settings-title-link i {
+    @apply text-[0.78em] leading-none;
+  }
 
-.settings-page section > div:first-child > p {
-  margin: 0;
-  color: var(--gray);
-  font-size: 0.92rem;
-}
+  .settings-page section > div:first-child > p {
+    @apply m-0 text-gray text-[0.92rem];
+  }
 
-.settings-page label {
-  color: color-mix(in srgb, var(--dark) 78%, var(--gray) 22%);
-  font-size: 0.92rem;
-  font-weight: 500;
-}
+  .settings-page label {
+    @apply text-[0.92rem] font-medium;
+    color: color-mix(in srgb, var(--dark) 78%, var(--gray) 22%);
+  }
 
-.settings-field-hint {
-  color: var(--gray);
-  font-size: 0.78rem;
-  line-height: 1.4;
-}
+  .settings-field-hint {
+    @apply text-gray text-[0.78rem] leading-[1.4];
+  }
 
-.settings-page input:not([type="checkbox"]):not([type="radio"]),
+  .settings-page input:not([type="checkbox"]):not([type="radio"]),
 .settings-page select {
-  min-height: var(--settings-control-height);
-  border-radius: 0;
-  border-color: color-mix(in srgb, var(--border-color) 72%, transparent);
-  background: color-mix(in srgb, var(--surface) 92%, var(--light) 8%);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.72) inset;
-}
+    @apply min-h-[var(--settings-control-height)] rounded-none;
+    border-color: color-mix(in srgb, var(--border-color) 72%, transparent);
+    background: color-mix(in srgb, var(--surface) 92%, var(--light) 8%);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.72) inset;
+  }
 
-.settings-page .settings-file-input {
-  padding: 7px 10px;
-  color: var(--gray);
-}
+  .settings-page .settings-file-input {
+    @apply py-[7px] px-2.5 text-gray;
+  }
 
-.settings-page .settings-file-input::file-selector-button {
-  min-height: 34px;
-  margin-right: 12px;
-  padding: 0 14px;
-  border: 1px solid color-mix(in srgb, var(--primary) 32%, var(--border-color) 68%);
-  border-radius: 0;
-  background: color-mix(in srgb, var(--primary) 10%, var(--surface) 90%);
-  color: var(--primary);
-  font: inherit;
-  font-weight: 650;
-  cursor: pointer;
-  transition:
-    background 160ms ease,
-    border-color 160ms ease,
-    color 160ms ease;
-}
+  .settings-page .settings-file-input::file-selector-button {
+    @apply py-0 px-3.5 font-[650] cursor-pointer;
+    min-height: 34px;
+    margin-right: 12px;
+    border: 1px solid color-mix(in srgb, var(--primary) 32%, var(--border-color) 68%);
+    border-radius: 0;
+    background: color-mix(in srgb, var(--primary) 10%, var(--surface) 90%);
+    color: var(--primary);
+    font: inherit;
+    transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+  }
 
-.settings-page .settings-file-input::-webkit-file-upload-button {
-  min-height: 34px;
-  margin-right: 12px;
-  padding: 0 14px;
-  border: 1px solid color-mix(in srgb, var(--primary) 32%, var(--border-color) 68%);
-  border-radius: 0;
-  background: color-mix(in srgb, var(--primary) 10%, var(--surface) 90%);
-  color: var(--primary);
-  font: inherit;
-  font-weight: 650;
-  cursor: pointer;
-  transition:
-    background 160ms ease,
-    border-color 160ms ease,
-    color 160ms ease;
-}
+  .settings-page .settings-file-input::-webkit-file-upload-button {
+    @apply py-0 px-3.5 font-[650] cursor-pointer;
+    min-height: 34px;
+    margin-right: 12px;
+    border: 1px solid color-mix(in srgb, var(--primary) 32%, var(--border-color) 68%);
+    border-radius: 0;
+    background: color-mix(in srgb, var(--primary) 10%, var(--surface) 90%);
+    color: var(--primary);
+    font: inherit;
+    transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+  }
 
-.settings-page .settings-file-input:hover::file-selector-button,
+  .settings-page .settings-file-input:hover::file-selector-button,
 .settings-page .settings-file-input:hover::-webkit-file-upload-button {
-  border-color: var(--primary);
-  background: var(--primary);
-  color: #ffffff;
-}
+    border-color: var(--primary);
+    background: var(--primary);
+    color: #ffffff;
+  }
 
-/* Settings buttons use .btn family below. Loading state: swap to a
- * circular spinner via JS (setButtonBusy) — do NOT spin the original
- * glyph (floppy-disk etc.), which looked like a broken icon. */
-.settings-page button.is-loading {
-  opacity: .72;
-  cursor: progress;
-  pointer-events: none;
-}
+  /* Settings buttons use .btn family below. Loading state: swap to a
+   * circular spinner via JS (setButtonBusy) — do NOT spin the original
+   * glyph (floppy-disk etc.), which looked like a broken icon. */
 
-.settings-page button.is-loading > i {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1em;
-  height: 1em;
-  line-height: 1;
-}
+  .settings-page button.is-loading {
+    @apply opacity-[.72] cursor-progress pointer-events-none;
+  }
 
-.settings-inline-form {
-  display: grid;
-  align-items: center;
-  gap: 10px;
-}
+  .settings-page button.is-loading > i {
+    @apply inline-flex items-center justify-center w-[1em] h-[1em] leading-none;
+  }
 
-.settings-token-form {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
+  .settings-inline-form {
+    @apply grid items-center gap-2.5;
+  }
 
-.settings-compression-form {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
+  .settings-token-form {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
 
-.settings-save-actions {
-  display: flex;
-  justify-content: flex-end;
-  padding: 0 2px;
-}
+  .settings-compression-form {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
 
-.settings-page input:not([type="checkbox"]):not([type="radio"]):focus,
+  .settings-save-actions {
+    @apply flex justify-end py-0 px-0.5;
+  }
+
+  .settings-page input:not([type="checkbox"]):not([type="radio"]):focus,
 .settings-page input:not([type="checkbox"]):not([type="radio"]):focus-visible,
 .settings-page select:focus,
 .settings-page select:focus-visible,
 .settings-page textarea:focus,
 .settings-page textarea:focus-visible {
-  /* 1px 纯蓝细线（不再跟 border-color 混色，避免被稀释成灰蓝色看不见） */
-  border-color: var(--primary);
-  outline: none;
-  /* 外圈柔光：3px 主题色 18% 透明的 halo，让聚焦的输入框从页面里"亮"起来 */
-  box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
-}
-
-.settings-page input[type="checkbox"],
-.settings-page input[type="radio"] {
-  accent-color: var(--primary);
-}
-
-.settings-toggle-list {
-  display: grid;
-  gap: 10px;
-}
-
-.settings-toggle-row {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 50px;
-  padding: 12px 14px;
-  border: 1px solid color-mix(in srgb, var(--border-color) 64%, transparent);
-  border-radius: 0;
-  background: color-mix(in srgb, var(--surface) 90%, var(--light) 10%);
-  cursor: pointer;
-  transition:
-    border-color 160ms ease,
-    background 160ms ease,
-    box-shadow 160ms ease,
-    opacity 160ms ease;
-}
-
-.settings-toggle-row:hover {
-  border-color: color-mix(in srgb, var(--primary) 32%, var(--border-color) 68%);
-  background: color-mix(in srgb, var(--primary) 4%, var(--surface) 96%);
-}
-
-.settings-toggle-row.is-autosaving {
-  border-color: color-mix(in srgb, var(--primary) 46%, var(--border-color) 54%);
-  box-shadow: inset 3px 0 0 var(--primary);
-}
-
-.settings-toggle-row.is-autosaved {
-  border-color: color-mix(in srgb, var(--success) 45%, var(--border-color) 55%);
-  box-shadow: inset 3px 0 0 var(--success);
-}
-
-.settings-toggle-row-control {
-  cursor: default;
-}
-
-.settings-toggle-controls {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  flex: 0 0 auto;
-}
-
-.settings-switch-label {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.settings-radio-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.settings-radio-option {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 0 10px;
-  border: 1px solid color-mix(in srgb, var(--border-color) 64%, transparent);
-  border-radius: 0;
-  background: color-mix(in srgb, var(--surface) 90%, var(--light) 10%);
-  color: color-mix(in srgb, var(--dark) 76%, var(--gray) 24%);
-  cursor: pointer;
-  transition:
-    border-color 160ms ease,
-    background 160ms ease,
-    color 160ms ease;
-}
-
-.settings-radio-option:hover,
-.settings-radio-option:has(input:checked) {
-  border-color: color-mix(in srgb, var(--primary) 46%, var(--border-color) 54%);
-  background: color-mix(in srgb, var(--primary) 7%, var(--surface) 93%);
-  color: var(--primary);
-}
-
-.settings-radio-option input {
-  width: 14px;
-  height: 14px;
-  accent-color: var(--primary);
-}
-
-.settings-remote-usage-group {
-  width: 100%;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.settings-radio-option-block {
-  align-items: flex-start;
-  justify-content: flex-start;
-  min-height: 74px;
-  padding: 12px 14px;
-}
-
-.settings-radio-option-block > span {
-  display: grid;
-  gap: 5px;
-  line-height: 1.35;
-}
-
-.settings-radio-option-block strong {
-  color: var(--dark);
-  font-size: 0.94rem;
-  font-weight: 650;
-}
-
-.settings-radio-option-block small {
-  color: var(--gray);
-  font-size: 0.76rem;
-  font-weight: 500;
-  line-height: 1.45;
-}
-
-.settings-radio-option-block:has(input:checked) strong,
-.settings-radio-option-block:has(input:checked) small {
-  color: var(--primary);
-}
-
-.settings-toggle-row:has(.settings-switch-input:focus-visible) {
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 13%, transparent);
-  border-color: color-mix(in srgb, var(--primary) 54%, var(--border-color) 46%);
-}
-
-.settings-toggle-row:has(.settings-switch-input:disabled) {
-  opacity: 0.58;
-  cursor: not-allowed;
-}
-
-.settings-toggle-copy {
-  min-width: 0;
-  color: color-mix(in srgb, var(--dark) 80%, var(--gray) 20%);
-  font-size: 0.94rem;
-  font-weight: 500;
-  line-height: 1.45;
-}
-
-.settings-help-link {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  margin-left: 8px;
-  color: var(--primary);
-  font-size: 0.78rem;
-  font-weight: 650;
-  text-decoration: none;
-}
-
-.settings-help-link:hover {
-  text-decoration: underline;
-}
-
-.settings-switch-input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  opacity: 0;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-}
-
-.settings-switch {
-  width: 46px;
-  height: 26px;
-  padding: 3px;
-  border-radius: 999px;
-  flex: 0 0 auto;
-  background: color-mix(in srgb, var(--gray) 24%, var(--surface) 76%);
-  border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent);
-  transition:
-    background 180ms ease,
-    border-color 180ms ease,
-    box-shadow 180ms ease;
-}
-
-.settings-switch > span {
-  display: block;
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  background: #ffffff;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.22);
-  transform: translateX(0);
-  transition: transform 180ms ease, box-shadow 180ms ease;
-}
-
-.settings-switch-input:checked + .settings-switch {
-  background: var(--primary);
-  border-color: var(--primary);
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--primary) 24%, transparent);
-}
-
-.settings-switch-input:checked + .settings-switch > span {
-  transform: translateX(20px);
-}
-
-.settings-switch-input:disabled + .settings-switch {
-  box-shadow: none;
-  background: color-mix(in srgb, var(--gray) 16%, var(--surface) 84%);
-  border-color: color-mix(in srgb, var(--border-color) 60%, transparent);
-}
-
-.settings-block-runtime .runtime-section {
-  display: grid;
-  gap: 12px;
-}
-
-.settings-block-runtime .runtime-section-label {
-  display: inline-flex;
-  margin: 0;
-  color: color-mix(in srgb, var(--gray) 86%, var(--primary) 14%);
-  font-size: 0.84rem;
-  font-weight: 650;
-  letter-spacing: 0;
-}
-
-.settings-block-runtime .runtime-resource-grid,
-.settings-block-runtime .runtime-meta-grid,
-.settings-block-runtime .runtime-capability-grid {
-  gap: 14px;
-}
-
-.settings-layout .runtime-gauge-card,
-.settings-block-runtime .runtime-meta-grid > article,
-.settings-block-runtime .runtime-capability-grid > article {
-  border: 1px solid color-mix(in srgb, var(--border-color) 62%, transparent);
-  border-radius: 0;
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--surface) 90%, transparent),
-      color-mix(in srgb, var(--surface) 76%, var(--light) 24%));
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.7) inset,
-    0 8px 22px rgba(15, 23, 42, 0.04);
-}
-
-.settings-layout .runtime-gauge-card {
-  padding: 24px 18px;
-}
-
-.settings-layout .runtime-gauge {
-  width: 86px;
-  height: 86px;
-}
-
-.settings-layout .runtime-gauge-label {
-  margin-top: 12px;
-  color: color-mix(in srgb, var(--dark) 74%, var(--gray) 26%);
-}
-
-.settings-layout .runtime-gauge-detail {
-  color: var(--gray);
-}
-
-.settings-block-runtime .runtime-meta-grid > article {
-  min-height: 86px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-}
-
-.settings-block-runtime .runtime-meta-label,
-.settings-block-runtime .runtime-meta-value {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.settings-block-runtime .runtime-meta-label {
-  flex-shrink: 0;
-}
-
-.settings-block-runtime .runtime-meta-label > i {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-md);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 10%, var(--surface) 90%);
-}
-
-.settings-block-runtime .runtime-meta-value {
-  min-width: 0;
-  color: var(--dark);
-  font-weight: 500;
-}
-
-.settings-block-runtime .runtime-capability-grid > article {
-  text-align: center;
-}
-
-.settings-block-runtime .runtime-capability-grid > article > div:first-child,
-.settings-block-runtime .runtime-capability-grid > article > span.text-gray:first-child {
-  justify-content: center;
-  text-align: center;
-}
-
-.settings-block-runtime .runtime-capability-grid > article > div:first-child {
-  flex-wrap: wrap;
-}
-
-.settings-page .is-on,
-.settings-page .is-off,
-.settings-page .is-warn {
-  border-radius: 999px;
-  font-weight: 650;
-}
-
-.settings-page .is-on {
-  color: #166534;
-  background: color-mix(in srgb, #dcfce7 86%, var(--surface) 14%);
-  border-color: #bbf7d0;
-}
-
-.settings-page .is-off {
-  color: #991b1b;
-  background: color-mix(in srgb, #fee2e2 86%, var(--surface) 14%);
-  border-color: #fecaca;
-}
-
-.settings-page .is-warn {
-  color: #92400e;
-  background: color-mix(in srgb, #fef3c7 86%, var(--surface) 14%);
-  border-color: #fde68a;
-}
-
-.settings-page .settings-callout {
-  padding: 14px;
-  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border-color) 76%);
-  border-radius: 0;
-  background: color-mix(in srgb, var(--primary) 6%, var(--surface) 94%);
-}
-
-.settings-page .settings-callout-compact {
-  padding: 12px 14px;
-}
-
-.settings-page .settings-callout-compact strong {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 0.88rem;
-  line-height: 1.3;
-}
-
-.settings-page .settings-callout-compact p {
-  font-size: 0.76rem;
-  line-height: 1.38;
-}
-
-@media (min-width: 1100px) {
-  .settings-page .settings-callout-compact p {
-    white-space: nowrap;
+    @apply border-primary outline-none;
+    /* 1px 纯蓝细线（不再跟 border-color 混色，避免被稀释成灰蓝色看不见） */
+    /* 外圈柔光：3px 主题色 18% 透明的 halo，让聚焦的输入框从页面里"亮"起来 */
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
   }
-}
 
-.settings-page .overflow-auto.border {
-  border-radius: 0;
-  border-color: color-mix(in srgb, var(--border-color) 72%, transparent);
-  background: color-mix(in srgb, var(--surface) 88%, var(--light) 12%);
-}
+  .settings-page input[type="checkbox"],
+.settings-page input[type="radio"] {
+    accent-color: var(--primary);
+  }
 
-.settings-page table th,
-.settings-page table td {
-  padding: 12px 14px;
-  text-align: left;
-  vertical-align: middle;
-  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-}
+  .settings-toggle-list {
+    @apply grid gap-2.5;
+  }
 
-.settings-page table th {
-  color: var(--gray);
-  font-size: 0.82rem;
-  font-weight: 650;
-  background: color-mix(in srgb, var(--light) 78%, var(--surface) 22%);
-}
+  .settings-toggle-row {
+    @apply relative flex items-center justify-between gap-4 min-h-[50px] py-3 px-3.5 rounded-none cursor-pointer;
+    border: 1px solid color-mix(in srgb, var(--border-color) 64%, transparent);
+    background: color-mix(in srgb, var(--surface) 90%, var(--light) 10%);
+    transition: border-color 160ms ease,
+      background 160ms ease,
+      box-shadow 160ms ease,
+      opacity 160ms ease;
+  }
 
-.settings-page table tr:last-child td {
-  border-bottom: 0;
-}
+  .settings-toggle-row:hover {
+    border-color: color-mix(in srgb, var(--primary) 32%, var(--border-color) 68%);
+    background: color-mix(in srgb, var(--primary) 4%, var(--surface) 96%);
+  }
 
-/* TinyPNG Key 表:表头与「状态」列(启用中/已禁用)不换行 —— 列太窄时
-   2 字表头(总调用/成功/失败)和 3 字状态会被挤断成两行。「最近结果」列
-   (第 7 列)不在范围内,长错误信息仍可自动换行。 */
-.settings-page .compression-keys-table th,
-.settings-page .compression-keys-table td:nth-child(2) {
-  white-space: nowrap;
-}
+  .settings-toggle-row.is-autosaving {
+    border-color: color-mix(in srgb, var(--primary) 46%, var(--border-color) 54%);
+    box-shadow: inset 3px 0 0 var(--primary);
+  }
 
-/* 操作列:禁用/删除 两个按钮并排一行(并排两列),不要堆成上下 ——
-   列一窄 flex-wrap 会把「删除」挤到第二行。 */
-.settings-page .compression-keys-table td:last-child > .flex {
-  flex-wrap: nowrap;
-}
-
-.settings-page .settings-empty-row td {
-  height: 76px;
-  text-align: center;
-  color: var(--gray);
-}
-
-.settings-page .settings-empty-state {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  color: color-mix(in srgb, var(--gray) 82%, var(--dark) 18%);
-  font-size: 0.92rem;
-}
-
-.settings-page .settings-empty-state i {
-  color: var(--primary);
-  font-size: 1rem;
-}
-
-/* Dark-theme overrides for the shell card + the runtime info tiles.
- * Sections themselves no longer carry card chrome (the shell does), so
- * we tint the shell instead of every section. */
-html[data-theme="dark"] .settings-page .settings-shell,
-html[data-theme="dark"] .settings-layout .runtime-gauge-card,
-html[data-theme="dark"] .settings-block-runtime .runtime-meta-grid > article,
-html[data-theme="dark"] .settings-block-runtime .runtime-capability-grid > article {
-  background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.025));
-  border-color: rgba(255,255,255,0.08);
-  box-shadow: none;
-}
-
-html[data-theme="dark"] .settings-page input:not([type="checkbox"]):not([type="radio"]),
-html[data-theme="dark"] .settings-page select,
-html[data-theme="dark"] .settings-page .overflow-auto.border {
-  background: rgba(255,255,255,0.04);
-  border-color: rgba(255,255,255,0.09);
-  box-shadow: none;
-}
-
-html[data-theme="dark"] .settings-toggle-row {
-  background: rgba(255,255,255,0.035);
-  border-color: rgba(255,255,255,0.08);
-}
-
-html[data-theme="dark"] .settings-toggle-row:hover {
-  background: rgba(0, 82, 217, 0.12);
-  border-color: rgba(0, 82, 217, 0.42);
-}
-
-html[data-theme="dark"] .settings-switch {
-  background: rgba(255,255,255,0.14);
-  border-color: rgba(255,255,255,0.12);
-}
-
-html[data-theme="dark"] .settings-switch-input:checked + .settings-switch {
-  background: var(--primary);
-  border-color: var(--primary);
-}
-
-html[data-theme="dark"] .settings-switch-input:disabled + .settings-switch {
-  background: rgba(255,255,255,0.08);
-  border-color: rgba(255,255,255,0.08);
-}
-
-html[data-theme="dark"] .settings-block-runtime .runtime-meta-label > i {
-  background: rgba(255,255,255,0.06);
-}
-
-@media (max-width: 768px) {
-  .settings-layout,
-  .settings-panel {
-    gap: 16px;
+  .settings-toggle-row.is-autosaved {
+    border-color: color-mix(in srgb, var(--success) 45%, var(--border-color) 55%);
+    box-shadow: inset 3px 0 0 var(--success);
   }
 
   .settings-toggle-row-control {
-    align-items: stretch;
-    flex-direction: column;
+    @apply cursor-default;
   }
 
   .settings-toggle-controls {
-    justify-content: space-between;
-    width: 100%;
+    @apply inline-flex items-center justify-end gap-2.5 shrink-0;
+  }
+
+  .settings-switch-label {
+    @apply inline-flex items-center justify-center cursor-pointer;
   }
 
   .settings-radio-group {
-    width: 100%;
+    @apply inline-flex items-center gap-2 flex-wrap;
+  }
+
+  .settings-radio-option {
+    @apply inline-flex items-center gap-1.5 min-h-[34px] py-0 px-2.5 rounded-none cursor-pointer;
+    border: 1px solid color-mix(in srgb, var(--border-color) 64%, transparent);
+    background: color-mix(in srgb, var(--surface) 90%, var(--light) 10%);
+    color: color-mix(in srgb, var(--dark) 76%, var(--gray) 24%);
+    transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+  }
+
+  .settings-radio-option:hover,
+.settings-radio-option:has(input:checked) {
+    @apply text-primary;
+    border-color: color-mix(in srgb, var(--primary) 46%, var(--border-color) 54%);
+    background: color-mix(in srgb, var(--primary) 7%, var(--surface) 93%);
+  }
+
+  .settings-radio-option input {
+    @apply w-3.5 h-3.5;
+    accent-color: var(--primary);
   }
 
   .settings-remote-usage-group {
-    grid-template-columns: 1fr;
+    @apply w-full grid gap-2.5;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .settings-token-form,
+  .settings-radio-option-block {
+    @apply items-start justify-start min-h-[74px] py-3 px-3.5;
+  }
+
+  .settings-radio-option-block > span {
+    @apply grid gap-[5px] leading-[1.35];
+  }
+
+  .settings-radio-option-block strong {
+    @apply text-dark text-[0.94rem] font-[650];
+  }
+
+  .settings-radio-option-block small {
+    @apply text-gray text-[0.76rem] font-medium leading-[1.45];
+  }
+
+  .settings-radio-option-block:has(input:checked) strong,
+.settings-radio-option-block:has(input:checked) small {
+    @apply text-primary;
+  }
+
+  .settings-toggle-row:has(.settings-switch-input:focus-visible) {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 13%, transparent);
+    border-color: color-mix(in srgb, var(--primary) 54%, var(--border-color) 46%);
+  }
+
+  .settings-toggle-row:has(.settings-switch-input:disabled) {
+    @apply opacity-[0.58] cursor-not-allowed;
+  }
+
+  .settings-toggle-copy {
+    @apply min-w-0 text-[0.94rem] font-medium leading-[1.45];
+    color: color-mix(in srgb, var(--dark) 80%, var(--gray) 20%);
+  }
+
+  .settings-help-link {
+    @apply relative z-[1] inline-flex items-center ml-2 text-primary text-[0.78rem] font-[650] no-underline;
+  }
+
+  .settings-help-link:hover {
+    @apply underline;
+  }
+
+  .settings-switch-input {
+    @apply absolute w-px h-px -m-px opacity-[0] overflow-hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+  }
+
+  .settings-switch {
+    @apply w-[46px] h-[26px] p-[3px] shrink-0;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--gray) 24%, var(--surface) 76%);
+    border: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent);
+    transition: background 180ms ease,
+      border-color 180ms ease,
+      box-shadow 180ms ease;
+  }
+
+  .settings-switch > span {
+    @apply block w-4.5 h-4.5;
+    border-radius: 999px;
+    background: #ffffff;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.22);
+    transform: translateX(0);
+    transition: transform 180ms ease, box-shadow 180ms ease;
+  }
+
+  .settings-switch-input:checked + .settings-switch {
+    background: var(--primary);
+    border-color: var(--primary);
+    box-shadow: 0 8px 18px color-mix(in srgb, var(--primary) 24%, transparent);
+  }
+
+  .settings-switch-input:checked + .settings-switch > span {
+    transform: translateX(20px);
+  }
+
+  .settings-switch-input:disabled + .settings-switch {
+    box-shadow: none;
+    background: color-mix(in srgb, var(--gray) 16%, var(--surface) 84%);
+    border-color: color-mix(in srgb, var(--border-color) 60%, transparent);
+  }
+
+  .settings-block-runtime .runtime-section {
+    @apply grid gap-3;
+  }
+
+  .settings-block-runtime .runtime-section-label {
+    @apply inline-flex m-0 text-[0.84rem] font-[650] tracking-normal;
+    color: color-mix(in srgb, var(--gray) 86%, var(--primary) 14%);
+  }
+
+  .settings-block-runtime .runtime-resource-grid,
+.settings-block-runtime .runtime-meta-grid,
+.settings-block-runtime .runtime-capability-grid {
+    @apply gap-3.5;
+  }
+
+  .settings-layout .runtime-gauge-card,
+.settings-block-runtime .runtime-meta-grid > article,
+.settings-block-runtime .runtime-capability-grid > article {
+    @apply rounded-none;
+    border: 1px solid color-mix(in srgb, var(--border-color) 62%, transparent);
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--surface) 90%, transparent),
+      color-mix(in srgb, var(--surface) 76%, var(--light) 24%));
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 8px 22px rgba(15, 23, 42, 0.04);
+  }
+
+  .settings-layout .runtime-gauge-card {
+    @apply py-6 px-4.5;
+  }
+
+  .settings-layout .runtime-gauge {
+    @apply w-[86px] h-[86px];
+  }
+
+  .settings-layout .runtime-gauge-label {
+    @apply mt-3;
+    color: color-mix(in srgb, var(--dark) 74%, var(--gray) 26%);
+  }
+
+  .settings-layout .runtime-gauge-detail {
+    @apply text-gray;
+  }
+
+  .settings-block-runtime .runtime-meta-grid > article {
+    @apply min-h-[86px] flex items-center justify-center gap-3.5 p-4;
+  }
+
+  .settings-block-runtime .runtime-meta-label,
+.settings-block-runtime .runtime-meta-value {
+    @apply inline-flex items-center gap-2;
+  }
+
+  .settings-block-runtime .runtime-meta-label {
+    @apply shrink-0 text-sm text-gray;
+  }
+
+  .settings-block-runtime .runtime-meta-label > i {
+    @apply w-7 h-7 rounded-[var(--radius-md)] inline-flex items-center justify-center shrink-0 text-primary;
+    background: color-mix(in srgb, var(--primary) 10%, var(--surface) 90%);
+  }
+
+  .settings-block-runtime .runtime-meta-value {
+    @apply min-w-0 text-base text-dark font-medium;
+  }
+
+  .settings-block-runtime .runtime-capability-grid > article {
+    @apply text-center p-4;
+  }
+
+  .settings-block-runtime .runtime-capability-grid > article > div:first-child,
+.settings-block-runtime .runtime-capability-grid > article > span.text-gray:first-child {
+    @apply justify-center text-center;
+  }
+
+  .settings-block-runtime .runtime-capability-grid > article > div:first-child {
+    @apply flex-wrap;
+  }
+
+  .settings-page .is-on,
+.settings-page .is-off,
+.settings-page .is-warn {
+    @apply rounded-full font-[650];
+  }
+
+  .settings-page .is-on {
+    color: #166534;
+    background: color-mix(in srgb, #dcfce7 86%, var(--surface) 14%);
+    border-color: #bbf7d0;
+  }
+
+  .settings-page .is-off {
+    color: #991b1b;
+    background: color-mix(in srgb, #fee2e2 86%, var(--surface) 14%);
+    border-color: #fecaca;
+  }
+
+  .settings-page .is-warn {
+    color: #92400e;
+    background: color-mix(in srgb, #fef3c7 86%, var(--surface) 14%);
+    border-color: #fde68a;
+  }
+
+  .settings-page .settings-callout {
+    @apply p-3.5 rounded-none;
+    border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border-color) 76%);
+    background: color-mix(in srgb, var(--primary) 6%, var(--surface) 94%);
+  }
+
+  .settings-page .settings-callout-compact {
+    @apply py-3 px-3.5;
+  }
+
+  .settings-page .settings-callout-compact strong {
+    @apply block mb-1.5 text-[0.88rem] leading-[1.3];
+  }
+
+  .settings-page .settings-callout-compact p {
+    @apply text-[0.76rem] leading-[1.38];
+  }
+
+  @media (min-width: 1100px) {
+    .settings-page .settings-callout-compact p {
+      @apply whitespace-nowrap;
+    }
+  }
+
+  .settings-page .overflow-auto.border {
+    @apply rounded-none;
+    border-color: color-mix(in srgb, var(--border-color) 72%, transparent);
+    background: color-mix(in srgb, var(--surface) 88%, var(--light) 12%);
+  }
+
+  .settings-page table th,
+.settings-page table td {
+    @apply py-3 px-3.5 text-left align-middle;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  .settings-page table th {
+    @apply text-gray text-[0.82rem] font-[650];
+    background: color-mix(in srgb, var(--light) 78%, var(--surface) 22%);
+  }
+
+  .settings-page table tr:last-child td {
+    @apply border-b-0;
+  }
+
+  /* TinyPNG Key 表:表头与「状态」列(启用中/已禁用)不换行 —— 列太窄时
+     2 字表头(总调用/成功/失败)和 3 字状态会被挤断成两行。「最近结果」列
+     (第 7 列)不在范围内,长错误信息仍可自动换行。 */
+
+  .settings-page .compression-keys-table th,
+.settings-page .compression-keys-table td:nth-child(2) {
+    @apply whitespace-nowrap;
+  }
+
+  /* 操作列:禁用/删除 两个按钮并排一行(并排两列),不要堆成上下 ——
+     列一窄 flex-wrap 会把「删除」挤到第二行。 */
+
+  .settings-page .compression-keys-table td:last-child > .flex {
+    @apply flex-nowrap;
+  }
+
+  .settings-page .settings-empty-row td {
+    @apply h-[76px] text-center text-gray;
+  }
+
+  .settings-page .settings-empty-state {
+    @apply inline-flex items-center justify-center gap-2 text-[0.92rem];
+    color: color-mix(in srgb, var(--gray) 82%, var(--dark) 18%);
+  }
+
+  .settings-page .settings-empty-state i {
+    @apply text-primary text-base;
+  }
+
+  /* Dark-theme overrides for the shell card + the runtime info tiles.
+   * Sections themselves no longer carry card chrome (the shell does), so
+   * we tint the shell instead of every section. */
+
+  html[data-theme="dark"] .settings-page .settings-shell,
+html[data-theme="dark"] .settings-layout .runtime-gauge-card,
+html[data-theme="dark"] .settings-block-runtime .runtime-meta-grid > article,
+html[data-theme="dark"] .settings-block-runtime .runtime-capability-grid > article {
+    background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.025));
+    border-color: rgba(255,255,255,0.08);
+    box-shadow: none;
+  }
+
+  html[data-theme="dark"] .settings-page input:not([type="checkbox"]):not([type="radio"]),
+html[data-theme="dark"] .settings-page select,
+html[data-theme="dark"] .settings-page .overflow-auto.border {
+    background: rgba(255,255,255,0.04);
+    border-color: rgba(255,255,255,0.09);
+    box-shadow: none;
+  }
+
+  html[data-theme="dark"] .settings-toggle-row {
+    background: rgba(255,255,255,0.035);
+    border-color: rgba(255,255,255,0.08);
+  }
+
+  html[data-theme="dark"] .settings-toggle-row:hover {
+    background: rgba(0, 82, 217, 0.12);
+    border-color: rgba(0, 82, 217, 0.42);
+  }
+
+  html[data-theme="dark"] .settings-switch {
+    background: rgba(255,255,255,0.14);
+    border-color: rgba(255,255,255,0.12);
+  }
+
+  html[data-theme="dark"] .settings-switch-input:checked + .settings-switch {
+    background: var(--primary);
+    border-color: var(--primary);
+  }
+
+  html[data-theme="dark"] .settings-switch-input:disabled + .settings-switch {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.08);
+  }
+
+  html[data-theme="dark"] .settings-block-runtime .runtime-meta-label > i {
+    background: rgba(255,255,255,0.06);
+  }
+
+  @media (max-width: 768px) {
+    .settings-layout,
+  .settings-panel {
+      @apply gap-4;
+    }
+
+    .settings-toggle-row-control {
+      @apply items-stretch flex-col;
+    }
+
+    .settings-toggle-controls {
+      @apply justify-between w-full;
+    }
+
+    .settings-radio-group {
+      @apply w-full;
+    }
+
+    .settings-remote-usage-group {
+      grid-template-columns: 1fr;
+    }
+
+    .settings-token-form,
   .settings-compression-form {
-    grid-template-columns: 1fr;
-  }
+      grid-template-columns: 1fr;
+    }
 
-  .settings-inline-form > button,
+    .settings-inline-form > button,
   .settings-inline-form .copy-token-btn {
-    width: 100%;
+      @apply w-full;
+    }
+
+    /* Sections are flat rows now (the .settings-shell carries the
+       * card chrome), so no per-section padding override needed in
+       * mobile. The .settings-shell mobile rule below tightens the
+       * outer padding instead. */
   }
 
-  /* Sections are flat rows now (the .settings-shell carries the
-   * card chrome), so no per-section padding override needed in
-   * mobile. The .settings-shell mobile rule below tightens the
-   * outer padding instead. */
-}
+  /* =============================================================
+   * Settings tab nav (above the panel)
+   *
+   * Replaces the inline Tailwind soup from the markup. Uses the same
+   * theme variables as everything else on the page so dark/light/Azure
+   * themes stay coherent without per-tab overrides.
+   * ============================================================= */
 
-/* =============================================================
- * Settings tab nav (above the panel)
- *
- * Replaces the inline Tailwind soup from the markup. Uses the same
- * theme variables as everything else on the page so dark/light/Azure
- * themes stay coherent without per-tab overrides.
- * ============================================================= */
-.settings-page .settings-tab-nav {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 8px;
-  align-items: center;
-  height: 60px;
-  min-height: 60px;
-  margin: 0 0 18px;
-  padding: 0 0 12px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
-  list-style: none;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: thin;
-}
-
-.settings-page .settings-tab-nav a {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 6px;
-  height: 36px;
-  padding: 0 14px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  line-height: 1;
-  color: var(--dark);
-  text-decoration: none;
-  background: var(--surface);
-  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-  border-radius: 999px;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-  white-space: nowrap;
-}
-
-.settings-page .settings-tab-nav a > i {
-  font-size: 0.95em;
-  line-height: 1;
-  color: var(--gray);
-}
-
-.settings-page .settings-tab-nav a:hover {
-  background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
-  border-color: color-mix(in srgb, var(--primary) 32%, var(--border-color) 68%);
-  color: var(--dark);
-}
-
-.settings-page .settings-tab-nav a:hover > i {
-  color: var(--primary);
-}
-
-.settings-page .settings-tab-nav a[aria-current="page"] {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--primary) 24%, transparent);
-}
-
-.settings-page .settings-tab-nav a[aria-current="page"] > i {
-  color: #fff;
-}
-
-.settings-page .settings-tab-nav a:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent);
-  outline-offset: 2px;
-}
-
-@media (max-width: 720px) {
   .settings-page .settings-tab-nav {
-    height: 52px;
-    min-height: 52px;
+    @apply flex flex-nowrap gap-2 items-center h-15 min-h-15 mt-0 mx-0 mb-4.5 list-none;
+    padding: 0 0 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+    @apply overflow-x-auto;
+    @apply overflow-y-hidden;
+    scrollbar-width: thin;
   }
-  .settings-page .settings-tab-nav a {
-    height: 32px;
-    padding: 0 10px;
-    font-size: 0.85rem;
-  }
-}
 
-/* =============================================================
- * Settings shell — wraps tab nav + active tab content in ONE card
- *
- * Replaces the previous "every section is its own white card"
- * styling. Now there's a single outer frame; inner sections are
- * just spaced rows inside it (no individual borders / shadows).
- * ============================================================= */
-.settings-page .settings-shell {
-  display: grid;
-  gap: 18px;
-  padding: 22px 24px;
-  border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
-  border-radius: var(--radius-md);
-  background:
-    linear-gradient(180deg,
+  .settings-page .settings-tab-nav a {
+    @apply inline-flex shrink-0 items-center gap-1.5 h-9 py-0 px-3.5 text-[0.9rem] font-medium leading-none text-dark no-underline bg-surface rounded-full whitespace-nowrap;
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .settings-page .settings-tab-nav a > i {
+    @apply text-[0.95em] leading-none text-gray;
+  }
+
+  .settings-page .settings-tab-nav a:hover {
+    @apply text-dark;
+    background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
+    border-color: color-mix(in srgb, var(--primary) 32%, var(--border-color) 68%);
+  }
+
+  .settings-page .settings-tab-nav a:hover > i {
+    @apply text-primary;
+  }
+
+  .settings-page .settings-tab-nav a[aria-current="page"] {
+    @apply bg-primary border-primary text-white;
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--primary) 24%, transparent);
+  }
+
+  .settings-page .settings-tab-nav a[aria-current="page"] > i {
+    @apply text-white;
+  }
+
+  .settings-page .settings-tab-nav a:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent);
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 720px) {
+    .settings-page .settings-tab-nav {
+      @apply h-13 min-h-13;
+    }
+
+    .settings-page .settings-tab-nav a {
+      @apply h-8 py-0 px-2.5 text-[0.85rem];
+    }
+  }
+
+  /* =============================================================
+   * Settings shell — wraps tab nav + active tab content in ONE card
+   *
+   * Replaces the previous "every section is its own white card"
+   * styling. Now there's a single outer frame; inner sections are
+   * just spaced rows inside it (no individual borders / shadows).
+   * ============================================================= */
+
+  .settings-page .settings-shell {
+    @apply grid gap-4.5 py-[22px] px-6 rounded-[var(--radius-md)];
+    border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
+    background: linear-gradient(180deg,
       color-mix(in srgb, var(--surface) 94%, transparent),
       color-mix(in srgb, var(--surface) 88%, var(--light) 12%));
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.72) inset,
-    0 14px 38px rgba(15, 23, 42, 0.06);
-}
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.72) inset, 0 14px 38px rgba(15, 23, 42, 0.06);
+  }
 
-/* When inside the shell, individual sections drop their card chrome
- * (border + shadow + gradient + padding) and just become labelled
- * row groups. The shell carries the visual frame. */
-.settings-page .settings-shell .settings-panel,
+  /* When inside the shell, individual sections drop their card chrome
+   * (border + shadow + gradient + padding) and just become labelled
+   * row groups. The shell carries the visual frame. */
+
+  .settings-page .settings-shell .settings-panel,
 .settings-page .settings-shell {
-  background-image: none;
-}
+    @apply bg-none;
+  }
 
-.settings-page .settings-shell .settings-panel > section,
+  .settings-page .settings-shell .settings-panel > section,
 .settings-page .settings-shell > section {
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: none;
-  box-shadow: none;
-}
+    @apply p-0 border-0 rounded-none bg-none shadow-none;
+  }
 
-/* Section divider between rows (subtle line) */
-.settings-page .settings-shell .settings-panel > section + section,
+  /* Section divider between rows (subtle line) */
+
+  .settings-page .settings-shell .settings-panel > section + section,
 .settings-page .settings-shell > section + section {
-  padding-top: 18px;
-  border-top: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
-}
-
-/* Tab nav: sit flush at the top of the shell with its own underline */
-.settings-page .settings-shell > .settings-tab-nav {
-  margin: -22px -24px 4px;
-  padding: 14px 24px 12px;
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
-  background: color-mix(in srgb, var(--light) 38%, var(--surface) 62%);
-}
-
-@media (max-width: 720px) {
-  .settings-page .settings-shell {
-    padding: 16px 14px;
+    @apply pt-4.5;
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
   }
+
+  /* Tab nav: sit flush at the top of the shell with its own underline */
+
   .settings-page .settings-shell > .settings-tab-nav {
-    margin: -16px -14px 4px;
-    padding: 10px 14px 10px;
+    @apply mt-[-22px] mx-[-24px] mb-1;
+    padding: 14px 24px 12px;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    background: color-mix(in srgb, var(--light) 38%, var(--surface) 62%);
   }
-}
 
-/* =============================================================
- * Unified .btn system
- *
- * Every button in the settings page (tab actions, inline forms,
- * the main save button) uses this so heights/paddings/typography
- * line up regardless of which form they belong to.
- *
- * Variants: --primary (filled blue), --secondary (outlined),
- *           --danger (red filled), --lg (44px tall save button)
- * ============================================================= */
-.settings-page .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 38px;
-  padding: 0 16px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  line-height: 1;
-  white-space: nowrap;
-  cursor: pointer;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--dark);
-  transition: background-color .15s ease, color .15s ease, border-color .15s ease, box-shadow .15s ease;
-  text-decoration: none;
-  /* Reset native button defaults that fight the height */
-  appearance: none;
-  -webkit-appearance: none;
-  margin: 0;
-}
+  @media (max-width: 720px) {
+    .settings-page .settings-shell {
+      @apply py-4 px-3.5;
+    }
 
-.settings-page .btn > i {
-  font-size: 0.95em;
-  line-height: 1;
-}
+    .settings-page .settings-shell > .settings-tab-nav {
+      @apply mt-[-16px] mx-[-14px] mb-1;
+      padding: 10px 14px 10px;
+    }
+  }
 
-.settings-page .btn:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent);
-  outline-offset: 2px;
-}
+  /* =============================================================
+   * Unified .btn system
+   *
+   * Every button in the settings page (tab actions, inline forms,
+   * the main save button) uses this so heights/paddings/typography
+   * line up regardless of which form they belong to.
+   *
+   * Variants: --primary (filled blue), --secondary (outlined),
+   *           --danger (red filled), --lg (44px tall save button)
+   * ============================================================= */
 
-.settings-page .btn:disabled,
+  .settings-page .btn {
+    @apply inline-flex items-center justify-center gap-1.5 h-[38px] py-0 px-4 text-[0.9rem] font-medium leading-none whitespace-nowrap cursor-pointer border border-transparent rounded-[6px] bg-surface text-dark no-underline m-0;
+    transition: background-color .15s ease, color .15s ease, border-color .15s ease, box-shadow .15s ease;
+    /* Reset native button defaults that fight the height */
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .settings-page .btn > i {
+    @apply text-[0.95em] leading-none;
+  }
+
+  .settings-page .btn:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent);
+    outline-offset: 2px;
+  }
+
+  .settings-page .btn:disabled,
 .settings-page .btn[aria-disabled="true"] {
-  opacity: .5;
-  cursor: not-allowed;
-}
-
-/* Primary — filled blue */
-.settings-page .btn--primary {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
-}
-
-.settings-page .btn--primary:hover {
-  background: color-mix(in srgb, var(--primary) 88%, #000 12%);
-  border-color: color-mix(in srgb, var(--primary) 88%, #000 12%);
-}
-
-/* Secondary — outlined */
-.settings-page .btn--secondary {
-  background: var(--surface);
-  border-color: color-mix(in srgb, var(--border-color) 70%, transparent);
-  color: var(--dark);
-}
-
-.settings-page .btn--secondary:hover {
-  background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
-  border-color: color-mix(in srgb, var(--primary) 32%, var(--border-color) 68%);
-}
-
-/* Danger — filled red */
-.settings-page .btn--danger {
-  background: var(--danger);
-  border-color: var(--danger);
-  color: #fff;
-}
-
-.settings-page .btn--danger:hover {
-  background: color-mix(in srgb, var(--danger) 88%, #000 12%);
-  border-color: color-mix(in srgb, var(--danger) 88%, #000 12%);
-}
-
-/* Larger size — used for the save-settings button */
-.settings-page .btn--lg {
-  height: 44px;
-  padding: 0 22px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  border-radius: 8px;
-}
-
-/* Full width inside narrow grid cells */
-.settings-page .btn--block {
-  width: 100%;
-}
-
-/* Save bar: stick the save button below the panel inside the shell. */
-.settings-page .settings-shell .settings-save-actions {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 18px;
-  margin-top: 4px;
-  border-top: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
-}
-
-/* =============================================================
- * Semantic helpers — used to be inline Tailwind utility soups
- * sprinkled across the page. Centralised here so every section
- * actually looks the same instead of competing with the existing
- * `.settings-page input { ... }` rules.
- * ============================================================= */
-
-/* Section header: title on the left, optional description on the right,
- * thin underline rule below */
-.settings-page .settings-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
-}
-
-/* 2-column form-field grid */
-.settings-page .settings-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-@media (max-width: 720px) {
-  .settings-page .settings-grid {
-    grid-template-columns: 1fr;
+    @apply opacity-[.5] cursor-not-allowed;
   }
-}
 
-/* Single-row labelled toggle (Auto-compress / Auto-convert / etc.) */
-.settings-page .settings-toggle-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--surface) 96%, var(--light) 4%);
-}
+  /* Primary — filled blue */
 
-/* All form inputs in the page get one consistent treatment.
- * The existing `.settings-page input { ... }` rule already sets
- * min-height:50px, but it had border-radius:0; bring it in line with
- * the rest of the page (rounded 6px) and pin paddings. */
-.settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  .settings-page .btn--primary {
+    @apply bg-primary border-primary text-white;
+  }
+
+  .settings-page .btn--primary:hover {
+    background: color-mix(in srgb, var(--primary) 88%, #000 12%);
+    border-color: color-mix(in srgb, var(--primary) 88%, #000 12%);
+  }
+
+  /* Secondary — outlined */
+
+  .settings-page .btn--secondary {
+    @apply bg-surface text-dark;
+    border-color: color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+
+  .settings-page .btn--secondary:hover {
+    background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
+    border-color: color-mix(in srgb, var(--primary) 32%, var(--border-color) 68%);
+  }
+
+  /* Danger — filled red */
+
+  .settings-page .btn--danger {
+    @apply bg-danger border-danger text-white;
+  }
+
+  .settings-page .btn--danger:hover {
+    background: color-mix(in srgb, var(--danger) 88%, #000 12%);
+    border-color: color-mix(in srgb, var(--danger) 88%, #000 12%);
+  }
+
+  /* Larger size — used for the save-settings button */
+
+  .settings-page .btn--lg {
+    @apply h-11 py-0 px-[22px] text-[0.95rem] font-semibold rounded-[8px];
+  }
+
+  /* Full width inside narrow grid cells */
+
+  .settings-page .btn--block {
+    @apply w-full;
+  }
+
+  /* Save bar: stick the save button below the panel inside the shell. */
+
+  .settings-page .settings-shell .settings-save-actions {
+    @apply flex justify-end pt-4.5 mt-1;
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
+  }
+
+  /* =============================================================
+   * Semantic helpers — used to be inline Tailwind utility soups
+   * sprinkled across the page. Centralised here so every section
+   * actually looks the same instead of competing with the existing
+   * `.settings-page input { ... }` rules.
+   * ============================================================= */
+
+  /* Section header: title on the left, optional description on the right,
+   * thin underline rule below */
+
+  .settings-page .settings-section-header {
+    @apply flex items-center justify-between gap-3 pb-2.5;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  }
+
+  /* 2-column form-field grid */
+
+  .settings-page .settings-grid {
+    @apply grid gap-3.5;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (max-width: 720px) {
+    .settings-page .settings-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Single-row labelled toggle (Auto-compress / Auto-convert / etc.) */
+
+  .settings-page .settings-toggle-row {
+    @apply flex items-center justify-between gap-3 py-2.5 px-3 rounded-[6px];
+    border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+    background: color-mix(in srgb, var(--surface) 96%, var(--light) 4%);
+  }
+
+  /* All form inputs in the page get one consistent treatment.
+   * The existing `.settings-page input { ... }` rule already sets
+   * min-height:50px, but it had border-radius:0; bring it in line with
+   * the rest of the page (rounded 6px) and pin paddings. */
+
+  .settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
 .settings-page select,
 .settings-page textarea {
-  width: 100%;
-  min-height: var(--settings-control-height);
-  padding: 10px 12px;
-  font-size: 0.95rem;
-  line-height: 1.4;
-  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--surface) 96%, var(--light) 4%);
-  color: var(--dark);
-  box-sizing: border-box;
-}
+    @apply w-full min-h-[var(--settings-control-height)] py-2.5 px-3 text-[0.95rem] leading-[1.4] rounded-[6px] text-dark;
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    background: color-mix(in srgb, var(--surface) 96%, var(--light) 4%);
+    box-sizing: border-box;
+  }
 
-/* =============================================================
- * Settings tab title block — sits between the tab nav and the
- * tab's content (sections). Gives every tab a clear, identical
- * visual identity (big icon + tab name + short description),
- * and acts as the heading users land on after clicking a tab.
- *
- * Layout: [icon chip] | [title]
- *                       [description]
- * ============================================================= */
-.settings-page .settings-tab-title {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 4px 2px 14px;
-  margin: 0 0 4px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
-}
+  /* =============================================================
+   * Settings tab title block — sits between the tab nav and the
+   * tab's content (sections). Gives every tab a clear, identical
+   * visual identity (big icon + tab name + short description),
+   * and acts as the heading users land on after clicking a tab.
+   *
+   * Layout: [icon chip] | [title]
+   *                       [description]
+   * ============================================================= */
 
-.settings-page .settings-tab-title__icon {
-  flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  /* 直角风格 — 跟 Plan A 设计系统统一，所有 box 元素都不带圆角。 */
-  border-radius: 0;
-  background: color-mix(in srgb, var(--primary) 12%, transparent);
-  color: var(--primary);
-  font-size: 1.4rem;
-  line-height: 1;
-}
-
-.settings-page .settings-tab-title__copy {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.settings-page .settings-tab-title__heading {
-  margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--dark);
-  letter-spacing: -0.005em;
-}
-
-.settings-page .settings-tab-title__description {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--gray);
-  line-height: 1.5;
-}
-
-@media (max-width: 720px) {
   .settings-page .settings-tab-title {
-    gap: 10px;
+    @apply flex items-center gap-3.5 mt-0 mx-0 mb-1;
+    padding: 4px 2px 14px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
   }
+
   .settings-page .settings-tab-title__icon {
-    width: 38px;
-    height: 38px;
-    font-size: 1.15rem;
+    @apply shrink-0 w-11 h-11 inline-flex items-center justify-center rounded-none text-primary text-[1.4rem] leading-none;
+    /* 直角风格 — 跟 Plan A 设计系统统一，所有 box 元素都不带圆角。 */
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
   }
+
+  .settings-page .settings-tab-title__copy {
+    @apply grid gap-0.5 min-w-0;
+  }
+
   .settings-page .settings-tab-title__heading {
-    font-size: 1rem;
+    @apply m-0 text-[1.1rem] font-semibold text-dark tracking-[-0.005em];
   }
-}
 
-html[data-theme="dark"] .settings-page .settings-tab-title__icon {
-  background: color-mix(in srgb, var(--primary) 16%, rgba(255,255,255,0.04) 84%);
-}
+  .settings-page .settings-tab-title__description {
+    @apply m-0 text-[0.85rem] text-gray leading-normal;
+  }
 
-/* =============================================================
- * Top-align EVERY content row inside the settings shell.
- *
- * The shell is a CSS grid; without `align-content: start` grid
- * stretches its rows to fill remaining height when content is
- * short, which visually pushes things toward center. Pin the
- * tracks to the top so a tab with one section sits flush at
- * the top of the shell instead of floating in the middle.
- *
- * Same treatment for the in-form panel since it's the inner
- * grid that holds most sections.
- * ============================================================= */
-.settings-page .settings-shell,
+  @media (max-width: 720px) {
+    .settings-page .settings-tab-title {
+      @apply gap-2.5;
+    }
+
+    .settings-page .settings-tab-title__icon {
+      @apply w-[38px] h-[38px] text-[1.15rem];
+    }
+
+    .settings-page .settings-tab-title__heading {
+      @apply text-base;
+    }
+  }
+
+  html[data-theme="dark"] .settings-page .settings-tab-title__icon {
+    background: color-mix(in srgb, var(--primary) 16%, rgba(255,255,255,0.04) 84%);
+  }
+
+  /* =============================================================
+   * Top-align EVERY content row inside the settings shell.
+   *
+   * The shell is a CSS grid; without `align-content: start` grid
+   * stretches its rows to fill remaining height when content is
+   * short, which visually pushes things toward center. Pin the
+   * tracks to the top so a tab with one section sits flush at
+   * the top of the shell instead of floating in the middle.
+   *
+   * Same treatment for the in-form panel since it's the inner
+   * grid that holds most sections.
+   * ============================================================= */
+
+  .settings-page .settings-shell,
 .settings-page .settings-shell > .settings-panel {
-  align-content: start;
-  align-items: start;
-}
+    @apply content-start items-start;
+  }
 
-/* If a tab opens a form but renders no in-form <section>s (e.g.
- * compression / system tabs that put everything in OUT-of-form
- * sections), the .settings-panel still has grid + gap and would
- * inject a phantom row of whitespace before the real sections.
- * `:not(:has(section))` collapses it to `display: none` so the
- * layout stays tight. */
-.settings-page .settings-shell > .settings-panel:not(:has(section)) {
-  display: none;
-}
+  /* If a tab opens a form but renders no in-form <section>s (e.g.
+   * compression / system tabs that put everything in OUT-of-form
+   * sections), the .settings-panel still has grid + gap and would
+   * inject a phantom row of whitespace before the real sections.
+   * `:not(:has(section))` collapses it to `display: none` so the
+   * layout stays tight. */
 
-/* =============================================================
- * PJAX loading state — between click and content swap, fade the
- * shell slightly so the user sees something is happening. The
- * is-pjax-loading class is added to <main data-pjax-container>
- * by Pjax.go() and removed when the new container takes over.
- * ============================================================= */
-.settings-page.is-pjax-loading {
-  opacity: 0.55;
-  transition: opacity 0.12s ease-out;
-  pointer-events: none;
-}
+  .settings-page .settings-shell > .settings-panel:not(:has(section)) {
+    @apply hidden;
+  }
 
-/* =============================================================
- * Input focus — 必须放在文件末尾，以胜过中间任何可能稀释 border
- * 颜色的旧规则。规范：
- *   • border:    1px 纯主题蓝（不混色，否则在浅灰背景上看不清）
- *   • outline:   去掉浏览器默认的灰色虚线
- *   • box-shadow: 3px 主题色 18% 透明的柔光圈（halo）
- * ============================================================= */
-.settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+  /* =============================================================
+   * PJAX loading state — between click and content swap, fade the
+   * shell slightly so the user sees something is happening. The
+   * is-pjax-loading class is added to <main data-pjax-container>
+   * by Pjax.go() and removed when the new container takes over.
+   * ============================================================= */
+
+  .settings-page.is-pjax-loading {
+    @apply opacity-[0.55] pointer-events-none;
+    transition: opacity 0.12s ease-out;
+  }
+
+  /* =============================================================
+   * Input focus — 必须放在文件末尾，以胜过中间任何可能稀释 border
+   * 颜色的旧规则。规范：
+   *   • border:    1px 纯主题蓝（不混色，否则在浅灰背景上看不清）
+   *   • outline:   去掉浏览器默认的灰色虚线
+   *   • box-shadow: 3px 主题色 18% 透明的柔光圈（halo）
+   * ============================================================= */
+
+  .settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
 .settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus-visible,
 .settings-page select:focus,
 .settings-page select:focus-visible,
 .settings-page textarea:focus,
 .settings-page textarea:focus-visible {
-  border-color: var(--primary);
-  outline: none;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
-}
+    @apply border-primary outline-none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+  }
 
-/* Dark theme: halo 更亮一点，否则在深色背景上看不出柔光 */
-html[data-theme="dark"] .settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+  /* Dark theme: halo 更亮一点，否则在深色背景上看不出柔光 */
+
+  html[data-theme="dark"] .settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
 html[data-theme="dark"] .settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus-visible,
 html[data-theme="dark"] .settings-page select:focus,
 html[data-theme="dark"] .settings-page select:focus-visible,
 html[data-theme="dark"] .settings-page textarea:focus,
 html[data-theme="dark"] .settings-page textarea:focus-visible {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 28%, transparent);
-}
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 28%, transparent);
+  }
 
-/* =============================================================
- * 配色方案 v3 — 跟全站对齐（与首页 / 图库 / 统计 同款）
- *
- * 不再走自己一套白底/灰输入的反向方案；改成跟其它页面 .page-shell
- * 完全相同的视觉：
- *   • body 保持灰色（var(--light) #f8f9fa），不再 :has 全局变白
- *   • settings-shell 用标准卡片样式（白底 + 1px 边框 + rounded-md）
- *     —— 即 .page-shell 的同款
- *   • 输入框 / 选项条恢复白色（默认 surface），跟主站其它页一致
- *   • Tab 药丸悬停换成中性浅灰（slate-100），不再用蓝色
- *   • 激活 tab 保持品牌蓝 + 白色文字 + 白色 icon
- *   • Tab 图标 chip 换成中性浅灰
- *
- * 之前 v2 的 white-canvas + slate-input + blue-hover 全部撤回。
- * ============================================================= */
+  /* =============================================================
+   * 配色方案 v3 — 跟全站对齐（与首页 / 图库 / 统计 同款）
+   *
+   * 不再走自己一套白底/灰输入的反向方案；改成跟其它页面 .page-shell
+   * 完全相同的视觉：
+   *   • body 保持灰色（var(--light) #f8f9fa），不再 :has 全局变白
+   *   • settings-shell 用标准卡片样式（白底 + 1px 边框 + rounded-md）
+   *     —— 即 .page-shell 的同款
+   *   • 输入框 / 选项条恢复白色（默认 surface），跟主站其它页一致
+   *   • Tab 药丸悬停换成中性浅灰（slate-100），不再用蓝色
+   *   • 激活 tab 保持品牌蓝 + 白色文字 + 白色 icon
+   *   • Tab 图标 chip 换成中性浅灰
+   *
+   * 之前 v2 的 white-canvas + slate-input + blue-hover 全部撤回。
+   * ============================================================= */
 
-/* 1. 撤销 body 全白：让设置页跟其它页一样浮在灰色 body 上 */
-body:has(.settings-page) {
-  background: var(--light);          /* 恢复 #f8f9fa，跟首页/图库一致 */
-}
-.settings-page {
-  background: transparent;           /* 不挂自己的背景；显示 body 灰 */
-}
+  /* 1. 撤销 body 全白：让设置页跟其它页一样浮在灰色 body 上 */
 
-/* 2. Shell 用 .page-shell 同款：白底 + 边框 + 圆角，无渐变无阴影 */
-.settings-page .settings-shell {
-  background: var(--surface);        /* #ffffff */
-  background-image: none;
-  border-color: var(--border-color); /* #e2e8f0 */
-  box-shadow: none;
-}
+  body:has(.settings-page) {
+    @apply bg-light;
+    /* 恢复 #f8f9fa，跟首页/图库一致 */
+  }
 
-/* 3. Tab nav 条带：跟 shell 同色（白），仅靠下边线分隔 */
-.settings-page .settings-shell > .settings-tab-nav {
-  background: var(--surface);
-  border-bottom-color: var(--border-color);
-}
+  .settings-page {
+    @apply bg-transparent;
+    /* 不挂自己的背景；显示 body 灰 */
+  }
 
-/* 4. 表单输入：白底（surface），不再 slate-50 */
-.settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  /* 2. Shell 用 .page-shell 同款：白底 + 边框 + 圆角，无渐变无阴影 */
+
+  .settings-page .settings-shell {
+    @apply bg-surface bg-none border-border shadow-none;
+    /* #ffffff */
+    /* #e2e8f0 */
+  }
+
+  /* 3. Tab nav 条带：跟 shell 同色（白），仅靠下边线分隔 */
+
+  .settings-page .settings-shell > .settings-tab-nav {
+    @apply bg-surface;
+    border-bottom-color: var(--border-color);
+  }
+
+  /* 4. 表单输入：白底（surface），不再 slate-50 */
+
+  .settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
 .settings-page select,
 .settings-page textarea {
-  background: var(--surface);
-  border-color: var(--border-color);
-  box-shadow: none;
-}
+    @apply bg-surface border-border shadow-none;
+  }
 
-/* 5. Toggle 选项条：白底 + 中性灰悬停（不再蓝晕） */
-.settings-page .settings-toggle-row {
-  background: var(--surface);
-  border-color: var(--border-color);
-}
-.settings-page .settings-toggle-row:hover {
-  background: #f1f5f9;               /* slate-100 中性浅灰 */
-  border-color: #cbd5e1;             /* slate-300 */
-}
+  /* 5. Toggle 选项条：白底 + 中性灰悬停（不再蓝晕） */
 
-/* 6. 分割线统一灰 */
-.settings-page .settings-shell > section + section,
+  .settings-page .settings-toggle-row {
+    @apply bg-surface border-border;
+  }
+
+  .settings-page .settings-toggle-row:hover {
+    background: #f1f5f9;
+    /* slate-100 中性浅灰 */
+    border-color: #cbd5e1;
+    /* slate-300 */
+  }
+
+  /* 6. 分割线统一灰 */
+
+  .settings-page .settings-shell > section + section,
 .settings-page .settings-shell .settings-panel > section + section,
 .settings-page .settings-section-header,
 .settings-page .settings-tab-title {
-  border-color: var(--border-color);
-}
+    @apply border-border;
+  }
 
-/* 7. Tab 标题图标 chip：换成中性浅灰，跟主题更搭 */
-.settings-page .settings-tab-title__icon {
-  background: #f1f5f9;               /* slate-100 */
-  color: var(--primary);
-}
+  /* 7. Tab 标题图标 chip：换成中性浅灰，跟主题更搭 */
 
-/* 8. Callout 提示框：保持淡蓝信息块（信息提示用蓝色合理） */
-.settings-page .settings-callout {
-  background: #eff6ff;
-  border-color: #bfdbfe;
-  color: var(--dark);
-}
-.settings-page .settings-callout p,
+  .settings-page .settings-tab-title__icon {
+    @apply text-primary;
+    background: #f1f5f9;
+    /* slate-100 */
+  }
+
+  /* 8. Callout 提示框：保持淡蓝信息块（信息提示用蓝色合理） */
+
+  .settings-page .settings-callout {
+    @apply text-dark;
+    background: #eff6ff;
+    border-color: #bfdbfe;
+  }
+
+  .settings-page .settings-callout p,
 .settings-page .settings-callout strong {
-  color: inherit;
-}
+    @apply text-inherit;
+  }
 
-/* 9. 文件选择按钮：白底，hover 上主题蓝 */
-.settings-page .settings-file-input::file-selector-button,
+  /* 9. 文件选择按钮：白底，hover 上主题蓝 */
+
+  .settings-page .settings-file-input::file-selector-button,
 .settings-page .settings-file-input::-webkit-file-upload-button {
-  background: var(--surface);
-  border-color: var(--border-color);
-  color: var(--primary);
-}
-.settings-page .settings-file-input:hover::file-selector-button,
+    background: var(--surface);
+    border-color: var(--border-color);
+    color: var(--primary);
+  }
+
+  .settings-page .settings-file-input:hover::file-selector-button,
 .settings-page .settings-file-input:hover::-webkit-file-upload-button {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #ffffff;
-}
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #ffffff;
+  }
 
-/* 10. .btn--secondary（次要按钮）：白底 + 中性灰悬停 */
-.settings-page .btn--secondary {
-  background: var(--surface);
-  border-color: var(--border-color);
-  color: var(--dark);
-}
-.settings-page .btn--secondary:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-}
+  /* 10. .btn--secondary（次要按钮）：白底 + 中性灰悬停 */
 
-/* 11. Tab nav 药丸 — 重头戏 ===========================================
- *   • 未激活：白底 + 浅灰边 + 灰色 icon
- *   • 悬停：  中性浅灰（slate-100），不再用蓝晕，让蓝色只属于"激活"
- *   • 激活：  品牌蓝实底 + 白色文字 + 白色 icon
- *   • 悬停 != 激活时，icon 颜色跟着 hover 提一档，避免"灰 icon 孤立"
- * =================================================================== */
-.settings-page .settings-tab-nav a {
-  background: var(--surface);
-  border-color: var(--border-color);
-  color: var(--dark);
-}
-.settings-page .settings-tab-nav a > i {
-  color: var(--gray);                /* 默认灰 icon */
-  transition: color 160ms ease;
-}
+  .settings-page .btn--secondary {
+    @apply bg-surface border-border text-dark;
+  }
 
-/* hover：中性浅灰底，icon 换主题蓝（视觉提示"可点"）*/
-.settings-page .settings-tab-nav a:hover {
-  background: #f1f5f9;               /* slate-100，跟 toggle hover 同色，全站统一 */
-  border-color: #cbd5e1;             /* slate-300 */
-  color: var(--dark);
-}
-.settings-page .settings-tab-nav a:hover > i {
-  color: var(--primary);             /* hover icon 上蓝色，跟整体视觉系一致 */
-}
+  .settings-page .btn--secondary:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+  }
 
-/* 激活：品牌蓝 + 白文字 + 白 icon（强制覆盖默认灰 icon）*/
-.settings-page .settings-tab-nav a[aria-current="page"],
+  /* 11. Tab nav 药丸 — 重头戏 ===========================================
+   *   • 未激活：白底 + 浅灰边 + 灰色 icon
+   *   • 悬停：  中性浅灰（slate-100），不再用蓝晕，让蓝色只属于"激活"
+   *   • 激活：  品牌蓝实底 + 白色文字 + 白色 icon
+   *   • 悬停 != 激活时，icon 颜色跟着 hover 提一档，避免"灰 icon 孤立"
+   * =================================================================== */
+
+  .settings-page .settings-tab-nav a {
+    @apply bg-surface border-border text-dark;
+  }
+
+  .settings-page .settings-tab-nav a > i {
+    @apply text-gray;
+    /* 默认灰 icon */
+    transition: color 160ms ease;
+  }
+
+  /* hover：中性浅灰底，icon 换主题蓝（视觉提示"可点"）*/
+
+  .settings-page .settings-tab-nav a:hover {
+    @apply text-dark;
+    background: #f1f5f9;
+    /* slate-100，跟 toggle hover 同色，全站统一 */
+    border-color: #cbd5e1;
+    /* slate-300 */
+  }
+
+  .settings-page .settings-tab-nav a:hover > i {
+    @apply text-primary;
+    /* hover icon 上蓝色，跟整体视觉系一致 */
+  }
+
+  /* 激活：品牌蓝 + 白文字 + 白 icon（强制覆盖默认灰 icon）*/
+
+  .settings-page .settings-tab-nav a[aria-current="page"],
 .settings-page .settings-tab-nav a[aria-current="page"]:hover {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #ffffff;
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--primary) 24%, transparent);
-}
-.settings-page .settings-tab-nav a[aria-current="page"] > i,
-.settings-page .settings-tab-nav a[aria-current="page"]:hover > i {
-  color: #ffffff;                    /* 激活态 icon 必须白 */
-}
+    @apply bg-primary border-primary text-white;
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--primary) 24%, transparent);
+  }
 
-/* 12. 运行时指标卡片 / 子卡片：白底 + 浅边 */
-.settings-page .runtime-meta-grid > article,
+  .settings-page .settings-tab-nav a[aria-current="page"] > i,
+.settings-page .settings-tab-nav a[aria-current="page"]:hover > i {
+    @apply text-white;
+    /* 激活态 icon 必须白 */
+  }
+
+  /* 12. 运行时指标卡片 / 子卡片：白底 + 浅边 */
+
+  .settings-page .runtime-meta-grid > article,
 .settings-page .runtime-capability-grid > article,
 .settings-page .runtime-gauge-card {
-  background: var(--surface);
-  border-color: var(--border-color);
-  box-shadow: none;
-}
+    @apply bg-surface border-border shadow-none;
+  }
 
-/* =============================================================
- * Dark theme — 不动，沿用变量，自动跟随主题
- * 上面所有 var(--surface) / var(--light) / var(--border-color) /
- * var(--gray) 在 dark 模式下都有对应深色值，无需另写覆盖规则。
- * 仅 #f1f5f9 / #eff6ff / #bfdbfe / #cbd5e1 这几个 hover/callout 硬编码
- * 在深色下显得太亮，给一组 dark 接管：
- * ============================================================= */
-html[data-theme="dark"] .settings-page .settings-toggle-row:hover,
+  /* =============================================================
+   * Dark theme — 不动，沿用变量，自动跟随主题
+   * 上面所有 var(--surface) / var(--light) / var(--border-color) /
+   * var(--gray) 在 dark 模式下都有对应深色值，无需另写覆盖规则。
+   * 仅 #f1f5f9 / #eff6ff / #bfdbfe / #cbd5e1 这几个 hover/callout 硬编码
+   * 在深色下显得太亮，给一组 dark 接管：
+   * ============================================================= */
+
+  html[data-theme="dark"] .settings-page .settings-toggle-row:hover,
 html[data-theme="dark"] .settings-page .btn--secondary:hover,
 html[data-theme="dark"] .settings-page .settings-tab-nav a:hover {
-  background: color-mix(in srgb, var(--surface) 88%, #ffffff 12%);
-  border-color: color-mix(in srgb, var(--border-color) 60%, #ffffff 40%);
-}
-html[data-theme="dark"] .settings-page .settings-tab-title__icon {
-  background: color-mix(in srgb, var(--surface) 88%, #ffffff 12%);
-}
-html[data-theme="dark"] .settings-page .settings-callout {
-  background: color-mix(in srgb, var(--primary) 14%, var(--surface) 86%);
-  border-color: color-mix(in srgb, var(--primary) 28%, var(--border-color) 72%);
-  color: var(--dark);
-}
+    background: color-mix(in srgb, var(--surface) 88%, #ffffff 12%);
+    border-color: color-mix(in srgb, var(--border-color) 60%, #ffffff 40%);
+  }
 
-/* =============================================================
- * 直角设计 v4 — 用户要求全部子 tabs 内容直角
- *
- * 覆盖前面所有"4px / 8px / 6px / 10px"的圆角规则；只有以下例外保留圆形/药丸：
- *   • Tab nav 药丸（功能上就是 pill 形状，不属于"表单"）
- *   • Switch 轨道（开关本身就是椭圆按钮）
- *   • Tab 标题图标 chip（视觉装饰小色块）
- *   • Status pills (.is-on / .is-off / .is-warn) — 都是状态徽章
- *   • CSS 波浪动画 / 头像（页面其它处 999px）
- *
- * 其它所有形状（shell / 输入 / 按钮 / 选项条 / 文件按钮 / callout / 子卡片
- * / Save 按钮）一律 border-radius: 0。
- * ============================================================= */
+  html[data-theme="dark"] .settings-page .settings-tab-title__icon {
+    background: color-mix(in srgb, var(--surface) 88%, #ffffff 12%);
+  }
 
-/* --- 外: shell + nav 顶部 --- */
-.settings-page .settings-shell,
+  html[data-theme="dark"] .settings-page .settings-callout {
+    background: color-mix(in srgb, var(--primary) 14%, var(--surface) 86%);
+    border-color: color-mix(in srgb, var(--primary) 28%, var(--border-color) 72%);
+    color: var(--dark);
+  }
+
+  /* =============================================================
+   * 直角设计 v4 — 用户要求全部子 tabs 内容直角
+   *
+   * 覆盖前面所有"4px / 8px / 6px / 10px"的圆角规则；只有以下例外保留圆形/药丸：
+   *   • Tab nav 药丸（功能上就是 pill 形状，不属于"表单"）
+   *   • Switch 轨道（开关本身就是椭圆按钮）
+   *   • Tab 标题图标 chip（视觉装饰小色块）
+   *   • Status pills (.is-on / .is-off / .is-warn) — 都是状态徽章
+   *   • CSS 波浪动画 / 头像（页面其它处 999px）
+   *
+   * 其它所有形状（shell / 输入 / 按钮 / 选项条 / 文件按钮 / callout / 子卡片
+   * / Save 按钮）一律 border-radius: 0。
+   * ============================================================= */
+
+  /* --- 外: shell + nav 顶部 --- */
+
+  .settings-page .settings-shell,
 .settings-page .settings-shell > .settings-tab-nav {
-  border-radius: 0;
-}
+    @apply rounded-none;
+  }
 
-/* --- 表单输入 / 下拉 / textarea --- */
-.settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  /* --- 表单输入 / 下拉 / textarea --- */
+
+  .settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
 .settings-page select,
 .settings-page textarea,
 .settings-page .settings-file-input::file-selector-button,
 .settings-page .settings-file-input::-webkit-file-upload-button {
-  border-radius: 0;
-}
+    border-radius: 0;
+  }
 
-/* --- 按钮（普通 / primary / secondary / danger / lg）--- */
-.settings-page .btn,
+  /* --- 按钮（普通 / primary / secondary / danger / lg）--- */
+
+  .settings-page .btn,
 .settings-page .btn--primary,
 .settings-page .btn--secondary,
 .settings-page .btn--danger,
 .settings-page .btn--lg {
-  border-radius: 0;
-}
+    @apply rounded-none;
+  }
 
-/* --- 选项条 / 子卡片 / 网格项 / callout / 下拉框 --- */
-.settings-page .settings-toggle-row,
+  /* --- 选项条 / 子卡片 / 网格项 / callout / 下拉框 --- */
+
+  .settings-page .settings-toggle-row,
 .settings-page .settings-callout,
 .settings-page .runtime-meta-grid > article,
 .settings-page .runtime-capability-grid > article,
 .settings-page .runtime-gauge-card {
-  border-radius: 0;
-}
+    @apply rounded-none;
+  }
 
-/* --- 例外保留：tab nav pills / switch / 装饰 chip / status pills 不动 ---
- * （上面没有列出，所以默认保留它们原本的 999px / 10px）
- */
+  /* --- 例外保留：tab nav pills / switch / 装饰 chip / status pills 不动 ---
+   * （上面没有列出，所以默认保留它们原本的 999px / 10px）
+   */
 
-/* =============================================================
- * 允许上传格式 — 标签编辑器（chip + 自由输入 + 预设快速添加）
- *
- * 替代旧的固定 checkbox 网格。视觉风格
- * 跟整体 v3/v4 配色一致：白底 + 1px slate 边 + 直角；激活色用主题蓝。
- * ============================================================= */
-.settings-page .settings-format-tags {
-  display: grid;
-  gap: 10px;
-}
+  /* =============================================================
+   * 允许上传格式 — 标签编辑器（chip + 自由输入 + 预设快速添加）
+   *
+   * 替代旧的固定 checkbox 网格。视觉风格
+   * 跟整体 v3/v4 配色一致：白底 + 1px slate 边 + 直角；激活色用主题蓝。
+   * ============================================================= */
 
-/* 内框：装载所有 chip + 末尾的自由输入框，整体看起来就是一个"超大输入框" */
-.settings-page .settings-format-tags__chips {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  min-height: var(--settings-control-height);
-  padding: 8px 10px;
-  background: var(--surface);
-  border: 1px solid var(--border-color);
-  border-radius: 0;
-  cursor: text;
-  transition: border-color 160ms ease, box-shadow 160ms ease;
-}
+  .settings-page .settings-format-tags {
+    @apply grid gap-2.5;
+  }
 
-/* 内框 focus-within：容器边框跟随聚焦状态变蓝 + 加柔光圈 */
-.settings-page .settings-format-tags__chips:focus-within {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
-}
+  /* 内框：装载所有 chip + 末尾的自由输入框，整体看起来就是一个"超大输入框" */
 
-/* 单个扩展名 chip */
-.settings-page .settings-format-tags__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 28px;
-  padding: 0 4px 0 10px;
-  background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
-  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border-color) 76%);
-  color: var(--primary);
-  font-size: 0.85rem;
-  font-weight: 600;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  line-height: 1;
-  user-select: none;
-  white-space: nowrap;
-}
+  .settings-page .settings-format-tags__chips {
+    @apply flex flex-wrap items-center gap-1.5 min-h-[var(--settings-control-height)] py-2 px-2.5 bg-surface border border-border rounded-none cursor-text;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
 
-/* chip 上的删除按钮 */
-.settings-page .settings-format-tags__remove {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  margin-left: 2px;
-  background: transparent;
-  border: 0;
-  color: color-mix(in srgb, var(--primary) 70%, transparent);
-  cursor: pointer;
-  font-size: 0.85em;
-  line-height: 1;
-  transition: background 120ms ease, color 120ms ease;
-}
-.settings-page .settings-format-tags__remove:hover {
-  background: color-mix(in srgb, var(--primary) 18%, transparent);
-  color: var(--primary);
-}
+  /* 内框 focus-within：容器边框跟随聚焦状态变蓝 + 加柔光圈 */
 
-/* 自由输入框：紧贴 chip 末尾，无边框无背景 */
-.settings-page .settings-format-tags__input {
-  flex: 1 1 120px;
-  min-width: 120px;
-  height: 28px;
-  padding: 0 4px;
-  background: transparent;
-  border: 0;
-  outline: none;
-  color: var(--dark);
-  font-size: 0.9rem;
-  /* 覆盖通用 .settings-page input 的 min-height 50px */
-  min-height: 28px;
-}
-.settings-page .settings-format-tags__input:focus,
+  .settings-page .settings-format-tags__chips:focus-within {
+    @apply border-primary;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+  }
+
+  /* 单个扩展名 chip */
+
+  .settings-page .settings-format-tags__chip {
+    @apply inline-flex items-center gap-1 h-7 pt-0 pr-1 pb-0 pl-2.5 text-primary text-[0.85rem] font-semibold font-mono leading-none select-none whitespace-nowrap;
+    background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
+    border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border-color) 76%);
+  }
+
+  /* chip 上的删除按钮 */
+
+  .settings-page .settings-format-tags__remove {
+    @apply inline-flex items-center justify-center w-5 h-5 p-0 ml-0.5 bg-transparent border-0 cursor-pointer text-[0.85em] leading-none;
+    color: color-mix(in srgb, var(--primary) 70%, transparent);
+    transition: background 120ms ease, color 120ms ease;
+  }
+
+  .settings-page .settings-format-tags__remove:hover {
+    @apply text-primary;
+    background: color-mix(in srgb, var(--primary) 18%, transparent);
+  }
+
+  /* 自由输入框：紧贴 chip 末尾，无边框无背景 */
+
+  .settings-page .settings-format-tags__input {
+    @apply flex-[1_1_120px] min-w-[120px] h-7 py-0 px-1 bg-transparent border-0 outline-none text-dark text-[0.9rem] min-h-7;
+    /* 覆盖通用 .settings-page input 的 min-height 50px */
+  }
+
+  .settings-page .settings-format-tags__input:focus,
 .settings-page .settings-format-tags__input:focus-visible {
-  border: 0;                /* 去掉默认聚焦框 — 容器自己有 focus-within 蓝晕 */
-  box-shadow: none;
-  outline: none;
-}
+    @apply border-0 shadow-none outline-none;
+    /* 去掉默认聚焦框 — 容器自己有 focus-within 蓝晕 */
+  }
 
-/* 预设快速添加区 */
-.settings-page .settings-format-tags__presets {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
-.settings-page .settings-format-tags__presets-label {
-  font-size: 0.78rem;
-  color: var(--gray);
-  margin-right: 2px;
-}
-.settings-page .settings-format-tags__preset {
-  display: inline-flex;
-  align-items: center;
-  height: 26px;
-  padding: 0 8px;
-  background: color-mix(in srgb, var(--light) 60%, var(--surface) 40%);
-  border: 1px dashed color-mix(in srgb, var(--border-color) 80%, transparent);
-  color: var(--gray);
-  font-size: 0.8rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  cursor: pointer;
-  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
-}
-.settings-page .settings-format-tags__preset:hover {
-  background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
-  border-color: color-mix(in srgb, var(--primary) 28%, var(--border-color) 72%);
-  color: var(--primary);
-}
+  /* 预设快速添加区 */
 
-/* =============================================================
- * 失败任务列表面板（系统 tab → 图片处理队列 → 折叠详情）
- * 使用原生 <details> + <summary>，无 JS 折叠开关。
- * ============================================================= */
-.settings-page .settings-queue-failed {
-  margin-top: 8px;
-  padding: 0;
-}
-.settings-page .settings-queue-failed > summary {
-  cursor: pointer;
-  list-style: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 0;
-  font-size: 0.92rem;
-  font-weight: 500;
-  color: var(--dark);
-  user-select: none;
-}
-.settings-page .settings-queue-failed > summary::-webkit-details-marker {
-  display: none;
-}
-.settings-page .settings-queue-failed > summary::before {
-  content: '▸';
-  display: inline-block;
-  width: 14px;
-  color: var(--gray);
-  transition: transform 120ms ease;
-}
-.settings-page .settings-queue-failed[open] > summary::before {
-  transform: rotate(90deg);
-}
+  .settings-page .settings-format-tags__presets {
+    @apply flex flex-wrap items-center gap-1.5;
+  }
 
-/* 失败任务表里的小操作按钮（重试 / 丢弃）— 比常规 .btn 紧凑 */
-.settings-page [data-queue-failed-table] td .btn {
-  height: 28px;
-  padding: 0 8px;
-  margin-left: 4px;
-}
-.settings-page [data-queue-failed-table] td .btn i {
-  font-size: 0.85em;
-}
-.settings-page [data-queue-failed-table] th,
+  .settings-page .settings-format-tags__presets-label {
+    @apply text-[0.78rem] text-gray mr-0.5;
+  }
+
+  .settings-page .settings-format-tags__preset {
+    @apply inline-flex items-center h-[26px] py-0 px-2 text-gray text-[0.8rem] font-mono cursor-pointer;
+    background: color-mix(in srgb, var(--light) 60%, var(--surface) 40%);
+    border: 1px dashed color-mix(in srgb, var(--border-color) 80%, transparent);
+    transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+  }
+
+  .settings-page .settings-format-tags__preset:hover {
+    @apply text-primary;
+    background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
+    border-color: color-mix(in srgb, var(--primary) 28%, var(--border-color) 72%);
+  }
+
+  /* =============================================================
+   * 失败任务列表面板（系统 tab → 图片处理队列 → 折叠详情）
+   * 使用原生 <details> + <summary>，无 JS 折叠开关。
+   * ============================================================= */
+
+  .settings-page .settings-queue-failed {
+    @apply mt-2 p-0;
+  }
+
+  .settings-page .settings-queue-failed > summary {
+    @apply cursor-pointer list-none inline-flex items-center gap-1.5 py-1.5 px-0 text-[0.92rem] font-medium text-dark select-none;
+  }
+
+  .settings-page .settings-queue-failed > summary::-webkit-details-marker {
+    @apply hidden;
+  }
+
+  .settings-page .settings-queue-failed > summary::before {
+    @apply inline-block w-3.5;
+    content: '▸';
+    color: var(--gray);
+    transition: transform 120ms ease;
+  }
+
+  .settings-page .settings-queue-failed[open] > summary::before {
+    transform: rotate(90deg);
+  }
+
+  /* 失败任务表里的小操作按钮（重试 / 丢弃）— 比常规 .btn 紧凑 */
+
+  .settings-page [data-queue-failed-table] td .btn {
+    @apply h-7 py-0 px-2 ml-1;
+  }
+
+  .settings-page [data-queue-failed-table] td .btn i {
+    @apply text-[0.85em];
+  }
+
+  .settings-page [data-queue-failed-table] th,
 .settings-page [data-queue-failed-table] td {
-  padding: 6px 10px;
-}
-
-/* =============================================================
- * SQLite 数据库 — 4 个元信息徽章（替代之前的 readonly 输入框）
- *
- * 布局：
- *   • 桌面（≥960px）— 4 列等宽 grid，整行铺满 shell 宽度
- *   • 中屏（≤960px）— 2 列
- *   • 手机（≤480px）— 1 列
- * 每个徽章高度一致、宽度均分，整体像 dashboard 状态条。
- * ============================================================= */
-.settings-page .db-meta-badges {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  align-items: stretch;
-  width: 100%;
-}
-
-@media (max-width: 960px) {
-  .settings-page .db-meta-badges {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    @apply py-1.5 px-2.5;
   }
-}
-@media (max-width: 480px) {
+
+  /* =============================================================
+   * SQLite 数据库 — 4 个元信息徽章（替代之前的 readonly 输入框）
+   *
+   * 布局：
+   *   • 桌面（≥960px）— 4 列等宽 grid，整行铺满 shell 宽度
+   *   • 中屏（≤960px）— 2 列
+   *   • 手机（≤480px）— 1 列
+   * 每个徽章高度一致、宽度均分，整体像 dashboard 状态条。
+   * ============================================================= */
+
   .settings-page .db-meta-badges {
-    grid-template-columns: 1fr;
+    @apply grid gap-2 items-stretch w-full;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
-}
 
-.settings-page .db-badge {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  background: #f8fafc;                                       /* slate-50 */
-  border: 1px solid var(--border-color);
-  font-size: 0.85rem;
-  line-height: 1.2;
-  color: var(--gray);
-  min-height: 40px;
-  min-width: 0;
-  overflow: hidden;
-}
+  @media (max-width: 960px) {
+    .settings-page .db-meta-badges {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
 
-.settings-page .db-badge > i {
-  color: var(--primary);
-  font-size: 0.95em;
-  flex-shrink: 0;
-}
+  @media (max-width: 480px) {
+    .settings-page .db-meta-badges {
+      grid-template-columns: 1fr;
+    }
+  }
 
-.settings-page .db-badge__label {
-  color: var(--gray);
-  flex-shrink: 0;
-}
+  .settings-page .db-badge {
+    @apply flex items-center gap-2 py-2.5 px-3.5 border border-border text-[0.85rem] leading-[1.2] text-gray min-h-10 min-w-0 overflow-hidden;
+    background: #f8fafc;
+    /* slate-50 */
+  }
 
-.settings-page .db-badge__value {
-  background: transparent;
-  padding: 0;
-  color: var(--dark);
-  font-weight: 600;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.85rem;
-  /* 内容超过单元格宽度（如长路径）时显示省略号，不挤变其它三列 */
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: right;
-}
+  .settings-page .db-badge > i {
+    @apply text-primary text-[0.95em] shrink-0;
+  }
 
-html[data-theme="dark"] .settings-page .db-badge {
-  background: color-mix(in srgb, var(--surface) 88%, #ffffff 12%);
-}
+  .settings-page .db-badge__label {
+    @apply text-gray shrink-0;
+  }
 
-/* =============================================================
- * 标题层级重构 — 让 tab 标题（level 1）和 section 标题（level 2）
- * 一眼能区分。问题是之前两个都用「蓝色图标 chip + 加粗文字」，所以
- * 「数据库」（tab）和「SQLite 数据库」（section）视觉糊在一起。
- *
- * 新设计：
- *   • Tab 标题 — 大色块 banner
- *       ✓ 整个 banner 带浅蓝渐变背景
- *       ✓ 主题色左侧 3px 强调竖线
- *       ✓ 图标 chip 放大到 52px + 主题色实底（不再是 12% 浅蓝底）
- *       ✓ 标题字号 1.35rem / 字重 700
- *       ✓ 底部 2px 实线分隔，跟 section 的 1px 拉开档次
- *
- *   • Section 标题 — 简洁 h3 小标题
- *       ✓ 取消图标 chip，图标缩到 18px 行内灰色
- *       ✓ 标题 0.98rem / 字重 600
- *       ✓ 底部 1px 虚线（vs tab 的 2px 实线）
- *       ✓ 上方加 6px 留白，避开跟 tab 标题挤
- *
- * 整体效果：用户一眼看到「我在哪个 tab」（大 banner）+「这块是什么」
- * （朴素 h3），不再混淆。
- * ============================================================= */
+  .settings-page .db-badge__value {
+    @apply bg-transparent p-0 text-dark font-semibold font-mono text-[0.85rem] flex-auto min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-right;
+    /* 内容超过单元格宽度（如长路径）时显示省略号，不挤变其它三列 */
+  }
 
-/* ───────────── Level 1：Tab 标题 ─────────────
- * 只靠下方 2px 主题蓝实线区分层级，无背景色 / 无 chip 高亮 / 无装饰
- * 干净简洁，让标题文字本身和图标 chip 担当视觉重点。
- */
-.settings-page .settings-tab-title {
-  align-items: center;
-  gap: 16px;
-  padding: 6px 2px 16px;
-  margin: 0 0 12px;
-  background: transparent;
-  border-bottom: 2px solid color-mix(in srgb, var(--primary) 28%, var(--border-color) 72%);
-  border-radius: 0;
-}
+  html[data-theme="dark"] .settings-page .db-badge {
+    background: color-mix(in srgb, var(--surface) 88%, #ffffff 12%);
+  }
 
-/* 图标 chip 放大 + 实底色（让它从 banner 里"立"起来）*/
-.settings-page .settings-tab-title__icon {
-  width: 52px;
-  height: 52px;
-  /* 直角风格 — 跟 Plan A 设计系统统一。 */
-  border-radius: 0;
-  background: var(--primary);
-  color: #ffffff;
-  font-size: 1.5rem;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 28%, transparent);
-}
+  /* =============================================================
+   * 标题层级重构 — 让 tab 标题（level 1）和 section 标题（level 2）
+   * 一眼能区分。问题是之前两个都用「蓝色图标 chip + 加粗文字」，所以
+   * 「数据库」（tab）和「SQLite 数据库」（section）视觉糊在一起。
+   *
+   * 新设计：
+   *   • Tab 标题 — 大色块 banner
+   *       ✓ 整个 banner 带浅蓝渐变背景
+   *       ✓ 主题色左侧 3px 强调竖线
+   *       ✓ 图标 chip 放大到 52px + 主题色实底（不再是 12% 浅蓝底）
+   *       ✓ 标题字号 1.35rem / 字重 700
+   *       ✓ 底部 2px 实线分隔，跟 section 的 1px 拉开档次
+   *
+   *   • Section 标题 — 简洁 h3 小标题
+   *       ✓ 取消图标 chip，图标缩到 18px 行内灰色
+   *       ✓ 标题 0.98rem / 字重 600
+   *       ✓ 底部 1px 虚线（vs tab 的 2px 实线）
+   *       ✓ 上方加 6px 留白，避开跟 tab 标题挤
+   *
+   * 整体效果：用户一眼看到「我在哪个 tab」（大 banner）+「这块是什么」
+   * （朴素 h3），不再混淆。
+   * ============================================================= */
 
-/* 标题文字加大加粗 */
-.settings-page .settings-tab-title__heading {
-  font-size: 1.35rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--dark);
-}
+  /* ───────────── Level 1：Tab 标题 ─────────────
+   * 只靠下方 2px 主题蓝实线区分层级，无背景色 / 无 chip 高亮 / 无装饰
+   * 干净简洁，让标题文字本身和图标 chip 担当视觉重点。
+   */
 
-.settings-page .settings-tab-title__description {
-  font-size: 0.88rem;
-  color: var(--gray);
-  margin-top: 4px;
-}
-
-@media (max-width: 720px) {
   .settings-page .settings-tab-title {
-    gap: 12px;
-    padding: 12px 14px 14px 18px;
+    @apply items-center gap-4 mt-0 mx-0 mb-3 bg-transparent rounded-none;
+    padding: 6px 2px 16px;
+    border-bottom: 2px solid color-mix(in srgb, var(--primary) 28%, var(--border-color) 72%);
   }
+
+  /* 图标 chip 放大 + 实底色（让它从 banner 里"立"起来）*/
+
   .settings-page .settings-tab-title__icon {
-    width: 44px;
-    height: 44px;
-    font-size: 1.25rem;
+    @apply w-13 h-13 rounded-none bg-primary text-white text-[1.5rem];
+    /* 直角风格 — 跟 Plan A 设计系统统一。 */
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 28%, transparent);
   }
+
+  /* 标题文字加大加粗 */
+
   .settings-page .settings-tab-title__heading {
-    font-size: 1.15rem;
+    @apply text-[1.35rem] font-bold tracking-[-0.01em] text-dark;
   }
-}
 
-html[data-theme="dark"] .settings-page .settings-tab-title {
-  background: transparent;
-  border-bottom-color: color-mix(in srgb, var(--primary) 36%, var(--border-color) 64%);
-}
+  .settings-page .settings-tab-title__description {
+    @apply text-[0.88rem] text-gray mt-1;
+  }
 
-/* ───────────── Level 2：Section header 简洁 h3 ───────────── */
-.settings-page .settings-section-header {
-  padding: 0 0 10px;
-  margin-top: 14px;                  /* 跟上方内容拉开 */
-  border-bottom: 1px dashed color-mix(in srgb, var(--border-color) 80%, transparent);
-}
+  @media (max-width: 720px) {
+    .settings-page .settings-tab-title {
+      @apply gap-3 pt-3 pr-3.5 pb-3.5 pl-4.5;
+    }
 
-/* 第一个 section 紧贴 tab 标题就不用上边距了（避免 tab + section 之间留空过大）*/
-.settings-page .settings-shell > .settings-panel > section:first-of-type > .settings-section-header,
+    .settings-page .settings-tab-title__icon {
+      @apply w-11 h-11 text-[1.25rem];
+    }
+
+    .settings-page .settings-tab-title__heading {
+      @apply text-[1.15rem];
+    }
+  }
+
+  html[data-theme="dark"] .settings-page .settings-tab-title {
+    background: transparent;
+    border-bottom-color: color-mix(in srgb, var(--primary) 36%, var(--border-color) 64%);
+  }
+
+  /* ───────────── Level 2：Section header 简洁 h3 ───────────── */
+
+  .settings-page .settings-section-header {
+    @apply mt-3.5;
+    padding: 0 0 10px;
+    /* 跟上方内容拉开 */
+    border-bottom: 1px dashed color-mix(in srgb, var(--border-color) 80%, transparent);
+  }
+
+  /* 第一个 section 紧贴 tab 标题就不用上边距了（避免 tab + section 之间留空过大）*/
+
+  .settings-page .settings-shell > .settings-panel > section:first-of-type > .settings-section-header,
 .settings-page .settings-shell > section:first-of-type > .settings-section-header,
 .settings-page .settings-tab-title + section > .settings-section-header,
 .settings-page .settings-tab-title + .settings-panel > section:first-of-type > .settings-section-header {
-  margin-top: 0;
-}
-
-/* Section 标题：小字 + 灰图标 + 无 chip — 跟 tab 标题的强烈对比 */
-.settings-page .settings-card-title {
-  font-size: 0.98rem;
-  font-weight: 600;
-  color: var(--dark);
-  letter-spacing: 0;
-  gap: 7px;
-}
-
-.settings-page .settings-card-title > i {
-  width: 18px;
-  min-width: 18px;
-  font-size: 0.95rem;
-  color: var(--primary);              /* 蓝色 — 用品牌色突出每个 section 头 */
-  background: transparent;            /* 取消任何 chip 背景 */
-}
-
-.settings-page .settings-section-header > p {
-  font-size: 0.7rem;                 /* 比 section 标题再小一档，弱化为辅助说明 */
-  color: var(--gray);
-  margin: 0;
-}
-
-/* =============================================================
- * 队列状态卡片（任务 tab → 图片处理队列）
- *
- * 把之前用 readonly input 显示的「队列深度 / 失败任务 / 上次运行」
- * 改成数据卡片：大号数字 + 小号 label + 左侧图标，跟仪表盘 KPI 同款。
- *
- * 三个卡片排成 2 + 1 网格：
- *   桌面 ≥720px：第一行两个并排（小卡），第二行一个全宽（宽卡）
- *   移动 <720px：单列依次堆叠
- *
- * 数字活体（队列里有任务、有失败任务）时用主题色 / 警告色高亮，
- * 一眼看出"是否需要关注"。
- * ============================================================= */
-.settings-page .queue-stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  width: 100%;
-}
-
-@media (max-width: 720px) {
-  .settings-page .queue-stats {
-    grid-template-columns: 1fr;
+    @apply mt-0;
   }
-}
 
-/* "上次运行" 行宽，跨两列 */
-.settings-page .queue-stat--wide {
-  grid-column: 1 / -1;
-}
+  /* Section 标题：小字 + 灰图标 + 无 chip — 跟 tab 标题的强烈对比 */
 
-.settings-page .queue-stat {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-  background: #f8fafc;                                    /* slate-50，跟数据库 badge 同色系 */
-  border: 1px solid var(--border-color);
-  min-height: 64px;
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
+  .settings-page .settings-card-title {
+    @apply text-[0.98rem] font-semibold text-dark tracking-normal gap-[7px];
+  }
 
-/* 左侧图标 — 默认灰色，活跃时变主题色 */
-.settings-page .queue-stat__icon {
-  flex: 0 0 auto;
-  width: 36px;
-  height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in srgb, var(--gray) 10%, transparent);
-  color: var(--gray);
-  font-size: 1rem;
-  transition: background 0.15s ease, color 0.15s ease;
-}
+  .settings-page .settings-card-title > i {
+    @apply w-4.5 min-w-4.5 text-[0.95rem] text-primary bg-transparent;
+    /* 蓝色 — 用品牌色突出每个 section 头 */
+    /* 取消任何 chip 背景 */
+  }
 
-.settings-page .queue-stat__copy {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-  flex: 1 1 auto;
-}
+  .settings-page .settings-section-header > p {
+    @apply text-[0.7rem] text-gray m-0;
+    /* 比 section 标题再小一档，弱化为辅助说明 */
+  }
 
-/* 大号数字（KPI 主体）*/
-.settings-page .queue-stat__value {
-  font-size: 1.5rem;
-  font-weight: 700;
-  line-height: 1.1;
-  color: var(--dark);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
-}
+  /* =============================================================
+   * 队列状态卡片（任务 tab → 图片处理队列）
+   *
+   * 把之前用 readonly input 显示的「队列深度 / 失败任务 / 上次运行」
+   * 改成数据卡片：大号数字 + 小号 label + 左侧图标，跟仪表盘 KPI 同款。
+   *
+   * 三个卡片排成 2 + 1 网格：
+   *   桌面 ≥720px：第一行两个并排（小卡），第二行一个全宽（宽卡）
+   *   移动 <720px：单列依次堆叠
+   *
+   * 数字活体（队列里有任务、有失败任务）时用主题色 / 警告色高亮，
+   * 一眼看出"是否需要关注"。
+   * ============================================================= */
 
-/* "上次运行" 是文字不是数字，字号小一点更易读 */
-.settings-page .queue-stat__value--text {
-  font-size: 0.95rem;
-  font-weight: 500;
-  letter-spacing: 0;
-  /* 长文本截断省略号 */
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+  .settings-page .queue-stats {
+    @apply grid gap-2.5 w-full;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 
-.settings-page .queue-stat__label {
-  font-size: 0.78rem;
-  color: var(--gray);
-  font-weight: 400;
-}
+  @media (max-width: 720px) {
+    .settings-page .queue-stats {
+      grid-template-columns: 1fr;
+    }
+  }
 
-/* 活跃态 — 队列里有待处理任务 */
-.settings-page .queue-stat--active {
-  background: color-mix(in srgb, var(--primary) 6%, var(--surface) 94%);
-  border-color: color-mix(in srgb, var(--primary) 32%, var(--border-color) 68%);
-}
-.settings-page .queue-stat--active .queue-stat__icon {
-  background: color-mix(in srgb, var(--primary) 14%, transparent);
-  color: var(--primary);
-}
-.settings-page .queue-stat--active .queue-stat__value {
-  color: var(--primary);
-}
+  /* "上次运行" 行宽，跨两列 */
 
-/* 警告态 — 有失败任务（红色，需要用户关注） */
-.settings-page .queue-stat--alert {
-  background: color-mix(in srgb, #d73a49 6%, var(--surface) 94%);
-  border-color: color-mix(in srgb, #d73a49 32%, var(--border-color) 68%);
-}
-.settings-page .queue-stat--alert .queue-stat__icon {
-  background: color-mix(in srgb, #d73a49 14%, transparent);
-  color: #d73a49;
-}
-.settings-page .queue-stat--alert .queue-stat__value {
-  color: #d73a49;
-}
+  .settings-page .queue-stat--wide {
+    grid-column: 1 / -1;
+  }
 
-html[data-theme="dark"] .settings-page .queue-stat {
-  background: color-mix(in srgb, var(--surface) 88%, #ffffff 12%);
-}
-html[data-theme="dark"] .settings-page .queue-stat__icon {
-  background: color-mix(in srgb, #ffffff 8%, transparent);
-}
+  .settings-page .queue-stat {
+    @apply flex items-center gap-3.5 py-3.5 px-4 border border-border min-h-16;
+    background: #f8fafc;
+    /* slate-50，跟数据库 badge 同色系 */
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
 
-/* =============================================================
- * 残留数据清理 (settings → 数据库 tab)
- * 工具条 + 类别表格 + 提示框，整体跟周边卡片直角风格统一。
- * ============================================================= */
+  /* 左侧图标 — 默认灰色，活跃时变主题色 */
 
-.settings-page .cleanup-block {
-  display: grid;
-  gap: 12px;
-}
+  .settings-page .queue-stat__icon {
+    @apply shrink-0 w-9 h-9 inline-flex items-center justify-center text-gray text-base;
+    background: color-mix(in srgb, var(--gray) 10%, transparent);
+    transition: background 0.15s ease, color 0.15s ease;
+  }
 
-.settings-page .cleanup-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-}
+  .settings-page .queue-stat__copy {
+    @apply grid gap-0.5 min-w-0 flex-auto;
+  }
 
-.settings-page .cleanup-status {
-  flex: 0 1 auto;
-  min-width: 190px;
-  max-width: 100%;
-  min-height: 42px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 14px;
-  border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
-  border-radius: 0;
-  background: color-mix(in srgb, var(--surface) 92%, var(--light) 8%);
-  color: var(--gray);
-  font-size: 0.78rem;
-  font-weight: 650;
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+  /* 大号数字（KPI 主体）*/
 
-.settings-page .cleanup-status::before {
-  content: '';
-  width: 8px;
-  height: 8px;
-  flex: 0 0 8px;
-  border-radius: 999px;
-  background: currentColor;
-  opacity: 0.75;
-}
-.settings-page .cleanup-status.is-on    { color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, var(--border-color) 65%); background: color-mix(in srgb, var(--success) 5%, var(--surface) 95%); }
-.settings-page .cleanup-status.is-warn  { color: #b45309; border-color: color-mix(in srgb, #f59e0b 38%, var(--border-color) 62%); background: color-mix(in srgb, #f59e0b 7%, var(--surface) 93%); }
-.settings-page .cleanup-status.is-off   { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--border-color) 65%); background: color-mix(in srgb, var(--danger) 5%, var(--surface) 95%); }
+  .settings-page .queue-stat__value {
+    @apply text-[1.5rem] font-bold leading-[1.1] text-dark tracking-[-0.01em];
+    font-variant-numeric: tabular-nums;
+  }
 
-.settings-page .cleanup-table {
-  width: 100%;
-  border-collapse: collapse;
-  border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
-  background: color-mix(in srgb, var(--surface) 96%, var(--light) 4%);
-  font-size: 0.86rem;
-}
+  /* "上次运行" 是文字不是数字，字号小一点更易读 */
 
-.settings-page .cleanup-table th,
+  .settings-page .queue-stat__value--text {
+    @apply text-[0.95rem] font-medium tracking-normal overflow-hidden text-ellipsis whitespace-nowrap;
+    /* 长文本截断省略号 */
+  }
+
+  .settings-page .queue-stat__label {
+    @apply text-[0.78rem] text-gray font-normal;
+  }
+
+  /* 活跃态 — 队列里有待处理任务 */
+
+  .settings-page .queue-stat--active {
+    background: color-mix(in srgb, var(--primary) 6%, var(--surface) 94%);
+    border-color: color-mix(in srgb, var(--primary) 32%, var(--border-color) 68%);
+  }
+
+  .settings-page .queue-stat--active .queue-stat__icon {
+    @apply text-primary;
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
+  }
+
+  .settings-page .queue-stat--active .queue-stat__value {
+    @apply text-primary;
+  }
+
+  /* 警告态 — 有失败任务（红色，需要用户关注） */
+
+  .settings-page .queue-stat--alert {
+    background: color-mix(in srgb, #d73a49 6%, var(--surface) 94%);
+    border-color: color-mix(in srgb, #d73a49 32%, var(--border-color) 68%);
+  }
+
+  .settings-page .queue-stat--alert .queue-stat__icon {
+    background: color-mix(in srgb, #d73a49 14%, transparent);
+    color: #d73a49;
+  }
+
+  .settings-page .queue-stat--alert .queue-stat__value {
+    color: #d73a49;
+  }
+
+  html[data-theme="dark"] .settings-page .queue-stat {
+    background: color-mix(in srgb, var(--surface) 88%, #ffffff 12%);
+  }
+
+  html[data-theme="dark"] .settings-page .queue-stat__icon {
+    background: color-mix(in srgb, #ffffff 8%, transparent);
+  }
+
+  /* =============================================================
+   * 残留数据清理 (settings → 数据库 tab)
+   * 工具条 + 类别表格 + 提示框，整体跟周边卡片直角风格统一。
+   * ============================================================= */
+
+  .settings-page .cleanup-block {
+    @apply grid gap-3;
+  }
+
+  .settings-page .cleanup-toolbar {
+    @apply flex flex-wrap items-center gap-2.5;
+  }
+
+  .settings-page .cleanup-status {
+    @apply flex-initial min-w-[190px] max-w-full min-h-[42px] inline-flex items-center gap-2 py-0 px-3.5 rounded-none text-gray text-[0.78rem] font-[650] leading-[1.2] whitespace-nowrap overflow-hidden text-ellipsis;
+    border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+    background: color-mix(in srgb, var(--surface) 92%, var(--light) 8%);
+  }
+
+  .settings-page .cleanup-status::before {
+    @apply w-2 h-2 flex-[0_0_8px] opacity-[0.75];
+    content: '';
+    border-radius: 999px;
+    background: currentColor;
+  }
+
+  .settings-page .cleanup-status.is-on {
+    @apply text-success;
+    border-color: color-mix(in srgb, var(--success) 35%, var(--border-color) 65%);
+    background: color-mix(in srgb, var(--success) 5%, var(--surface) 95%);
+  }
+
+  .settings-page .cleanup-status.is-warn {
+    color: #b45309;
+    border-color: color-mix(in srgb, #f59e0b 38%, var(--border-color) 62%);
+    background: color-mix(in srgb, #f59e0b 7%, var(--surface) 93%);
+  }
+
+  .settings-page .cleanup-status.is-off {
+    @apply text-danger;
+    border-color: color-mix(in srgb, var(--danger) 35%, var(--border-color) 65%);
+    background: color-mix(in srgb, var(--danger) 5%, var(--surface) 95%);
+  }
+
+  .settings-page .cleanup-table {
+    @apply w-full border-collapse text-[0.86rem];
+    border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+    background: color-mix(in srgb, var(--surface) 96%, var(--light) 4%);
+  }
+
+  .settings-page .cleanup-table th,
 .settings-page .cleanup-table td {
-  padding: 9px 12px;
-  text-align: left;
-  vertical-align: middle;
-  border-top: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
-}
-.settings-page .cleanup-table th {
-  border-top: 0;
-  background: color-mix(in srgb, var(--surface) 90%, #000 10%);
-  color: var(--dark);
-  font-size: 0.78rem;
-  font-weight: 650;
-}
+    @apply py-[9px] px-3 text-left align-middle;
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
+  }
 
-.settings-page .cleanup-th-check,
-.settings-page .cleanup-td-check { width: 36px; text-align: center; }
-.settings-page .cleanup-th-num,
-.settings-page .cleanup-td-num   { width: 80px; text-align: right; font-family: var(--font-mono); }
+  .settings-page .cleanup-table th {
+    @apply border-t-0 text-dark text-[0.78rem] font-[650];
+    background: color-mix(in srgb, var(--surface) 90%, #000 10%);
+  }
 
-.settings-page .cleanup-checkbox {
-  width: 14px;
-  height: 14px;
-  accent-color: var(--primary);
-  cursor: pointer;
-}
+  .settings-page .cleanup-th-check,
+.settings-page .cleanup-td-check {
+    @apply w-9 text-center;
+  }
 
-.settings-page .cleanup-count {
-  display: inline-block;
-  min-width: 28px;
-  color: var(--gray);
-  font-weight: 700;
-}
-.settings-page .cleanup-count--has {
-  color: var(--primary);
-}
+  .settings-page .cleanup-th-num,
+.settings-page .cleanup-td-num {
+    @apply w-20 text-right font-mono;
+  }
 
-.settings-page .cleanup-note {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border-color) 78%);
-  background: color-mix(in srgb, var(--primary) 7%, var(--surface) 93%);
-  color: color-mix(in srgb, var(--dark) 76%, var(--gray) 24%);
-  font-size: 0.80rem;
-  line-height: 1.6;
-}
-.settings-page .cleanup-note > i {
-  flex-shrink: 0;
-  margin-top: 2px;
-  color: var(--primary);
-  font-size: 14px;
-}
-.settings-page .cleanup-note strong {
-  color: var(--dark);
-}
+  .settings-page .cleanup-checkbox {
+    @apply w-3.5 h-3.5 cursor-pointer;
+    accent-color: var(--primary);
+  }
 
-/* =============================================================
- * 残留数据清理 - 自定义确认对话框
- * 替代原生 confirm()，跟周边卡片直角风格统一。
- * ============================================================= */
+  .settings-page .cleanup-count {
+    @apply inline-block min-w-7 text-gray font-bold;
+  }
 
-.cleanup-confirm {
-  display: grid;
-  gap: 14px;
-}
+  .settings-page .cleanup-count--has {
+    @apply text-primary;
+  }
 
-.cleanup-confirm-lead {
-  margin: 0;
-  color: var(--dark);
-  font-size: 0.92rem;
-  line-height: 1.7;
-}
-.cleanup-confirm-lead strong {
-  color: var(--danger);
-  font-weight: 700;
-}
+  .settings-page .cleanup-note {
+    @apply flex items-start gap-2.5 py-2.5 px-3 text-[0.80rem] leading-relaxed;
+    border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border-color) 78%);
+    background: color-mix(in srgb, var(--primary) 7%, var(--surface) 93%);
+    color: color-mix(in srgb, var(--dark) 76%, var(--gray) 24%);
+  }
 
-.cleanup-confirm-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
-  background: color-mix(in srgb, var(--surface) 92%, var(--light) 8%);
-  overflow: hidden;
-}
+  .settings-page .cleanup-note > i {
+    @apply shrink-0 mt-0.5 text-primary text-[14px];
+  }
 
-.cleanup-confirm-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 14px;
-  border-top: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
-  font-size: 0.88rem;
-}
-.cleanup-confirm-item:first-child {
-  border-top: 0;
-}
+  .settings-page .cleanup-note strong {
+    @apply text-dark;
+  }
 
-.cleanup-confirm-label {
-  color: var(--dark);
-}
+  /* =============================================================
+   * 残留数据清理 - 自定义确认对话框
+   * 替代原生 confirm()，跟周边卡片直角风格统一。
+   * ============================================================= */
 
-.cleanup-confirm-num {
-  color: var(--primary);
-  font-family: var(--font-mono);
-  font-size: 0.86rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
+  .cleanup-confirm {
+    @apply grid gap-3.5;
+  }
 
-.cleanup-confirm-safe {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin: 0;
-  padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border-color) 78%);
-  background: color-mix(in srgb, var(--primary) 7%, var(--surface) 93%);
-  color: color-mix(in srgb, var(--dark) 76%, var(--gray) 24%);
-  font-size: 0.80rem;
-  line-height: 1.6;
-}
-.cleanup-confirm-safe > i {
-  flex-shrink: 0;
-  margin-top: 2px;
-  color: var(--primary);
-  font-size: 14px;
-}
+  .cleanup-confirm-lead {
+    @apply m-0 text-dark text-[0.92rem] leading-[1.7];
+  }
 
-.cleanup-confirm-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 4px;
-}
+  .cleanup-confirm-lead strong {
+    @apply text-danger font-bold;
+  }
 
-.cleanup-confirm-actions .btn {
-  min-width: 92px;
-  height: 42px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 0 18px;
-  border: 1px solid color-mix(in srgb, var(--border-color) 74%, transparent);
-  border-radius: 0;
-  background: var(--surface);
-  color: var(--dark);
-  font-size: 0.9rem;
-  font-weight: 650;
-  line-height: 1;
-  white-space: nowrap;
-  cursor: pointer;
-  transition:
-    color 160ms ease,
-    background 160ms ease,
-    border-color 160ms ease,
-    filter 160ms ease;
-}
+  .cleanup-confirm-list {
+    @apply m-0 p-0 list-none grid overflow-hidden;
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    background: color-mix(in srgb, var(--surface) 92%, var(--light) 8%);
+  }
 
-.cleanup-confirm-actions .btn > i {
-  width: 18px;
-  height: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 18px;
-  font-size: 0.92rem;
-  line-height: 1;
-}
+  .cleanup-confirm-item {
+    @apply flex items-center justify-between gap-3 py-2.5 px-3.5 text-[0.88rem];
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
+  }
 
-.cleanup-confirm-actions .btn > span {
-  display: inline-flex;
-  align-items: center;
-  height: 18px;
-  line-height: 1;
-}
+  .cleanup-confirm-item:first-child {
+    @apply border-t-0;
+  }
 
-.cleanup-confirm-actions .btn--secondary:hover {
-  border-color: color-mix(in srgb, var(--gray) 30%, var(--border-color) 70%);
-  background: color-mix(in srgb, var(--light) 74%, var(--surface) 26%);
-}
+  .cleanup-confirm-label {
+    @apply text-dark;
+  }
 
-/* 「确认清理」按钮 — 用危险红，强化「不可撤销」感知 */
-.cleanup-confirm-submit {
-  min-width: 118px;
-  background: var(--danger) !important;
-  border-color: var(--danger) !important;
-  color: #fff !important;
-}
-.cleanup-confirm-submit:hover {
-  filter: brightness(1.08);
-}
+  .cleanup-confirm-num {
+    @apply text-primary font-mono text-[0.86rem] font-bold whitespace-nowrap;
+  }
 
-/* =============================================================
- * 本地备份文件 - 恢复 / 删除按钮做成正方形 icon-only 按钮
- * 覆盖默认 .btn 的 padding，强制 32×32 方块。
- * ============================================================= */
+  .cleanup-confirm-safe {
+    @apply flex items-start gap-2.5 m-0 py-2.5 px-3 text-[0.80rem] leading-relaxed;
+    border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border-color) 78%);
+    background: color-mix(in srgb, var(--primary) 7%, var(--surface) 93%);
+    color: color-mix(in srgb, var(--dark) 76%, var(--gray) 24%);
+  }
 
-.settings-page .backup-actions {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-}
+  .cleanup-confirm-safe > i {
+    @apply shrink-0 mt-0.5 text-primary text-[14px];
+  }
 
-.settings-page .backup-action-btn {
-  width: 32px !important;
-  height: 32px !important;
-  min-width: 32px;
-  padding: 0 !important;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
+  .cleanup-confirm-actions {
+    @apply flex justify-end gap-2 mt-1;
+  }
 
-.settings-page .backup-action-btn > i {
-  font-size: 13px;
-  line-height: 1;
-}
+  .cleanup-confirm-actions .btn {
+    @apply min-w-[92px] h-[42px] inline-flex items-center justify-center gap-2 py-0 px-4.5 rounded-none bg-surface text-dark text-[0.9rem] font-[650] leading-none whitespace-nowrap cursor-pointer;
+    border: 1px solid color-mix(in srgb, var(--border-color) 74%, transparent);
+    transition: color 160ms ease, background 160ms ease, border-color 160ms ease, filter 160ms ease;
+  }
 
-/* =============================================================
- * 整行 UPTIME 条 — 模仿 BetterStack/UptimeRobot 风格的状态条
- *
- * 浅色与深色都通过 CSS 变量自动适配:
- *   --uptime-bg / --uptime-fg / --uptime-muted / --uptime-border /
- *   --uptime-tooltip-bg / --uptime-future-bg
- *
- * 状态色(语义,不随主题变):
- *   .is-up      绿  100%
- *   .is-partial 琥珀 1-99%
- *   .is-down    红  0%
- *   .is-future  灰  还没到的桶(浅 → 浅灰; 深 → 深灰)
- *   .is-no_data 灰(虚线边)数据起点之前 — 类名须与 JS 的 is-${status} 对齐
- * ============================================================= */
-.runtime-uptime-section {
-  /* 抢占整行；不进 grid */
-  grid-column: 1 / -1;
+  .cleanup-confirm-actions .btn > i {
+    @apply w-4.5 h-4.5 inline-flex items-center justify-center flex-[0_0_18px] text-[0.92rem] leading-none;
+  }
 
-  /* Light-mode tokens — 浅色:白底 + 浅边 + 暗字 */
-  --uptime-bg: var(--surface);
-  --uptime-fg: var(--dark);
-  --uptime-muted: var(--gray);
-  --uptime-border: color-mix(in srgb, var(--border-color) 70%, transparent);
-  --uptime-range-border: var(--border-color);
-  --uptime-range-hover-bg: color-mix(in srgb, var(--border-color) 30%, var(--surface) 70%);
-  --uptime-future-bg: color-mix(in srgb, var(--border-color) 60%, var(--surface) 40%);
-  --uptime-tooltip-bg: var(--dark);
-  --uptime-tooltip-fg: var(--surface);
-  --uptime-percent: #16a34a;
-}
+  .cleanup-confirm-actions .btn > span {
+    @apply inline-flex items-center h-4.5 leading-none;
+  }
 
-html[data-theme="dark"] .runtime-uptime-section {
-  /* Dark-mode tokens */
-  --uptime-bg: #1b1b1b;
-  --uptime-fg: var(--dark);
-  --uptime-muted: var(--gray);
-  --uptime-border: rgba(255, 255, 255, 0.03);
-  --uptime-range-border: rgba(255, 255, 255, 0.08);
-  --uptime-range-hover-bg: rgba(255, 255, 255, 0.04);
-  --uptime-future-bg: rgba(255, 255, 255, 0.06);
-  --uptime-tooltip-bg: #1a1a1a;
-  --uptime-tooltip-fg: var(--dark);
-  --uptime-percent: #4ade80;
-}
+  .cleanup-confirm-actions .btn--secondary:hover {
+    border-color: color-mix(in srgb, var(--gray) 30%, var(--border-color) 70%);
+    background: color-mix(in srgb, var(--light) 74%, var(--surface) 26%);
+  }
 
-.runtime-uptime-strip {
-  display: grid;
-  gap: 8px;
-  padding: 16px 18px 14px;
-  background: var(--uptime-bg);
-  color: var(--uptime-fg);
-  border: 1px solid var(--uptime-border);
-  font-family: var(--font-mono, "SFMono-Regular", Menlo, Monaco, Consolas, monospace);
-}
+  /* 「确认清理」按钮 — 用危险红，强化「不可撤销」感知 */
 
-.runtime-uptime-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
+  .cleanup-confirm-submit {
+    @apply min-w-[118px];
+    background: var(--danger) !important;
+    border-color: var(--danger) !important;
+    color: #fff !important;
+  }
 
-.runtime-uptime-title {
-  letter-spacing: 0.14em;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--uptime-muted);
-}
+  .cleanup-confirm-submit:hover {
+    filter: brightness(1.08);
+  }
 
-.runtime-uptime-ranges {
-  display: inline-flex;
-  gap: 4px;
-}
+  /* =============================================================
+   * 本地备份文件 - 恢复 / 删除按钮做成正方形 icon-only 按钮
+   * 覆盖默认 .btn 的 padding，强制 32×32 方块。
+   * ============================================================= */
 
-.runtime-uptime-range {
-  padding: 3px 10px;
-  border: 1px solid var(--uptime-range-border);
-  background: transparent;
-  color: var(--uptime-muted);
-  font-family: inherit;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  cursor: pointer;
-  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
-}
+  .settings-page .backup-actions {
+    @apply inline-flex items-center justify-end gap-1.5;
+  }
 
-.runtime-uptime-range:hover {
-  background: var(--uptime-range-hover-bg);
-  color: var(--uptime-fg);
-}
+  .settings-page .backup-action-btn {
+    @apply min-w-8 inline-flex items-center justify-center shrink-0;
+    width: 32px !important;
+    height: 32px !important;
+    padding: 0 !important;
+  }
 
-.runtime-uptime-range.is-active {
-  background: #16a34a;
-  border-color: #16a34a;
-  color: #ffffff;
-}
+  .settings-page .backup-action-btn > i {
+    @apply text-[13px] leading-none;
+  }
 
-.runtime-uptime-percent {
-  margin-left: auto;
-  color: var(--uptime-percent);
-  font-size: 0.92rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
+  /* =============================================================
+   * 整行 UPTIME 条 — 模仿 BetterStack/UptimeRobot 风格的状态条
+   *
+   * 浅色与深色都通过 CSS 变量自动适配:
+   *   --uptime-bg / --uptime-fg / --uptime-muted / --uptime-border /
+   *   --uptime-tooltip-bg / --uptime-future-bg
+   *
+   * 状态色(语义,不随主题变):
+   *   .is-up      绿  100%
+   *   .is-partial 琥珀 1-99%
+   *   .is-down    红  0%
+   *   .is-future  灰  还没到的桶(浅 → 浅灰; 深 → 深灰)
+   *   .is-no_data 灰(虚线边)数据起点之前 — 类名须与 JS 的 is-${status} 对齐
+   * ============================================================= */
 
-/* Bar — 用 grid 等距分段，gap 控制段间距 */
-.runtime-uptime-bar {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
-  gap: 2px;
-  height: 32px;
-  position: relative;
-}
+  .runtime-uptime-section {
+    /* 抢占整行；不进 grid */
+    grid-column: 1 / -1;
+    /* Light-mode tokens — 浅色:白底 + 浅边 + 暗字 */
+    --uptime-bg: var(--surface);
+    --uptime-fg: var(--dark);
+    --uptime-muted: var(--gray);
+    --uptime-border: color-mix(in srgb, var(--border-color) 70%, transparent);
+    --uptime-range-border: var(--border-color);
+    --uptime-range-hover-bg: color-mix(in srgb, var(--border-color) 30%, var(--surface) 70%);
+    --uptime-future-bg: color-mix(in srgb, var(--border-color) 60%, var(--surface) 40%);
+    --uptime-tooltip-bg: var(--dark);
+    --uptime-tooltip-fg: var(--surface);
+    --uptime-percent: #16a34a;
+  }
 
-.runtime-uptime-loading {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--uptime-muted);
-  font-size: 0.72rem;
-}
+  html[data-theme="dark"] .runtime-uptime-section {
+    /* Dark-mode tokens */
+    --uptime-bg: #1b1b1b;
+    --uptime-fg: var(--dark);
+    --uptime-muted: var(--gray);
+    --uptime-border: rgba(255, 255, 255, 0.03);
+    --uptime-range-border: rgba(255, 255, 255, 0.08);
+    --uptime-range-hover-bg: rgba(255, 255, 255, 0.04);
+    --uptime-future-bg: rgba(255, 255, 255, 0.06);
+    --uptime-tooltip-bg: #1a1a1a;
+    --uptime-tooltip-fg: var(--dark);
+    --uptime-percent: #4ade80;
+  }
 
-.runtime-uptime-seg {
-  background: #16a34a;
-  position: relative;
-  cursor: default;
-  transition: background 120ms ease;
-}
+  .runtime-uptime-strip {
+    @apply grid gap-2 font-mono;
+    padding: 16px 18px 14px;
+    background: var(--uptime-bg);
+    color: var(--uptime-fg);
+    border: 1px solid var(--uptime-border);
+  }
 
-.runtime-uptime-seg:hover {
-  filter: brightness(1.15);
-}
+  .runtime-uptime-head {
+    @apply flex items-center gap-3;
+  }
 
-.runtime-uptime-seg.is-up      { background: #16a34a; }
-.runtime-uptime-seg.is-partial { background: #f59e0b; }
-.runtime-uptime-seg.is-down    { background: #ef4444; }
-.runtime-uptime-seg.is-future  { background: var(--uptime-future-bg); }
-.runtime-uptime-seg.is-no_data {
-  background: var(--uptime-future-bg);
-  border: 1px dashed var(--uptime-range-border);
-}
+  .runtime-uptime-title {
+    @apply tracking-[0.14em] text-[0.78rem] font-bold;
+    color: var(--uptime-muted);
+  }
 
-/* Tooltip-on-hover via CSS only — appears above the segment */
-.runtime-uptime-seg::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% + 6px);
-  transform: translateX(-50%);
-  padding: 4px 8px;
-  background: var(--uptime-tooltip-bg);
-  color: var(--uptime-tooltip-fg);
-  border: 1px solid var(--uptime-range-border);
-  font-size: 0.7rem;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 100ms ease;
-  z-index: 5;
-}
+  .runtime-uptime-ranges {
+    @apply inline-flex gap-1;
+  }
 
-.runtime-uptime-seg:hover::after {
-  opacity: 1;
-}
+  .runtime-uptime-range {
+    @apply py-[3px] px-2.5 text-[0.72rem] font-bold tracking-[0.05em] cursor-pointer;
+    border: 1px solid var(--uptime-range-border);
+    background: transparent;
+    color: var(--uptime-muted);
+    font-family: inherit;
+    transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+  }
 
-.runtime-uptime-foot {
-  display: flex;
-  justify-content: space-between;
-  color: var(--uptime-muted);
-  font-size: 0.72rem;
+  .runtime-uptime-range:hover {
+    background: var(--uptime-range-hover-bg);
+    color: var(--uptime-fg);
+  }
+
+  .runtime-uptime-range.is-active {
+    background: #16a34a;
+    border-color: #16a34a;
+    color: #ffffff;
+  }
+
+  .runtime-uptime-percent {
+    @apply ml-auto text-[0.92rem] font-bold tracking-[0.02em];
+    color: var(--uptime-percent);
+  }
+
+  /* Bar — 用 grid 等距分段，gap 控制段间距 */
+
+  .runtime-uptime-bar {
+    @apply grid gap-0.5 h-8 relative;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+  }
+
+  .runtime-uptime-loading {
+    @apply absolute inset-0 flex items-center justify-center text-[0.72rem];
+    color: var(--uptime-muted);
+  }
+
+  .runtime-uptime-seg {
+    @apply relative cursor-default;
+    background: #16a34a;
+    transition: background 120ms ease;
+  }
+
+  .runtime-uptime-seg:hover {
+    filter: brightness(1.15);
+  }
+
+  .runtime-uptime-seg.is-up {
+    background: #16a34a;
+  }
+
+  .runtime-uptime-seg.is-partial {
+    background: #f59e0b;
+  }
+
+  .runtime-uptime-seg.is-down {
+    background: #ef4444;
+  }
+
+  .runtime-uptime-seg.is-future {
+    background: var(--uptime-future-bg);
+  }
+
+  .runtime-uptime-seg.is-no_data {
+    background: var(--uptime-future-bg);
+    border: 1px dashed var(--uptime-range-border);
+  }
+
+  /* Tooltip-on-hover via CSS only — appears above the segment */
+
+  .runtime-uptime-seg::after {
+    @apply absolute py-1 px-2 text-[0.7rem] whitespace-nowrap opacity-[0] pointer-events-none z-[5];
+    content: attr(data-tooltip);
+    left: 50%;
+    bottom: calc(100% + 6px);
+    transform: translateX(-50%);
+    background: var(--uptime-tooltip-bg);
+    color: var(--uptime-tooltip-fg);
+    border: 1px solid var(--uptime-range-border);
+    transition: opacity 100ms ease;
+  }
+
+  .runtime-uptime-seg:hover::after {
+    @apply opacity-[1];
+  }
+
+  .runtime-uptime-foot {
+    @apply flex justify-between text-[0.72rem];
+    color: var(--uptime-muted);
+  }
 }
