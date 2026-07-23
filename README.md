@@ -72,7 +72,15 @@ git clone https://github.com/gentpan/LitePic.git
 cd LitePic
 cp .env.example .env
 # Nginx + PHP-FPM 可选：cp .user.ini.example .user.ini（按机器改 open_basedir）
-mkdir -p uploads data logs && chmod -R 755 uploads data logs
+mkdir -p uploads data logs
+# 属主必须是「跑 PHP 的那个用户」，否则上传会 Permission denied：
+#   - systemd 安装的 FrankenPHP → frankenphp
+#   - Nginx + PHP-FPM → 多为 www-data / nginx / www
+# 若用当前 shell 用户直接 `frankenphp run`，下面这行可省略。
+chown -R "$(id -u):$(id -g)" uploads data logs 2>/dev/null || true
+# 官方包以 frankenphp 用户跑时：
+#   chown -R frankenphp:frankenphp uploads data logs
+chmod -R u+rwX,g+rwX uploads data logs
 ```
 
 编辑 `.env`（默认值即可起步，至少改这两项）：

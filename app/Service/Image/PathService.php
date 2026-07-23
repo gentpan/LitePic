@@ -115,7 +115,7 @@ final class PathService
         $ts = $timestamp > 0 ? $timestamp : time();
         $path = UPLOAD_PATH_LOCAL . date('Y', $ts) . DIRECTORY_SEPARATOR . date('m', $ts) . DIRECTORY_SEPARATOR;
         if (!is_dir($path)) {
-            @mkdir($path, 0755, true);
+            @mkdir($path, 0775, true);
         }
         return $path;
     }

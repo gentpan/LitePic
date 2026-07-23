@@ -173,8 +173,14 @@ final class UploadService
         $storagePath = PathService::todaysStoragePath();
         $target = $storagePath . $filename;
 
-        if (!is_dir($storagePath) && !mkdir($storagePath, 0755, true) && !is_dir($storagePath)) {
+        if (!is_dir($storagePath) && !mkdir($storagePath, 0775, true) && !is_dir($storagePath)) {
             return ['status' => 'error', 'message' => "文件 {$originalName} 存储目录创建失败"];
+        }
+        if (!is_writable($storagePath)) {
+            return [
+                'status' => 'error',
+                'message' => "存储目录不可写（{$storagePath}）。请把 uploads/data/logs 属主改为运行 PHP 的用户（FrankenPHP 多为 frankenphp，PHP-FPM 多为 www-data）",
+            ];
         }
         // rename() works for both same-FS moves and (on most platforms)
         // cross-FS — it's the right primitive for "I already own this file".
@@ -182,7 +188,8 @@ final class UploadService
             // Fallback: copy + unlink, in case rename trips up on a tmpfs
             // cross-device edge case (PHP-FPM tmp dir vs storage volume).
             if (!@copy($sourcePath, $target)) {
-                return ['status' => 'error', 'message' => "文件 {$originalName} 保存失败"];
+                $hint = is_writable($storagePath) ? '' : '（目录不可写，请检查 uploads 属主/权限）';
+                return ['status' => 'error', 'message' => "文件 {$originalName} 保存失败{$hint}"];
             }
             @unlink($sourcePath);
         }
@@ -379,11 +386,18 @@ final class UploadService
         $storagePath = PathService::todaysStoragePath();
         $target = $storagePath . $filename;
 
-        if (!is_dir($storagePath) && !mkdir($storagePath, 0755, true) && !is_dir($storagePath)) {
+        if (!is_dir($storagePath) && !mkdir($storagePath, 0775, true) && !is_dir($storagePath)) {
             return ['status' => 'error', 'message' => "文件 {$originalName} 存储目录创建失败"];
         }
+        if (!is_writable($storagePath)) {
+            return [
+                'status' => 'error',
+                'message' => "存储目录不可写（{$storagePath}）。请把 uploads/data/logs 属主改为运行 PHP 的用户（FrankenPHP 多为 frankenphp，PHP-FPM 多为 www-data），例如：chown -R frankenphp:frankenphp uploads data logs",
+            ];
+        }
         if (!move_uploaded_file($tmpName, $target)) {
-            return ['status' => 'error', 'message' => "文件 {$originalName} 保存失败"];
+            $hint = is_writable($storagePath) ? '' : '（目录不可写，请检查 uploads 属主/权限）';
+            return ['status' => 'error', 'message' => "文件 {$originalName} 保存失败{$hint}"];
         }
 
         $identifier = PathService::identifierFromPath($target) ?? $filename;
