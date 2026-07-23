@@ -228,11 +228,12 @@
   .img-preview img {
     @apply block w-full h-full object-cover opacity-0;
     animation: galleryFadeIn 260ms ease forwards;
-    transition: transform 260ms ease, opacity 260ms ease;
+    transform: scale(1);
+    transition: transform 480ms cubic-bezier(0.22, 1, 0.36, 1), opacity 260ms ease;
   }
 
   .img-card:hover .img-preview img {
-    @apply scale-[1.045];
+    transform: scale(1.06);
   }
 
   .img-time-overlay {

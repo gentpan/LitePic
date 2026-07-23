@@ -64,11 +64,12 @@
 
   .img-box img {
     @apply block w-full h-full object-cover;
-    transition: transform 260ms ease;
+    transform: scale(1);
+    transition: transform 480ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .img-box:hover img {
-    @apply scale-[1.045];
+    transform: scale(1.06);
   }
 
   .img-box.deleting {
