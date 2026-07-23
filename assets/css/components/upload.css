@@ -662,7 +662,8 @@
 
     .upload-queue-state,
     .upload-queue-row-actions {
-      @apply col-start-2 justify-start;
+      @apply justify-start;
+      grid-column: 2;
     }
   }
 

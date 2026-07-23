@@ -736,7 +736,9 @@
     }
 
     .batch-controls {
-      @apply sticky bottom-0 z-20;
+      @apply sticky z-20;
+      /* 避开底部主导航，避免批量操作条被挡住 */
+      bottom: var(--mobile-nav-offset, 66px);
     }
 
     .page-link {

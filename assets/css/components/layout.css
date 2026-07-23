@@ -990,19 +990,31 @@
     }
 
     .header-pill {
-      @apply w-full px-3 py-2;
+      @apply w-full max-w-full px-3 py-2 gap-1.5;
+    }
+
+    .header-pill-brand {
+      @apply min-w-0;
+    }
+
+    .logo-text {
+      @apply truncate max-w-[42vw];
     }
 
     .main-nav {
-      @apply fixed left-0 right-0 bottom-0 items-center justify-around p-2 bg-surface border-t border-border rounded-none;
+      @apply fixed left-0 right-0 bottom-0 z-40 items-center justify-around pt-2 px-2 bg-surface border-t border-border rounded-none;
+      /* p-2 的底边距让位给 Home Indicator */
+      padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+      min-height: var(--mobile-nav-offset, 66px);
+      box-sizing: border-box;
     }
 
     .nav-link {
-      @apply flex-col p-2 text-xs;
+      @apply flex-col p-2 text-xs min-w-0 flex-1;
     }
 
     .nav-link span {
-      @apply block text-[0.625rem];
+      @apply block text-[0.625rem] truncate max-w-full;
     }
 
     .login-panel {
@@ -1019,6 +1031,20 @@
 
     .footer-right {
       @apply order-3;
+    }
+
+    /* 避免页脚被底栏导航遮挡 */
+    .site-footer {
+      margin-bottom: var(--mobile-nav-offset, 66px);
+    }
+
+    /* 访客首页顶栏/底栏导航隐藏，页脚自身 fixed 贴底，无需再抬高 */
+    body.home-guest .site-footer {
+      margin-bottom: 0;
+    }
+
+    .page-container {
+      margin-bottom: 1rem;
     }
 
     body.home-guest .main-nav {
@@ -1056,6 +1082,18 @@
   @media (max-width: 576px) {
     .header-right {
       @apply justify-start;
+    }
+
+    body.home-guest .home-hero-actions {
+      @apply flex-col items-stretch w-full max-w-[280px];
+    }
+
+    body.home-guest .home-hero-btn {
+      @apply w-full min-w-0 justify-center;
+    }
+
+    body.home-guest .home-hero-stats {
+      @apply text-[0.78rem] px-3 max-w-full;
     }
   }
 

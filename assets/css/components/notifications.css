@@ -709,7 +709,8 @@
   /* 移动端:进度卡贴着屏幕底,留出系统手势区 */
   @media (max-width: 600px) {
     .batch-progress {
-      @apply left-3 right-3 bottom-4 w-auto;
+      @apply left-3 right-3 w-auto;
+      bottom: calc(var(--mobile-nav-offset, 66px) + 12px);
       transform: translateY(calc(100% + 40px));
     }
     .batch-progress.is-visible {

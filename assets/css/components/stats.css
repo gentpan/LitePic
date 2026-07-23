@@ -328,7 +328,8 @@
       @apply w-[54px] h-[54px];
     }
     .stats-request-count {
-      @apply col-start-3 justify-self-stretch grid-cols-[auto_1fr] items-baseline justify-items-start gap-1.5 mt-0.5;
+      @apply justify-self-stretch grid grid-cols-[auto_1fr] items-baseline justify-items-start gap-1.5 mt-0.5;
+      grid-column: 3;
     }
     .stats-request-count strong {
       @apply text-base;

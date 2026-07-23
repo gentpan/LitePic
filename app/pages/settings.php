@@ -498,7 +498,7 @@ require_once APP_ROOT . '/header.php';
                             // ml-2 留 8px 间距，再加自身约 16px 宽就紧贴右侧。
                             $cap_badge_help = 'absolute top-1/2 -translate-y-1/2 left-[80%] ml-2 capability-help-icon inline-flex items-center justify-center text-primary no-underline hover:opacity-70 transition-opacity';
                             ?>
-                            <div class="grid grid-cols-6 runtime-capability-grid">
+                            <div class="runtime-capability-grid">
                                 <article>
                                     <span class="text-sm text-gray">上传上限</span>
                                     <div class="relative w-full">

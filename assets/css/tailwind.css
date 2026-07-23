@@ -257,7 +257,10 @@ html[data-theme="dark"] * {
    ========================================================================== */
 @media (max-width: 768px) {
   :root {
-    --footer-safe-space: 168px;
+    /* 底栏导航高度 + iOS 安全区；供页脚避让 / sticky 底栏 / toast 共用 */
+    --mobile-nav-height: 66px;
+    --mobile-nav-offset: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px));
+    --footer-safe-space: calc(168px + env(safe-area-inset-bottom, 0px));
   }
 }
 
