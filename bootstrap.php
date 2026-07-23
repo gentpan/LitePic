@@ -15,10 +15,19 @@ declare(strict_types=1);
  *      then seed from .env on first boot only (one-time, idempotent)
  *   7. Pull in `config.php` constants (define()s read from settings cache
  *      first via env_value/bool/csv, then $_ENV, then defaults)
+ *
+ * FrankenPHP / long-lived workers: entrypoints should `require` (not
+ * require_once) this file so the trailing warmSettings() re-runs every
+ * request. One-time init is gated by LITEPIC_BOOTSTRAPPED.
  */
 
 if (!defined('APP_ROOT')) {
     define('APP_ROOT', __DIR__);
+}
+
+$litepicBootstrapFirst = !defined('LITEPIC_BOOTSTRAPPED');
+if ($litepicBootstrapFirst) {
+    define('LITEPIC_BOOTSTRAPPED', true);
 }
 
 if (PHP_SAPI !== 'cli' && is_file(APP_ROOT . '/.maintenance')) {
@@ -39,42 +48,50 @@ if (PHP_SAPI !== 'cli' && is_file(APP_ROOT . '/.maintenance')) {
     }
 }
 
-require_once APP_ROOT . '/app/Core/Autoloader.php';
-\LitePic\Core\Autoloader::register('LitePic\\', APP_ROOT . '/app');
+if ($litepicBootstrapFirst) {
+    require_once APP_ROOT . '/app/Core/Autoloader.php';
+    \LitePic\Core\Autoloader::register('LitePic\\', APP_ROOT . '/app');
 
-\LitePic\Core\Logger::init(APP_ROOT . '/logs');
+    \LitePic\Core\Logger::init(APP_ROOT . '/logs');
 
-// .env is now optional — load it into $_ENV so first-boot installs and
-// CLI scripts that ship a .env still work, but every save via the
-// settings UI persists to the DB and shadows the .env value from then on.
-\LitePic\Core\Config::init(APP_ROOT . '/.env');
+    // .env is now optional — load it into $_ENV so first-boot installs and
+    // CLI scripts that ship a .env still work, but every save via the
+    // settings UI persists to the DB and shadows the .env value from then on.
+    \LitePic\Core\Config::init(APP_ROOT . '/.env');
 
-\LitePic\Core\Database::init(APP_ROOT . '/data/litepic.sqlite');
+    \LitePic\Core\Database::init(APP_ROOT . '/data/litepic.sqlite');
 
-try {
-    $migrator = new \LitePic\Core\Migration(APP_ROOT . '/app/Migrations');
-    $migrator->run();
-} catch (\Throwable $e) {
-    \LitePic\Core\Logger::error('Migration failed: ' . $e->getMessage(), [
-        'trace' => $e->getTraceAsString(),
-    ]);
-    if (\LitePic\Core\Config::bool('DEBUG', false)) {
-        throw $e;
+    try {
+        $migrator = new \LitePic\Core\Migration(APP_ROOT . '/app/Migrations');
+        $migrator->run();
+    } catch (\Throwable $e) {
+        \LitePic\Core\Logger::error('Migration failed: ' . $e->getMessage(), [
+            'trace' => $e->getTraceAsString(),
+        ]);
+        if (\LitePic\Core\Config::bool('DEBUG', false)) {
+            throw $e;
+        }
     }
+
+    // First warm + first-boot .env → DB seed. Subsequent requests only
+    // re-warm (below) so SITE_URL / feature flags pick up settings UI
+    // changes without restarting FrankenPHP workers.
+    \LitePic\Core\Config::warmSettings();
+    \LitePic\Core\Config::seedFromEnvIfEmpty();
+
+    // Constants (SITE_NAME, MAX_FILE_SIZE, WATERMARK_*, S3_*, ENABLE_*).
+    // Views and templates reference these directly. The env_value/bool/csv
+    // helpers consult the settings cache first, so define() effectively
+    // loads from SQLite without any caller changes.
+    // NOTE: define() values stay frozen for the worker lifetime — code that
+    // must react to live settings (e.g. ImageUrl SITE_URL) should call
+    // Config::get() / Config::siteUrl() instead of the constant.
+    require_once APP_ROOT . '/config.php';
 }
 
-// Warm the settings cache (DB → static map). On a fresh install where
-// the settings table is still empty, seedFromEnvIfEmpty() copies any
-// values present in .env into the DB so subsequent UI saves don't get
-// silently shadowed. After this point env_value/bool/csv read DB-first.
+// Always re-warm settings (cheap SELECT *) so long-lived workers see
+// admin changes to SITE_URL / hotlink / view-counter without a restart.
 \LitePic\Core\Config::warmSettings();
-\LitePic\Core\Config::seedFromEnvIfEmpty();
-
-// Constants (SITE_NAME, MAX_FILE_SIZE, WATERMARK_*, S3_*, ENABLE_*).
-// Views and templates reference these directly. The env_value/bool/csv
-// helpers consult the settings cache first, so define() effectively
-// loads from SQLite without any caller changes.
-require_once APP_ROOT . '/config.php';
 
 // All /api/* responses are auth- or state-sensitive — forbid CDN caching.
 if (PHP_SAPI !== 'cli') {
@@ -95,7 +112,7 @@ if (PHP_SAPI !== 'cli') {
 // concurrent inserts). Skip on CLI so background workers don't flood it.
 if (PHP_SAPI !== 'cli') {
     \LitePic\Service\Stats\LivenessTracker::recordOnce();
-} else {
+} elseif ($litepicBootstrapFirst) {
     // CLI fast-path: snapshot all the server-side stats that restricted
     // PHP-FPM can't read (BT panel locks /proc + shell_exec from HTTP, but
     // CLI has full access). Cached to settings; HTTP requests fall back

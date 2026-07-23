@@ -29,7 +29,7 @@ if (!defined('LITEPIC_API_V1_DISPATCH')) {
 
 header('Content-Type: application/json');
 
-require_once __DIR__ . '/../bootstrap.php';
+require __DIR__ . '/../bootstrap.php';
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     \LitePic\Core\Response::error('仅支持 POST 请求', 405);

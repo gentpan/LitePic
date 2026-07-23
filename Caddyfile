@@ -17,10 +17,10 @@
 
 {
 	frankenphp {
-		# 与 .user.ini / nginx-litepic.conf 对齐的上传与内存上限
+		# 与 .user.ini / nginx-litepic.conf 对齐的上传与内存上限（默认 20MB）
 		php_ini {
-			upload_max_filesize 200M
-			post_max_size 220M
+			upload_max_filesize 20M
+			post_max_size 22M
 			max_file_uploads 50
 			memory_limit 256M
 			max_input_time 600
@@ -42,7 +42,7 @@
 	root * {$LITEPIC_ROOT:.}
 	encode zstd br gzip
 	request_body {
-		max_size 200MB
+		max_size 22MB
 	}
 
 	# 敏感路径与 uploads 下 PHP 禁止访问（对齐 nginx-litepic.conf）

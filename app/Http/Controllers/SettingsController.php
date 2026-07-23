@@ -550,6 +550,16 @@ final class SettingsController
         // Site identity + upload limits
         $siteName = trim((string)($_POST['site_name'] ?? SITE_NAME));
         $siteDescription = trim((string)($_POST['site_description'] ?? SITE_DESCRIPTION));
+        $siteUrlRaw = trim((string)($_POST['site_url'] ?? (defined('SITE_URL') ? SITE_URL : '')));
+        $siteUrl = defined('SITE_URL') ? rtrim((string)SITE_URL, '/') : '';
+        if ($siteUrlRaw !== '') {
+            $siteUrlRaw = rtrim($siteUrlRaw, '/');
+            if (preg_match('#^https?://[^\s/]+#i', $siteUrlRaw) !== 1) {
+                $warnings[] = '站点公网地址格式无效（需要 https://域名），已保留原配置';
+            } else {
+                $siteUrl = $siteUrlRaw;
+            }
+        }
         $maxFileSizeMb = max(1, min(2048, (int)($_POST['max_file_size_mb'] ?? (int)round(MAX_FILE_SIZE / 1024 / 1024))));
         $uploadMaxFiles = max(1, min(500, (int)($_POST['upload_max_files'] ?? (defined('UPLOAD_MAX_FILES') ? UPLOAD_MAX_FILES : 100))));
         $uploadMaxConcurrent = max(1, min(20, (int)($_POST['upload_max_concurrent'] ?? (defined('UPLOAD_MAX_CONCURRENT') ? UPLOAD_MAX_CONCURRENT : 3))));
@@ -668,6 +678,7 @@ final class SettingsController
         $envWritten = Config::write(array_merge([
             'SITE_NAME' => Format::envQuote($siteName),
             'SITE_DESCRIPTION' => Format::envQuote($siteDescription),
+            'SITE_URL' => Format::envQuote($siteUrl),
             'MAX_FILE_SIZE_MB' => (string)$maxFileSizeMb,
             'UPLOAD_MAX_FILES' => (string)$uploadMaxFiles,
             'UPLOAD_MAX_CONCURRENT' => (string)$uploadMaxConcurrent,

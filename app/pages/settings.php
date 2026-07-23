@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 if (!defined('APP_ROOT')) {
-    require_once dirname(__DIR__, 2) . '/bootstrap.php';
+    require dirname(__DIR__, 2) . '/bootstrap.php';
 }
 
 
@@ -468,10 +468,8 @@ require_once APP_ROOT . '/header.php';
                         <div class="runtime-section">
                             <h4 class="runtime-section-label">上传与能力</h4>
                             <?php
-                            // 上传上限固定 50MB —— 后台不再让用户改，省掉跟 PHP-FPM /
-                            // Nginx client_max_body_size 等多层限制纠缠的问题。
-                            // 50MB 对图床场景足够，需要更大请直接改后端常量。
-                            $upload_ok = $runtime_upload_limit_bytes >= 50 * 1024 * 1024;
+                            // 与后台「单文件上限」一致：PHP / 应用配置都达到设定值即视为正常
+                            $upload_ok = $runtime_upload_limit_bytes >= max(1, $configured_upload_limit_bytes);
                             ?>
                             <?php
                             // 「未启用 / 未生效」状态下在 status 徽章右边追加一个 ? 图标。
@@ -499,7 +497,7 @@ require_once APP_ROOT . '/header.php';
                                 <article>
                                     <span class="text-sm text-gray">上传上限</span>
                                     <div class="relative w-full">
-                                        <span class="<?= $cap_badge_cls ?> is-on" id="metricUploadStatus" title="PHP 与 Web 服务器配置允许的最大单文件上传大小">
+                                        <span class="<?= $cap_badge_cls ?> <?= $upload_ok ? 'is-on' : 'is-warn' ?>" id="metricUploadStatus" title="PHP 实际允许的最大单文件上传大小（取 upload_max_filesize 与 post_max_size 较小值）。下方「单文件上限」是应用层配置，保存后需 PHP / Web 服务器限制同步生效。">
                                             <?= htmlspecialchars(\LitePic\Core\Format::filesize($runtime_upload_limit_bytes)) ?>
                                         </span>
                                         <a href="https://litepic.io/docs#php-upload-limits" target="_blank" rel="noopener noreferrer" class="<?= $cap_badge_help ?>" title="如何在 PHP / Web 服务器配置中调大上传上限" aria-label="如何调大上传上限">
@@ -592,7 +590,7 @@ require_once APP_ROOT . '/header.php';
                             <div class="grid gap-2">
                                 <label for="maxFileSizeMb">单文件上限（MB）</label>
                                 <input id="maxFileSizeMb" type="number" name="max_file_size_mb" min="1" max="2048" step="1" value="<?= (int)round(MAX_FILE_SIZE / 1024 / 1024) ?>">
-                                <span class="settings-field-hint">同时写入 .user.ini 的 upload_max_filesize；线上还需要 Web 服务器限制不低于该值。</span>
+                                <span class="settings-field-hint">同时尝试写入 .user.ini。FrankenPHP 还需 Caddy <code>php_ini.upload_max_filesize</code> / <code>request_body</code> 不低于此值，改完后以「上传与能力」卡片的实际值为准。</span>
                             </div>
                             <div class="grid gap-2">
                                 <label for="uploadMaxFiles">单次队列数量上限</label>
@@ -1981,7 +1979,7 @@ require_once APP_ROOT . '/header.php';
                                 <i class="fa-light fa-sliders" aria-hidden="true"></i>
                                 <span>站点信息</span>
                             </h3>
-                            <p>站点名称、描述</p>
+                            <p>站点名称、描述、公网地址（图库缩略图/复制链接用这个域名）</p>
                         </div>
 
                         <div class="settings-grid">
@@ -1992,6 +1990,11 @@ require_once APP_ROOT . '/header.php';
                             <div class="grid gap-2">
                                 <label for="siteDescription">站点描述</label>
                                 <input id="siteDescription" type="text" name="site_description" value="<?= htmlspecialchars(SITE_DESCRIPTION) ?>">
+                            </div>
+                            <div class="grid gap-2" style="grid-column: 1 / -1;">
+                                <label for="siteUrl">站点公网地址（SITE_URL）</label>
+                                <input id="siteUrl" type="url" name="site_url" placeholder="https://img.example.com" value="<?= htmlspecialchars(rtrim((string)SITE_URL, '/')) ?>">
+                                <span class="settings-field-hint">图库缩略图、复制链接、API 返回的图片地址都用这个。改域名后保存即可，数据库里的图片只存相对路径，不用逐条改。</span>
                             </div>
                         </div>
                     </section>
@@ -2918,7 +2921,7 @@ require_once APP_ROOT . '/header.php';
 
                             const updatePreview = () => {
                                 const prefix = sanitize(input.value);
-                                const base = window.location.origin;
+                                const base = <?= json_encode(rtrim((string)SITE_URL, '/'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
                                 if (prefix === '') {
                                     preview.textContent = '⚠ 格式不合法 — 必须以 / 开头和结尾，仅允许 a-z 0-9 _ -';
                                     preview.style.color = '#d73a49';
@@ -3961,18 +3964,19 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
                 setMetricProgress('metricCpuLoadCircle', 'metricCpuLoadPercent', cpuLoadPercent);
                 setMetricProgress('metricDiskCircle', 'metricDiskPercent', s.disk && s.disk.usage_percent ? s.disk.usage_percent : 0);
 
-                // 上传上限卡片：直接展示 PHP / Web 服务器允许的实际值（如 "20 MB"），
-                // 不再做「实际 vs 配置」的对比 — LitePic 不再让用户在后台改上限，
-                // 卡片只反映服务器当前限制。统一用 is-on 绿色徽章 — 只要服务器
-                // 报得出一个上限值，对图床场景就是「能用」状态。
+                // 上传上限卡片：展示 PHP 实际值；若低于应用配置则标黄警告
                 const uploadStatusEl = document.getElementById('metricUploadStatus');
                 if (uploadStatusEl) {
                     const runtimeLimitText = String((s.php_upload_limit_text ?? '') || '');
+                    const runtimeBytes = Number(s.php_upload_limit_bytes ?? 0);
+                    const configBytes = Number(s.config_upload_limit_bytes ?? 0);
                     if (runtimeLimitText) {
                         uploadStatusEl.textContent = runtimeLimitText;
                     }
-                    uploadStatusEl.classList.remove('is-off', 'is-warn');
-                    uploadStatusEl.classList.add('is-on');
+                    const ok = runtimeBytes > 0 && (configBytes <= 0 || runtimeBytes >= configBytes);
+                    uploadStatusEl.classList.toggle('is-on', ok);
+                    uploadStatusEl.classList.toggle('is-warn', !ok);
+                    uploadStatusEl.classList.remove('is-off');
                 }
 
                 const cap = s.capability || {};

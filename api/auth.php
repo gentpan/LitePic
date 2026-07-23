@@ -6,7 +6,7 @@ declare(strict_types=1);
  * 处理登录、退出、改密等认证相关的请求。
  */
 
-require_once __DIR__ . '/../bootstrap.php';
+require __DIR__ . '/../bootstrap.php';
 
 header('Content-Type: application/json');
 

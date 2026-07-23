@@ -36,7 +36,7 @@ if (!defined('LITEPIC_API_V1_DISPATCH')) {
 
 header('Content-Type: application/json');
 
-require_once __DIR__ . '/../bootstrap.php';
+require __DIR__ . '/../bootstrap.php';
 
 if (!(new \LitePic\Service\Auth\AuthService())->isApiRequestAuthorized()) {
     \LitePic\Core\Response::error('权限不足', 403);

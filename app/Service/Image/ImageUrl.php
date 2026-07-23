@@ -35,9 +35,10 @@ final class ImageUrl
         }
 
         $display = PathService::displayName($filename);
+        $base = self::siteUrl();
         return ImageServeService::isRoutedThroughPhp()
-            ? rtrim(SITE_URL, '/') . '/i/' . rawurlencode($display)
-            : SITE_URL . UPLOAD_PATH_WEB . $display;
+            ? $base . '/i/' . rawurlencode($display)
+            : $base . UPLOAD_PATH_WEB . $display;
     }
 
     public static function thumbnailFilename(string $filename): string
@@ -69,7 +70,7 @@ final class ImageUrl
             ? $identifier
             : (string)PathService::identifierFromPath(PathService::resolveFilePath($filename));
         [$year, $month] = self::yearMonth($relative);
-        return SITE_URL . UPLOAD_PATH_WEB . '.thumbs/' . $year . '/' . $month . '/' . $thumb;
+        return self::siteUrl() . UPLOAD_PATH_WEB . '.thumbs/' . $year . '/' . $month . '/' . $thumb;
     }
 
     /**
@@ -84,19 +85,26 @@ final class ImageUrl
      */
     private static function buildLocalUrl(string $identifier): string
     {
+        $base = self::siteUrl();
+
         // 功能优先：防盗链 / 视图计数器开了，必须走 PHP，无视 URL_PREFIX
         if (ImageServeService::isRoutedThroughPhp()) {
-            return rtrim(SITE_URL, '/') . '/i/' . PathService::encodeForUrl($identifier);
+            return $base . '/i/' . PathService::encodeForUrl($identifier);
         }
 
         $prefix = defined('URL_PREFIX') ? URL_PREFIX : '/uploads/';
         // /i/ 前缀也走 PHP（用户主动选了代理路径）
         if ($prefix === '/i/') {
-            return rtrim(SITE_URL, '/') . '/i/' . PathService::encodeForUrl($identifier);
+            return $base . '/i/' . PathService::encodeForUrl($identifier);
         }
         // 其它前缀（包括 /uploads/、/、/img/、/photo/ 等）都拼接成
         // <SITE_URL><prefix><identifier>，由 nginx try_files / PHP fallback 解析。
-        return rtrim(SITE_URL, '/') . $prefix . $identifier;
+        return $base . $prefix . $identifier;
+    }
+
+    private static function siteUrl(): string
+    {
+        return \LitePic\Core\Config::siteUrl();
     }
 
     /**

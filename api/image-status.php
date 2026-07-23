@@ -37,7 +37,7 @@ if (!defined('LITEPIC_API_V1_DISPATCH')) {
 header('Content-Type: application/json');
 header('Cache-Control: no-store, max-age=0');
 
-require_once __DIR__ . '/../bootstrap.php';
+require __DIR__ . '/../bootstrap.php';
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
     \LitePic\Core\Response::error('仅支持 GET 请求', 405);

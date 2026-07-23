@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 if (!defined('APP_ROOT')) {
-    require_once dirname(__DIR__, 2) . '/bootstrap.php';
+    require dirname(__DIR__, 2) . '/bootstrap.php';
 }
 
 $is_logged_in = (new \LitePic\Service\Auth\AuthService())->isAdmin();

@@ -147,6 +147,26 @@ final class Config
         return is_string($value) ? $value : (string)$value;
     }
 
+    /**
+     * Public site origin without trailing slash.
+     *
+     * Prefer the live settings cache over the SITE_URL constant — FrankenPHP
+     * workers freeze define() for the process lifetime, so a settings UI
+     * change to the domain would otherwise keep emitting the old host until
+     * restart. Callers that build image / share URLs must use this.
+     */
+    public static function siteUrl(): string
+    {
+        $live = trim(self::string('SITE_URL', ''));
+        if ($live !== '') {
+            return rtrim($live, '/');
+        }
+        if (defined('SITE_URL')) {
+            return rtrim((string)SITE_URL, '/');
+        }
+        return '';
+    }
+
     public static function int(string $key, int $default = 0): int
     {
         $value = self::get($key, null);

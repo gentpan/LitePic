@@ -33,7 +33,7 @@ if (!defined('LITEPIC_API_V1_DISPATCH')) {
 }
 
 if (!defined('APP_ROOT')) {
-    require_once dirname(__DIR__) . '/bootstrap.php';
+    require dirname(__DIR__) . '/bootstrap.php';
 }
 
 header('Content-Type: application/json; charset=utf-8');

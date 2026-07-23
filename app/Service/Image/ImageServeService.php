@@ -44,12 +44,20 @@ final class ImageServeService
 
     public static function isViewCounterEnabled(): bool
     {
-        return defined('IMAGE_VIEW_COUNTER_ENABLED') && IMAGE_VIEW_COUNTER_ENABLED;
+        // Live settings cache — not the frozen define() — so toggling the
+        // switch in 设置 applies on the next request under FrankenPHP.
+        return \LitePic\Core\Config::bool(
+            'IMAGE_VIEW_COUNTER_ENABLED',
+            defined('IMAGE_VIEW_COUNTER_ENABLED') && IMAGE_VIEW_COUNTER_ENABLED
+        );
     }
 
     public static function isHotlinkEnabled(): bool
     {
-        return defined('HOTLINK_PROTECTION_ENABLED') && HOTLINK_PROTECTION_ENABLED;
+        return \LitePic\Core\Config::bool(
+            'HOTLINK_PROTECTION_ENABLED',
+            defined('HOTLINK_PROTECTION_ENABLED') && HOTLINK_PROTECTION_ENABLED
+        );
     }
 
     /**

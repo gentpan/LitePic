@@ -17,7 +17,7 @@ if (!defined('LITEPIC_API_V1_DISPATCH')) {
     exit;
 }
 
-require_once __DIR__ . '/../bootstrap.php';
+require __DIR__ . '/../bootstrap.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Vary: Origin');

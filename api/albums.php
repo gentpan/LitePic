@@ -29,7 +29,7 @@ ini_set('display_errors', '0');
 ini_set('html_errors', '0');
 error_reporting(E_ALL);
 
-require_once __DIR__ . '/../bootstrap.php';
+require __DIR__ . '/../bootstrap.php';
 
 header('Content-Type: application/json');
 header('Vary: Origin');

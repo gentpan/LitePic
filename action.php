@@ -16,7 +16,7 @@ ini_set('display_errors', '0');
 ini_set('html_errors', '0');
 error_reporting(E_ALL);
 
-require_once __DIR__ . '/bootstrap.php';
+require __DIR__ . '/bootstrap.php';
 
 // 在任何通用参数校验之前，先处理特殊动作
 $action = (string)($_POST['action'] ?? $_GET['action'] ?? '');
