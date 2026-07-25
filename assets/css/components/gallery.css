@@ -725,6 +725,11 @@
     .batch-right {
       @apply justify-between w-full;
     }
+
+    /* 平板：4 列太挤，降到 3 列 */
+    .gallery {
+      @apply grid-cols-3;
+    }
   }
 
   @media (max-width: 768px) {
@@ -733,7 +738,7 @@
     }
 
     .gallery {
-      @apply grid-cols-4 gap-3;
+      @apply grid-cols-3 gap-3;
     }
 
     .batch-controls {
@@ -758,8 +763,9 @@
       @apply items-start flex-col;
     }
 
+    /* 手机：2 列，卡片不再拥挤 */
     .gallery {
-      @apply grid-cols-4 gap-2;
+      @apply grid-cols-2 gap-2;
     }
 
     .img-info {
@@ -770,42 +776,42 @@
       @apply px-1.5 py-0;
     }
 
+    /* 2 列后卡片更宽，字号恢复到可读范围（不再沿用 4 列时的极小值） */
     .img-name {
-      @apply text-[0.68rem];
+      @apply text-[0.8rem];
     }
 
     .img-meta {
-      @apply gap-0 text-[0.56rem];
+      @apply gap-1 text-[0.62rem];
     }
 
     .img-meta-badge {
-      @apply h-[19px] gap-[3px] px-0.5 py-0;
+      @apply h-[21px] gap-[3px] px-1 py-0;
     }
 
     .img-meta-badge i {
-      @apply text-[0.58rem];
+      @apply text-[0.62rem];
     }
 
     .img-actions {
-      @apply justify-end gap-1 py-[5px] px-1.5;
+      @apply justify-end gap-1.5 py-[5px] px-2;
     }
 
+    /* 触控目标保持 ≥28px，方便手指点按 */
     .action-btn,
     .img-actions > button,
     .img-overlay > button {
-      @apply w-6 h-6 text-[0.72rem];
+      @apply w-7 h-7 text-[0.82rem];
     }
   }
 
-  @media (max-width: 420px) {
-    .img-actions {
-      @apply gap-0.5 p-1;
+  @media (max-width: 380px) {
+    .gallery {
+      @apply gap-1.5;
     }
 
-    .action-btn,
-    .img-actions > button,
-    .img-overlay > button {
-      @apply w-[18px] h-[18px] text-[0.58rem];
+    .img-name {
+      @apply text-[0.72rem];
     }
   }
 }
