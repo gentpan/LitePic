@@ -840,8 +840,23 @@ html[data-theme="dark"] .settings-page .overflow-auto.border {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .settings-page .settings-grid--3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .settings-page .settings-grid__full {
+    grid-column: 1 / -1;
+  }
+
+  @media (max-width: 900px) {
+    .settings-page .settings-grid--3 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
   @media (max-width: 720px) {
-    .settings-page .settings-grid {
+    .settings-page .settings-grid,
+    .settings-page .settings-grid--3 {
       grid-template-columns: 1fr;
     }
   }

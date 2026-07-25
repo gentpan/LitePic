@@ -581,30 +581,28 @@ require_once APP_ROOT . '/header.php';
                                 <i class="fa-light fa-cloud-arrow-up" aria-hidden="true"></i>
                                 <span>上传限制</span>
                             </h3>
-                            <p>单文件大小、批量队列数量、上传并发和允许上传的格式白名单</p>
+                            <p>文件大小、队列、并发与格式</p>
                         </div>
 
-                        <div class="settings-grid">
+                        <div class="settings-grid settings-grid--3">
                             <div class="grid gap-2">
                                 <label for="maxFileSizeMb">单文件上限（MB）</label>
                                 <input id="maxFileSizeMb" type="number" name="max_file_size_mb" min="1" max="2048" step="1" value="<?= (int)round(MAX_FILE_SIZE / 1024 / 1024) ?>">
-                                <span class="settings-field-hint">同时尝试写入 .user.ini。FrankenPHP 还需 Caddy <code>php_ini.upload_max_filesize</code> / <code>request_body</code> 不低于此值，改完后以「上传与能力」卡片的实际值为准。</span>
+                                <span class="settings-field-hint">同步写入 .user.ini；FrankenPHP 还需 Caddy 限制不低于此值。</span>
                             </div>
                             <div class="grid gap-2">
-                                <label for="uploadMaxFiles">单次队列数量上限</label>
+                                <label for="uploadMaxFiles">单次队列上限</label>
                                 <input id="uploadMaxFiles" type="number" name="upload_max_files" min="1" max="500" step="1" value="<?= (int)(defined('UPLOAD_MAX_FILES') ? UPLOAD_MAX_FILES : 100) ?>">
-                                <span class="settings-field-hint">限制一次选择 / 拖拽最多加入多少张，也会写入 PHP max_file_uploads。</span>
+                                <span class="settings-field-hint">一次选择 / 拖拽最多加入多少张。</span>
                             </div>
                             <div class="grid gap-2">
                                 <label for="uploadMaxConcurrent">上传并发数</label>
                                 <input id="uploadMaxConcurrent" type="number" name="upload_max_concurrent" min="1" max="20" step="1" value="<?= (int)(defined('UPLOAD_MAX_CONCURRENT') ? UPLOAD_MAX_CONCURRENT : 3) ?>">
-                                <span class="settings-field-hint">推荐 2-4；服务器性能强可以调高，过高会增加网络错误概率。</span>
+                                <span class="settings-field-hint">推荐 2–4，过高易触发网络错误。</span>
                             </div>
-                            <div class="grid gap-2 col-span-2">
-                                <div class="flex items-center justify-between gap-2">
-                                    <label for="uploadAllowedTypeNew">允许上传格式</label>
-                                    <span class="settings-field-hint">输入扩展名后回车 / 逗号添加；点击 × 移除。可填任意图片格式（heic / jxl / raw / dng 等）；后端会校验文件内容必须是图片，自动拦截 .php / .html 等可执行文件</span>
-                                </div>
+                            <div class="grid gap-2 settings-grid__full">
+                                <label for="uploadAllowedTypeNew">允许上传格式</label>
+                                <span class="settings-field-hint">回车或逗号添加，点击 × 移除；仅允许真实图片内容。</span>
                                 <?php
                                 // 标签编辑器 — 现有允许扩展名作为 chip，每个 chip 配
                                 // 一个隐藏 input[name=upload_allowed_types[]] 让表单提交带上
