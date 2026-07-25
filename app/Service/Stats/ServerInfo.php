@@ -416,7 +416,6 @@ final class ServerInfo
     public function runtimeMetrics(): array
     {
         $phpUploadLimit = \LitePic\Service\Upload\UploadService::phpUploadLimitBytes();
-        $configuredUploadLimit = defined('MAX_FILE_SIZE') ? (int)MAX_FILE_SIZE : 0;
         $uptimeSeconds = $this->uptimeSeconds();
         $availability24h = $uptimeSeconds !== null
             ? round((min($uptimeSeconds, 86400) / 86400) * 100, 2)
@@ -443,10 +442,7 @@ final class ServerInfo
         $diskFreeBytes = is_numeric($diskFree) ? (int)$diskFree : 0;
         $diskUsedBytes = max(0, $diskTotalBytes - $diskFreeBytes);
 
-        $loadAvg = function_exists('sys_getloadavg') ? @sys_getloadavg() : false;
-        $load1 = (is_array($loadAvg) && isset($loadAvg[0])) ? (float)$loadAvg[0] : null;
-        $load5 = (is_array($loadAvg) && isset($loadAvg[1])) ? (float)$loadAvg[1] : null;
-        $load15 = (is_array($loadAvg) && isset($loadAvg[2])) ? (float)$loadAvg[2] : null;
+        [$load1, $load5, $load15] = self::loadAverage();
 
         $cpuCores = self::cpuCores();
         $uptimeText = self::uptimeText($uptimeSeconds);
@@ -469,10 +465,10 @@ final class ServerInfo
             'php_version' => PHP_VERSION,
             'php_sapi' => (string)php_sapi_name(),
             'php_upload_limit_bytes' => $phpUploadLimit,
-            'config_upload_limit_bytes' => $configuredUploadLimit,
+            'config_upload_limit_bytes' => $phpUploadLimit,
             'php_upload_limit_text' => $fmt($phpUploadLimit),
-            'config_upload_limit_text' => $fmt($configuredUploadLimit),
-            'upload_limit_ok' => $phpUploadLimit >= $configuredUploadLimit,
+            'config_upload_limit_text' => $fmt($phpUploadLimit),
+            'upload_limit_ok' => $phpUploadLimit > 0,
             'uptime_text' => $uptimeText,
             'uptime_seconds' => $uptimeSeconds,
             'availability_24h_percent' => $availability24h,
@@ -481,9 +477,7 @@ final class ServerInfo
                 'load_1' => $load1,
                 'load_5' => $load5,
                 'load_15' => $load15,
-                'text' => ($load1 !== null && $load5 !== null && $load15 !== null)
-                    ? sprintf('%.2f / %.2f / %.2f', $load1, $load5, $load15)
-                    : '不可用',
+                'text' => self::formatLoadAverageText($load1, $load5, $load15),
             ],
             'memory' => [
                 'limit_bytes' => $memoryTotalBytes,
@@ -502,7 +496,7 @@ final class ServerInfo
                 'free_text' => $fmt($diskFreeBytes),
             ],
             'capability' => self::capabilityFlags(),
-            'enablement_hints' => $this->enablementHints($configuredUploadLimit),
+            'enablement_hints' => $this->enablementHints($phpUploadLimit),
         ];
     }
 
@@ -766,13 +760,13 @@ final class ServerInfo
             $snapshot['uptime_seconds'] = (int)$m[1];
         }
 
-        // Load average (works in HTTP too via syscall, but cache anyway
-        // so a stale snapshot at least has SOMETHING when the gauge first paints)
-        $load = function_exists('sys_getloadavg') ? @sys_getloadavg() : false;
-        if (is_array($load) && isset($load[0])) {
-            $snapshot['load1']  = (float)$load[0];
-            $snapshot['load5']  = (float)($load[1] ?? 0);
-            $snapshot['load15'] = (float)($load[2] ?? 0);
+        // Load average — same probe chain as runtimeMetrics(); cache so
+        // restricted HTTP contexts can still paint the CPU gauge.
+        [$snapLoad1, $snapLoad5, $snapLoad15] = self::loadAverage(false);
+        if ($snapLoad1 !== null && $snapLoad5 !== null && $snapLoad15 !== null) {
+            $snapshot['load1']  = $snapLoad1;
+            $snapshot['load5']  = $snapLoad5;
+            $snapshot['load15'] = $snapLoad15;
         }
 
         // 公网 IP 只在 CLI worker 里刷新，避免 HTTP 请求串行 curl 卡住设置页。
@@ -793,6 +787,66 @@ final class ServerInfo
                 ->set('SERVER_STATS_SNAPSHOT', (string)json_encode($snapshot, JSON_UNESCAPED_UNICODE));
             \LitePic\Core\Config::warmSettings();
         } catch (\Throwable $_) { /* best-effort */ }
+    }
+
+    /**
+     * 1/5/15-minute load average.
+     *
+     * Probe order matches the rest of this class: live syscall → /proc →
+     * CLI worker snapshot (for restricted PHP-FPM hosts where HTTP can't
+     * read load). Pass $allowSnapshot=false when writing the snapshot itself
+     * so we don't echo stale values back into the cache.
+     *
+     * @return array{0:?float,1:?float,2:?float}
+     */
+    private static function loadAverage(bool $allowSnapshot = true): array
+    {
+        if (function_exists('sys_getloadavg')) {
+            $load = @sys_getloadavg();
+            if (is_array($load) && isset($load[0], $load[1], $load[2])
+                && is_numeric($load[0]) && is_numeric($load[1]) && is_numeric($load[2])) {
+                return [(float)$load[0], (float)$load[1], (float)$load[2]];
+            }
+        }
+
+        $proc = @file_get_contents('/proc/loadavg');
+        if (is_string($proc) && preg_match('/^([\d.]+)\s+([\d.]+)\s+([\d.]+)/', trim($proc), $m)) {
+            return [(float)$m[1], (float)$m[2], (float)$m[3]];
+        }
+
+        if ($allowSnapshot) {
+            $snap = self::readSnapshot();
+            if (isset($snap['load1']) && is_numeric($snap['load1'])) {
+                return [
+                    (float)$snap['load1'],
+                    isset($snap['load5']) && is_numeric($snap['load5']) ? (float)$snap['load5'] : 0.0,
+                    isset($snap['load15']) && is_numeric($snap['load15']) ? (float)$snap['load15'] : 0.0,
+                ];
+            }
+        }
+
+        return [null, null, null];
+    }
+
+    /**
+     * Human load string for the settings gauge. Uses 2 decimals normally;
+     * bumps to 3 when a positive value would otherwise round to "0.00"
+     * (idle hosts used to look like "no data").
+     */
+    private static function formatLoadAverageText(?float $load1, ?float $load5, ?float $load15): string
+    {
+        if ($load1 === null || $load5 === null || $load15 === null) {
+            return '不可用';
+        }
+
+        $fmt = static function (float $v): string {
+            if ($v > 0.0 && $v < 0.005) {
+                return sprintf('%.3f', $v);
+            }
+            return sprintf('%.2f', $v);
+        };
+
+        return $fmt($load1) . ' / ' . $fmt($load5) . ' / ' . $fmt($load15);
     }
 
     /**

@@ -854,7 +854,7 @@ function initLicenseDialog() {
     trigger.dataset.licenseBound = '1';
     trigger.addEventListener('click', () => {
         if (!window.ImgEt?.DialogManager) return;
-        const version = String(window.LITEPIC_VERSION || '3.4.7');
+        const version = String(window.LITEPIC_VERSION || '3.5.0');
 
         const content = `
             <div class="litepic-license-dialog">
@@ -1512,21 +1512,53 @@ document.addEventListener('DOMContentLoaded', initLicenseDialog);
 })();
 
 /* ---------------------------
-   首页 footer 显示：无滚动页面中监听向下滚轮/触摸
+   首页 / 公开相册 footer：默认隐藏，滚轮向下或贴底唤出
    --------------------------- */
 (function() {
     const body = document.body;
-    if (!body || !body.classList.contains('home-guest')) return;
+    if (!body) return;
+
+    const isHome = body.classList.contains('home-guest');
+    const isAlbum = body.classList.contains('public-album-page')
+        && !body.classList.contains('public-album-locked');
+    if (!isHome && !isAlbum) return;
+
+    const visibleClass = isHome ? 'home-footer-visible' : 'pa-footer-visible';
+    const footerEl = isAlbum
+        ? document.querySelector('.pa-foot')
+        : document.querySelector('.site-footer');
+    const hotzone = isAlbum ? document.querySelector('.pa-foot-hotzone') : null;
+    const bottomZonePx = 56;
 
     let touchStartY = 0;
+    let hideTimer = 0;
+    let pointerNearBottom = false;
+
     const showFooter = () => {
-        body.classList.add('home-footer-visible');
+        if (hideTimer) {
+            clearTimeout(hideTimer);
+            hideTimer = 0;
+        }
+        body.classList.add(visibleClass);
     };
     const hideFooter = () => {
-        body.classList.remove('home-footer-visible');
+        if (pointerNearBottom) return;
+        if (footerEl && (footerEl.matches(':hover') || footerEl.matches(':focus-within'))) return;
+        body.classList.remove(visibleClass);
+    };
+    const scheduleHide = () => {
+        if (hideTimer) clearTimeout(hideTimer);
+        hideTimer = window.setTimeout(hideFooter, 180);
+    };
+
+    const isLightboxOpen = () => {
+        if (!isAlbum) return false;
+        const lb = document.querySelector('[data-pa-lb]');
+        return !!(lb && !lb.hasAttribute('hidden'));
     };
 
     window.addEventListener('wheel', (event) => {
+        if (isLightboxOpen()) return;
         if (event.deltaY > 0) {
             showFooter();
         } else if (event.deltaY < 0) {
@@ -1539,6 +1571,7 @@ document.addEventListener('DOMContentLoaded', initLicenseDialog);
     }, { passive: true });
 
     window.addEventListener('touchmove', (event) => {
+        if (isLightboxOpen()) return;
         const currentY = event.touches?.[0]?.clientY || 0;
         if (touchStartY - currentY > 24) {
             showFooter();
@@ -1548,6 +1581,26 @@ document.addEventListener('DOMContentLoaded', initLicenseDialog);
             touchStartY = currentY;
         }
     }, { passive: true });
+
+    // 鼠标贴底唤出（首页 + 相册）；离开贴底区后延迟收回
+    window.addEventListener('mousemove', (event) => {
+        if (isLightboxOpen()) return;
+        const near = (window.innerHeight - event.clientY) <= bottomZonePx;
+        if (near === pointerNearBottom) return;
+        pointerNearBottom = near;
+        if (near) showFooter();
+        else scheduleHide();
+    }, { passive: true });
+
+    if (hotzone) {
+        hotzone.addEventListener('mouseenter', () => {
+            pointerNearBottom = true;
+            showFooter();
+        });
+    }
+    if (footerEl) {
+        footerEl.addEventListener('mouseleave', scheduleHide);
+    }
 
     const formatBytes = (bytes) => {
         const size = Number(bytes) || 0;
@@ -3734,7 +3787,7 @@ class UploadManager {
         TIMEOUT_SMALL_THRESHOLD: 2 * 1024 * 1024,
         TIMEOUT_MEDIUM_THRESHOLD: 10 * 1024 * 1024,
         MAX_FILES: 100,
-        MAX_CONCURRENT: 3, // 默认 3 并发；后台可调高，避免 PHP/SQLite 被批量上传打满
+        MAX_CONCURRENT: 3, // 固定并发，避免 PHP/SQLite 被批量上传打满
         DUPLICATE_HASH_MAX_FILES: 20,
         DUPLICATE_HASH_MAX_TOTAL_BYTES: 200 * 1024 * 1024,
         FADE_DURATION: 300, // 动画过渡时间
@@ -3780,18 +3833,6 @@ class UploadManager {
             const parsed = parseInt(this.elements.imageInput.dataset.maxSize, 10);
             if (Number.isFinite(parsed) && parsed > 0) {
                 this.maxSize = parsed;
-            }
-        }
-        if (this.elements.imageInput && this.elements.imageInput.dataset.maxFiles) {
-            const parsed = parseInt(this.elements.imageInput.dataset.maxFiles, 10);
-            if (Number.isFinite(parsed) && parsed > 0) {
-                this.maxFiles = parsed;
-            }
-        }
-        if (this.elements.imageInput && this.elements.imageInput.dataset.maxConcurrent) {
-            const parsed = parseInt(this.elements.imageInput.dataset.maxConcurrent, 10);
-            if (Number.isFinite(parsed) && parsed > 0) {
-                this.maxConcurrent = Math.max(1, Math.min(20, parsed));
             }
         }
         if (this.elements.imageInput) {

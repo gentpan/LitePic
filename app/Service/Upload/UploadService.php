@@ -66,8 +66,7 @@ final class UploadService
     public function maxBytes(): int
     {
         $phpLimit = self::phpUploadLimitBytes();
-        $configured = defined('MAX_FILE_SIZE') ? (int)MAX_FILE_SIZE : 0;
-        return $phpLimit <= 0 ? $configured : min($configured, $phpLimit);
+        return $phpLimit > 0 ? $phpLimit : (defined('MAX_FILE_SIZE') ? (int)MAX_FILE_SIZE : 20 * 1024 * 1024);
     }
 
     /**
@@ -222,12 +221,14 @@ final class UploadService
         $thumbnailReady = false;
         $queueOptions = [
             'create_thumbnail'    => ThumbnailService::canGenerate($identifier),
-            'auto_compress'       => defined('AUTO_COMPRESS_ON_UPLOAD') && AUTO_COMPRESS_ON_UPLOAD,
-            'auto_convert'        => defined('AUTO_CONVERT_ON_UPLOAD') && AUTO_CONVERT_ON_UPLOAD,
-            'auto_convert_target' => defined('CONVERT_PREFERRED_FORMAT') ? CONVERT_PREFERRED_FORMAT : 'webp',
-            'auto_webp'           => defined('AUTO_CONVERT_WEBP_ON_UPLOAD') && AUTO_CONVERT_WEBP_ON_UPLOAD,
-            'auto_avif'           => defined('AUTO_CONVERT_AVIF_ON_UPLOAD') && AUTO_CONVERT_AVIF_ON_UPLOAD,
-            'watermark'           => defined('WATERMARK_ENABLED') && WATERMARK_ENABLED,
+            'auto_compress'       => \LitePic\Core\Config::liveBool('AUTO_COMPRESS_ON_UPLOAD'),
+            'auto_convert'        => \LitePic\Core\Config::liveBool('AUTO_CONVERT_ON_UPLOAD'),
+            'auto_convert_target' => \LitePic\Core\Config::liveString('CONVERT_PREFERRED_FORMAT', 'webp'),
+            'auto_webp'           => \LitePic\Core\Config::liveBool('AUTO_CONVERT_ON_UPLOAD')
+                && \LitePic\Core\Config::liveString('CONVERT_PREFERRED_FORMAT', 'webp') === 'webp',
+            'auto_avif'           => \LitePic\Core\Config::liveBool('AUTO_CONVERT_ON_UPLOAD')
+                && \LitePic\Core\Config::liveString('CONVERT_PREFERRED_FORMAT', 'webp') === 'avif',
+            'watermark'           => \LitePic\Core\Config::liveBool('WATERMARK_ENABLED'),
             'remote_sync'         => (new RemoteStorage())->isEnabled(),
         ];
         $queue = new \LitePic\Repository\ImportQueueRepository();
@@ -439,12 +440,14 @@ final class UploadService
         $thumbnailReady = false;
         $queueOptions = [
             'create_thumbnail' => ThumbnailService::canGenerate($identifier),
-            'auto_compress'    => defined('AUTO_COMPRESS_ON_UPLOAD') && AUTO_COMPRESS_ON_UPLOAD,
-            'auto_convert'     => defined('AUTO_CONVERT_ON_UPLOAD') && AUTO_CONVERT_ON_UPLOAD,
-            'auto_convert_target' => defined('CONVERT_PREFERRED_FORMAT') ? CONVERT_PREFERRED_FORMAT : 'webp',
-            'auto_webp'        => defined('AUTO_CONVERT_WEBP_ON_UPLOAD') && AUTO_CONVERT_WEBP_ON_UPLOAD,
-            'auto_avif'        => defined('AUTO_CONVERT_AVIF_ON_UPLOAD') && AUTO_CONVERT_AVIF_ON_UPLOAD,
-            'watermark'        => defined('WATERMARK_ENABLED') && WATERMARK_ENABLED,
+            'auto_compress'    => \LitePic\Core\Config::liveBool('AUTO_COMPRESS_ON_UPLOAD'),
+            'auto_convert'     => \LitePic\Core\Config::liveBool('AUTO_CONVERT_ON_UPLOAD'),
+            'auto_convert_target' => \LitePic\Core\Config::liveString('CONVERT_PREFERRED_FORMAT', 'webp'),
+            'auto_webp'        => \LitePic\Core\Config::liveBool('AUTO_CONVERT_ON_UPLOAD')
+                && \LitePic\Core\Config::liveString('CONVERT_PREFERRED_FORMAT', 'webp') === 'webp',
+            'auto_avif'        => \LitePic\Core\Config::liveBool('AUTO_CONVERT_ON_UPLOAD')
+                && \LitePic\Core\Config::liveString('CONVERT_PREFERRED_FORMAT', 'webp') === 'avif',
+            'watermark'        => \LitePic\Core\Config::liveBool('WATERMARK_ENABLED'),
             'remote_sync'      => (new RemoteStorage())->isEnabled(),
         ];
 

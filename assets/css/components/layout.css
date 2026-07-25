@@ -3,7 +3,7 @@
      Header / Navigation — Pill floating nav
      ===================================================================== */
   .site-header {
-    @apply fixed top-0 left-0 right-0 z-50 flex justify-center pt-4 px-4 transition-transform duration-300 ease-out;
+    @apply fixed top-0 left-0 right-0 z-50 flex justify-center pt-4 px-4 rounded-none transition-transform duration-300 ease-out;
     background: transparent;
     border: none;
   }
@@ -103,33 +103,6 @@
 
   .logo-divider {
     @apply w-px h-5 bg-current opacity-20;
-  }
-
-  /* Logo loader — keyframes in tailwind.css */
-  .logo-link .loader {
-    @apply w-9 h-9 relative bg-white overflow-hidden shadow-sm rounded-sm;
-  }
-
-  .logo-link .loader:before {
-    content: "";
-    @apply absolute left-0 bottom-0 w-6 h-6;
-    transform: rotate(45deg) translate(30%, 40%);
-    background: var(--primary);
-    box-shadow: 20px -22px 0 3px color-mix(in srgb, var(--primary) 55%, #fff);
-    animation: logo-slide 2s infinite ease-in-out alternate;
-  }
-
-  .logo-link .loader:after {
-    content: "";
-    @apply absolute left-1.5 top-1.5 w-2.5 h-2.5 rounded-full;
-    background: color-mix(in srgb, var(--primary) 55%, #fff);
-    transform-origin: 22px 90px;
-    animation: logo-rotate 2s infinite ease-in-out;
-  }
-
-  .logo-link:hover .loader {
-    @apply transition-transform duration-150 ease-out;
-    transform: none;
   }
 
   /* ===========================
@@ -540,23 +513,11 @@
   }
 
   /* ===========================
-     全局布局 overrides
-     =========================== */
-  .site-header {
-    @apply rounded-none;
-  }
-
-  /* ===========================
      暗色模式 overrides
      =========================== */
   html[data-theme="dark"] .site-header {
     background: transparent;
     border-bottom-color: transparent;
-  }
-
-  html[data-theme="dark"] .logo-link .loader {
-    background: rgba(255, 255, 255, 0.03);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   }
 
   html[data-theme="dark"] .login-panel {
@@ -757,49 +718,17 @@
   }
 
   body.home-guest .home-hero {
-    min-height: calc(100vh - var(--header-offset, 72px) - var(--footer-safe-space, 96px));
-    @apply grid place-items-center px-5 py-12;
+    min-height: 100vh;
+    @apply grid place-items-center px-6 py-0;
   }
 
   body.home-guest .home-hero-inner {
-    @apply w-full max-w-[920px] px-8 py-12 text-center rounded-md border;
-    background: var(--home-glass-bg);
-    border-color: var(--home-glass-border);
-    box-shadow: var(--home-glass-shadow);
-    backdrop-filter: var(--home-glass-blur);
-    -webkit-backdrop-filter: var(--home-glass-blur);
-    color: var(--hero-text);
-  }
-
-  body.home-guest .home-hero-title {
-    @apply mt-[18px] mb-2.5 font-bold leading-tight text-[clamp(2rem,5vw,3rem)];
-    color: var(--hero-text);
-  }
-
-  body.home-guest .home-hero-description {
-    @apply m-0 text-base;
-    color: var(--hero-muted);
-  }
-
-  body.home-guest .site-header {
-    @apply opacity-0 invisible pointer-events-none;
-    transform: translateY(-120%);
-  }
-
-  body.home-guest .page-container.page-main {
-    @apply max-w-none w-full min-h-screen;
-  }
-
-  body.home-guest .home-hero {
-    @apply min-h-screen px-6 py-0;
-  }
-
-  body.home-guest .home-hero-inner {
-    @apply max-w-[760px] p-0 border-0 rounded-none;
+    @apply w-full max-w-[760px] p-0 border-0 rounded-none text-center;
     background: transparent;
     box-shadow: none;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    color: var(--hero-text);
     text-shadow: 0 4px 28px rgba(0, 0, 0, 0.55);
   }
 
@@ -810,6 +739,15 @@
   body.home-guest .home-hero-description {
     @apply m-0 text-[clamp(1.05rem,2vw,1.45rem)] font-semibold leading-[1.45];
     color: rgba(255, 255, 255, 0.92);
+  }
+
+  body.home-guest .site-header {
+    @apply opacity-0 invisible pointer-events-none;
+    transform: translateY(-120%);
+  }
+
+  body.home-guest .page-container.page-main {
+    @apply max-w-none w-full min-h-screen;
   }
 
   body.home-guest .home-hero-stats {

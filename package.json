@@ -1,10 +1,10 @@
 {
   "name": "litepic",
-  "version": "3.4.8",
+  "version": "3.5.0",
   "description": "LitePic - 轻量级自托管图床系统",
   "scripts": {
-    "build:css": "npx @tailwindcss/cli -i ./assets/css/tailwind.css -o ./assets/css/main.css --minify",
     "build:css:dev": "npx @tailwindcss/cli -i ./assets/css/tailwind.css -o ./assets/css/main.css",
+    "build:css": "npx @tailwindcss/cli -i ./assets/css/tailwind.css -o ./assets/css/main.css && npx @tailwindcss/cli -i ./assets/css/tailwind.css -o ./assets/css/main.min.css --minify",
     "watch:css": "npx @tailwindcss/cli -i ./assets/css/tailwind.css -o ./assets/css/main.css --watch",
     "build:js": "npx --yes esbuild assets/js/main.js --minify --charset=utf8 --outfile=assets/js/main.min.js",
     "build": "npm run build:css && npm run build:js"

@@ -107,9 +107,9 @@
     @apply py-0 px-3.5 font-[650] cursor-pointer;
     min-height: 34px;
     margin-right: 12px;
-    border: 1px solid color-mix(in srgb, var(--primary) 32%, var(--border-color) 68%);
+    border: 1px solid var(--border-color);
     border-radius: 0;
-    background: color-mix(in srgb, var(--primary) 10%, var(--surface) 90%);
+    background: var(--surface);
     color: var(--primary);
     font: inherit;
     transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
@@ -119,9 +119,9 @@
     @apply py-0 px-3.5 font-[650] cursor-pointer;
     min-height: 34px;
     margin-right: 12px;
-    border: 1px solid color-mix(in srgb, var(--primary) 32%, var(--border-color) 68%);
+    border: 1px solid var(--border-color);
     border-radius: 0;
-    background: color-mix(in srgb, var(--primary) 10%, var(--surface) 90%);
+    background: var(--surface);
     color: var(--primary);
     font: inherit;
     transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
@@ -436,10 +436,6 @@
     color: var(--dark);
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
-  html[data-theme="dark"] .settings-block-runtime .runtime-enablement-commands,
-  html[data-theme="dark"] .settings-block-runtime .runtime-enablement-log {
-    background: color-mix(in srgb, var(--primary) 10%, var(--surface) 90%);
-  }
 
   .settings-page .runtime-gauge-card,
   .settings-block-runtime .runtime-meta-grid > article,
@@ -507,9 +503,7 @@
 
   .settings-block-runtime .runtime-meta-label > i,
   .settings-block-runtime .runtime-meta-label > i.fa-light,
-  .settings-block-runtime .runtime-meta-label > i.fa-brands,
-  .settings-block-runtime .runtime-meta-label > i.fa-solid,
-  .settings-block-runtime .runtime-meta-label > i.fa-regular {
+  .settings-block-runtime .runtime-meta-label > i.fa-brands {
     /* FA 7 默认 display:inline-block，必须 !important 才能用 flex 把字形居中到 36×36 方块里 */
     display: inline-flex !important;
     align-items: center !important;
@@ -679,27 +673,7 @@
     @apply text-primary text-base;
   }
 
-  /* Dark-theme overrides for the shell card + the runtime info tiles.
-   * Sections themselves no longer carry card chrome (the shell does), so
-   * we tint the shell instead of every section. */
-
-  html[data-theme="dark"] .settings-page .settings-shell {
-    background: color-mix(in srgb, var(--surface) 96%, #ffffff 4%);
-    border-color: rgba(255, 255, 255, 0.08);
-    box-shadow: none;
-  }
-
-  html[data-theme="dark"] .settings-page .runtime-gauge-card,
-  html[data-theme="dark"] .settings-block-runtime .runtime-meta-grid > article,
-  html[data-theme="dark"] .settings-block-runtime .runtime-capability-grid > article {
-    background: color-mix(in srgb, var(--surface) 88%, #ffffff 12%);
-    border-color: rgba(255, 255, 255, 0.08);
-    box-shadow: none;
-  }
-
-  html[data-theme="dark"] .settings-page .runtime-gauge-track {
-    stroke: color-mix(in srgb, var(--border-color) 70%, #ffffff 30%);
-  }
+  /* Dark-theme: inputs / toggles / switches（runtime 卡片深色在文末统一） */
 
   html[data-theme="dark"] .settings-page input:not([type="checkbox"]):not([type="radio"]),
   html[data-theme="dark"] .settings-page select,
@@ -712,11 +686,6 @@
   html[data-theme="dark"] .settings-toggle-row {
     background: rgba(255, 255, 255, 0.035);
     border-color: rgba(255, 255, 255, 0.08);
-  }
-
-  html[data-theme="dark"] .settings-toggle-row:hover {
-    background: rgba(0, 82, 217, 0.12);
-    border-color: rgba(0, 82, 217, 0.42);
   }
 
   html[data-theme="dark"] .settings-switch {
@@ -732,10 +701,6 @@
   html[data-theme="dark"] .settings-switch-input:disabled + .settings-switch {
     background: rgba(255, 255, 255, 0.08);
     border-color: rgba(255, 255, 255, 0.08);
-  }
-
-  html[data-theme="dark"] .settings-block-runtime .runtime-meta-label > i {
-    background: color-mix(in srgb, var(--primary) 18%, var(--surface) 82%);
   }
 
   @media (max-width: 768px) {
@@ -801,24 +766,27 @@
 
   .settings-page .settings-tab-nav a > i {
     @apply text-[0.95em] leading-none text-gray;
+    transition: color 160ms ease;
   }
 
   .settings-page .settings-tab-nav a:hover {
     @apply text-dark;
-    background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
-    border-color: color-mix(in srgb, var(--primary) 32%, var(--border-color) 68%);
+    background: color-mix(in srgb, var(--light) 70%, var(--surface) 30%);
+    border-color: color-mix(in srgb, var(--border-color) 70%, var(--gray) 30%);
   }
 
   .settings-page .settings-tab-nav a:hover > i {
     @apply text-primary;
   }
 
-  .settings-page .settings-tab-nav a[aria-current="page"] {
+  .settings-page .settings-tab-nav a[aria-current="page"],
+  .settings-page .settings-tab-nav a[aria-current="page"]:hover {
     @apply bg-primary border-primary text-white;
     box-shadow: 0 1px 2px color-mix(in srgb, var(--primary) 24%, transparent);
   }
 
-  .settings-page .settings-tab-nav a[aria-current="page"] > i {
+  .settings-page .settings-tab-nav a[aria-current="page"] > i,
+  .settings-page .settings-tab-nav a[aria-current="page"]:hover > i {
     @apply text-white;
   }
 
@@ -846,12 +814,7 @@
    * ============================================================= */
 
   .settings-page .settings-shell {
-    @apply grid gap-4.5 py-[22px] px-6 rounded-[var(--radius-md)];
-    border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
-    background: linear-gradient(180deg,
-      color-mix(in srgb, var(--surface) 94%, transparent),
-      color-mix(in srgb, var(--surface) 88%, var(--light) 12%));
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.72) inset, 0 14px 38px rgba(15, 23, 42, 0.06);
+    @apply grid gap-4.5 py-[22px] px-6 rounded-[var(--radius-md)] bg-surface border-border shadow-none;
   }
 
   /* When inside the shell, individual sections drop their card chrome
@@ -944,13 +907,12 @@
   /* Secondary — outlined */
 
   .settings-page .btn--secondary {
-    @apply bg-surface text-dark;
-    border-color: color-mix(in srgb, var(--border-color) 70%, transparent);
+    @apply bg-surface border-border text-dark;
   }
 
   .settings-page .btn--secondary:hover {
-    background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
-    border-color: color-mix(in srgb, var(--primary) 32%, var(--border-color) 68%);
+    background: color-mix(in srgb, var(--light) 70%, var(--surface) 30%);
+    border-color: color-mix(in srgb, var(--border-color) 70%, var(--gray) 30%);
   }
 
   /* Danger — filled red */
@@ -1048,68 +1010,15 @@
   }
 
   /* =============================================================
-   * Settings tab title block — sits between the tab nav and the
-   * tab's content (sections). Gives every tab a clear, identical
-   * visual identity (big icon + tab name + short description),
-   * and acts as the heading users land on after clicking a tab.
-   *
-   * Layout: [icon chip] | [title]
-   *                       [description]
+   * Settings tab title — 结构定义；字号/边线/图标尺寸见下方 Level 1
    * ============================================================= */
-
-  .settings-page .settings-tab-title {
-    @apply flex items-center gap-3.5 mt-0 mx-0 mb-1;
-    padding: 4px 2px 14px;
-    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
-  }
-
-  .settings-page .settings-tab-title__icon {
-    @apply shrink-0 w-11 h-11 inline-flex items-center justify-center rounded-none text-primary text-[1.4rem] leading-none;
-    /* 直角风格 — 跟 Plan A 设计系统统一，所有 box 元素都不带圆角。 */
-    background: color-mix(in srgb, var(--primary) 12%, transparent);
-  }
 
   .settings-page .settings-tab-title__copy {
     @apply grid gap-0.5 min-w-0;
   }
 
-  .settings-page .settings-tab-title__heading {
-    @apply m-0 text-[1.1rem] font-semibold text-dark tracking-[-0.005em];
-  }
-
-  .settings-page .settings-tab-title__description {
-    @apply m-0 text-[0.85rem] text-gray leading-normal;
-  }
-
-  @media (max-width: 720px) {
-    .settings-page .settings-tab-title {
-      @apply gap-2.5;
-    }
-
-    .settings-page .settings-tab-title__icon {
-      @apply w-[38px] h-[38px] text-[1.15rem];
-    }
-
-    .settings-page .settings-tab-title__heading {
-      @apply text-base;
-    }
-  }
-
-  html[data-theme="dark"] .settings-page .settings-tab-title__icon {
-    background: color-mix(in srgb, var(--primary) 16%, rgba(255,255,255,0.04) 84%);
-  }
-
   /* =============================================================
    * Top-align EVERY content row inside the settings shell.
-   *
-   * The shell is a CSS grid; without `align-content: start` grid
-   * stretches its rows to fill remaining height when content is
-   * short, which visually pushes things toward center. Pin the
-   * tracks to the top so a tab with one section sits flush at
-   * the top of the shell instead of floating in the middle.
-   *
-   * Same treatment for the in-form panel since it's the inner
-   * grid that holds most sections.
    * ============================================================= */
 
   .settings-page .settings-shell,
@@ -1198,11 +1107,7 @@ html[data-theme="dark"] .settings-page textarea:focus-visible {
     /* 不挂自己的背景；显示 body 灰 */
   }
 
-  /* 2. Shell 用 .page-shell 同款：surface 底 + 边框，无渐变无阴影 */
-
-  .settings-page .settings-shell {
-    @apply bg-surface border-border shadow-none;
-  }
+  /* 2. Shell 颜色已在上方 shell 规则统一为 surface；此处不再重复 */
 
   /* 3. Tab nav 条带：跟 shell 同色，仅靠下边线分隔 */
 
@@ -1239,14 +1144,9 @@ html[data-theme="dark"] .settings-page textarea:focus-visible {
     @apply border-border;
   }
 
-  /* 7. Tab 标题图标 chip：浅色用中性底，深色在文末 dark 块统一接管 */
+  /* 7. Tab 标题图标 chip 由 Level 1 统一；深色在文末接管 */
 
-  .settings-page .settings-tab-title__icon {
-    @apply text-primary;
-    background: color-mix(in srgb, var(--light) 78%, var(--surface) 22%);
-  }
-
-  /* 8. Callout 提示框：淡主色信息块（走变量，避免 #eff6ff 在深色下发白） */
+  /* 8. Callout 提示框：淡主色信息块（走变量，避免硬编码浅蓝在深色下发白） */
 
   .settings-page .settings-callout {
     @apply text-dark;
@@ -1257,75 +1157,6 @@ html[data-theme="dark"] .settings-page textarea:focus-visible {
   .settings-page .settings-callout p,
   .settings-page .settings-callout strong {
     @apply text-inherit;
-  }
-
-  /* 9. 文件选择按钮：白底，hover 上主题蓝 */
-
-  .settings-page .settings-file-input::file-selector-button,
-.settings-page .settings-file-input::-webkit-file-upload-button {
-    background: var(--surface);
-    border-color: var(--border-color);
-    color: var(--primary);
-  }
-
-  .settings-page .settings-file-input:hover::file-selector-button,
-.settings-page .settings-file-input:hover::-webkit-file-upload-button {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: #ffffff;
-  }
-
-  /* 10. .btn--secondary（次要按钮）：白底 + 中性灰悬停 */
-
-  .settings-page .btn--secondary {
-    @apply bg-surface border-border text-dark;
-  }
-
-  .settings-page .btn--secondary:hover {
-    background: color-mix(in srgb, var(--light) 70%, var(--surface) 30%);
-    border-color: color-mix(in srgb, var(--border-color) 70%, var(--gray) 30%);
-  }
-
-  /* 11. Tab nav 药丸 — 重头戏 ===========================================
-   *   • 未激活：surface + 边框 + 灰色 icon
-   *   • 悬停：  中性浅底，不再用硬编码 slate
-   *   • 激活：  品牌蓝实底 + 白色文字 + 白色 icon
-   * =================================================================== */
-
-  .settings-page .settings-tab-nav a {
-    @apply bg-surface border-border text-dark;
-  }
-
-  .settings-page .settings-tab-nav a > i {
-    @apply text-gray;
-    /* 默认灰 icon */
-    transition: color 160ms ease;
-  }
-
-  /* hover：中性浅底，icon 换主题蓝 */
-
-  .settings-page .settings-tab-nav a:hover {
-    @apply text-dark;
-    background: color-mix(in srgb, var(--light) 70%, var(--surface) 30%);
-    border-color: color-mix(in srgb, var(--border-color) 70%, var(--gray) 30%);
-  }
-
-  .settings-page .settings-tab-nav a:hover > i {
-    @apply text-primary;
-  }
-
-  /* 激活：品牌蓝 + 白文字 + 白 icon（强制覆盖默认灰 icon）*/
-
-  .settings-page .settings-tab-nav a[aria-current="page"],
-.settings-page .settings-tab-nav a[aria-current="page"]:hover {
-    @apply bg-primary border-primary text-white;
-    box-shadow: 0 1px 2px color-mix(in srgb, var(--primary) 24%, transparent);
-  }
-
-  .settings-page .settings-tab-nav a[aria-current="page"] > i,
-.settings-page .settings-tab-nav a[aria-current="page"]:hover > i {
-    @apply text-white;
-    /* 激活态 icon 必须白 */
   }
 
   /* 12. 运行时指标卡片：圆角/阴影在上方已统一；此处不再强制 bg-surface，
@@ -1341,34 +1172,16 @@ html[data-theme="dark"] .settings-page textarea:focus-visible {
    * ============================================================= */
 
   html[data-theme="dark"] .settings-page .settings-toggle-row:hover,
-html[data-theme="dark"] .settings-page .btn--secondary:hover,
-html[data-theme="dark"] .settings-page .settings-tab-nav a:hover {
+  html[data-theme="dark"] .settings-page .btn--secondary:hover,
+  html[data-theme="dark"] .settings-page .settings-tab-nav a:hover {
     background: color-mix(in srgb, var(--surface) 88%, #ffffff 12%);
     border-color: color-mix(in srgb, var(--border-color) 60%, #ffffff 40%);
   }
 
-  html[data-theme="dark"] .settings-page .settings-tab-title__icon {
-    background: color-mix(in srgb, var(--surface) 88%, #ffffff 12%);
-  }
-
-  html[data-theme="dark"] .settings-page .settings-callout {
-    background: color-mix(in srgb, var(--primary) 14%, var(--surface) 86%);
-    border-color: color-mix(in srgb, var(--primary) 28%, var(--border-color) 72%);
-    color: var(--dark);
-  }
+  /* tab-title__icon / callout 深色最终态见文末，避免此处再叠一层 */
 
   /* =============================================================
    * 直角设计 v4 — 用户要求全部子 tabs 内容直角
-   *
-   * 覆盖前面所有"4px / 8px / 6px / 10px"的圆角规则；只有以下例外保留圆形/药丸：
-   *   • Tab nav 药丸（功能上就是 pill 形状，不属于"表单"）
-   *   • Switch 轨道（开关本身就是椭圆按钮）
-   *   • Tab 标题图标 chip（视觉装饰小色块）
-   *   • Status pills (.is-on / .is-off / .is-warn) — 都是状态徽章
-   *   • CSS 波浪动画 / 头像（页面其它处 999px）
-   *
-   * 其它所有形状（shell / 输入 / 按钮 / 选项条 / 文件按钮 / callout / 子卡片
-   * / Save 按钮）一律 border-radius: 0。
    * ============================================================= */
 
   /* --- 外: shell + nav 顶部 --- */
@@ -1615,7 +1428,7 @@ html[data-theme="dark"] .settings-page .settings-tab-nav a:hover {
    */
 
   .settings-page .settings-tab-title {
-    @apply items-center gap-4 mt-0 mx-0 mb-3 bg-transparent rounded-none;
+    @apply flex items-center gap-4 mt-0 mx-0 mb-3 bg-transparent rounded-none;
     padding: 6px 2px 16px;
     border-bottom: 2px solid color-mix(in srgb, var(--primary) 28%, var(--border-color) 72%);
   }
@@ -1634,9 +1447,7 @@ html[data-theme="dark"] .settings-page .settings-tab-nav a:hover {
   /* FA 7 默认 inline-block，会破坏 chip 内居中；只居中字形，不另加背景/尺寸 */
   .settings-page .settings-tab-title__icon > i,
   .settings-page .settings-tab-title__icon > i.fa-light,
-  .settings-page .settings-tab-title__icon > i.fa-brands,
-  .settings-page .settings-tab-title__icon > i.fa-solid,
-  .settings-page .settings-tab-title__icon > i.fa-regular {
+  .settings-page .settings-tab-title__icon > i.fa-brands {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -1759,9 +1570,7 @@ html[data-theme="dark"] .settings-page .settings-tab-nav a:hover {
   /* 左侧图标 — 默认灰色，活跃时变主题色 */
 
   .settings-page .queue-stat__icon,
-  .settings-page .queue-stat__icon.fa-light,
-  .settings-page .queue-stat__icon.fa-solid,
-  .settings-page .queue-stat__icon.fa-regular {
+  .settings-page .queue-stat__icon.fa-light {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -2210,22 +2019,28 @@ html[data-theme="dark"] .settings-page .settings-tab-nav a:hover {
   /* =============================================================
    * 收尾：服务器信息 / 环境信息 / 资源占用 — 深色最终态
    * 必须放在文件末尾，压过前面多层 v2/v3/Level1 互相覆盖的规则。
+   * shell / 抬升卡片 / 输入框共用同一套色阶，避免上亮下黑断层。
    * ============================================================= */
 
+  html[data-theme="dark"] .settings-page {
+    --settings-shell-bg: #161616;
+    --settings-elevated: #1e1e1e;
+  }
+
   html[data-theme="dark"] .settings-page .settings-shell {
-    background: var(--surface);
+    background: var(--settings-shell-bg);
     border-color: rgba(255, 255, 255, 0.08);
     box-shadow: none;
   }
 
   html[data-theme="dark"] .settings-page .settings-shell > .settings-tab-nav {
-    background: var(--surface);
+    background: var(--settings-shell-bg);
     border-bottom-color: rgba(255, 255, 255, 0.08);
   }
 
   html[data-theme="dark"] .settings-page .settings-tab-title__icon {
     color: var(--primary);
-    background: color-mix(in srgb, var(--primary) 18%, var(--surface) 82%);
+    background: color-mix(in srgb, var(--primary) 18%, var(--settings-shell-bg) 82%);
     box-shadow: none;
   }
 
@@ -2242,10 +2057,20 @@ html[data-theme="dark"] .settings-page .settings-tab-nav a:hover {
 
   html[data-theme="dark"] .settings-page .runtime-gauge-card,
   html[data-theme="dark"] .settings-block-runtime .runtime-meta-grid > article,
-  html[data-theme="dark"] .settings-block-runtime .runtime-capability-grid > article {
-    background: color-mix(in srgb, var(--surface) 82%, #ffffff 18%);
+  html[data-theme="dark"] .settings-block-runtime .runtime-capability-grid > article,
+  html[data-theme="dark"] .settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  html[data-theme="dark"] .settings-page select,
+  html[data-theme="dark"] .settings-page textarea,
+  html[data-theme="dark"] .settings-page .settings-format-tags__chips,
+  html[data-theme="dark"] .settings-page .settings-toggle-row,
+  html[data-theme="dark"] .settings-page .overflow-auto.border {
+    background: var(--settings-elevated);
     border-color: rgba(255, 255, 255, 0.1);
     box-shadow: none;
+  }
+
+  html[data-theme="dark"] .runtime-uptime-section {
+    --uptime-bg: var(--settings-elevated);
   }
 
   html[data-theme="dark"] .settings-page .runtime-gauge-track {
@@ -2262,13 +2087,13 @@ html[data-theme="dark"] .settings-page .settings-tab-nav a:hover {
   }
 
   html[data-theme="dark"] .settings-block-runtime .runtime-meta-label > i {
-    background: color-mix(in srgb, var(--primary) 20%, var(--surface) 80%);
+    background: color-mix(in srgb, var(--primary) 20%, var(--settings-elevated) 80%);
     color: var(--primary);
   }
 
   html[data-theme="dark"] .settings-page .settings-callout,
   html[data-theme="dark"] .settings-block-runtime .runtime-enablement-card {
-    background: color-mix(in srgb, var(--primary) 10%, var(--surface) 90%);
+    background: color-mix(in srgb, var(--primary) 10%, var(--settings-elevated) 90%);
     border-color: color-mix(in srgb, var(--primary) 26%, rgba(255, 255, 255, 0.1) 74%);
     color: var(--dark);
   }
@@ -2286,8 +2111,9 @@ html[data-theme="dark"] .settings-page .settings-tab-nav a:hover {
     color: var(--dark);
   }
 
-  .settings-block-runtime .runtime-enablement-actions {
-    @apply flex flex-wrap items-center gap-2;
+  html[data-theme="dark"] .settings-page .settings-format-tags__chip {
+    background: color-mix(in srgb, var(--primary) 14%, var(--settings-elevated) 86%);
+    border-color: color-mix(in srgb, var(--primary) 32%, rgba(255, 255, 255, 0.12) 68%);
   }
 
   @media (max-width: 576px) {

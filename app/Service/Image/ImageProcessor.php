@@ -153,9 +153,10 @@ final class ImageProcessor
 
         $processing = ['auto_compress' => [], 'auto_convert' => [], 'auto_webp' => [], 'auto_avif' => []];
         if (!empty($opts['auto_compress']) || !empty($opts['auto_convert']) || !empty($opts['auto_webp']) || !empty($opts['auto_avif'])) {
-            $target = ImageFormat::normalizeTarget((string)($opts['auto_convert_target'] ?? (defined('CONVERT_PREFERRED_FORMAT') ? CONVERT_PREFERRED_FORMAT : 'webp'))) ?: 'webp';
+            $target = ImageFormat::normalizeTarget((string)($opts['auto_convert_target'] ?? \LitePic\Core\Config::liveString('CONVERT_PREFERRED_FORMAT', 'webp'))) ?: 'webp';
             $convertEnabled = !empty($opts['auto_convert']) || !empty($opts['auto_webp']) || !empty($opts['auto_avif']);
-            $processing = (new ConversionService())->runUploadPostProcess($filename, $target, $convertEnabled);
+            $compressEnabled = !empty($opts['auto_compress']);
+            $processing = (new ConversionService())->runUploadPostProcess($filename, $target, $convertEnabled, $compressEnabled);
         }
 
         // Decide which file is "final" (avif > webp > original) and
@@ -200,7 +201,7 @@ final class ImageProcessor
         $finalFilename = $identifier;
         $finalUrl = ImageUrl::forIdentifier($identifier);
         $originalDeleted = false;
-        $keepOriginal = defined('KEEP_ORIGINAL_AFTER_PROCESS') && KEEP_ORIGINAL_AFTER_PROCESS;
+        $keepOriginal = \LitePic\Core\Config::liveBool('KEEP_ORIGINAL_AFTER_PROCESS');
         $albumImages = new \LitePic\Repository\AlbumImageRepository();
         $images = new ImageRepository();
         $exif = new ExifService($images);

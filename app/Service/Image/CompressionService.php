@@ -76,10 +76,10 @@ final class CompressionService
      *
      * @return array<string,mixed>
      */
-    public function autoCompressAfterUpload(string $filename): array
+    public function autoCompressAfterUpload(string $filename, ?bool $enabled = null): array
     {
         $result = [
-            'enabled' => defined('AUTO_COMPRESS_ON_UPLOAD') && AUTO_COMPRESS_ON_UPLOAD,
+            'enabled' => $enabled ?? \LitePic\Core\Config::liveBool('AUTO_COMPRESS_ON_UPLOAD'),
             'attempted' => false,
             'compressed' => false,
             'method' => null,
@@ -97,7 +97,8 @@ final class CompressionService
             $result['skip_reason'] = 'disabled';
             return $result;
         }
-        if (defined('AUTO_CONVERT_ON_UPLOAD') && AUTO_CONVERT_ON_UPLOAD) {
+        // 转换优先：调用方若显式启用转换，或全局自动转换开着且未显式要求压缩
+        if ($enabled !== true && \LitePic\Core\Config::liveBool('AUTO_CONVERT_ON_UPLOAD')) {
             $result['skip_reason'] = 'conversion_enabled';
             return $result;
         }

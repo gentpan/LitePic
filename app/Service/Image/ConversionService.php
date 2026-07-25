@@ -63,7 +63,8 @@ final class ConversionService
      */
     public function autoConvertWebpAfterUpload(string $filename): array
     {
-        return self::autoConvert($filename, 'webp', defined('AUTO_CONVERT_WEBP_ON_UPLOAD') && AUTO_CONVERT_WEBP_ON_UPLOAD);
+        return self::autoConvert($filename, 'webp', \LitePic\Core\Config::liveBool('AUTO_CONVERT_ON_UPLOAD')
+            && \LitePic\Core\Config::liveString('CONVERT_PREFERRED_FORMAT', 'webp') === 'webp');
     }
 
     /**
@@ -71,7 +72,8 @@ final class ConversionService
      */
     public function autoConvertAvifAfterUpload(string $filename): array
     {
-        return self::autoConvert($filename, 'avif', defined('AUTO_CONVERT_AVIF_ON_UPLOAD') && AUTO_CONVERT_AVIF_ON_UPLOAD);
+        return self::autoConvert($filename, 'avif', \LitePic\Core\Config::liveBool('AUTO_CONVERT_ON_UPLOAD')
+            && \LitePic\Core\Config::liveString('CONVERT_PREFERRED_FORMAT', 'webp') === 'avif');
     }
 
     /**
@@ -79,8 +81,8 @@ final class ConversionService
      */
     public function autoConvertPreferredAfterUpload(string $filename, ?string $target = null, ?bool $enabled = null): array
     {
-        $target = $target !== null ? $target : (defined('CONVERT_PREFERRED_FORMAT') ? (string)CONVERT_PREFERRED_FORMAT : 'webp');
-        $enabled = $enabled ?? (defined('AUTO_CONVERT_ON_UPLOAD') && AUTO_CONVERT_ON_UPLOAD);
+        $target = $target !== null ? $target : \LitePic\Core\Config::liveString('CONVERT_PREFERRED_FORMAT', 'webp');
+        $enabled = $enabled ?? \LitePic\Core\Config::liveBool('AUTO_CONVERT_ON_UPLOAD');
         return self::autoConvert($filename, $target, $enabled);
     }
 
@@ -91,10 +93,14 @@ final class ConversionService
      *
      * @return array{auto_compress:array,auto_convert:array,auto_webp:array,auto_avif:array}
      */
-    public function runUploadPostProcess(string $filename, ?string $target = null, ?bool $convertEnabled = null): array
+    public function runUploadPostProcess(string $filename, ?string $target = null, ?bool $convertEnabled = null, ?bool $compressEnabled = null): array
     {
-        $compress = (new CompressionService())->autoCompressAfterUpload($filename);
-        $target = ImageFormat::normalizeTarget((string)($target ?? (defined('CONVERT_PREFERRED_FORMAT') ? CONVERT_PREFERRED_FORMAT : 'webp'))) ?: 'webp';
+        // 转换优先：两边同时开时只转不压（与设置页保存互斥一致）
+        if ($convertEnabled === true) {
+            $compressEnabled = false;
+        }
+        $compress = (new CompressionService())->autoCompressAfterUpload($filename, $compressEnabled);
+        $target = ImageFormat::normalizeTarget((string)($target ?? \LitePic\Core\Config::liveString('CONVERT_PREFERRED_FORMAT', 'webp'))) ?: 'webp';
         $convert = $this->autoConvertPreferredAfterUpload($filename, $target, $convertEnabled);
         $webp = $target === 'webp' ? $convert : ['enabled' => false];
         $avif = $target === 'avif' ? $convert : ['enabled' => false];
@@ -228,7 +234,7 @@ final class ConversionService
         //   auto    : Imagick 优先（处理大图省内存），不可用回退 GD
         //   imagick : 强制 Imagick，不可用就直接失败（不偷偷回退到 GD）
         //   gd      : 强制 GD（兼容性好但 30MP 以上易爆内存）
-        $engine = defined('CONVERSION_ENGINE') ? CONVERSION_ENGINE : 'auto';
+        $engine = \LitePic\Core\Config::liveString('CONVERSION_ENGINE', 'auto');
         $tryImagick = ($engine === 'imagick' || $engine === 'auto') && self::imagickSupports($targetExt);
         $tryGd = ($engine === 'gd' || $engine === 'auto');
 

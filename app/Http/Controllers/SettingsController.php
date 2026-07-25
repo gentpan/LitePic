@@ -547,6 +547,13 @@ final class SettingsController
         $notes = [];
         $extras = [];
 
+        // 每个 tab 只渲染自己的字段。checkbox 未勾选时也不会出现在 POST，
+        // 不能用「缺 key = false」。按 active_tab 决定哪些开关允许改写，
+        // 其它 tab 的开关一律保留现值（与页面注释约定一致）。
+        $activeTab = trim((string)($_POST['active_tab'] ?? ''));
+        $imageTab = ($activeTab === 'image');
+        $telegramTab = ($activeTab === 'telegram');
+
         // Site identity + upload limits
         $siteName = trim((string)($_POST['site_name'] ?? SITE_NAME));
         $siteDescription = trim((string)($_POST['site_description'] ?? SITE_DESCRIPTION));
@@ -560,9 +567,6 @@ final class SettingsController
                 $siteUrl = $siteUrlRaw;
             }
         }
-        $maxFileSizeMb = max(1, min(2048, (int)($_POST['max_file_size_mb'] ?? (int)round(MAX_FILE_SIZE / 1024 / 1024))));
-        $uploadMaxFiles = max(1, min(500, (int)($_POST['upload_max_files'] ?? (defined('UPLOAD_MAX_FILES') ? UPLOAD_MAX_FILES : 100))));
-        $uploadMaxConcurrent = max(1, min(20, (int)($_POST['upload_max_concurrent'] ?? (defined('UPLOAD_MAX_CONCURRENT') ? UPLOAD_MAX_CONCURRENT : 3))));
         $allowedTypes = $this->parseAllowedUploadTypes($warnings);
         $isHttps = (
             (!empty($_SERVER['HTTPS']) && (string)$_SERVER['HTTPS'] !== 'off') ||
@@ -574,34 +578,76 @@ final class SettingsController
         // change_password 路径单独保存），这里只读取当前值好把它再写一次回 DB
         // 即可，避免别的字段保存时把已有密码覆盖成空。
         $adminApiKey = (string)ADMIN_API_KEY;
-        $autoCompressOnUpload = self::boolFromPost('auto_compress_on_upload');
+        $autoCompressOnUpload = self::boolFromPostOrKeep(
+            'auto_compress_on_upload',
+            'AUTO_COMPRESS_ON_UPLOAD',
+            $imageTab
+        );
 
         // Format conversion: combined or split radio + checkbox
-        [$autoConvertOnUpload, $autoConvertWebp, $autoConvertAvif, $convertPreferredFormat] = $this->resolveConvertSettings($warnings);
+        if ($imageTab) {
+            [$autoConvertOnUpload, $autoConvertWebp, $autoConvertAvif, $convertPreferredFormat] = $this->resolveConvertSettings($warnings);
+        } else {
+            $autoConvertOnUpload = self::currentBool('AUTO_CONVERT_ON_UPLOAD');
+            $convertPreferredFormat = defined('CONVERT_PREFERRED_FORMAT')
+                ? (string)CONVERT_PREFERRED_FORMAT
+                : (string)Config::get('CONVERT_PREFERRED_FORMAT', 'webp');
+            $autoConvertWebp = $autoConvertOnUpload && $convertPreferredFormat === 'webp';
+            $autoConvertAvif = $autoConvertOnUpload && $convertPreferredFormat === 'avif';
+        }
 
-        $keepOriginalAfterProcess = self::boolFromPost('keep_original_after_process');
+        $keepOriginalAfterProcess = self::boolFromPostOrKeep(
+            'keep_original_after_process',
+            'KEEP_ORIGINAL_AFTER_PROCESS',
+            $imageTab
+        );
 
         // Watermark
-        [$watermarkEnabled, $watermarkType, $watermarkText, $watermarkPosition,
-         $watermarkOpacity, $watermarkFontSize, $watermarkMargin, $watermarkColor,
-         $watermarkFontPath, $watermarkImagePath, $watermarkImageWidth,
-         $watermarkPanelEnabled, $watermarkPanelOpacity, $watermarkPanelPadding,
-         $watermarkPanelRadius] = $this->resolveWatermarkSettings($warnings);
+        if ($imageTab) {
+            [$watermarkEnabled, $watermarkType, $watermarkText, $watermarkPosition,
+             $watermarkOpacity, $watermarkFontSize, $watermarkMargin, $watermarkColor,
+             $watermarkFontPath, $watermarkImagePath, $watermarkImageWidth,
+             $watermarkPanelEnabled, $watermarkPanelOpacity, $watermarkPanelPadding,
+             $watermarkPanelRadius] = $this->resolveWatermarkSettings($warnings);
+        } else {
+            [$watermarkEnabled, $watermarkType, $watermarkText, $watermarkPosition,
+             $watermarkOpacity, $watermarkFontSize, $watermarkMargin, $watermarkColor,
+             $watermarkFontPath, $watermarkImagePath, $watermarkImageWidth,
+             $watermarkPanelEnabled, $watermarkPanelOpacity, $watermarkPanelPadding,
+             $watermarkPanelRadius] = $this->currentWatermarkSettings();
+        }
 
         // Hotlink protection routes images through /i/<id>, where
         // ImageServeService runs the referer check.
-        $hotlinkProtectionEnabled = self::boolFromPost('hotlink_protection_enabled');
-        $hotlinkAllowedDomains = trim((string)($_POST['hotlink_allowed_domains'] ?? implode(',', HOTLINK_ALLOWED_DOMAINS)));
-        $hotlinkAllowEmptyReferer = self::boolFromPost('hotlink_allow_empty_referer');
+        $hotlinkProtectionEnabled = self::boolFromPostOrKeep(
+            'hotlink_protection_enabled',
+            'HOTLINK_PROTECTION_ENABLED',
+            $imageTab
+        );
+        $hotlinkAllowedDomains = $imageTab
+            ? trim((string)($_POST['hotlink_allowed_domains'] ?? implode(',', HOTLINK_ALLOWED_DOMAINS)))
+            : implode(',', defined('HOTLINK_ALLOWED_DOMAINS') ? HOTLINK_ALLOWED_DOMAINS : []);
+        $hotlinkAllowEmptyReferer = self::boolFromPostOrKeep(
+            'hotlink_allow_empty_referer',
+            'HOTLINK_ALLOW_EMPTY_REFERER',
+            $imageTab
+        );
 
         // Image view counter (PHP-based — no Web 服务器 access.log dependency)
-        $imageViewCounterEnabled = self::boolFromPost('image_view_counter_enabled');
+        $imageViewCounterEnabled = self::boolFromPostOrKeep(
+            'image_view_counter_enabled',
+            'IMAGE_VIEW_COUNTER_ENABLED',
+            $imageTab
+        );
 
         // ---- Telegram bot integration ----
-        // All five fields fall back to the current Config value when absent
-        // from the POST — so saving the "basic" tab doesn't accidentally
-        // clobber the Telegram tab's settings, and vice versa.
-        $telegramEnabled        = self::boolFromPost('telegram_enabled');
+        // Text fields already fall back via ?? Config::get. The enable
+        // checkbox must only update when the Telegram tab is active.
+        $telegramEnabled = self::boolFromPostOrKeep(
+            'telegram_enabled',
+            'TELEGRAM_ENABLED',
+            $telegramTab
+        );
         $telegramBotToken       = trim((string)($_POST['telegram_bot_token']
                                   ?? Config::get('TELEGRAM_BOT_TOKEN', '')));
         $telegramAllowedUserIds = self::normalizeTelegramUserIds(
@@ -622,10 +668,10 @@ final class SettingsController
             $warnings[] = 'Telegram Bot Token 格式不对(应该是 "<bot_id>:<token>"),已保留之前的值';
             $telegramBotToken = (string)Config::get('TELEGRAM_BOT_TOKEN', '');
         }
-        if ($telegramEnabled && $telegramBotToken === '') {
+        if ($telegramTab && $telegramEnabled && $telegramBotToken === '') {
             $warnings[] = 'Telegram 已启用但 Bot Token 为空,机器人不会接收任何消息';
         }
-        if ($telegramEnabled && $telegramAllowedUserIds === '') {
+        if ($telegramTab && $telegramEnabled && $telegramAllowedUserIds === '') {
             $warnings[] = 'Telegram 已启用但「允许的用户 ID」为空,所有人都会被拒绝(只接受白名单用户)';
         }
 
@@ -679,9 +725,6 @@ final class SettingsController
             'SITE_NAME' => Format::envQuote($siteName),
             'SITE_DESCRIPTION' => Format::envQuote($siteDescription),
             'SITE_URL' => Format::envQuote($siteUrl),
-            'MAX_FILE_SIZE_MB' => (string)$maxFileSizeMb,
-            'UPLOAD_MAX_FILES' => (string)$uploadMaxFiles,
-            'UPLOAD_MAX_CONCURRENT' => (string)$uploadMaxConcurrent,
             'UPLOAD_ALLOWED_TYPES' => implode(',', $allowedTypes),
             'COOKIE_SECURE' => $isHttps ? 'true' : 'false',
             'ADMIN_API_KEY' => Format::envQuote($adminApiKey),
@@ -722,14 +765,11 @@ final class SettingsController
         ], RemoteStorage::envFromPostedForm()));
 
         $iniPath = APP_ROOT . '/.user.ini';
-        // post_max_size has to be a touch bigger than upload_max_filesize so multipart
-        // headers don't push us over the limit.
-        $postMaxSizeMb = max($maxFileSizeMb + 2, (int)ceil($maxFileSizeMb * 1.1));
+        // 上传大小不再由设置表单改写 — 跟随 PHP 运行时 / Caddy php_ini。
+        // 这里只维护与站点无关紧的目录级 ini 兜底项（PHP-FPM 场景）。
         $iniWritten = self::writeUserIni($iniPath, [
             'open_basedir' => ServerInfo::openBasedirValue($iniPath),
-            'upload_max_filesize' => $maxFileSizeMb . 'M',
-            'post_max_size' => $postMaxSizeMb . 'M',
-            'max_file_uploads' => (string)$uploadMaxFiles,
+            'max_file_uploads' => '100',
             'memory_limit' => '256M',
         ]);
 
@@ -753,9 +793,6 @@ final class SettingsController
             'auto_compress_on_upload' => $autoCompressOnUpload,
             'auto_convert_on_upload' => $autoConvertOnUpload,
             'convert_preferred_format' => $convertPreferredFormat,
-            'max_file_size_mb' => $maxFileSizeMb,
-            'upload_max_files' => $uploadMaxFiles,
-            'upload_max_concurrent' => $uploadMaxConcurrent,
             'upload_allowed_types' => $allowedTypes,
             'remote_storage_usage' => $remoteStorageUsage,
             'keep_original_after_process' => $keepOriginalAfterProcess,
@@ -947,6 +984,49 @@ final class SettingsController
     public static function boolFromPost(string $key): bool
     {
         return isset($_POST[$key]) && $_POST[$key] === '1';
+    }
+
+    /**
+     * Checkbox-safe reader: when $present is false (field not on this tab's
+     * form), keep the current config value. When present, unchecked = false.
+     */
+    public static function boolFromPostOrKeep(string $postKey, string $constName, bool $present): bool
+    {
+        if (!$present) {
+            return self::currentBool($constName);
+        }
+        return self::boolFromPost($postKey);
+    }
+
+    public static function currentBool(string $constName, bool $default = false): bool
+    {
+        return Config::liveBool($constName, $default);
+    }
+
+    /**
+     * Snapshot of watermark settings currently in effect (for non-image tabs).
+     *
+     * @return array{0:bool,1:string,2:string,3:string,4:int,5:int,6:int,7:string,8:string,9:string,10:int,11:bool,12:int,13:int,14:int}
+     */
+    private function currentWatermarkSettings(): array
+    {
+        return [
+            Config::liveBool('WATERMARK_ENABLED'),
+            Config::liveString('WATERMARK_TYPE', 'text'),
+            Config::liveString('WATERMARK_TEXT', 'LitePic'),
+            Config::liveString('WATERMARK_POSITION', 'bottom-right'),
+            Config::liveInt('WATERMARK_OPACITY', 60),
+            Config::liveInt('WATERMARK_FONT_SIZE', 18),
+            Config::liveInt('WATERMARK_MARGIN', 16),
+            Config::liveString('WATERMARK_COLOR', '#ffffff'),
+            Config::liveString('WATERMARK_FONT_PATH', ''),
+            Config::liveString('WATERMARK_IMAGE_PATH', ''),
+            Config::liveInt('WATERMARK_IMAGE_WIDTH', 160),
+            Config::liveBool('WATERMARK_PANEL_ENABLED'),
+            Config::liveInt('WATERMARK_PANEL_OPACITY', 45),
+            Config::liveInt('WATERMARK_PANEL_PADDING', 8),
+            Config::liveInt('WATERMARK_PANEL_RADIUS', 6),
+        ];
     }
 
     /**

@@ -169,8 +169,8 @@ $filenames = $albumImageRepo->listFilenames((int)$album['id']);
 
 // ============== 分页 ==============
 // 默认每页 12 张 —— 大相册一次性铺 500 张缩略图会拖垮首屏。
-// ?n= 每页张数(白名单,防止 n=100000 把整册拉进一个请求),?p= 页码。
-$perPageOptions = [12, 24, 48, 96];
+// ?n= 每页张数(白名单)；行列按约 4:3 铺满视口（12=4×3 / 24=6×4 / 48=8×6）。
+$perPageOptions = [12, 24, 48];
 $perPageDefault = $perPageOptions[0];
 $perPageRaw = isset($_GET['n']) ? (int)$_GET['n'] : 0;
 $perPage = in_array($perPageRaw, $perPageOptions, true) ? $perPageRaw : $perPageDefault;
@@ -261,7 +261,7 @@ require_once APP_ROOT . '/header.php';
                 <p>这个相册还没有图片</p>
             </div>
         <?php else: ?>
-            <div class="pa-grid" data-pa-grid>
+            <div class="pa-grid" data-pa-grid data-n="<?= (int)$perPage ?>">
                 <?php foreach ($images as $i => $img): ?>
                     <figure class="pa-tile" data-pa-index="<?= (int)$i ?>"
                             data-filename="<?= htmlspecialchars($img['filename']) ?>"
@@ -286,6 +286,7 @@ require_once APP_ROOT . '/header.php';
             </div>
         <?php endif; ?>
 
+        <div class="pa-foot-hotzone" aria-hidden="true"></div>
         <footer class="pa-foot">
             <div class="pa-foot-left">
                 <span class="pa-foot-name"><?= htmlspecialchars((string)$album['name']) ?></span>
@@ -521,3 +522,5 @@ require_once APP_ROOT . '/header.php';
     });
 })();
 </script>
+<?php
+require_once APP_ROOT . '/footer.php';

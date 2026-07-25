@@ -106,7 +106,6 @@
   .notification-item.notification-process {
     @apply items-center w-full gap-2.5 py-2.5 px-3;
     min-height: 64px;
-    border-left: 0;
     border: 1px solid rgba(22, 119, 255, 0.18);
     background: linear-gradient(135deg, rgba(22, 119, 255, 0.08), rgba(255, 255, 255, 0.96));
   }
@@ -216,14 +215,6 @@
 
   .notification-item.upload-batch-toast {
     @apply min-h-[58px];
-  }
-
-  .notification-item.batch-delete-progress {
-    @apply min-h-[52px];
-  }
-
-  .notification-item.batch-delete-progress .batch-delete-text {
-    @apply min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[0.9rem];
   }
 
   .notification-item.notification-upload .notification-close {

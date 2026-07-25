@@ -84,11 +84,11 @@ say() { printf '\n==> %s\n' "$*"; }
 
 if [[ $SKIP_BUILD -eq 0 ]]; then
     say "本地 CSS + JS bundle 重建"
+    # build:css 同时产出可读 main.css 与压缩 main.min.css，不再 cp 混淆两者
     npm run build:css >/dev/null
-    cp assets/css/main.css assets/css/main.min.css
     # main.min.js 从 main.js 真压(esbuild)—— 防止两者脱节,生产跑旧 JS
     npm run build:js >/dev/null 2>&1
-    echo "  ✓ rebuilt + mirrored (css + js)"
+    echo "  ✓ rebuilt (css + js)"
 fi
 
 if [[ $DRY_RUN -eq 1 ]]; then

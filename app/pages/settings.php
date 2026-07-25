@@ -270,8 +270,17 @@ $memory_usage_percent = max(0.0, min(100.0, (float)($metrics['memory']['usage_pe
 $cpu_load_1 = isset($metrics['cpu_load']['load_1']) && is_numeric($metrics['cpu_load']['load_1']) ? (float)$metrics['cpu_load']['load_1'] : null;
 $cpu_cores_num = isset($metrics['cpu_cores']) && is_numeric($metrics['cpu_cores']) ? (int)$metrics['cpu_cores'] : 0;
 $cpu_load_percent = 0.0;
+$cpu_load_percent_label = '—';
 if ($cpu_load_1 !== null && $cpu_cores_num > 0) {
     $cpu_load_percent = max(0.0, min(100.0, round(($cpu_load_1 / $cpu_cores_num) * 100, 2)));
+    if ($cpu_load_1 <= 0.0) {
+        // 有读数且为 0：明确是空闲，避免 0.0% 被当成「没结果」
+        $cpu_load_percent_label = '空闲';
+    } elseif ($cpu_load_percent < 0.05) {
+        $cpu_load_percent_label = '<0.1%';
+    } else {
+        $cpu_load_percent_label = number_format($cpu_load_percent, 1) . '%';
+    }
 }
 $disk_usage_percent = max(0.0, min(100.0, (float)($metrics['disk']['usage_percent'] ?? 0)));
 $hotlink_enabled = defined('HOTLINK_PROTECTION_ENABLED') && HOTLINK_PROTECTION_ENABLED;
@@ -369,7 +378,7 @@ require_once APP_ROOT . '/header.php';
                                                     stroke-dasharray="<?= $gauge_c ?>"
                                                     stroke-dashoffset="<?= $gauge_c * (1 - $cpu_load_percent / 100) ?>"/>
                                         </svg>
-                                        <div class="runtime-gauge-value" id="metricCpuLoadPercent"><?= htmlspecialchars(number_format($cpu_load_percent, 1)) ?>%</div>
+                                        <div class="runtime-gauge-value" id="metricCpuLoadPercent"><?= htmlspecialchars($cpu_load_percent_label) ?></div>
                                     </div>
                                     <div class="runtime-gauge-label">CPU 负载</div>
                                     <div class="runtime-gauge-detail" id="metricCpuLoadDetail"><?= htmlspecialchars($cpu_load_text) ?> · <?= htmlspecialchars($cpu_cores_text) ?> 核</div>
@@ -467,7 +476,7 @@ require_once APP_ROOT . '/header.php';
                             <h4 class="runtime-section-label">上传与能力</h4>
                             <?php
                             // 与后台「单文件上限」一致：PHP / 应用配置都达到设定值即视为正常
-                            $upload_ok = $runtime_upload_limit_bytes >= max(1, $configured_upload_limit_bytes);
+                            $upload_ok = $runtime_upload_limit_bytes > 0;
                             ?>
                             <?php
                             // 「未启用 / 未生效」状态下在 status 徽章右边追加一个 ? 图标。
@@ -495,7 +504,7 @@ require_once APP_ROOT . '/header.php';
                                 <article>
                                     <span class="text-sm text-gray">上传上限</span>
                                     <div class="relative w-full">
-                                        <span class="<?= $cap_badge_cls ?> <?= $upload_ok ? 'is-on' : 'is-warn' ?>" id="metricUploadStatus" title="PHP 实际允许的最大单文件上传大小（取 upload_max_filesize 与 post_max_size 较小值）。下方「单文件上限」是应用层配置，保存后需 PHP / Web 服务器限制同步生效。">
+                                        <span class="<?= $cap_badge_cls ?> is-on" id="metricUploadStatus" title="PHP 实际允许的最大单文件上传大小（取 upload_max_filesize 与 post_max_size 较小值）。修改请改 Caddy php_ini / .user.ini / php.ini，参见文档。">
                                             <?= htmlspecialchars(\LitePic\Core\Format::filesize($runtime_upload_limit_bytes)) ?>
                                         </span>
                                         <a href="https://litepic.io/docs#php-upload-limits" target="_blank" rel="noopener noreferrer" class="<?= $cap_badge_help ?>" title="如何在 PHP / Web 服务器配置中调大上传上限" aria-label="如何调大上传上限">
@@ -597,7 +606,7 @@ require_once APP_ROOT . '/header.php';
                                     <div class="runtime-enablement-actions">
                                         <button type="button" class="btn btn--primary btn--sm" data-run-enablement
                                                 data-sudo-ready="<?= $enablement_sudo_ready ? '1' : '0' ?>"
-                                                data-upload-mb="<?= (int)max(1, (int)round(MAX_FILE_SIZE / 1024 / 1024)) ?>">
+                                                data-upload-mb="<?= (int)max(1, (int)ceil(max(1, $runtime_upload_limit_bytes) / 1048576)) ?>">
                                             <i class="fa-light fa-bolt" aria-hidden="true"></i>
                                             <span>一键启用并重启</span>
                                         </button>
@@ -645,25 +654,10 @@ require_once APP_ROOT . '/header.php';
                                 <i class="fa-light fa-cloud-arrow-up" aria-hidden="true"></i>
                                 <span>上传限制</span>
                             </h3>
-                            <p>文件大小、队列、并发与格式</p>
+                            <p>允许的图片格式；单文件大小见上方「上传上限」（跟随服务器 PHP 配置）</p>
                         </div>
 
-                        <div class="settings-grid settings-grid--3">
-                            <div class="grid gap-2">
-                                <label for="maxFileSizeMb">单文件上限（MB）</label>
-                                <input id="maxFileSizeMb" type="number" name="max_file_size_mb" min="1" max="2048" step="1" value="<?= (int)round(MAX_FILE_SIZE / 1024 / 1024) ?>">
-                                <span class="settings-field-hint">同步写入 .user.ini；FrankenPHP 还需 Caddy 限制不低于此值。</span>
-                            </div>
-                            <div class="grid gap-2">
-                                <label for="uploadMaxFiles">单次队列上限</label>
-                                <input id="uploadMaxFiles" type="number" name="upload_max_files" min="1" max="500" step="1" value="<?= (int)(defined('UPLOAD_MAX_FILES') ? UPLOAD_MAX_FILES : 100) ?>">
-                                <span class="settings-field-hint">一次选择 / 拖拽最多加入多少张。</span>
-                            </div>
-                            <div class="grid gap-2">
-                                <label for="uploadMaxConcurrent">上传并发数</label>
-                                <input id="uploadMaxConcurrent" type="number" name="upload_max_concurrent" min="1" max="20" step="1" value="<?= (int)(defined('UPLOAD_MAX_CONCURRENT') ? UPLOAD_MAX_CONCURRENT : 3) ?>">
-                                <span class="settings-field-hint">推荐 2–4，过高易触发网络错误。</span>
-                            </div>
+                        <div class="settings-grid">
                             <div class="grid gap-2 settings-grid__full">
                                 <label for="uploadAllowedTypeNew">允许上传格式</label>
                                 <span class="settings-field-hint">回车或逗号添加，点击 × 移除；仅允许真实图片内容。</span>
@@ -2096,7 +2090,7 @@ require_once APP_ROOT . '/header.php';
                         <div class="settings-toggle-list">
                             <label class="settings-toggle-row" for="autoCompressOnUpload">
                                 <span class="settings-toggle-copy">上传后自动压缩（支持 JPG/JPEG/PNG）</span>
-                                <input id="autoCompressOnUpload" class="settings-switch-input" type="checkbox" name="auto_compress_on_upload" value="1" <?= AUTO_COMPRESS_ON_UPLOAD ? 'checked' : '' ?>>
+                                <input id="autoCompressOnUpload" class="settings-switch-input" type="checkbox" name="auto_compress_on_upload" value="1" <?= \LitePic\Core\Config::liveBool('AUTO_COMPRESS_ON_UPLOAD') ? 'checked' : '' ?>>
                                 <span class="settings-switch" aria-hidden="true"><span></span></span>
                             </label>
                             <div class="settings-toggle-row settings-toggle-row-control">
@@ -2121,14 +2115,14 @@ require_once APP_ROOT . '/header.php';
                                         </label>
                                     </div>
                                     <label class="settings-switch-label" for="autoConvertOnUpload">
-                                        <input id="autoConvertOnUpload" class="settings-switch-input" type="checkbox" name="auto_convert_on_upload" value="1" <?= (defined('AUTO_CONVERT_ON_UPLOAD') && AUTO_CONVERT_ON_UPLOAD) ? 'checked' : '' ?>>
+                                        <input id="autoConvertOnUpload" class="settings-switch-input" type="checkbox" name="auto_convert_on_upload" value="1" <?= \LitePic\Core\Config::liveBool('AUTO_CONVERT_ON_UPLOAD') ? 'checked' : '' ?>>
                                         <span class="settings-switch" aria-hidden="true"><span></span></span>
                                     </label>
                                 </div>
                             </div>
                             <label class="settings-toggle-row" for="keepOriginalAfterProcess">
                                 <span class="settings-toggle-copy">转换或压缩后保留原图</span>
-                                <input id="keepOriginalAfterProcess" class="settings-switch-input" type="checkbox" name="keep_original_after_process" value="1" <?= KEEP_ORIGINAL_AFTER_PROCESS ? 'checked' : '' ?>>
+                                <input id="keepOriginalAfterProcess" class="settings-switch-input" type="checkbox" name="keep_original_after_process" value="1" <?= \LitePic\Core\Config::liveBool('KEEP_ORIGINAL_AFTER_PROCESS') ? 'checked' : '' ?>>
                                 <span class="settings-switch" aria-hidden="true"><span></span></span>
                             </label>
                         </div>
@@ -2611,7 +2605,7 @@ require_once APP_ROOT . '/header.php';
                     <div class="settings-toggle-list">
                         <label class="settings-toggle-row" for="watermarkEnabled">
                             <span class="settings-toggle-copy">启用水印</span>
-                            <input id="watermarkEnabled" form="settingsForm" class="settings-switch-input" type="checkbox" name="watermark_enabled" value="1" <?= WATERMARK_ENABLED ? 'checked' : '' ?>>
+                            <input id="watermarkEnabled" form="settingsForm" class="settings-switch-input" type="checkbox" name="watermark_enabled" value="1" <?= \LitePic\Core\Config::liveBool('WATERMARK_ENABLED') ? 'checked' : '' ?>>
                             <span class="settings-switch" aria-hidden="true"><span></span></span>
                         </label>
                         <label class="settings-toggle-row" for="hotlinkProtectionEnabled">
@@ -2624,12 +2618,12 @@ require_once APP_ROOT . '/header.php';
                                 允许无来源请求（直接打开图片 / 隐私浏览器不拦截）
                                 <a class="settings-help-link" href="https://litepic.io/docs#hotlink-empty-referer" target="_blank" rel="noopener noreferrer">说明</a>
                             </span>
-                            <input id="hotlinkAllowEmptyReferer" form="settingsForm" class="settings-switch-input" type="checkbox" name="hotlink_allow_empty_referer" value="1" <?= HOTLINK_ALLOW_EMPTY_REFERER ? 'checked' : '' ?>>
+                            <input id="hotlinkAllowEmptyReferer" form="settingsForm" class="settings-switch-input" type="checkbox" name="hotlink_allow_empty_referer" value="1" <?= \LitePic\Core\Config::liveBool('HOTLINK_ALLOW_EMPTY_REFERER', true) ? 'checked' : '' ?>>
                             <span class="settings-switch" aria-hidden="true"><span></span></span>
                         </label>
                     </div>
 
-                    <div class="grid gap-3.5" data-watermark-config <?= WATERMARK_ENABLED ? '' : 'hidden' ?>>
+                    <div class="grid gap-3.5" data-watermark-config <?= \LitePic\Core\Config::liveBool('WATERMARK_ENABLED') ? '' : 'hidden' ?>>
                         <div class="settings-toggle-row settings-toggle-row-control">
                             <span class="settings-toggle-copy">水印类型</span>
                             <div class="settings-toggle-controls">
@@ -2720,10 +2714,10 @@ require_once APP_ROOT . '/header.php';
 
                         <label class="settings-toggle-row" for="watermarkPanelEnabled">
                             <span class="settings-toggle-copy">启用水印磨砂底层</span>
-                            <input id="watermarkPanelEnabled" form="settingsForm" class="settings-switch-input" type="checkbox" name="watermark_panel_enabled" value="1" <?= WATERMARK_PANEL_ENABLED ? 'checked' : '' ?>>
+                            <input id="watermarkPanelEnabled" form="settingsForm" class="settings-switch-input" type="checkbox" name="watermark_panel_enabled" value="1" <?= \LitePic\Core\Config::liveBool('WATERMARK_PANEL_ENABLED') ? 'checked' : '' ?>>
                             <span class="settings-switch" aria-hidden="true"><span></span></span>
                         </label>
-                        <div class="grid grid-cols-3 gap-3.5" data-watermark-panel-settings <?= WATERMARK_PANEL_ENABLED ? '' : 'hidden' ?>>
+                        <div class="grid grid-cols-3 gap-3.5" data-watermark-panel-settings <?= \LitePic\Core\Config::liveBool('WATERMARK_PANEL_ENABLED') ? '' : 'hidden' ?>>
                             <div class="grid gap-2">
                                 <label for="watermarkPanelOpacity">磨砂层透明度（1-100）</label>
                                 <input id="watermarkPanelOpacity" form="settingsForm" type="number" min="1" max="100" name="watermark_panel_opacity" value="<?= (int)WATERMARK_PANEL_OPACITY ?>">
@@ -2764,7 +2758,7 @@ require_once APP_ROOT . '/header.php';
                     <div class="settings-toggle-list">
                         <label class="settings-toggle-row" for="imageViewCounterEnabled">
                             <span class="settings-toggle-copy">启用图片请求计数</span>
-                            <input id="imageViewCounterEnabled" form="settingsForm" class="settings-switch-input" type="checkbox" name="image_view_counter_enabled" value="1" <?= IMAGE_VIEW_COUNTER_ENABLED ? 'checked' : '' ?>>
+                            <input id="imageViewCounterEnabled" form="settingsForm" class="settings-switch-input" type="checkbox" name="image_view_counter_enabled" value="1" <?= \LitePic\Core\Config::liveBool('IMAGE_VIEW_COUNTER_ENABLED', true) ? 'checked' : '' ?>>
                             <span class="settings-switch" aria-hidden="true"><span></span></span>
                         </label>
                     </div>
@@ -3355,18 +3349,6 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
             };
             if (Object.prototype.hasOwnProperty.call(settings, 'convert_preferred_format')) {
                 setRadioValue('convert_preferred_format', settings.convert_preferred_format);
-            }
-            if (Object.prototype.hasOwnProperty.call(settings, 'max_file_size_mb')) {
-                const input = document.getElementById('maxFileSizeMb');
-                if (input instanceof HTMLInputElement) input.value = String(settings.max_file_size_mb);
-            }
-            if (Object.prototype.hasOwnProperty.call(settings, 'upload_max_files')) {
-                const input = document.getElementById('uploadMaxFiles');
-                if (input instanceof HTMLInputElement) input.value = String(settings.upload_max_files);
-            }
-            if (Object.prototype.hasOwnProperty.call(settings, 'upload_max_concurrent')) {
-                const input = document.getElementById('uploadMaxConcurrent');
-                if (input instanceof HTMLInputElement) input.value = String(settings.upload_max_concurrent);
             }
             if (Object.prototype.hasOwnProperty.call(settings, 'watermark_type')) {
                 setRadioValue('watermark_type', settings.watermark_type);
@@ -3999,8 +3981,13 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
                 const availability24h = Number(s.availability_24h_percent ?? NaN);
                 setText('metricAvailability24h', Number.isFinite(availability24h) ? availability24h.toFixed(1) + '%' : '-');
                 const memText = String((s.memory && s.memory.text) ? s.memory.text : '-');
-                const cpuLoadText = String((s.cpu_load && s.cpu_load.text) ? s.cpu_load.text : '不可用');
-                const cpuCoresVal = String((s.cpu_cores ?? '不可用'));
+                const cpuLoad = (s.cpu_load && typeof s.cpu_load === 'object') ? s.cpu_load : null;
+                const cpuLoadText = (cpuLoad && typeof cpuLoad.text === 'string' && cpuLoad.text !== '')
+                    ? cpuLoad.text
+                    : '不可用';
+                const cpuCoresVal = (s.cpu_cores !== null && s.cpu_cores !== undefined && s.cpu_cores !== '')
+                    ? String(s.cpu_cores)
+                    : '不可用';
                 const diskText = String((s.disk && s.disk.text) ? s.disk.text : '-');
                 const diskFreeText = String((s.disk && s.disk.free_text) ? s.disk.free_text : '-');
 
@@ -4011,23 +3998,33 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
                 const diskDetail = document.getElementById('metricDiskDetail');
                 if (diskDetail) diskDetail.textContent = '剩余 ' + diskFreeText;
 
-                setMetricProgress('metricMemoryCircle', 'metricMemoryPercent', s.memory && s.memory.usage_percent ? s.memory.usage_percent : 0);
+                setMetricProgress('metricMemoryCircle', 'metricMemoryPercent', s.memory && s.memory.usage_percent != null ? s.memory.usage_percent : 0);
                 const cpuCores = Number(s.cpu_cores ?? 0);
-                const load1 = Number((s.cpu_load && s.cpu_load.load_1) ?? NaN);
+                // 勿用 && load_1：负载恰为 0 时会被当成 falsy
+                const load1 = Number(cpuLoad && cpuLoad.load_1 != null ? cpuLoad.load_1 : NaN);
                 const cpuLoadPercent = Number.isFinite(load1) && cpuCores > 0 ? (load1 / cpuCores) * 100 : 0;
                 setMetricProgress('metricCpuLoadCircle', 'metricCpuLoadPercent', cpuLoadPercent);
-                setMetricProgress('metricDiskCircle', 'metricDiskPercent', s.disk && s.disk.usage_percent ? s.disk.usage_percent : 0);
+                const cpuBadge = document.getElementById('metricCpuLoadPercent');
+                if (cpuBadge) {
+                    if (!Number.isFinite(load1) || cpuCores <= 0) {
+                        cpuBadge.textContent = '—';
+                    } else if (load1 <= 0) {
+                        cpuBadge.textContent = '空闲';
+                    } else if (cpuLoadPercent < 0.05) {
+                        cpuBadge.textContent = '<0.1%';
+                    }
+                }
+                setMetricProgress('metricDiskCircle', 'metricDiskPercent', s.disk && s.disk.usage_percent != null ? s.disk.usage_percent : 0);
 
-                // 上传上限卡片：展示 PHP 实际值；若低于应用配置则标黄警告
+                // 上传上限卡片：展示 PHP 实际值
                 const uploadStatusEl = document.getElementById('metricUploadStatus');
                 if (uploadStatusEl) {
                     const runtimeLimitText = String((s.php_upload_limit_text ?? '') || '');
                     const runtimeBytes = Number(s.php_upload_limit_bytes ?? 0);
-                    const configBytes = Number(s.config_upload_limit_bytes ?? 0);
                     if (runtimeLimitText) {
                         uploadStatusEl.textContent = runtimeLimitText;
                     }
-                    const ok = runtimeBytes > 0 && (configBytes <= 0 || runtimeBytes >= configBytes);
+                    const ok = runtimeBytes > 0;
                     uploadStatusEl.classList.toggle('is-on', ok);
                     uploadStatusEl.classList.toggle('is-warn', !ok);
                     uploadStatusEl.classList.remove('is-off');
@@ -4129,9 +4126,8 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
                 if (uploadStatusEl) {
                     const runtimeLimitText = String((s.php_upload_limit_text ?? '') || '');
                     const runtimeBytes = Number(s.php_upload_limit_bytes ?? 0);
-                    const configBytes = Number(s.config_upload_limit_bytes ?? 0);
                     if (runtimeLimitText) uploadStatusEl.textContent = runtimeLimitText;
-                    const ok = runtimeBytes > 0 && (configBytes <= 0 || runtimeBytes >= configBytes);
+                    const ok = runtimeBytes > 0;
                     uploadStatusEl.classList.toggle('is-on', ok);
                     uploadStatusEl.classList.toggle('is-warn', !ok);
                     uploadStatusEl.classList.remove('is-off');

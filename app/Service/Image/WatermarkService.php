@@ -25,7 +25,7 @@ final class WatermarkService
 
     public function isEnabled(): bool
     {
-        return defined('WATERMARK_ENABLED') && WATERMARK_ENABLED;
+        return \LitePic\Core\Config::liveBool('WATERMARK_ENABLED');
     }
 
     public function canWatermark(string $ext): bool
@@ -138,8 +138,8 @@ final class WatermarkService
         imagealphablending($image, true);
         imagesavealpha($image, true);
 
-        $opacity = max(1, min(100, (int)WATERMARK_OPACITY));
-        [$r, $g, $b] = self::hexToRgb((string)WATERMARK_COLOR);
+        $opacity = max(1, min(100, \LitePic\Core\Config::liveInt('WATERMARK_OPACITY', 100)));
+        [$r, $g, $b] = self::hexToRgb(\LitePic\Core\Config::liveString('WATERMARK_COLOR', '#ffffff'));
         $color = self::allocateAlpha($image, $r, $g, $b, $opacity);
         $shadow = self::allocateAlpha($image, 0, 0, 0, max(1, min(76, $opacity - 16)));
         if ($color === false || $shadow === false) {
@@ -148,8 +148,8 @@ final class WatermarkService
             return $result;
         }
 
-        $margin = max(0, (int)WATERMARK_MARGIN);
-        $padding = max(0, (int)(defined('WATERMARK_PANEL_PADDING') ? WATERMARK_PANEL_PADDING : 0));
+        $margin = max(0, \LitePic\Core\Config::liveInt('WATERMARK_MARGIN', 18));
+        $padding = max(0, \LitePic\Core\Config::liveInt('WATERMARK_PANEL_PADDING', 0));
         $type = self::watermarkType();
 
         $skipReason = $type === 'image'
@@ -176,7 +176,7 @@ final class WatermarkService
 
     private static function applyImageOverlay($image, int $width, int $height, int $opacity, int $margin, int $padding): ?string
     {
-        $watermarkPath = trim((string)(defined('WATERMARK_IMAGE_PATH') ? WATERMARK_IMAGE_PATH : ''));
+        $watermarkPath = trim(\LitePic\Core\Config::liveString('WATERMARK_IMAGE_PATH', ''));
         $hasImage = $watermarkPath !== ''
             && is_file($watermarkPath)
             && function_exists('imagecreatefrompng')
@@ -191,7 +191,7 @@ final class WatermarkService
 
         $pngW = imagesx($watermark);
         $pngH = imagesy($watermark);
-        $maxW = min((int)WATERMARK_IMAGE_WIDTH, max(24, (int)floor($width * 0.38)));
+        $maxW = min(\LitePic\Core\Config::liveInt('WATERMARK_IMAGE_WIDTH', 160), max(24, (int)floor($width * 0.38)));
         $targetW = min($pngW, $maxW);
         $targetH = (int)round($pngH * ($targetW / max(1, $pngW)));
         $boxW = $targetW + ($padding * 2);
@@ -209,7 +209,7 @@ final class WatermarkService
 
     private static function applyTextOverlay($image, int $width, int $height, $color, $shadow, int $margin, int $padding): ?string
     {
-        $text = trim((string)WATERMARK_TEXT);
+        $text = trim(\LitePic\Core\Config::liveString('WATERMARK_TEXT', ''));
         if ($text === '') return 'empty_text';
         $hasNonAscii = preg_match('/[^\x20-\x7E]/', $text) === 1;
 
@@ -218,7 +218,7 @@ final class WatermarkService
             && function_exists('imagettfbbox') && function_exists('imagettftext');
 
         if ($hasTtf) {
-            $fontSize = max(8, min((int)WATERMARK_FONT_SIZE, max(8, (int)floor($width / 10))));
+            $fontSize = max(8, min(\LitePic\Core\Config::liveInt('WATERMARK_FONT_SIZE', 18), max(8, (int)floor($width / 10))));
             $box = imagettfbbox($fontSize, 0, $fontPath, $text);
             if (!is_array($box)) return 'font_box_failed';
             $textW = abs((int)$box[2] - (int)$box[0]);
@@ -287,7 +287,7 @@ final class WatermarkService
 
     public static function resolveFontPath(): string
     {
-        $configured = trim((string)(defined('WATERMARK_FONT_PATH') ? WATERMARK_FONT_PATH : ''));
+        $configured = trim(\LitePic\Core\Config::liveString('WATERMARK_FONT_PATH', ''));
         if ($configured !== '' && @is_file($configured)) {
             return $configured;
         }
@@ -296,7 +296,7 @@ final class WatermarkService
 
     private static function watermarkType(): string
     {
-        $type = strtolower((string)(defined('WATERMARK_TYPE') ? WATERMARK_TYPE : 'text'));
+        $type = strtolower(\LitePic\Core\Config::liveString('WATERMARK_TYPE', 'text'));
         return in_array($type, ['text', 'image'], true) ? $type : 'text';
     }
 
@@ -323,7 +323,7 @@ final class WatermarkService
      */
     private static function boxPosition(int $imageW, int $imageH, int $boxW, int $boxH, int $margin): array
     {
-        $position = defined('WATERMARK_POSITION') ? WATERMARK_POSITION : 'bottom-right';
+        $position = \LitePic\Core\Config::liveString('WATERMARK_POSITION', 'bottom-right');
         switch ($position) {
             case 'bottom-left':
                 $x = $margin;
@@ -374,7 +374,7 @@ final class WatermarkService
 
     private static function drawFrostedPanel($image, int $x, int $y, int $w, int $h): void
     {
-        if (!defined('WATERMARK_PANEL_ENABLED') || !WATERMARK_PANEL_ENABLED || $w <= 0 || $h <= 0) {
+        if (!\LitePic\Core\Config::liveBool('WATERMARK_PANEL_ENABLED') || $w <= 0 || $h <= 0) {
             return;
         }
         $sourceW = imagesx($image);
@@ -397,9 +397,9 @@ final class WatermarkService
             imagecopy($image, $patch, $x, $y, 0, 0, $w, $h);
             self::destroyImage($patch);
         }
-        $overlay = self::allocateAlpha($image, 12, 18, 28, (int)WATERMARK_PANEL_OPACITY);
+        $overlay = self::allocateAlpha($image, 12, 18, 28, \LitePic\Core\Config::liveInt('WATERMARK_PANEL_OPACITY', 34));
         if ($overlay !== false) {
-            self::drawRoundedRect($image, $x, $y, $w, $h, (int)WATERMARK_PANEL_RADIUS, $overlay);
+            self::drawRoundedRect($image, $x, $y, $w, $h, \LitePic\Core\Config::liveInt('WATERMARK_PANEL_RADIUS', 10), $overlay);
         }
     }
 

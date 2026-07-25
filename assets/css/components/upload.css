@@ -157,9 +157,7 @@
   }
 
   .upload-setting-main > i,
-  .upload-setting-main > i.fa-light,
-  .upload-setting-main > i.fa-solid,
-  .upload-setting-main > i.fa-regular {
+  .upload-setting-main > i.fa-light {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -317,9 +315,7 @@
   }
 
   .upload-queue-title > i,
-  .upload-queue-title > i.fa-light,
-  .upload-queue-title > i.fa-solid,
-  .upload-queue-title > i.fa-regular {
+  .upload-queue-title > i.fa-light {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -360,9 +356,7 @@
   }
 
   .upload-queue-btn > i,
-  .upload-queue-btn > i.fa-light,
-  .upload-queue-btn > i.fa-solid,
-  .upload-queue-btn > i.fa-regular {
+  .upload-queue-btn > i.fa-light {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;

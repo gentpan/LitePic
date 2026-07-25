@@ -416,21 +416,72 @@
    * 公开相册 v2 —— 独立沉浸式照片墙(无站点导航,参考 TimePlus)
    * ============================================================ */
   body.public-album-page .site-header { @apply !hidden; }
+  body.public-album-page .site-footer { @apply !hidden; }
   body.public-album-page #notification { @apply z-[100000]; }
 
-  .pa-standalone { @apply w-full max-w-none m-0 p-0; }
-  .pa-album { @apply w-full m-0 p-0; }
-
-  /* 照片墙 —— 全幅均匀网格 */
-  .pa-grid {
-    @apply grid grid-cols-4 gap-0 p-0;
-    /* 照片铺满整屏、无缝粘连、到底不留白;半透明磨砂条直接浮在最底部照片之上 */
+  /* 沉浸式照片墙：禁止页面滚动，取消稳定滚动条槽，网格铺满视口 */
+  html:has(body.public-album-page:not(.public-album-locked)) {
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+    scrollbar-gutter: auto !important;
+    scrollbar-width: none !important;
   }
-  @media (max-width: 1100px) { .pa-grid { @apply grid-cols-3; } }
-  @media (max-width: 760px)  { .pa-grid { @apply grid-cols-2; } }
+  html:has(body.public-album-page:not(.public-album-locked))::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important;
+  }
+  body.public-album-page:not(.public-album-locked) {
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    overscroll-behavior: none;
+    scrollbar-width: none !important;
+  }
+
+  .pa-standalone {
+    @apply m-0 p-0 w-full max-w-none;
+  }
+  .pa-album {
+    @apply fixed inset-0 z-0 m-0 p-0 w-full h-full overflow-hidden;
+  }
+
+  /* 照片墙 —— 按约 4:3 比例放大行列，铺满整屏（与 12=4×3 同比例） */
+  .pa-grid {
+    @apply grid gap-0 p-0 w-full h-full;
+  }
+  .pa-grid[data-n="12"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+  }
+  .pa-grid[data-n="24"] {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-rows: repeat(4, minmax(0, 1fr));
+  }
+  .pa-grid[data-n="48"] {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    grid-template-rows: repeat(6, minmax(0, 1fr));
+  }
+
+  @media (max-width: 760px) {
+    .pa-grid[data-n="12"] {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-rows: repeat(4, minmax(0, 1fr));
+    }
+    .pa-grid[data-n="24"] {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-rows: repeat(8, minmax(0, 1fr));
+    }
+    .pa-grid[data-n="48"] {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-rows: repeat(12, minmax(0, 1fr));
+    }
+  }
 
   .pa-tile {
-    @apply relative m-0 aspect-[4/3] overflow-hidden cursor-zoom-in;
+    @apply relative m-0 min-w-0 min-h-0 overflow-hidden cursor-zoom-in;
     background: color-mix(in srgb, var(--dark) 6%, transparent);
   }
   .pa-tile img {
@@ -493,14 +544,33 @@
   .pa-empty i { @apply text-[2.4rem] opacity-40; }
   .pa-empty p { @apply mt-2.5; }
 
-  /* 底部 fixed 磨砂条 —— 黑色磨砂,浮在照片墙之上 */
+  /* 底部 fixed 磨砂条 —— 默认隐藏，滚轮向下 / 鼠标贴底唤出（同首页 footer） */
   .pa-foot {
-    @apply fixed left-0 right-0 bottom-0 z-50 flex items-center justify-between gap-3 py-[18px] px-[26px] text-[0.88rem];
+    @apply fixed left-0 right-0 bottom-0 z-50 flex items-center justify-between gap-3 py-[18px] px-[26px] text-[0.88rem] opacity-0 pointer-events-none;
     background: rgba(10, 11, 13, 0.78);
     backdrop-filter: blur(22px) saturate(1.4);
     -webkit-backdrop-filter: blur(22px) saturate(1.4);
     border-top: 1px solid rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.92);
+    transform: translateY(105%);
+    transition:
+      opacity 220ms ease,
+      transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  body.public-album-page.pa-footer-visible .pa-foot,
+  .pa-foot:hover,
+  .pa-foot:focus-within {
+    @apply opacity-100 pointer-events-auto;
+    transform: translateY(0);
+  }
+
+  /* 贴底热区：隐藏态也能被鼠标碰到以唤出底栏 */
+  .pa-foot-hotzone {
+    @apply fixed left-0 right-0 bottom-0 z-[49] h-14;
+  }
+  body.public-album-page.pa-footer-visible .pa-foot-hotzone {
+    @apply pointer-events-none;
   }
   .pa-foot-left { @apply flex items-baseline gap-2.5 min-w-0; }
   .pa-foot-name { @apply font-bold whitespace-nowrap overflow-hidden text-ellipsis; }

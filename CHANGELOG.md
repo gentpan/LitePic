@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.5.0] - 2026-07-26
+
+### Added
+
+- **图片扩展一键启用** — 设置页按当前探针（系统 / PHP / Web）生成 apt 命令；新增 `bin/enable-image-ext.sh`（识别 FrankenPHP ZTS、`ProtectSystem` 命名空间）；支持 sudoers 授权后在网页一键安装并延迟重启。
+- **设置热读** — 压缩 / 转换 / 水印 / 保留原图等运行时改为 `Config::liveBool` / `liveString`，FrankenPHP worker 内保存后立即生效，无需等进程重启。
+- **公开相册体验** — 网格按每页张数自动行列（约 4:3）、视口铺满、底栏随滚动显示；分页选项为 12 / 24 / 48。
+
+### Changed
+
+- **上传上限** — 单文件上限跟随 PHP / Caddy 运行时；单次队列固定 100、并发固定 3；设置页去掉可改但实际不改服务器的表单项，改为展示检测值。
+- **设置页深色模式** — 统一 shell / 抬高层背景与资源占用、环境信息卡片层级，避免深浅断层。
+- **CPU 负载展示** — 空闲显示「空闲」、极低负载用更高精度；load 读取增加 `/proc` 与 snapshot 回退。
+
+### Fixed
+
+- **跨 Tab 保存冲掉开关** — 「基础」等 tab 保存时不再把图片处理 / Telegram 等未提交的 checkbox 写成 `false`。
+- **图片处理队列** — `ImageProcessor` 正确尊重任务里的 compress 标志；转换优先时与设置页互斥一致。
+- **一键启用 ZTS 扩展** — 逃出 systemd `ProtectSystem` 只读 `/etc`，正确写入 `/etc/php-zts/conf.d/` 的 imagick/gd。
+- **服务器信息深色样式** — 环境信息与资源占用卡片对比度、图标与层级冲突。
+
 ## [3.4.7] - 2026-07-23
 
 ### Changed

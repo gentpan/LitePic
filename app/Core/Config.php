@@ -182,6 +182,40 @@ final class Config
         return in_array(strtolower(trim((string)$value)), ['1', 'true', 'yes', 'on'], true);
     }
 
+    /**
+     * Live bool for feature flags. Prefers the warm settings cache over
+     * define() — FrankenPHP freezes constants for the worker lifetime.
+     */
+    public static function liveBool(string $key, bool $default = false): bool
+    {
+        return self::bool($key, defined($key) ? (bool)constant($key) : $default);
+    }
+
+    public static function liveString(string $key, string $default = ''): string
+    {
+        $value = self::get($key, null);
+        if ($value !== null && $value !== '') {
+            return (string)$value;
+        }
+        if (defined($key)) {
+            $c = constant($key);
+            return is_string($c) || is_numeric($c) ? (string)$c : $default;
+        }
+        return $default;
+    }
+
+    public static function liveInt(string $key, int $default = 0): int
+    {
+        $value = self::get($key, null);
+        if ($value !== null && $value !== '') {
+            return (int)$value;
+        }
+        if (defined($key)) {
+            return (int)constant($key);
+        }
+        return $default;
+    }
+
     public static function csv(string $key, array $default = []): array
     {
         $value = self::get($key, null);
@@ -334,7 +368,7 @@ final class Config
         return [
             'SITE_NAME', 'SITE_DESCRIPTION', 'SITE_URL', 'SITE_VERSION',
             'ITEMS_PER_PAGE',
-            'MAX_FILE_SIZE_MB', 'UPLOAD_MAX_FILES', 'UPLOAD_MAX_CONCURRENT', 'UPLOAD_ALLOWED_TYPES',
+            'UPLOAD_ALLOWED_TYPES',
             'COOKIE_SECURE', 'ADMIN_API_KEY', 'THIRD_PARTY_API_KEYS',
             'AUTO_COMPRESS_ON_UPLOAD',
             'AUTO_CONVERT_ON_UPLOAD', 'AUTO_CONVERT_WEBP_ON_UPLOAD', 'AUTO_CONVERT_AVIF_ON_UPLOAD',

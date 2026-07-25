@@ -70,7 +70,7 @@ $default_host = $_SERVER['HTTP_HOST'] ?? 'localhost:8080';
 $default_scheme = $is_https ? 'https' : 'http';
 
 // 基础配置
-define('LITEPIC_VERSION', '3.4.8');
+define('LITEPIC_VERSION', '3.5.0');
 define('SITE_NAME', env_value('SITE_NAME', 'LitePic'));
 define('SITE_DESCRIPTION', env_value('SITE_DESCRIPTION', '轻量级图床程序'));
 define('SITE_VERSION', LITEPIC_VERSION);
@@ -137,9 +137,42 @@ if (empty($allowed_upload_types)) {
     $allowed_upload_types = SUPPORTED_IMAGE_TYPES;
 }
 define('ALLOWED_UPLOAD_TYPES', $allowed_upload_types);
-define('MAX_FILE_SIZE', max(1, (int)env_value('MAX_FILE_SIZE_MB', 20)) * 1024 * 1024);
-define('UPLOAD_MAX_FILES', max(1, min(500, (int)env_value('UPLOAD_MAX_FILES', 100))));
-define('UPLOAD_MAX_CONCURRENT', max(1, min(20, (int)env_value('UPLOAD_MAX_CONCURRENT', 3))));
+define('MAX_FILE_SIZE', (static function (): int {
+    // 单文件上限跟随 PHP 运行时（upload_max_filesize / post_max_size 较小值）。
+    // 后台不再提供表单；改 Caddy php_ini / .user.ini / php.ini，设置页「上传上限」会显示实际值。
+    $parse = static function ($raw): int {
+        $raw = trim((string)$raw);
+        if ($raw === '' || $raw === '0' || $raw === '-1') {
+            return 0;
+        }
+        $unit = strtolower(substr($raw, -1));
+        $num = (float)$raw;
+        if ($num <= 0) {
+            return 0;
+        }
+        $multipliers = ['k' => 1024, 'm' => 1024 ** 2, 'g' => 1024 ** 3, 't' => 1024 ** 4];
+        if (isset($multipliers[$unit])) {
+            $num *= $multipliers[$unit];
+        }
+        return (int)round($num);
+    };
+    $upload = $parse(ini_get('upload_max_filesize'));
+    $post = $parse(ini_get('post_max_size'));
+    if ($upload <= 0 && $post <= 0) {
+        return 20 * 1024 * 1024;
+    }
+    if ($upload <= 0) {
+        return $post;
+    }
+    if ($post <= 0) {
+        return $upload;
+    }
+    return min($upload, $post);
+})());
+// 单次选择/拖拽队列上限固定 100，不再提供后台开关。
+define('UPLOAD_MAX_FILES', 100);
+// 浏览器上传并发固定为 3 —— 对 PHP/SQLite 图床最稳，不再提供后台开关。
+define('UPLOAD_MAX_CONCURRENT', 3);
 define('MIN_IMAGE_WIDTH', 20);
 define('MIN_IMAGE_HEIGHT', 20);
 // 单张图最大像素数 — 转换 / 压缩流水线的安全阀。超过这个值的图直接跳过

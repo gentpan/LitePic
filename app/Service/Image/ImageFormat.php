@@ -104,7 +104,7 @@ final class ImageFormat
 
     public static function compressionMode(): string
     {
-        $mode = strtolower(trim((string)(defined('COMPRESSION_MODE') ? COMPRESSION_MODE : 'imagemagick')));
+        $mode = strtolower(trim(\LitePic\Core\Config::liveString('COMPRESSION_MODE', 'imagemagick')));
         return in_array($mode, self::COMPRESSION_MODES, true) ? $mode : 'imagemagick';
     }
 

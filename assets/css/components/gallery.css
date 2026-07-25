@@ -422,50 +422,50 @@
     @apply flex items-center justify-end gap-2 min-h-0 py-2 px-3;
   }
 
-  .img-overlay {
+  .img-card .img-overlay {
     @apply flex justify-end gap-2 p-3;
   }
 
-  .action-btn,
-  .img-actions > button,
-  .img-overlay > button {
+  .img-card .action-btn,
+  .img-card .img-actions > button,
+  .img-card .img-overlay > button {
     @apply relative w-8 h-8 inline-flex items-center justify-center rounded-none text-gray cursor-pointer;
     border: 1px solid color-mix(in srgb, var(--border-color) 66%, transparent);
     background: color-mix(in srgb, var(--surface) 90%, var(--light) 10%);
     transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
   }
 
-  .action-btn:hover,
-  .img-actions > button:hover,
-  .img-overlay > button:hover {
+  .img-card .action-btn:hover,
+  .img-card .img-actions > button:hover,
+  .img-card .img-overlay > button:hover {
     @apply -translate-y-px;
   }
 
-  .copy-btn:hover {
+  .img-card .copy-btn:hover {
     @apply bg-primary border-primary text-white;
   }
 
-  .compress-btn:hover {
+  .img-card .compress-btn:hover {
     @apply bg-success border-success text-white;
   }
 
-  .webp-btn:hover,
-  .avif-btn:hover {
+  .img-card .webp-btn:hover,
+  .img-card .avif-btn:hover {
     @apply bg-[#6f42c1] border-[#6f42c1] text-white;
   }
 
-  .delete-btn:hover {
+  .img-card .delete-btn:hover {
     @apply bg-danger border-danger text-white;
   }
 
-  .action-btn::after {
+  .img-card .action-btn::after {
     content: attr(title);
     @apply absolute bottom-full left-1/2 z-[5] py-1 px-2 rounded-none text-white text-[0.72rem] whitespace-nowrap opacity-0 invisible -translate-x-1/2 -translate-y-1.5;
     background: rgba(0,0,0,0.82);
     transition: opacity 160ms ease, visibility 160ms ease;
   }
 
-  .action-btn:hover::after {
+  .img-card .action-btn:hover::after {
     @apply opacity-100 visible;
   }
 
@@ -674,9 +674,9 @@
     border-bottom-color: rgba(255,255,255,0.1);
   }
 
-  html[data-theme="dark"] .action-btn,
-  html[data-theme="dark"] .img-actions > button,
-  html[data-theme="dark"] .img-overlay > button,
+  html[data-theme="dark"] .img-card .action-btn,
+  html[data-theme="dark"] .img-card .img-actions > button,
+  html[data-theme="dark"] .img-card .img-overlay > button,
   html[data-theme="dark"] .page-link,
   html[data-theme="dark"] .select-img,
   html[data-theme="dark"] .select-all input[type="checkbox"] {
@@ -762,20 +762,20 @@
     filter: brightness(1.04);
   }
 
-  html[data-theme="dark"] .copy-btn:hover {
+  html[data-theme="dark"] .img-card .copy-btn:hover {
     @apply bg-primary border-primary text-white;
   }
 
-  html[data-theme="dark"] .compress-btn:hover {
+  html[data-theme="dark"] .img-card .compress-btn:hover {
     @apply bg-success border-success text-white;
   }
 
-  html[data-theme="dark"] .webp-btn:hover,
-  html[data-theme="dark"] .avif-btn:hover {
+  html[data-theme="dark"] .img-card .webp-btn:hover,
+  html[data-theme="dark"] .img-card .avif-btn:hover {
     @apply bg-[#6f42c1] border-[#6f42c1] text-white;
   }
 
-  html[data-theme="dark"] .delete-btn:hover {
+  html[data-theme="dark"] .img-card .delete-btn:hover {
     @apply bg-danger border-danger text-white;
   }
 
@@ -902,9 +902,9 @@
     }
 
     /* 触控目标保持 ≥28px，方便手指点按 */
-    .action-btn,
-    .img-actions > button,
-    .img-overlay > button {
+    .img-card .action-btn,
+    .img-card .img-actions > button,
+    .img-card .img-overlay > button {
       @apply w-7 h-7 text-[0.82rem];
     }
   }
