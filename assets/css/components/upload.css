@@ -1,11 +1,21 @@
 @layer components {
+  /* 上传页：撑满顶栏与页脚之间的剩余高度，
+     最近上传用 margin-top:auto 贴底，与 footer 只留 page-container 的 mb。 */
   .page-main.upload-main {
-    @apply gap-[22px] h-auto overflow-visible;
+    @apply gap-6 overflow-visible;
+    /* 菜单栏与上传框之间再多留一段空隙 */
+    padding-top: 22px;
+    /* 兜底：即便外层 flex 未撑开，也至少占满视口可用高度 */
+    min-height: calc(100dvh - var(--header-offset) - var(--footer-safe-space));
   }
 
-  .page-main.upload-main > .upload-box,
-  .page-main.upload-main > .recent-uploads {
+  .page-main.upload-main > .upload-box {
     @apply flex-initial min-h-0;
+    min-height: initial;
+  }
+
+  .page-main.upload-main > .recent-uploads {
+    @apply flex-initial min-h-0 mt-auto;
     min-height: initial;
   }
 
@@ -190,7 +200,7 @@
   }
 
   .drop-zone {
-    @apply relative min-h-[345px] flex flex-col items-center justify-center text-center cursor-pointer;
+    @apply relative min-h-[420px] flex flex-col items-center justify-center text-center cursor-pointer;
     border: 1px dashed color-mix(in srgb, var(--primary) 28%, var(--border-color) 72%);
     border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--surface) 90%, var(--light) 10%);
@@ -652,6 +662,8 @@
   @media (max-width: 768px) {
     .page-main.upload-main {
       @apply gap-4;
+      padding-top: 12px;
+      min-height: calc(100dvh - var(--header-offset) - var(--footer-safe-space) - var(--mobile-nav-offset, 66px));
     }
 
     .upload-box {
@@ -659,7 +671,7 @@
     }
 
     .drop-zone {
-      @apply min-h-[315px];
+      @apply min-h-[340px];
     }
 
     .upload-queue-header {
@@ -699,7 +711,7 @@
     }
 
     .drop-zone {
-      @apply min-h-[300px];
+      @apply min-h-[320px];
     }
   }
 }
