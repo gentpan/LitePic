@@ -54,8 +54,9 @@
   }
 
   .upload-album-picker-select {
-    @apply flex-[1_1_auto] min-w-[140px] max-w-[320px] h-9 py-0 pr-7 pl-2.5 rounded-none text-dark text-[0.82rem] cursor-pointer;
+    @apply flex-[1_1_auto] min-w-[140px] max-w-[320px] h-9 py-0 pr-7 pl-2.5 text-dark text-[0.82rem] cursor-pointer;
     border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--surface) 92%, var(--light) 8%);
     transition: border-color 160ms ease;
   }
@@ -71,6 +72,7 @@
   .upload-album-picker-new {
     @apply inline-flex items-center justify-center w-9 h-9 text-gray no-underline;
     border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--surface) 92%, var(--light) 8%);
     transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
   }
@@ -103,8 +105,9 @@
     --upload-setting-color: var(--gray);
     --upload-setting-bg: color-mix(in srgb, var(--surface) 88%, var(--light) 12%);
     --upload-setting-border: color-mix(in srgb, var(--border-color) 70%, transparent);
-    @apply relative w-[172px] h-11 grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 px-2.5 py-0 rounded-none cursor-pointer;
+    @apply relative w-[172px] h-11 grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 px-2.5 py-0 cursor-pointer;
     border: 1px solid var(--upload-setting-border);
+    border-radius: var(--radius-sm);
     background: var(--upload-setting-bg);
     color: var(--upload-setting-color);
     transition: border-color 160ms ease, background 160ms ease, color 160ms ease, box-shadow 160ms ease;
@@ -182,8 +185,9 @@
   }
 
   .drop-zone {
-    @apply relative min-h-[345px] flex flex-col items-center justify-center rounded-none text-center cursor-pointer;
+    @apply relative min-h-[345px] flex flex-col items-center justify-center text-center cursor-pointer;
     border: 1px dashed color-mix(in srgb, var(--primary) 28%, var(--border-color) 72%);
+    border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--surface) 90%, var(--light) 10%);
     transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
   }
@@ -208,7 +212,8 @@
   }
 
   .drop-zone-format {
-    @apply inline-block py-px px-[5px] rounded-sm;
+    @apply inline-block py-px px-[5px];
+    border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--gray) 8%, transparent);
   }
 
@@ -252,8 +257,9 @@
   }
 
   .upload-queue {
-    @apply grid gap-2.5 rounded-none;
+    @apply grid gap-2.5;
     border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
+    border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--surface) 92%, var(--light) 8%);
   }
 
@@ -314,6 +320,7 @@
   .upload-queue-title > strong {
     @apply shrink-0 inline-flex items-center justify-center min-w-6 h-5 px-[7px] py-0 text-primary font-mono text-xs font-bold leading-none;
     border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border-color) 76%);
+    border-radius: var(--radius-sm);
   }
 
   .upload-queue-actions {
@@ -321,8 +328,9 @@
   }
 
   .upload-queue-btn {
-    @apply h-9 inline-flex items-center justify-center gap-[7px] px-[13px] py-0 rounded-none text-dark leading-none cursor-pointer text-[0];
+    @apply h-9 inline-flex items-center justify-center gap-[7px] px-[13px] py-0 text-dark leading-none cursor-pointer text-[0];
     border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
+    border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--surface) 90%, var(--light) 10%);
     font-weight: 650;
     transition: border-color 160ms ease, background 160ms ease, color 160ms ease, opacity 160ms ease;
@@ -386,6 +394,7 @@
   .upload-queue-thumb {
     @apply w-[46px] h-[46px] flex items-center justify-center overflow-hidden text-primary;
     border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--light) 70%, var(--surface) 30%);
   }
 
@@ -443,8 +452,9 @@
   }
 
   .upload-queue-row-actions > button {
-    @apply w-[34px] h-[34px] inline-flex items-center justify-center rounded-none text-gray cursor-pointer;
+    @apply w-[34px] h-[34px] inline-flex items-center justify-center text-gray cursor-pointer;
     border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
+    border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--surface) 88%, var(--light) 12%);
     transition: border-color 160ms ease, background 160ms ease, color 160ms ease, opacity 160ms ease;
   }
@@ -505,8 +515,9 @@
   }
 
   .progress-item {
-    @apply grid gap-[9px] p-3 rounded-none;
+    @apply grid gap-[9px] p-3;
     border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
+    border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--surface) 90%, var(--light) 10%);
   }
 
@@ -533,12 +544,14 @@
   }
 
   .progress-bar {
-    @apply relative h-1.5 overflow-hidden rounded-none;
+    @apply relative h-1.5 overflow-hidden;
+    border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--border-color) 52%, transparent);
   }
 
   .progress-bar-inner {
-    @apply absolute inset-y-0 left-0 right-auto w-0 h-full rounded-none bg-success;
+    @apply absolute inset-y-0 left-0 right-auto w-0 h-full bg-success;
+    border-radius: inherit;
     transition: width 300ms ease;
   }
 

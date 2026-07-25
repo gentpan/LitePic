@@ -27,16 +27,18 @@
   }
 
   .recent-time-tag {
-    @apply inline-flex items-center justify-center h-6 min-w-0 max-w-[min(260px,42vw)] px-2 overflow-hidden rounded-[var(--radius-sm)] font-mono text-[0.72rem] leading-none text-ellipsis whitespace-nowrap;
+    @apply inline-flex items-center justify-center h-6 min-w-0 max-w-[min(260px,42vw)] px-2 overflow-hidden font-mono text-[0.72rem] leading-none text-ellipsis whitespace-nowrap;
     border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border-color) 82%);
+    border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--primary) 6%, var(--surface) 94%);
     color: color-mix(in srgb, var(--primary) 84%, var(--dark) 16%);
     font-weight: 650;
   }
 
   .view-all {
-    @apply inline-flex items-center gap-2 min-h-[34px] px-2.5 rounded-none text-primary text-[0.86rem] font-semibold no-underline;
+    @apply inline-flex items-center gap-2 min-h-[34px] px-2.5 text-primary text-[0.86rem] font-semibold no-underline;
     border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border-color) 82%);
+    border-radius: var(--radius-sm);
     transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
   }
 
@@ -51,8 +53,9 @@
   }
 
   .img-box {
-    @apply relative self-start aspect-[10/7] h-auto overflow-hidden rounded;
+    @apply relative self-start aspect-[10/7] h-auto overflow-hidden;
     border: 1px solid color-mix(in srgb, var(--border-color) 66%, transparent);
+    border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--surface) 88%, var(--light) 12%);
     transition: border-color 160ms ease, box-shadow 160ms ease;
   }
@@ -87,7 +90,8 @@
   }
 
   .img-overlay .action-btn {
-    @apply w-8 h-8 inline-flex items-center justify-center border-0 rounded-none text-dark cursor-pointer;
+    @apply w-8 h-8 inline-flex items-center justify-center border-0 text-dark cursor-pointer;
+    border-radius: var(--radius-sm);
     background: rgba(255,255,255,0.92);
     transition: background 160ms ease, color 160ms ease, transform 160ms ease;
   }
@@ -105,8 +109,9 @@
   }
 
   .recent-empty {
-    @apply col-span-full min-h-[120px] flex items-center justify-center gap-2.5 rounded-none text-gray;
+    @apply col-span-full min-h-[120px] flex items-center justify-center gap-2.5 text-gray;
     border: 1px dashed color-mix(in srgb, var(--border-color) 74%, transparent);
+    border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--surface) 90%, var(--light) 10%);
   }
 
