@@ -348,6 +348,35 @@
     @apply gap-3.5;
   }
 
+  .settings-block-runtime .runtime-enablement {
+    @apply mt-3.5;
+  }
+  .settings-block-runtime .runtime-enablement-card {
+    @apply grid gap-2.5;
+  }
+  .settings-block-runtime .runtime-enablement-head {
+    @apply flex items-center justify-between gap-3 flex-wrap;
+  }
+  .settings-block-runtime .runtime-enablement-probe {
+    @apply text-xs text-gray;
+  }
+  .settings-block-runtime .runtime-enablement-commands {
+    @apply m-0 p-3 text-[0.78rem] leading-relaxed overflow-x-auto whitespace-pre-wrap break-all;
+    background: color-mix(in srgb, var(--dark) 6%, var(--surface) 94%);
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    color: var(--dark);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+  .settings-block-runtime .runtime-enablement-actions {
+    @apply flex items-center gap-2 flex-wrap;
+  }
+  .settings-block-runtime .runtime-enablement-notes {
+    @apply m-0 pl-4 text-xs text-gray grid gap-1;
+  }
+  html[data-theme="dark"] .settings-block-runtime .runtime-enablement-commands {
+    background: color-mix(in srgb, var(--primary) 10%, var(--surface) 90%);
+  }
+
   .settings-layout .runtime-gauge-card,
 .settings-block-runtime .runtime-meta-grid > article,
 .settings-block-runtime .runtime-capability-grid > article {

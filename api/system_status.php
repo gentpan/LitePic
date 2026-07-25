@@ -36,5 +36,9 @@ if (!(new \LitePic\Service\Auth\AuthService())->isApiRequestAuthorized()) {
     \LitePic\Core\Response::error('权限不足', 403);
 }
 
+if (!empty($_GET['refresh_capability'])) {
+    \LitePic\Service\Stats\ServerInfo::clearCapabilityCache();
+}
+
 $metrics = (new \LitePic\Service\Stats\ServerInfo())->runtimeMetrics();
 \LitePic\Core\Response::success(['data' => $metrics]);

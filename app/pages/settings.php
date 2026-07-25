@@ -569,6 +569,51 @@ require_once APP_ROOT . '/header.php';
                                     </div>
                                 </article>
                             </div>
+                            <?php
+                            $enablement_hints = (new \LitePic\Service\Stats\ServerInfo())->enablementHints($configured_upload_limit_bytes);
+                            ?>
+                            <div class="runtime-enablement" data-runtime-enablement<?= !empty($enablement_hints['has_gaps']) ? '' : ' hidden' ?>>
+                                <div class="settings-callout settings-callout-compact runtime-enablement-card">
+                                    <div class="runtime-enablement-head">
+                                        <strong>未开启能力 — 按当前探针生成的启用命令</strong>
+                                        <button type="button" class="btn btn--secondary btn--sm" data-refresh-capability title="清除缓存并重新探测">
+                                            <i class="fa-light fa-arrows-rotate" aria-hidden="true"></i>
+                                            <span>刷新检测</span>
+                                        </button>
+                                    </div>
+                                    <p class="runtime-enablement-probe m-0" data-enablement-probe>
+                                        <?= htmlspecialchars(sprintf(
+                                            '%s · PHP %s · %s',
+                                            (string)($enablement_hints['probe']['os'] ?? ''),
+                                            (string)($enablement_hints['probe']['php'] ?? PHP_VERSION),
+                                            (string)($enablement_hints['probe']['web'] ?? '')
+                                        )) ?>
+                                        <?php if (!empty($enablement_hints['missing_labels'])): ?>
+                                            · 缺少：<?= htmlspecialchars(implode('、', $enablement_hints['missing_labels'])) ?>
+                                        <?php endif; ?>
+                                    </p>
+                                    <pre class="runtime-enablement-commands" data-enablement-commands><?= htmlspecialchars(implode("\n", $enablement_hints['commands'] ?? [])) ?></pre>
+                                    <div class="runtime-enablement-actions">
+                                        <button type="button" class="btn btn--primary btn--sm" data-copy-enablement>
+                                            <i class="fa-light fa-copy" aria-hidden="true"></i>
+                                            <span>复制命令</span>
+                                        </button>
+                                        <a href="<?= htmlspecialchars((string)($enablement_hints['docs_url'] ?? 'https://litepic.io/docs')) ?>" target="_blank" rel="noopener noreferrer" class="btn btn--secondary btn--sm">
+                                            <i class="fa-light fa-book" aria-hidden="true"></i>
+                                            <span>文档</span>
+                                        </a>
+                                    </div>
+                                    <?php if (!empty($enablement_hints['notes'])): ?>
+                                        <ul class="runtime-enablement-notes" data-enablement-notes>
+                                            <?php foreach ($enablement_hints['notes'] as $note): ?>
+                                                <li><?= htmlspecialchars((string)$note) ?></li>
+                                            <?php endforeach; ?>
+                                        </ul>
+                                    <?php else: ?>
+                                        <ul class="runtime-enablement-notes" data-enablement-notes hidden></ul>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
                         </div>
                     </section>
 
@@ -3985,12 +4030,116 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
                 validateScanConvertToggle(true);
                 syncProcessToggles();
                 syncScanProcessToggles();
+                applyEnablementHints(s.enablement_hints || null);
             } catch (err) {
                 if (window.ImgEt && window.ImgEt.Utils && typeof window.ImgEt.Utils.showNotification === 'function') {
                     window.ImgEt.Utils.showNotification('服务器状态刷新失败', 'error');
                 }
             }
         };
+
+        const applyEnablementHints = (hints) => {
+            const panel = document.querySelector('[data-runtime-enablement]');
+            if (!panel) return;
+            const hasGaps = !!(hints && hints.has_gaps);
+            panel.hidden = !hasGaps;
+            if (!hasGaps || !hints) return;
+
+            const probe = hints.probe || {};
+            const probeEl = panel.querySelector('[data-enablement-probe]');
+            if (probeEl) {
+                let text = [probe.os, probe.php ? ('PHP ' + probe.php) : '', probe.web]
+                    .filter(Boolean).join(' · ');
+                if (Array.isArray(hints.missing_labels) && hints.missing_labels.length) {
+                    text += ' · 缺少：' + hints.missing_labels.join('、');
+                }
+                probeEl.textContent = text;
+            }
+            const cmdEl = panel.querySelector('[data-enablement-commands]');
+            if (cmdEl) {
+                cmdEl.textContent = Array.isArray(hints.commands) ? hints.commands.join('\n') : '';
+            }
+            const notesEl = panel.querySelector('[data-enablement-notes]');
+            if (notesEl) {
+                notesEl.innerHTML = '';
+                const notes = Array.isArray(hints.notes) ? hints.notes : [];
+                notesEl.hidden = notes.length === 0;
+                notes.forEach((note) => {
+                    const li = document.createElement('li');
+                    li.textContent = String(note);
+                    notesEl.appendChild(li);
+                });
+            }
+        };
+
+        const refreshCapabilityProbe = async () => {
+            try {
+                const resp = await fetch('/api/v1/system/status?refresh_capability=1', {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: { 'Accept': 'application/json' },
+                });
+                const data = await resp.json();
+                if (!resp.ok || !data || data.status !== 'success' || !data.data) {
+                    throw new Error((data && data.message) ? data.message : '刷新失败');
+                }
+                // 复用轮询更新逻辑：临时塞进一次完整更新
+                const s = data.data;
+                const cap = s.capability || {};
+                runtimeCapability.webp = !!cap.webp;
+                runtimeCapability.avif = !!cap.avif;
+                runtimeCapability.heic = !!cap.heic;
+                runtimeCapability.jpg = !!cap.gd || !!cap.imagick;
+                runtimeCapability.png = !!cap.gd || !!cap.imagick;
+                setCapability('metricCapGd', !!cap.gd);
+                setCapability('metricCapImagick', !!cap.imagick);
+                setCapability('metricCapAvif', !!cap.avif);
+                setCapability('metricCapWebp', !!cap.webp);
+                setCapability('metricCapHeic', !!cap.heic);
+                const uploadStatusEl = document.getElementById('metricUploadStatus');
+                if (uploadStatusEl) {
+                    const runtimeLimitText = String((s.php_upload_limit_text ?? '') || '');
+                    const runtimeBytes = Number(s.php_upload_limit_bytes ?? 0);
+                    const configBytes = Number(s.config_upload_limit_bytes ?? 0);
+                    if (runtimeLimitText) uploadStatusEl.textContent = runtimeLimitText;
+                    const ok = runtimeBytes > 0 && (configBytes <= 0 || runtimeBytes >= configBytes);
+                    uploadStatusEl.classList.toggle('is-on', ok);
+                    uploadStatusEl.classList.toggle('is-warn', !ok);
+                    uploadStatusEl.classList.remove('is-off');
+                }
+                applyEnablementHints(s.enablement_hints || null);
+                if (window.ImgEt && window.ImgEt.Utils) {
+                    window.ImgEt.Utils.showNotification(
+                        (s.enablement_hints && s.enablement_hints.has_gaps) ? '已重新探测（仍有未开启项）' : '已重新探测，能力齐全',
+                        'success'
+                    );
+                }
+            } catch (err) {
+                if (window.ImgEt && window.ImgEt.Utils) {
+                    window.ImgEt.Utils.showNotification('刷新检测失败', 'error');
+                }
+            }
+        };
+
+        document.querySelector('[data-refresh-capability]')?.addEventListener('click', () => {
+            refreshCapabilityProbe();
+        });
+        document.querySelector('[data-copy-enablement]')?.addEventListener('click', async (e) => {
+            const pre = document.querySelector('[data-enablement-commands]');
+            const text = pre ? pre.textContent : '';
+            if (!text) return;
+            try {
+                await navigator.clipboard.writeText(text);
+                if (window.ImgEt && window.ImgEt.Utils) {
+                    window.ImgEt.Utils.showNotification('命令已复制', 'success');
+                }
+            } catch (_) {
+                if (window.ImgEt && window.ImgEt.Utils) {
+                    window.ImgEt.Utils.showNotification('复制失败', 'error');
+                }
+            }
+        });
+
         setInterval(updateSystemStatus, 15000);
 
         // ==================== 整行 UPTIME 条 ====================

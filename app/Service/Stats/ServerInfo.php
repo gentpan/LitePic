@@ -29,6 +29,198 @@ final class ServerInfo
     }
 
     /**
+     * Drop the on-disk capability cache so the next probe re-queries
+     * Imagick formats / GD functions (e.g. after running enable-image-ext.sh).
+     */
+    public static function clearCapabilityCache(): void
+    {
+        $file = self::capabilityCacheFile();
+        if (is_file($file)) {
+            @unlink($file);
+        }
+        // Also bust the request-lifetime static cache in capabilityFlags().
+        self::resetCapabilityStaticCache();
+    }
+
+    /** @var array{gd:bool,imagick:bool,avif:bool,webp:bool,heic:bool}|null */
+    private static ?array $capabilityStaticCache = null;
+
+    private static function resetCapabilityStaticCache(): void
+    {
+        self::$capabilityStaticCache = null;
+    }
+
+    /**
+     * Build copy-paste enablement commands from the live probe
+     * (distro + PHP version + web server) and current capability gaps.
+     *
+     * Does NOT execute anything — settings UI / SSH script only.
+     *
+     * @return array{
+     *   probe: array{os:string,os_id:string,php:string,php_short:string,web:string,web_type:string,apt_supported:bool},
+     *   missing: list<string>,
+     *   missing_labels: list<string>,
+     *   commands: list<string>,
+     *   restart: string,
+     *   script: string,
+     *   notes: list<string>,
+     *   docs_url: string,
+     *   has_gaps: bool
+     * }
+     */
+    public function enablementHints(?int $configuredUploadBytes = null): array
+    {
+        $distro = $this->distro();
+        $web = $this->webServer();
+        $phpShort = PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION;
+        $osId = strtolower((string)($distro['id'] ?? ''));
+        $aptSupported = in_array($osId, ['debian', 'ubuntu'], true);
+
+        $cap = self::capabilityFlags();
+        $configuredUploadBytes = $configuredUploadBytes
+            ?? (defined('MAX_FILE_SIZE') ? (int)MAX_FILE_SIZE : 0);
+        $runtimeUpload = \LitePic\Service\Upload\UploadService::phpUploadLimitBytes();
+        $uploadOk = $configuredUploadBytes <= 0
+            || $runtimeUpload >= max(1, $configuredUploadBytes);
+
+        $missing = [];
+        $labels = [];
+        if (empty($cap['gd'])) {
+            $missing[] = 'gd';
+            $labels[] = 'GD 扩展';
+        }
+        if (empty($cap['imagick'])) {
+            $missing[] = 'imagick';
+            $labels[] = 'ImageMagick 扩展';
+        }
+        if (empty($cap['webp'])) {
+            $missing[] = 'webp';
+            $labels[] = 'WebP 支持';
+        }
+        if (empty($cap['avif'])) {
+            $missing[] = 'avif';
+            $labels[] = 'AVIF 支持';
+        }
+        if (empty($cap['heic'])) {
+            $missing[] = 'heic';
+            $labels[] = 'HEIC 支持';
+        }
+        if (!$uploadOk) {
+            $missing[] = 'upload';
+            $labels[] = '上传上限';
+        }
+
+        $packages = [];
+        if (in_array('gd', $missing, true) || in_array('webp', $missing, true)) {
+            $packages['php' . $phpShort . '-gd'] = true;
+        }
+        if (
+            in_array('imagick', $missing, true)
+            || in_array('heic', $missing, true)
+            || in_array('avif', $missing, true)
+            || (in_array('webp', $missing, true) && empty($cap['gd']))
+        ) {
+            $packages['php' . $phpShort . '-imagick'] = true;
+        }
+        if (in_array('heic', $missing, true) || in_array('avif', $missing, true)) {
+            $packages['libheif1'] = true;
+        }
+
+        $uploadMb = max(1, (int)ceil(max($configuredUploadBytes, 1) / 1048576));
+        $postMb = $uploadMb + max(2, (int)ceil($uploadMb * 0.1));
+
+        $isFranken = ($web['type'] ?? '') === 'frankenphp';
+        $restart = $isFranken
+            ? 'systemctl restart frankenphp'
+            : ('systemctl restart php' . $phpShort . '-fpm');
+
+        $commands = [];
+        $notes = [];
+        $probeLine = sprintf(
+            '# 基于探针：%s · PHP %s · %s',
+            (string)($distro['pretty'] ?? '未知系统'),
+            PHP_VERSION,
+            (string)($web['display'] ?? '未知服务器')
+        );
+
+        if ($missing === []) {
+            return [
+                'probe' => [
+                    'os' => (string)($distro['pretty'] ?? ''),
+                    'os_id' => $osId,
+                    'php' => PHP_VERSION,
+                    'php_short' => $phpShort,
+                    'web' => (string)($web['display'] ?? ''),
+                    'web_type' => (string)($web['type'] ?? 'unknown'),
+                    'apt_supported' => $aptSupported,
+                ],
+                'missing' => [],
+                'missing_labels' => [],
+                'commands' => [],
+                'restart' => $restart,
+                'script' => './bin/enable-image-ext.sh',
+                'notes' => [],
+                'docs_url' => 'https://litepic.io/docs',
+                'has_gaps' => false,
+            ];
+        }
+
+        $commands[] = $probeLine;
+
+        if ($aptSupported && $packages !== []) {
+            $commands[] = 'apt-get update';
+            $commands[] = 'apt-get install -y ' . implode(' ', array_keys($packages));
+        } elseif ($packages !== [] && !$aptSupported) {
+            $notes[] = '当前系统不是 Debian/Ubuntu，请按文档手动安装 GD / Imagick（含 libheif），或改用发行版包管理器。';
+        }
+
+        if (in_array('upload', $missing, true)) {
+            if ($isFranken) {
+                $commands[] = '# 上传上限：编辑 /etc/frankenphp/Caddyfile 全局块 frankenphp { php_ini { ... } }';
+                $commands[] = '#   upload_max_filesize ' . $uploadMb . 'M';
+                $commands[] = '#   post_max_size ' . $postMb . 'M';
+                $commands[] = '# 站点块 request_body { max_size ' . $postMb . 'MB }';
+                $commands[] = './bin/enable-image-ext.sh --upload ' . $uploadMb . 'M';
+            } else {
+                $commands[] = '# 上传上限：在 php.ini / .user.ini 中设置';
+                $commands[] = '#   upload_max_filesize=' . $uploadMb . 'M';
+                $commands[] = '#   post_max_size=' . $postMb . 'M';
+            }
+        }
+
+        if ($aptSupported || $isFranken) {
+            if ($isFranken) {
+                $commands[] = 'frankenphp validate --config /etc/frankenphp/Caddyfile';
+            }
+            $commands[] = $restart;
+        }
+
+        $notes[] = '以上命令需在服务器 SSH 以 root 执行；网页不会代为安装或重启。';
+        $notes[] = '也可一键运行：sudo ./bin/enable-image-ext.sh'
+            . (in_array('upload', $missing, true) ? (' --upload ' . $uploadMb . 'M') : '');
+
+        return [
+            'probe' => [
+                'os' => (string)($distro['pretty'] ?? ''),
+                'os_id' => $osId,
+                'php' => PHP_VERSION,
+                'php_short' => $phpShort,
+                'web' => (string)($web['display'] ?? ''),
+                'web_type' => (string)($web['type'] ?? 'unknown'),
+                'apt_supported' => $aptSupported,
+            ],
+            'missing' => $missing,
+            'missing_labels' => $labels,
+            'commands' => $commands,
+            'restart' => $restart,
+            'script' => './bin/enable-image-ext.sh',
+            'notes' => $notes,
+            'docs_url' => 'https://litepic.io/docs',
+            'has_gaps' => true,
+        ];
+    }
+
+    /**
      * Build the open_basedir value that should appear in php.ini
      * to make the runtime-metrics paths readable on sandboxed hosts.
      * Reads any existing open_basedir from `$iniPath` (so we don't
@@ -310,6 +502,7 @@ final class ServerInfo
                 'free_text' => $fmt($diskFreeBytes),
             ],
             'capability' => self::capabilityFlags(),
+            'enablement_hints' => $this->enablementHints($configuredUploadLimit),
         ];
     }
 
@@ -318,9 +511,8 @@ final class ServerInfo
      */
     private static function capabilityFlags(): array
     {
-        static $cached = null;
-        if (is_array($cached)) {
-            return $cached;
+        if (is_array(self::$capabilityStaticCache)) {
+            return self::$capabilityStaticCache;
         }
 
         // Imagick::queryFormats 首次约数十毫秒；进程内缓存 + 落盘，避免设置页每 3s 轮询反复打。
@@ -328,7 +520,7 @@ final class ServerInfo
         if (is_file($fileCache) && (time() - (int)@filemtime($fileCache) < 86400)) {
             $decoded = json_decode((string)@file_get_contents($fileCache), true);
             if (is_array($decoded) && isset($decoded['gd'], $decoded['imagick'])) {
-                return $cached = [
+                return self::$capabilityStaticCache = [
                     'gd' => !empty($decoded['gd']),
                     'imagick' => !empty($decoded['imagick']),
                     'avif' => !empty($decoded['avif']),
@@ -347,7 +539,7 @@ final class ServerInfo
         ];
         @mkdir(dirname($fileCache), 0775, true);
         @file_put_contents($fileCache, (string)json_encode($flags, JSON_UNESCAPED_UNICODE));
-        return $cached = $flags;
+        return self::$capabilityStaticCache = $flags;
     }
 
     private static function capabilityCacheFile(): string
