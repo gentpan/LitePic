@@ -440,19 +440,17 @@ require_once APP_ROOT . '/header.php';
                                     </span>
                                     <span class="break-all runtime-meta-value" id="metricPhpVersion"><?= htmlspecialchars((string)($metrics['php_version'] ?? PHP_VERSION)) ?></span>
                                 </article>
-                                <article>
+                                <article class="has-meta-help">
+                                    <a href="https://litepic.io/docs" target="_blank" rel="noopener noreferrer" class="runtime-meta-help" title="查看 LitePic 推荐的 Web 服务器配置">
+                                        <span>如何配置</span>
+                                        <i class="fa-light fa-arrow-up-right-from-square text-[10px]" aria-hidden="true"></i>
+                                    </a>
                                     <span class="runtime-meta-label">
                                         <i class="fa-light fa-server" aria-hidden="true"></i>
                                         <span>Web 服务器</span>
                                     </span>
-                                    <span class="runtime-meta-aside">
-                                        <a href="https://litepic.io/docs" target="_blank" rel="noopener noreferrer" class="runtime-meta-help" title="查看 LitePic 推荐的 Web 服务器配置">
-                                            <span>如何配置</span>
-                                            <i class="fa-light fa-arrow-up-right-from-square text-[10px]" aria-hidden="true"></i>
-                                        </a>
-                                        <span class="break-all runtime-meta-value" id="metricWebServer" title="<?= htmlspecialchars($server_software ?: 'SERVER_SOFTWARE 未提供') ?>">
-                                            <?= htmlspecialchars($server_display) ?>
-                                        </span>
+                                    <span class="break-all runtime-meta-value" id="metricWebServer" title="<?= htmlspecialchars($server_software ?: 'SERVER_SOFTWARE 未提供') ?>">
+                                        <?= htmlspecialchars($server_display) ?>
                                     </span>
                                 </article>
                                 <article>

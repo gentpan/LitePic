@@ -356,7 +356,7 @@
   }
 
   .settings-block-runtime .runtime-meta-grid > article {
-    @apply min-h-[86px] flex items-center justify-between gap-3 p-4;
+    @apply relative min-h-[86px] flex items-center justify-between gap-3 p-4;
   }
 
   .settings-block-runtime .runtime-meta-label,
@@ -403,17 +403,9 @@
     @apply min-w-0 max-w-[58%] justify-end text-right text-sm text-dark font-medium leading-snug;
   }
 
-  /* Web 服务器：右侧「如何配置」+ 版本叠放，避免 absolute 挤乱主行 */
-  .settings-block-runtime .runtime-meta-aside {
-    @apply min-w-0 max-w-[58%] flex flex-col items-end gap-1 text-right;
-  }
-
-  .settings-block-runtime .runtime-meta-aside .runtime-meta-value {
-    @apply max-w-full;
-  }
-
+  /* 「如何配置」钉在卡片内部右上角，不挤占主行布局 */
   .settings-block-runtime .runtime-meta-help {
-    @apply text-[11px] text-primary no-underline hover:underline inline-flex items-center gap-1 leading-none shrink-0;
+    @apply absolute top-2.5 right-3 z-[1] inline-flex items-center gap-1 text-[11px] text-primary no-underline leading-none shrink-0 hover:underline;
   }
 
   .settings-block-runtime .runtime-capability-grid > article {
