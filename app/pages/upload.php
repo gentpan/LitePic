@@ -107,16 +107,21 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && (string)($_POST['form_actio
         'tinypng' => 'TinyPNG',
     ];
     $current_compression_label = $current_compression_labels[$current_compression_mode] ?? 'Magick';
-    $messages = [];
-    $messages[] = $auto_compress ? '上传后自动压缩已开启' : '上传后自动压缩已关闭';
-    $messages[] = $auto_convert ? ('上传后自动转换已开启：' . strtoupper($convert_format)) : '上传后自动转换已关闭';
-    if ($changed === 'watermark') {
-        $messages[] = $watermark_enabled ? '上传后自动加水印已开启' : '上传后自动加水印已关闭';
+
+    // toast 只回应当前操作，不拼接其它开关状态
+    if ($changed === 'convert') {
+        $message = $auto_convert
+            ? ('上传后自动转换已开启：' . strtoupper($convert_format))
+            : '上传后自动转换已关闭';
+    } elseif ($changed === 'watermark') {
+        $message = $watermark_enabled ? '上传后自动加水印已开启' : '上传后自动加水印已关闭';
+    } else {
+        $message = $auto_compress ? '上传后自动压缩已开启' : '上传后自动压缩已关闭';
     }
 
     echo json_encode([
         'success' => true,
-        'message' => implode('；', $messages),
+        'message' => $message,
         'settings' => [
             'auto_compress_on_upload' => $auto_compress,
             'auto_convert_on_upload' => $auto_convert,
