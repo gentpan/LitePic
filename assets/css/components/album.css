@@ -435,17 +435,22 @@
   }
   .pa-tile img {
     @apply w-full h-full object-cover block opacity-0;
-    /* 不在悬停时缩放位图：全幅网格里 scale 大图会掉帧，改用廉价蒙层 */
-    transition: opacity 280ms ease;
+    transform: scale(1);
+    /* 加载淡入快；悬停放大要慢，只用 transform 走合成层 */
+    transition: opacity 280ms ease, transform 720ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
   }
   .pa-tile img.is-loaded { @apply opacity-100; }
+  .pa-tile:hover img {
+    transform: scale(1.08);
+  }
 
-  /* 悬停蒙层：只改 opacity，走合成层，比缩放图片顺很多 */
+  /* 悬停蒙层 + 标题，与放大同步但略快一点 */
   .pa-tile::after {
     content: "";
     @apply absolute inset-0 z-[1] opacity-0 pointer-events-none;
     background: rgba(8, 12, 20, 0.28);
-    transition: opacity 150ms ease;
+    transition: opacity 320ms ease;
   }
   .pa-tile:hover::after {
     @apply opacity-100;
@@ -454,10 +459,21 @@
   .pa-tile-cap {
     @apply absolute inset-x-0 bottom-0 top-auto z-[2] pt-6 px-3 pb-2.5 text-white text-[0.85rem] font-semibold opacity-0 whitespace-nowrap overflow-hidden text-ellipsis;
     background: linear-gradient(180deg, transparent, rgba(0,0,0,0.62));
-    transition: opacity 150ms ease;
+    transition: opacity 320ms ease;
   }
   .pa-tile:hover .pa-tile-cap {
     @apply opacity-100;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pa-tile img,
+    .pa-tile::after,
+    .pa-tile-cap {
+      transition: none;
+    }
+    .pa-tile:hover img {
+      transform: none;
+    }
   }
 
   .pa-empty { @apply py-20 px-6 text-center text-gray; }
