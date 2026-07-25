@@ -120,11 +120,11 @@
     @apply min-h-9 inline-flex items-center justify-center gap-2 px-3 py-0 rounded-none bg-surface text-dark text-[0.86rem] cursor-pointer;
     border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
     font-weight: 650;
-    transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease, opacity 160ms ease;
+    transition: background 160ms ease, border-color 160ms ease, color 160ms ease, opacity 160ms ease;
   }
 
   .batch-btn:hover:not([disabled]) {
-    @apply text-primary -translate-y-px;
+    @apply text-primary;
     border-color: color-mix(in srgb, var(--primary) 42%, var(--border-color) 58%);
     background: color-mix(in srgb, var(--primary) 6%, var(--surface) 94%);
   }
@@ -139,7 +139,7 @@
     @apply border-success bg-success text-white;
   }
   .batch-btn[data-action="compress"]:hover:not([disabled]) {
-    @apply text-white -translate-y-px;
+    @apply text-white;
     border-color: color-mix(in srgb, var(--success) 86%, #000 14%);
     background: color-mix(in srgb, var(--success) 92%, #000 8%);
   }
@@ -154,7 +154,7 @@
   .batch-btn[data-action="avif"]:hover:not([disabled]),
   .batch-btn[data-action="jpg"]:hover:not([disabled]),
   .batch-btn[data-action="png"]:hover:not([disabled]) {
-    @apply text-white -translate-y-px;
+    @apply text-white;
     border-color: color-mix(in srgb, #6f42c1 86%, #000 14%);
     background: color-mix(in srgb, #6f42c1 92%, #000 8%);
   }
