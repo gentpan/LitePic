@@ -261,10 +261,10 @@ require_once APP_ROOT . '/header.php';
                             data-full="<?= htmlspecialchars($img['url']) ?>"
                             data-title="<?= htmlspecialchars($img['title']) ?>"
                             data-date="<?= htmlspecialchars($img['date']) ?>">
-                        <img src="<?= htmlspecialchars($img['thumb_url']) ?>" alt="<?= htmlspecialchars($img['title']) ?>" loading="lazy"
-                             <?php if ($img['dimensions'] !== '' && preg_match('/^(\d+)x(\d+)/', $img['dimensions'], $d)): ?>
-                             width="<?= (int)$d[1] ?>" height="<?= (int)$d[2] ?>"
-                             <?php endif; ?>>
+                        <img src="<?= htmlspecialchars($img['thumb_url']) ?>"
+                             alt="<?= htmlspecialchars($img['title']) ?>"
+                             loading="lazy"
+                             decoding="async">
                         <?php if ($img['title'] !== ''): ?>
                             <figcaption class="pa-tile-cap"><?= htmlspecialchars($img['title']) ?></figcaption>
                         <?php endif; ?>
