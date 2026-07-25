@@ -2,10 +2,10 @@
 declare(strict_types=1);
 
 /**
- * POST /api/v1/system/enable-extensions
+ * /api/v1/system/enable-extensions
  *
- * Admin + CSRF only. Runs bin/enable-image-ext.sh via passwordless sudo
- * (must have been installed with --install-sudoers once).
+ * POST  — start background enable (admin + CSRF)
+ * GET   — poll status / log (admin)
  */
 
 if (!defined('LITEPIC_API_V1_DISPATCH')) {
@@ -24,13 +24,25 @@ require __DIR__ . '/../bootstrap.php';
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-if (strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? '')) !== 'POST') {
-    \LitePic\Core\Response::error('仅支持 POST', 405);
+$method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+$auth = new \LitePic\Service\Auth\AuthService();
+
+if (!$auth->isAdmin()) {
+    \LitePic\Core\Response::error('权限不足，请先登录管理后台', 403);
 }
 
-// Session-bound admin only — not bare X-API-Key (this escalates to root via sudo).
-if (!(new \LitePic\Service\Auth\AuthService())->isAdmin()) {
-    \LitePic\Core\Response::error('权限不足，请先登录管理后台', 403);
+$service = new \LitePic\Service\System\EnableExtensionsService();
+
+if ($method === 'GET') {
+    $result = $service->status();
+    \LitePic\Core\Response::success([
+        'message' => $result['message'],
+        'data' => $result,
+    ]);
+}
+
+if ($method !== 'POST') {
+    \LitePic\Core\Response::error('仅支持 GET / POST', 405);
 }
 
 $csrf = (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['csrf_token'] ?? '');
@@ -49,20 +61,12 @@ if ($rawBody !== '') {
 if ($uploadMb === null && isset($_POST['upload_mb'])) {
     $uploadMb = max(1, min(2048, (int)$_POST['upload_mb']));
 }
-if ($uploadMb === null && defined('MAX_FILE_SIZE')) {
-    $uploadMb = max(1, (int)ceil(MAX_FILE_SIZE / 1048576));
-}
 
-@set_time_limit(600);
-@ini_set('max_execution_time', '600');
-
-$service = new \LitePic\Service\System\EnableExtensionsService();
-$result = $service->run($uploadMb);
-
+$result = $service->start($uploadMb);
 if (!$result['ok']) {
-    $status = match (true) {
-        $result['exit_code'] === 503 => 503,
-        $result['exit_code'] === 404 => 404,
+    $status = match ($result['exit_code'] ?? 0) {
+        503 => 503,
+        404 => 404,
         default => 500,
     };
     http_response_code($status);

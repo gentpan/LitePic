@@ -199,7 +199,8 @@ PKGS=("php${PHP_VER}-gd" "php${PHP_VER}-imagick" "libheif1")
 echo "==> 将安装：${PKGS[*]}"
 export DEBIAN_FRONTEND=noninteractive
 run apt-get update
-run apt-get install -y "${PKGS[@]}"
+# 已装则尽量不连带升级整套 PHP（网页一键要快、稳）
+run apt-get install -y --no-upgrade "${PKGS[@]}" || run apt-get install -y "${PKGS[@]}"
 
 # Debian NTS 模块（php-fpm / cli）
 if command -v phpenmod >/dev/null 2>&1; then
@@ -381,21 +382,14 @@ do_restart() {
 if [[ "$NO_RESTART" -eq 1 ]]; then
   echo "==> 跳过重启（--no-restart）"
 elif [[ "$DRY_RUN" -eq 1 ]]; then
-  if [[ "$DEFER_RESTART" -eq 1 ]]; then
-    echo "+ (sleep 2; restart) &   # deferred"
-  else
-    echo "+ systemctl restart …"
-  fi
-elif [[ "$DEFER_RESTART" -eq 1 ]]; then
-  echo "==> 延迟 2 秒后重启服务（便于网页 API 先返回）"
-  nohup bash -c 'sleep 2; '"$(declare -f do_restart)"'; do_restart' >/tmp/litepic-enable-ext-restart.log 2>&1 &
-  disown || true
+  echo "+ systemctl restart …"
 else
+  # 网页调用时整个脚本已在后台跑，这里可以直接重启（HTTP 早已返回）
   echo "==> 重启服务"
   do_restart
 fi
 
-echo "==> 完成。设置页点「刷新检测」可更新徽章。"
+echo "==> 完成。设置页会自动刷新徽章。"
 if [[ "$WEB_RUN" -eq 1 ]]; then
-  echo "WEB_RESTART_SCHEDULED=1"
+  echo "WEB_RUN_DONE=1"
 fi

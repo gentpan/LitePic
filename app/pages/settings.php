@@ -4181,18 +4181,49 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
                 }
                 return;
             }
-            const ok = window.confirm('将以 root 安装缺失的图片扩展并重启 Web 服务，期间站点可能短暂不可用。确定继续？');
+            const ok = window.confirm('将在服务器后台安装缺失扩展并重启 Web 服务（由本页触发，不是远程代操作）。期间可能短暂不可用。确定继续？');
             if (!ok) return;
 
             const logEl = document.querySelector('[data-enablement-log]');
             const label = btn.querySelector('span');
             const prev = label ? label.textContent : '';
             btn.disabled = true;
-            if (label) label.textContent = '正在启用…';
+            if (label) label.textContent = '已提交后台任务…';
             if (logEl) {
                 logEl.hidden = false;
-                logEl.textContent = '提交中…';
+                logEl.textContent = '正在启动…';
             }
+
+            const applyPayload = (payload) => {
+                if (!payload) return;
+                if (logEl && typeof payload.log === 'string') {
+                    logEl.textContent = payload.log || '(暂无日志)';
+                    logEl.scrollTop = logEl.scrollHeight;
+                }
+                if (payload.enablement_hints) applyEnablementHints(payload.enablement_hints);
+                const cap = payload.capability || {};
+                if (Object.keys(cap).length) {
+                    setCapability('metricCapGd', !!cap.gd);
+                    setCapability('metricCapImagick', !!cap.imagick);
+                    setCapability('metricCapAvif', !!cap.avif);
+                    setCapability('metricCapWebp', !!cap.webp);
+                    setCapability('metricCapHeic', !!cap.heic);
+                }
+            };
+
+            const pollStatus = async () => {
+                const resp = await fetch('/api/v1/system/enable-extensions', {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: { 'Accept': 'application/json' },
+                });
+                const data = await resp.json().catch(() => null);
+                if (!resp.ok || !data || data.status !== 'success') {
+                    throw new Error((data && data.message) || '状态查询失败');
+                }
+                return data.data || {};
+            };
+
             try {
                 const uploadMb = parseInt(btn.dataset.uploadMb || '20', 10) || 20;
                 const resp = await fetch('/api/v1/system/enable-extensions', {
@@ -4206,34 +4237,40 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
                     body: JSON.stringify({ upload_mb: uploadMb }),
                 });
                 const data = await resp.json().catch(() => null);
-                const payload = data && data.data ? data.data : null;
-                if (logEl && payload && payload.output) {
-                    logEl.textContent = String(payload.output);
-                }
                 if (!resp.ok || !data || data.status !== 'success') {
-                    throw new Error((data && data.message) || '启用失败');
+                    throw new Error((data && data.message) || '启动失败');
                 }
+                applyPayload(data.data);
                 if (window.ImgEt?.Utils) {
-                    window.ImgEt.Utils.showNotification(data.message || '已提交启用', 'success');
+                    window.ImgEt.Utils.showNotification(data.message || '已在后台启动', 'success');
                 }
-                if (payload) {
-                    applyEnablementHints(payload.enablement_hints || null);
-                    const cap = payload.capability || {};
-                    setCapability('metricCapGd', !!cap.gd);
-                    setCapability('metricCapImagick', !!cap.imagick);
-                    setCapability('metricCapAvif', !!cap.avif);
-                    setCapability('metricCapWebp', !!cap.webp);
-                    setCapability('metricCapHeic', !!cap.heic);
-                }
-                if (payload && payload.restart_scheduled) {
-                    if (label) label.textContent = '服务重启中…';
-                    setTimeout(() => {
-                        refreshCapabilityProbe().finally(() => {
-                            btn.disabled = false;
-                            if (label) label.textContent = prev || '一键启用并重启';
-                        });
-                    }, 4500);
-                    return;
+
+                // 轮询直到脚本结束（最长约 10 分钟）
+                const deadline = Date.now() + 10 * 60 * 1000;
+                while (Date.now() < deadline) {
+                    await new Promise((r) => setTimeout(r, 2500));
+                    let st;
+                    try {
+                        st = await pollStatus();
+                    } catch (_) {
+                        // 重启瞬间可能 502，继续等
+                        if (label) label.textContent = '服务重启中…';
+                        continue;
+                    }
+                    applyPayload(st);
+                    if (label) {
+                        label.textContent = st.running ? '安装配置中…' : (st.finished ? '完成' : '处理中…');
+                    }
+                    if (st.finished || (!st.running && st.started && st.log && st.log.includes('==> 完成'))) {
+                        if (window.ImgEt?.Utils) {
+                            window.ImgEt.Utils.showNotification(st.message || '启用完成', st.ok === false ? 'error' : 'success');
+                        }
+                        await refreshCapabilityProbe();
+                        break;
+                    }
+                    if (!st.running && st.started && st.ok === false) {
+                        throw new Error(st.message || '启用失败');
+                    }
                 }
             } catch (err) {
                 if (window.ImgEt?.Utils) {
