@@ -289,7 +289,7 @@ require_once APP_ROOT . '/header.php';
         <footer class="pa-foot">
             <div class="pa-foot-left">
                 <span class="pa-foot-name"><?= htmlspecialchars((string)$album['name']) ?></span>
-                <span class="pa-foot-meta"><?= number_format((int)$album['image_count']) ?> 张 · <?= htmlspecialchars(date('Y-m-d', (int)$album['created_at'])) ?></span>
+                <span class="pa-foot-meta"><?= number_format((int)$album['image_count']) ?> 张 · <?= htmlspecialchars(date('Y-m-d', (int)$album['created_at'])) ?> · <i class="fa-light fa-eye" aria-hidden="true"></i> <?= number_format((int)$album['view_count']) ?></span>
             </div>
             <div class="pa-foot-right">
                 <a href="https://litepic.io" target="_blank" rel="noopener noreferrer">由 LitePic 驱动</a>

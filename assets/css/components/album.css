@@ -492,6 +492,7 @@
   .pa-foot-left { @apply flex items-baseline gap-2.5 min-w-0; }
   .pa-foot-name { @apply font-bold whitespace-nowrap overflow-hidden text-ellipsis; }
   .pa-foot-meta { @apply text-[0.82rem] whitespace-nowrap; color: rgba(255, 255, 255, 0.6); }
+  .pa-foot-meta > i { @apply inline-block text-[0.78em] opacity-80; margin-right: 0.15em; }
   .pa-foot-right { @apply flex items-center gap-4 flex-[0_0_auto]; }
   .pa-foot-right a { @apply inline-flex items-center gap-1 no-underline; color: rgba(255, 255, 255, 0.62); }
   .pa-foot-right a:hover { @apply text-white; }
