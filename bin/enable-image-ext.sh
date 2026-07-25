@@ -113,7 +113,16 @@ EOF
     cat "$TMP"
     rm -f "$TMP"
   else
-    visudo -cf "$TMP"
+    if command -v visudo >/dev/null 2>&1; then
+      visudo -cf "$TMP"
+    else
+      # 部分精简系统未装 sudo 包自带的 visudo；仍校验基本格式后写入
+      if ! grep -qE '^[A-Za-z0-9._-]+ ALL=\(root\) NOPASSWD: /' "$TMP"; then
+        echo "sudoers 内容校验失败" >&2
+        rm -f "$TMP"
+        exit 5
+      fi
+    fi
     install -m 440 "$TMP" "$SUDOERS_FILE"
     rm -f "$TMP"
     echo "已安装。网页「一键启用」可调用：sudo -n $SCRIPT_PATH --web-run"
