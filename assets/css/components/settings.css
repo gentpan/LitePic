@@ -333,8 +333,17 @@
     border-color: color-mix(in srgb, var(--border-color) 60%, transparent);
   }
 
+  /* ------------------------------------------------------------------
+   * 服务器信息：资源占用 / 环境信息 / 上传与能力
+   * 全部走主题变量，深色模式不再依赖 viewimage.css 里的硬编码浅色。
+   * ------------------------------------------------------------------ */
+
   .settings-block-runtime .runtime-section {
     @apply grid gap-3;
+  }
+
+  .settings-block-runtime .runtime-section + .runtime-section {
+    @apply mt-4.5;
   }
 
   .settings-block-runtime .runtime-section-label {
@@ -342,10 +351,51 @@
     color: color-mix(in srgb, var(--gray) 86%, var(--primary) 14%);
   }
 
-  .settings-block-runtime .runtime-resource-grid,
-.settings-block-runtime .runtime-meta-grid,
-.settings-block-runtime .runtime-capability-grid {
-    @apply gap-3.5;
+  .settings-block-runtime .runtime-resource-grid {
+    @apply grid grid-cols-2 gap-3.5;
+  }
+
+  .settings-block-runtime .runtime-resource-gauges {
+    @apply grid-cols-3;
+  }
+
+  .settings-block-runtime .runtime-meta-grid {
+    @apply grid grid-cols-4 gap-3.5;
+  }
+
+  .settings-block-runtime .runtime-capability-grid {
+    @apply grid grid-cols-6 gap-3.5;
+  }
+
+  @media (max-width: 1100px) {
+    .settings-block-runtime .runtime-capability-grid {
+      @apply grid-cols-3;
+    }
+  }
+
+  @media (max-width: 992px) {
+    .settings-block-runtime .runtime-meta-grid {
+      @apply grid-cols-2;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .settings-block-runtime .runtime-resource-gauges {
+      @apply grid-cols-2;
+    }
+
+    .settings-block-runtime .runtime-capability-grid {
+      @apply grid-cols-2;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .settings-block-runtime .runtime-resource-grid,
+    .settings-block-runtime .runtime-meta-grid,
+    .settings-block-runtime .runtime-resource-gauges,
+    .settings-block-runtime .runtime-capability-grid {
+      @apply grid-cols-1;
+    }
   }
 
   .settings-block-runtime .runtime-enablement {
@@ -391,32 +441,55 @@
     background: color-mix(in srgb, var(--primary) 10%, var(--surface) 90%);
   }
 
-  .settings-layout .runtime-gauge-card,
-.settings-block-runtime .runtime-meta-grid > article,
-.settings-block-runtime .runtime-capability-grid > article {
+  .settings-page .runtime-gauge-card,
+  .settings-block-runtime .runtime-meta-grid > article,
+  .settings-block-runtime .runtime-capability-grid > article {
     @apply rounded-none;
-    border: 1px solid color-mix(in srgb, var(--border-color) 62%, transparent);
-    background: linear-gradient(180deg,
-      color-mix(in srgb, var(--surface) 90%, transparent),
-      color-mix(in srgb, var(--surface) 76%, var(--light) 24%));
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 8px 22px rgba(15, 23, 42, 0.04);
+    border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+    background: color-mix(in srgb, var(--surface) 92%, var(--light) 8%);
+    box-shadow: none;
   }
 
-  .settings-layout .runtime-gauge-card {
-    @apply py-6 px-4.5;
+  .settings-page .runtime-gauge-card {
+    @apply flex flex-col items-center justify-center py-6 px-4.5;
   }
 
-  .settings-layout .runtime-gauge {
-    @apply w-[86px] h-[86px];
+  .settings-page .runtime-gauge {
+    @apply relative w-[86px] h-[86px] flex items-center justify-center;
   }
 
-  .settings-layout .runtime-gauge-label {
-    @apply mt-3;
+  .settings-page .runtime-gauge-svg {
+    @apply absolute inset-0 w-full h-full -rotate-90;
+  }
+
+  .settings-page .runtime-gauge-track {
+    fill: none;
+    stroke: color-mix(in srgb, var(--border-color) 88%, var(--gray) 12%);
+    stroke-width: 8;
+  }
+
+  .settings-page .runtime-gauge-fill {
+    fill: none;
+    stroke-width: 8;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.6s ease;
+  }
+
+  .settings-page .runtime-gauge-fill-memory { stroke: #f59e0b; }
+  .settings-page .runtime-gauge-fill-cpu    { stroke: #3b82f6; }
+  .settings-page .runtime-gauge-fill-disk   { stroke: #22c55e; }
+
+  .settings-page .runtime-gauge-value {
+    @apply relative z-[1] text-base font-bold text-dark font-mono;
+  }
+
+  .settings-page .runtime-gauge-label {
+    @apply mt-3 text-sm font-semibold;
     color: color-mix(in srgb, var(--dark) 74%, var(--gray) 26%);
   }
 
-  .settings-layout .runtime-gauge-detail {
-    @apply text-gray;
+  .settings-page .runtime-gauge-detail {
+    @apply mt-1 text-sm text-gray font-mono;
   }
 
   .settings-block-runtime .runtime-meta-grid > article {
@@ -424,7 +497,7 @@
   }
 
   .settings-block-runtime .runtime-meta-label,
-.settings-block-runtime .runtime-meta-value {
+  .settings-block-runtime .runtime-meta-value {
     @apply inline-flex items-center gap-2;
   }
 
@@ -478,11 +551,11 @@
   }
 
   .settings-block-runtime .runtime-capability-grid > article {
-    @apply text-center p-4;
+    @apply grid gap-3 justify-items-center content-center text-center p-4;
   }
 
   .settings-block-runtime .runtime-capability-grid > article > div:first-child,
-.settings-block-runtime .runtime-capability-grid > article > span.text-gray:first-child {
+  .settings-block-runtime .runtime-capability-grid > article > span.text-gray:first-child {
     @apply justify-center text-center;
   }
 
@@ -491,8 +564,8 @@
   }
 
   .settings-page .is-on,
-.settings-page .is-off,
-.settings-page .is-warn {
+  .settings-page .is-off,
+  .settings-page .is-warn {
     @apply rounded-full font-[650];
   }
 
@@ -512,6 +585,24 @@
     color: #92400e;
     background: color-mix(in srgb, #fef3c7 86%, var(--surface) 14%);
     border-color: #fde68a;
+  }
+
+  html[data-theme="dark"] .settings-page .is-on {
+    color: #86efac;
+    background: color-mix(in srgb, #166534 42%, var(--surface) 58%);
+    border-color: color-mix(in srgb, #22c55e 40%, transparent);
+  }
+
+  html[data-theme="dark"] .settings-page .is-off {
+    color: #fca5a5;
+    background: color-mix(in srgb, #7f1d1d 42%, var(--surface) 58%);
+    border-color: color-mix(in srgb, #ef4444 40%, transparent);
+  }
+
+  html[data-theme="dark"] .settings-page .is-warn {
+    color: #fcd34d;
+    background: color-mix(in srgb, #92400e 42%, var(--surface) 58%);
+    border-color: color-mix(in srgb, #f59e0b 40%, transparent);
   }
 
   .settings-page .settings-callout {
@@ -592,26 +683,35 @@
    * Sections themselves no longer carry card chrome (the shell does), so
    * we tint the shell instead of every section. */
 
-  html[data-theme="dark"] .settings-page .settings-shell,
-html[data-theme="dark"] .settings-layout .runtime-gauge-card,
-html[data-theme="dark"] .settings-block-runtime .runtime-meta-grid > article,
-html[data-theme="dark"] .settings-block-runtime .runtime-capability-grid > article {
-    background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.025));
-    border-color: rgba(255,255,255,0.08);
+  html[data-theme="dark"] .settings-page .settings-shell {
+    background: color-mix(in srgb, var(--surface) 96%, #ffffff 4%);
+    border-color: rgba(255, 255, 255, 0.08);
     box-shadow: none;
   }
 
+  html[data-theme="dark"] .settings-page .runtime-gauge-card,
+  html[data-theme="dark"] .settings-block-runtime .runtime-meta-grid > article,
+  html[data-theme="dark"] .settings-block-runtime .runtime-capability-grid > article {
+    background: color-mix(in srgb, var(--surface) 88%, #ffffff 12%);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: none;
+  }
+
+  html[data-theme="dark"] .settings-page .runtime-gauge-track {
+    stroke: color-mix(in srgb, var(--border-color) 70%, #ffffff 30%);
+  }
+
   html[data-theme="dark"] .settings-page input:not([type="checkbox"]):not([type="radio"]),
-html[data-theme="dark"] .settings-page select,
-html[data-theme="dark"] .settings-page .overflow-auto.border {
-    background: rgba(255,255,255,0.04);
-    border-color: rgba(255,255,255,0.09);
+  html[data-theme="dark"] .settings-page select,
+  html[data-theme="dark"] .settings-page .overflow-auto.border {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.09);
     box-shadow: none;
   }
 
   html[data-theme="dark"] .settings-toggle-row {
-    background: rgba(255,255,255,0.035);
-    border-color: rgba(255,255,255,0.08);
+    background: rgba(255, 255, 255, 0.035);
+    border-color: rgba(255, 255, 255, 0.08);
   }
 
   html[data-theme="dark"] .settings-toggle-row:hover {
@@ -620,8 +720,8 @@ html[data-theme="dark"] .settings-page .overflow-auto.border {
   }
 
   html[data-theme="dark"] .settings-switch {
-    background: rgba(255,255,255,0.14);
-    border-color: rgba(255,255,255,0.12);
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.12);
   }
 
   html[data-theme="dark"] .settings-switch-input:checked + .settings-switch {
@@ -630,12 +730,12 @@ html[data-theme="dark"] .settings-page .overflow-auto.border {
   }
 
   html[data-theme="dark"] .settings-switch-input:disabled + .settings-switch {
-    background: rgba(255,255,255,0.08);
-    border-color: rgba(255,255,255,0.08);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.08);
   }
 
   html[data-theme="dark"] .settings-block-runtime .runtime-meta-label > i {
-    background: rgba(255,255,255,0.06);
+    background: color-mix(in srgb, var(--primary) 18%, var(--surface) 82%);
   }
 
   @media (max-width: 768px) {
@@ -1237,13 +1337,9 @@ html[data-theme="dark"] .settings-page textarea:focus-visible {
     /* 激活态 icon 必须白 */
   }
 
-  /* 12. 运行时指标卡片 / 子卡片：白底 + 浅边 */
+  /* 12. 运行时指标卡片：圆角/阴影在上方已统一；此处不再强制 bg-surface，
+   * 避免盖掉主题色并与深色覆写打架。 */
 
-  .settings-page .runtime-meta-grid > article,
-.settings-page .runtime-capability-grid > article,
-.settings-page .runtime-gauge-card {
-    @apply bg-surface border-border shadow-none;
-  }
 
   /* =============================================================
    * Dark theme — 不动，沿用变量，自动跟随主题
@@ -1996,14 +2092,14 @@ html[data-theme="dark"] .settings-page .settings-tab-nav a:hover {
   }
 
   html[data-theme="dark"] .runtime-uptime-section {
-    /* Dark-mode tokens */
-    --uptime-bg: #1b1b1b;
+    /* Dark-mode tokens — 跟 settings shell / 卡片同一套 surface，避免整块发黑突兀 */
+    --uptime-bg: color-mix(in srgb, var(--surface) 88%, #ffffff 12%);
     --uptime-fg: var(--dark);
     --uptime-muted: var(--gray);
-    --uptime-border: rgba(255, 255, 255, 0.03);
-    --uptime-range-border: rgba(255, 255, 255, 0.08);
-    --uptime-range-hover-bg: rgba(255, 255, 255, 0.04);
-    --uptime-future-bg: rgba(255, 255, 255, 0.06);
+    --uptime-border: rgba(255, 255, 255, 0.08);
+    --uptime-range-border: rgba(255, 255, 255, 0.1);
+    --uptime-range-hover-bg: rgba(255, 255, 255, 0.06);
+    --uptime-future-bg: rgba(255, 255, 255, 0.08);
     --uptime-tooltip-bg: #1a1a1a;
     --uptime-tooltip-fg: var(--dark);
     --uptime-percent: #4ade80;
