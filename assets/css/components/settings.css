@@ -856,11 +856,12 @@
 
   /* When inside the shell, individual sections drop their card chrome
    * (border + shadow + gradient + padding) and just become labelled
-   * row groups. The shell carries the visual frame. */
+   * row groups. The shell carries the visual frame.
+   * IMPORTANT: do NOT apply bg-none to .settings-shell itself — that
+   * wiped the shell background and broke dark/light card framing. */
 
-  .settings-page .settings-shell .settings-panel,
-.settings-page .settings-shell {
-    @apply bg-none;
+  .settings-page .settings-shell .settings-panel {
+    @apply bg-transparent;
   }
 
   .settings-page .settings-shell .settings-panel > section,
@@ -989,11 +990,10 @@
    * `.settings-page input { ... }` rules.
    * ============================================================= */
 
-  /* Section header: title on the left, optional description on the right,
-   * thin underline rule below */
+  /* Section header: 标题在上、说明在下（不再左右分列，深色/窄屏都更稳） */
 
   .settings-page .settings-section-header {
-    @apply flex items-center justify-between gap-3 pb-2.5;
+    @apply flex flex-col items-start justify-start gap-1 pb-2.5;
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
   }
 
@@ -1198,69 +1198,64 @@ html[data-theme="dark"] .settings-page textarea:focus-visible {
     /* 不挂自己的背景；显示 body 灰 */
   }
 
-  /* 2. Shell 用 .page-shell 同款：白底 + 边框 + 圆角，无渐变无阴影 */
+  /* 2. Shell 用 .page-shell 同款：surface 底 + 边框，无渐变无阴影 */
 
   .settings-page .settings-shell {
-    @apply bg-surface bg-none border-border shadow-none;
-    /* #ffffff */
-    /* #e2e8f0 */
+    @apply bg-surface border-border shadow-none;
   }
 
-  /* 3. Tab nav 条带：跟 shell 同色（白），仅靠下边线分隔 */
+  /* 3. Tab nav 条带：跟 shell 同色，仅靠下边线分隔 */
 
   .settings-page .settings-shell > .settings-tab-nav {
     @apply bg-surface;
     border-bottom-color: var(--border-color);
   }
 
-  /* 4. 表单输入：白底（surface），不再 slate-50 */
+  /* 4. 表单输入：surface 底 */
 
   .settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
-.settings-page select,
-.settings-page textarea {
+  .settings-page select,
+  .settings-page textarea {
     @apply bg-surface border-border shadow-none;
   }
 
-  /* 5. Toggle 选项条：白底 + 中性灰悬停（不再蓝晕） */
+  /* 5. Toggle 选项条：surface + 主题悬停（不用硬编码 slate） */
 
   .settings-page .settings-toggle-row {
     @apply bg-surface border-border;
   }
 
   .settings-page .settings-toggle-row:hover {
-    background: #f1f5f9;
-    /* slate-100 中性浅灰 */
-    border-color: #cbd5e1;
-    /* slate-300 */
+    background: color-mix(in srgb, var(--light) 70%, var(--surface) 30%);
+    border-color: color-mix(in srgb, var(--border-color) 70%, var(--gray) 30%);
   }
 
-  /* 6. 分割线统一灰 */
+  /* 6. 分割线统一 */
 
   .settings-page .settings-shell > section + section,
-.settings-page .settings-shell .settings-panel > section + section,
-.settings-page .settings-section-header,
-.settings-page .settings-tab-title {
+  .settings-page .settings-shell .settings-panel > section + section,
+  .settings-page .settings-section-header,
+  .settings-page .settings-tab-title {
     @apply border-border;
   }
 
-  /* 7. Tab 标题图标 chip：换成中性浅灰，跟主题更搭 */
+  /* 7. Tab 标题图标 chip：浅色用中性底，深色在文末 dark 块统一接管 */
 
   .settings-page .settings-tab-title__icon {
     @apply text-primary;
-    background: #f1f5f9;
-    /* slate-100 */
+    background: color-mix(in srgb, var(--light) 78%, var(--surface) 22%);
   }
 
-  /* 8. Callout 提示框：保持淡蓝信息块（信息提示用蓝色合理） */
+  /* 8. Callout 提示框：淡主色信息块（走变量，避免 #eff6ff 在深色下发白） */
 
   .settings-page .settings-callout {
     @apply text-dark;
-    background: #eff6ff;
-    border-color: #bfdbfe;
+    background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
+    border-color: color-mix(in srgb, var(--primary) 22%, var(--border-color) 78%);
   }
 
   .settings-page .settings-callout p,
-.settings-page .settings-callout strong {
+  .settings-page .settings-callout strong {
     @apply text-inherit;
   }
 
@@ -1287,15 +1282,14 @@ html[data-theme="dark"] .settings-page textarea:focus-visible {
   }
 
   .settings-page .btn--secondary:hover {
-    background: #f1f5f9;
-    border-color: #cbd5e1;
+    background: color-mix(in srgb, var(--light) 70%, var(--surface) 30%);
+    border-color: color-mix(in srgb, var(--border-color) 70%, var(--gray) 30%);
   }
 
   /* 11. Tab nav 药丸 — 重头戏 ===========================================
-   *   • 未激活：白底 + 浅灰边 + 灰色 icon
-   *   • 悬停：  中性浅灰（slate-100），不再用蓝晕，让蓝色只属于"激活"
+   *   • 未激活：surface + 边框 + 灰色 icon
+   *   • 悬停：  中性浅底，不再用硬编码 slate
    *   • 激活：  品牌蓝实底 + 白色文字 + 白色 icon
-   *   • 悬停 != 激活时，icon 颜色跟着 hover 提一档，避免"灰 icon 孤立"
    * =================================================================== */
 
   .settings-page .settings-tab-nav a {
@@ -1308,19 +1302,16 @@ html[data-theme="dark"] .settings-page textarea:focus-visible {
     transition: color 160ms ease;
   }
 
-  /* hover：中性浅灰底，icon 换主题蓝（视觉提示"可点"）*/
+  /* hover：中性浅底，icon 换主题蓝 */
 
   .settings-page .settings-tab-nav a:hover {
     @apply text-dark;
-    background: #f1f5f9;
-    /* slate-100，跟 toggle hover 同色，全站统一 */
-    border-color: #cbd5e1;
-    /* slate-300 */
+    background: color-mix(in srgb, var(--light) 70%, var(--surface) 30%);
+    border-color: color-mix(in srgb, var(--border-color) 70%, var(--gray) 30%);
   }
 
   .settings-page .settings-tab-nav a:hover > i {
     @apply text-primary;
-    /* hover icon 上蓝色，跟整体视觉系一致 */
   }
 
   /* 激活：品牌蓝 + 白文字 + 白 icon（强制覆盖默认灰 icon）*/
@@ -1575,8 +1566,7 @@ html[data-theme="dark"] .settings-page .settings-tab-nav a:hover {
 
   .settings-page .db-badge {
     @apply flex items-center gap-2 py-2.5 px-3.5 border border-border text-[0.85rem] leading-[1.2] text-gray min-h-10 min-w-0 overflow-hidden;
-    background: #f8fafc;
-    /* slate-50 */
+    background: color-mix(in srgb, var(--light) 72%, var(--surface) 28%);
   }
 
   .settings-page .db-badge > i {
@@ -1630,12 +1620,12 @@ html[data-theme="dark"] .settings-page .settings-tab-nav a:hover {
     border-bottom: 2px solid color-mix(in srgb, var(--primary) 28%, var(--border-color) 72%);
   }
 
-  /* 图标 chip 放大 + 实底色（让它从 banner 里"立"起来）*/
+  /* 图标 chip：柔和主色底 + 主色图标（深浅色都可读；避免实心蓝块在深色下刺眼） */
 
   .settings-page .settings-tab-title__icon {
-    @apply w-13 h-13 rounded-none bg-primary text-white text-[1.5rem];
-    /* 直角风格 — 跟 Plan A 设计系统统一。 */
-    box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 28%, transparent);
+    @apply w-13 h-13 rounded-none text-primary text-[1.5rem];
+    background: color-mix(in srgb, var(--primary) 14%, var(--surface) 86%);
+    box-shadow: none;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -1762,8 +1752,7 @@ html[data-theme="dark"] .settings-page .settings-tab-nav a:hover {
 
   .settings-page .queue-stat {
     @apply flex items-center gap-3.5 py-3.5 px-4 border border-border min-h-16;
-    background: #f8fafc;
-    /* slate-50，跟数据库 badge 同色系 */
+    background: color-mix(in srgb, var(--light) 72%, var(--surface) 28%);
     transition: border-color 0.15s ease, background 0.15s ease;
   }
 
@@ -2216,5 +2205,98 @@ html[data-theme="dark"] .settings-page .settings-tab-nav a:hover {
   .runtime-uptime-foot {
     @apply flex justify-between text-[0.72rem];
     color: var(--uptime-muted);
+  }
+
+  /* =============================================================
+   * 收尾：服务器信息 / 环境信息 / 资源占用 — 深色最终态
+   * 必须放在文件末尾，压过前面多层 v2/v3/Level1 互相覆盖的规则。
+   * ============================================================= */
+
+  html[data-theme="dark"] .settings-page .settings-shell {
+    background: var(--surface);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: none;
+  }
+
+  html[data-theme="dark"] .settings-page .settings-shell > .settings-tab-nav {
+    background: var(--surface);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
+
+  html[data-theme="dark"] .settings-page .settings-tab-title__icon {
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 18%, var(--surface) 82%);
+    box-shadow: none;
+  }
+
+  html[data-theme="dark"] .settings-page .settings-tab-nav a:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  html[data-theme="dark"] .settings-page .btn--secondary:hover,
+  html[data-theme="dark"] .settings-page .settings-toggle-row:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.14);
+  }
+
+  html[data-theme="dark"] .settings-page .runtime-gauge-card,
+  html[data-theme="dark"] .settings-block-runtime .runtime-meta-grid > article,
+  html[data-theme="dark"] .settings-block-runtime .runtime-capability-grid > article {
+    background: color-mix(in srgb, var(--surface) 82%, #ffffff 18%);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: none;
+  }
+
+  html[data-theme="dark"] .settings-page .runtime-gauge-track {
+    stroke: rgba(255, 255, 255, 0.12);
+  }
+
+  html[data-theme="dark"] .settings-page .runtime-gauge-value {
+    color: var(--dark);
+  }
+
+  html[data-theme="dark"] .settings-page .runtime-gauge-label,
+  html[data-theme="dark"] .settings-page .runtime-gauge-detail {
+    color: var(--gray);
+  }
+
+  html[data-theme="dark"] .settings-block-runtime .runtime-meta-label > i {
+    background: color-mix(in srgb, var(--primary) 20%, var(--surface) 80%);
+    color: var(--primary);
+  }
+
+  html[data-theme="dark"] .settings-page .settings-callout,
+  html[data-theme="dark"] .settings-block-runtime .runtime-enablement-card {
+    background: color-mix(in srgb, var(--primary) 10%, var(--surface) 90%);
+    border-color: color-mix(in srgb, var(--primary) 26%, rgba(255, 255, 255, 0.1) 74%);
+    color: var(--dark);
+  }
+
+  html[data-theme="dark"] .settings-block-runtime .runtime-enablement-commands,
+  html[data-theme="dark"] .settings-block-runtime .runtime-enablement-log {
+    background: rgba(0, 0, 0, 0.28);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: var(--dark);
+  }
+
+  html[data-theme="dark"] .settings-block-runtime .runtime-enablement-actions .btn--secondary {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.14);
+    color: var(--dark);
+  }
+
+  .settings-block-runtime .runtime-enablement-actions {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  @media (max-width: 576px) {
+    .settings-block-runtime .runtime-enablement-actions {
+      @apply w-full;
+    }
+
+    .settings-block-runtime .runtime-enablement-actions .btn {
+      @apply flex-1 min-w-[140px] justify-center;
+    }
   }
 }
