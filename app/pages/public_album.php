@@ -289,7 +289,18 @@ require_once APP_ROOT . '/header.php';
         <footer class="pa-foot">
             <div class="pa-foot-left">
                 <span class="pa-foot-name"><?= htmlspecialchars((string)$album['name']) ?></span>
-                <span class="pa-foot-meta"><?= number_format((int)$album['image_count']) ?> 张 · <?= htmlspecialchars(date('Y-m-d', (int)$album['created_at'])) ?> · <i class="fa-light fa-eye" aria-hidden="true"></i> <?= number_format((int)$album['view_count']) ?></span>
+                <span class="pa-foot-meta">
+                    <span><?= number_format((int)$album['image_count']) ?> 张</span>
+                    <span title="创建时间 <?= htmlspecialchars(date('Y-m-d H:i', (int)$album['created_at'])) ?>">
+                        <i class="fa-light fa-calendar-plus" aria-hidden="true"></i><?= htmlspecialchars(date('Y-m-d', (int)$album['created_at'])) ?>
+                    </span>
+                    <span title="最后更新 <?= htmlspecialchars(date('Y-m-d H:i', (int)$album['updated_at'])) ?>">
+                        <i class="fa-light fa-clock-rotate-left" aria-hidden="true"></i><?= htmlspecialchars(date('Y-m-d', (int)$album['updated_at'])) ?>
+                    </span>
+                    <span title="浏览量">
+                        <i class="fa-light fa-eye" aria-hidden="true"></i><?= number_format((int)$album['view_count']) ?>
+                    </span>
+                </span>
             </div>
             <div class="pa-foot-right">
                 <a href="https://litepic.io" target="_blank" rel="noopener noreferrer">由 LitePic 驱动</a>
