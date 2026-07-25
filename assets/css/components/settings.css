@@ -400,12 +400,17 @@
   }
 
   .settings-block-runtime .runtime-meta-value {
-    @apply min-w-0 max-w-[58%] justify-end text-right text-sm text-dark font-medium leading-snug;
+    @apply ml-auto min-w-0 flex-1 justify-end text-right text-sm text-dark font-medium leading-snug;
   }
 
   /* 「如何配置」钉在卡片内部右上角，不挤占主行布局 */
   .settings-block-runtime .runtime-meta-help {
     @apply absolute top-2.5 right-3 z-[1] inline-flex items-center gap-1 text-[11px] text-primary no-underline leading-none shrink-0 hover:underline;
+  }
+
+  /* 有右上角帮助链接时，主值仍贴右，避免看起来像停在中间 */
+  .settings-block-runtime .runtime-meta-grid > article.has-meta-help .runtime-meta-value {
+    @apply max-w-[70%] justify-end text-right;
   }
 
   .settings-block-runtime .runtime-capability-grid > article {
