@@ -1238,76 +1238,76 @@ document.addEventListener('DOMContentLoaded', initLicenseDialog);
 })();
 
 /* =====================================================================
- * 图库卡片描述内联编辑（双击 .img-desc）
+ * 图库卡片描述按钮（图片底部）
  * ---------------------------------------------------------------------
- *  - 允许清空（保存空字符串）
- *  - 与文件名编辑同一套 Enter / Esc / focusout 约定
+ *  - 点击 .img-desc-btn → 底部展开输入框编辑
+ *  - Enter 保存 / Esc 取消 / blur 保存
+ *  - 文件名仍用上方双击 .img-name 改名
  * ===================================================================== */
 (function() {
-    document.addEventListener('dblclick', (e) => {
-        const descEl = e.target.closest?.('.img-card .img-desc');
-        if (!descEl) return;
-        if (descEl.getAttribute('contenteditable') === 'true') return;
-        if (!descEl.closest('.gallery')) return;
+    const syncButton = (btn, text) => {
+        const label = btn.querySelector('.img-desc-label');
+        const saved = (text || '').trim();
+        btn.dataset.description = saved;
+        btn.classList.toggle('is-empty', saved === '');
+        btn.setAttribute('title', saved || '编辑描述');
+        if (label) label.textContent = saved || '添加描述';
+    };
 
-        e.preventDefault();
-        const originalDisplay = descEl.textContent.trim();
-        descEl.dataset.originalText = originalDisplay;
-        descEl.classList.remove('is-empty');
-        descEl.setAttribute('contenteditable', 'true');
-        descEl.spellcheck = true;
-        descEl.focus();
-
-        const range = document.createRange();
-        range.selectNodeContents(descEl);
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(range);
-    });
-
-    document.addEventListener('keydown', (e) => {
-        const descEl = e.target?.closest?.('.img-desc[contenteditable="true"]');
-        if (!descEl) return;
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            descEl.blur();
-        } else if (e.key === 'Escape') {
-            e.preventDefault();
-            descEl.textContent = descEl.dataset.originalText || '';
-            descEl.dataset.cancelled = '1';
-            descEl.blur();
+    const endEdit = (btn, restoreText) => {
+        const input = btn.querySelector('.img-desc-input');
+        if (input) input.remove();
+        btn.classList.remove('is-editing');
+        let label = btn.querySelector('.img-desc-label');
+        if (!label) {
+            label = document.createElement('span');
+            label.className = 'img-desc-label';
+            btn.appendChild(label);
         }
-    });
+        label.hidden = false;
+        syncButton(btn, restoreText);
+    };
 
-    document.addEventListener('focusout', async (e) => {
-        const descEl = e.target;
-        if (!(descEl instanceof HTMLElement)) return;
-        if (!descEl.matches?.('.img-desc[contenteditable="true"]')) return;
+    const startEdit = (btn) => {
+        if (btn.classList.contains('is-editing')) return;
+        const current = btn.dataset.description || '';
+        btn.classList.add('is-editing');
+        btn.classList.remove('is-empty');
+        const label = btn.querySelector('.img-desc-label');
+        if (label) label.hidden = true;
 
-        descEl.removeAttribute('contenteditable');
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'img-desc-input';
+        input.maxLength = 500;
+        input.placeholder = '输入描述…';
+        input.value = current;
+        input.dataset.originalText = current;
+        btn.appendChild(input);
+        input.focus();
+        input.select();
+    };
 
-        const cancelled = descEl.dataset.cancelled === '1';
-        delete descEl.dataset.cancelled;
-
-        const newText = (descEl.textContent || '').trim();
-        const oldText = descEl.dataset.originalText || '';
-        delete descEl.dataset.originalText;
+    const saveEdit = async (btn, input) => {
+        if (btn.dataset.saving === '1') return;
+        const cancelled = input.dataset.cancelled === '1';
+        const oldText = input.dataset.originalText || '';
+        const newText = cancelled ? oldText : (input.value || '').trim();
 
         if (cancelled || newText === oldText) {
-            descEl.textContent = oldText;
-            descEl.classList.toggle('is-empty', oldText === '');
-            descEl.setAttribute('title', oldText || '双击添加描述');
+            endEdit(btn, oldText);
             return;
         }
 
-        const card = descEl.closest('.img-card, .img-box');
+        const card = btn.closest('.img-card, .img-box');
         const filename = card?.dataset?.filename || '';
         if (!filename) {
-            descEl.textContent = oldText;
-            descEl.classList.toggle('is-empty', oldText === '');
+            endEdit(btn, oldText);
             return;
         }
 
+        btn.dataset.saving = '1';
+        input.disabled = true;
         try {
             const result = await ApiService.request('/api/v1/action', {
                 action: 'update_description',
@@ -1319,17 +1319,55 @@ document.addEventListener('DOMContentLoaded', initLicenseDialog);
             const saved = (result && typeof result.description === 'string')
                 ? result.description
                 : newText;
-            descEl.textContent = saved;
-            descEl.classList.toggle('is-empty', saved === '');
-            descEl.setAttribute('title', saved || '双击添加描述');
+            endEdit(btn, saved);
             window.ImgEt?.Utils?.showNotification?.(saved === '' ? '描述已清空' : '描述已保存', 'success');
         } catch (err) {
-            descEl.textContent = oldText;
-            descEl.classList.toggle('is-empty', oldText === '');
-            descEl.setAttribute('title', oldText || '双击添加描述');
+            endEdit(btn, oldText);
             const msg = (err && err.message) ? err.message : '请稍后重试';
             window.ImgEt?.Utils?.showNotification?.('描述保存失败:' + msg, 'error');
+        } finally {
+            delete btn.dataset.saving;
         }
+    };
+
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest?.('.img-card .img-desc-btn');
+        if (!btn) return;
+        if (!btn.closest('.gallery')) return;
+        if (e.target.closest('.img-desc-input')) return;
+        if (btn.classList.contains('is-editing')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        startEdit(btn);
+    });
+
+    document.addEventListener('keydown', (e) => {
+        const input = e.target?.closest?.('.img-desc-input');
+        if (!input) return;
+        const btn = input.closest('.img-desc-btn');
+        if (!btn) return;
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            input.blur();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            input.dataset.cancelled = '1';
+            input.blur();
+        }
+    });
+
+    document.addEventListener('focusout', (e) => {
+        const input = e.target;
+        if (!(input instanceof HTMLInputElement)) return;
+        if (!input.matches?.('.img-desc-input')) return;
+        const btn = input.closest('.img-desc-btn');
+        if (!btn) return;
+        // 下一帧再存，避免同一次点击里误关
+        setTimeout(() => {
+            if (!btn.contains(document.activeElement)) {
+                saveEdit(btn, input);
+            }
+        }, 0);
     });
 })();
 

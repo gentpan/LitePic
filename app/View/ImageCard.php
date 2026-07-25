@@ -96,6 +96,7 @@ class ImageCard {
         if ($takenAt > 0) {
             $overlayTime = $takenAt;
         }
+        $description = trim((string)($this->info['description'] ?? ''));
         if ($this->show_select) {
             ?>
             <div class="img-preview">
@@ -107,6 +108,13 @@ class ImageCard {
                     <i class="fa-light fa-<?= $takenAt > 0 ? 'camera' : 'clock' ?>"></i>
                     <?= date('Y-m-d H:i', $overlayTime) ?>
                 </div>
+                <button type="button"
+                        class="img-desc-btn<?= $description === '' ? ' is-empty' : '' ?>"
+                        title="<?= $description !== '' ? htmlspecialchars($description) : '编辑描述' ?>"
+                        data-description="<?= htmlspecialchars($description, ENT_QUOTES) ?>">
+                    <i class="fa-light fa-pen-to-square" aria-hidden="true"></i>
+                    <span class="img-desc-label"><?= $description !== '' ? htmlspecialchars($description) : '添加描述' ?></span>
+                </button>
             </div>
             <?php
         } else {
@@ -126,7 +134,6 @@ class ImageCard {
         if ($display_name === '') {
             $display_name = (string)pathinfo((string)$this->info['filename'], PATHINFO_FILENAME);
         }
-        $description = trim((string)($this->info['description'] ?? ''));
         $exifLat = $this->info['exif_lat'] ?? null;
         $exifLng = $this->info['exif_lng'] ?? null;
         $hasGps = is_numeric($exifLat) && is_numeric($exifLng);
@@ -166,12 +173,9 @@ class ImageCard {
         ?>
         <div class="img-info">
             <div class="img-name-row">
-                <div class="img-name" title="<?= htmlspecialchars($raw_name) ?>">
+                <div class="img-name" title="<?= htmlspecialchars($raw_name) ?>（双击改名）">
                     <?= htmlspecialchars($display_name) ?>
                 </div>
-                <div class="img-desc<?= $description === '' ? ' is-empty' : '' ?>"
-                     title="<?= $description !== '' ? htmlspecialchars($description) : '双击添加描述' ?>"
-                     data-placeholder="添加描述…"><?= htmlspecialchars($description) ?></div>
             </div>
             <div class="img-meta">
                 <span class="img-meta-badge img-dimensions img-dimensions-badge" title="图片尺寸">
