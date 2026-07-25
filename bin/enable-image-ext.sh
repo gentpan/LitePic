@@ -27,6 +27,22 @@ CADDYFILE="${LITEPIC_CADDYFILE:-/etc/frankenphp/Caddyfile}"
 SUDOERS_FILE="/etc/sudoers.d/litepic-enable-ext"
 SCRIPT_PATH="$(readlink -f "$0" 2>/dev/null || realpath "$0" 2>/dev/null || echo "$0")"
 
+# FrankenPHP systemd unit uses ProtectSystem=full → /etc is read-only inside
+# the service mount namespace. `sudo` elevates uid but does NOT escape that
+# namespace, so ln/cp into /etc/php-zts/conf.d fails with EROFS.
+# Re-enter PID 1's mount namespace once (web one-click path).
+if [[ "${LITEPIC_HOST_MNT:-0}" != "1" && "$(id -u)" -eq 0 ]]; then
+  if ! (umask 022; : > /etc/.litepic-write-test) 2>/dev/null; then
+    if [[ -e /proc/1/ns/mnt ]] && command -v nsenter >/dev/null 2>&1; then
+      echo "==> 检测到只读 /etc（systemd ProtectSystem），切换到主机 mount 命名空间"
+      exec env LITEPIC_HOST_MNT=1 nsenter --mount=/proc/1/ns/mnt -- "$SCRIPT_PATH" "$@"
+    fi
+    echo "无法写入 /etc（只读），且 nsenter 不可用，网页一键启用无法继续。" >&2
+    exit 6
+  fi
+  rm -f /etc/.litepic-write-test
+fi
+
 usage() {
   sed -n '2,20p' "$0" | sed 's/^# \?//'
   exit 0
@@ -207,46 +223,64 @@ if command -v phpenmod >/dev/null 2>&1; then
   run phpenmod -v "$PHP_VER" gd imagick || true
 fi
 
-# FrankenPHP ZTS：实际扫 /etc/php-zts/conf.d/，需单独建链
+# FrankenPHP ZTS：实际扫 /etc/php-zts/conf.d/，需写入 ZTS 专用 ini
+# （extension=gd-zts-85 / imagick-zts-85），不能软链 NTS 的 imagick.so。
 # 也恢复被手动挪走的 ini（例如测试时 mv 到 /root/*.disabled-test）
 enable_zts_mod() {
   local mod="$1"
   local zts_dir="/etc/php-zts/conf.d"
-  local mods_dir="/etc/php/${PHP_VER}/mods-available"
-  local src="${mods_dir}/${mod}.ini"
   local dest="${zts_dir}/20-${mod}.ini"
+  local ver_nodot="${PHP_VER//./}"
+  local so_name="${mod}-zts-${ver_nodot}"
+  local so_path="/usr/lib/php-zts/modules/${so_name}.so"
 
   if [[ ! -d "$zts_dir" ]]; then
     return 0
   fi
-  if [[ ! -f "$src" ]]; then
-    echo "警告：找不到 $src" >&2
-    return 0
-  fi
 
-  # 若被挪到 /root 备份，优先还原
+  # 若被挪到 /root 备份，优先还原（保留备份副本，方便再次关闭做自测）
   local bak
   for bak in "/root/20-${mod}.ini.disabled-test" "/root/20-${mod}.ini.bak"; do
-    if [[ -f "$bak" && ! -e "$dest" ]]; then
+    if [[ -f "$bak" ]]; then
       echo "==> 还原 $bak → $dest"
       if [[ "$DRY_RUN" -eq 1 ]]; then
-        echo "+ mv $bak $dest"
+        echo "+ cp -a $bak $dest"
       else
-        mv "$bak" "$dest"
+        cp -a "$bak" "$dest"
       fi
       return 0
     fi
   done
 
-  if [[ -L "$dest" || -f "$dest" ]]; then
+  if [[ ! -f "$so_path" ]]; then
+    local found
+    found="$(ls -1 /usr/lib/php-zts/modules/"${mod}"-zts-*.so 2>/dev/null | head -1 || true)"
+    if [[ -n "$found" ]]; then
+      so_name="$(basename "$found" .so)"
+      so_path="$found"
+    else
+      echo "警告：找不到 ZTS 模块 ${mod}-zts-*.so，跳过写入 $dest" >&2
+      return 0
+    fi
+  fi
+
+  if [[ -f "$dest" ]] && grep -qE "^[[:space:]]*extension=${so_name}([[:space:]]|$)" "$dest"; then
     echo "==> ZTS 已启用：$dest"
     return 0
   fi
-  echo "==> 链接 ZTS 模块：$dest → $src"
+
+  echo "==> 写入 ZTS 模块：$dest（extension=${so_name}）"
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    echo "+ ln -sfn $src $dest"
+    echo "+ cat > $dest <<EOF"
+    echo "[${mod}]"
+    echo "extension=${so_name}"
+    echo "EOF"
   else
-    ln -sfn "$src" "$dest"
+    # 用正式文件，不用软链（ProtectSystem / 扩展名都更稳）
+    cat >"$dest" <<EOF
+[${mod}]
+extension=${so_name}
+EOF
   fi
 }
 
