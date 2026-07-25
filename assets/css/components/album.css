@@ -465,6 +465,14 @@
     @apply opacity-100;
   }
 
+  .pa-tile-views {
+    @apply absolute top-2 right-2 z-[2] inline-flex items-center gap-1 py-0.5 px-1.5 text-[0.72rem] tabular-nums text-white;
+    background: rgba(8, 12, 20, 0.55);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  .pa-tile-views i { @apply text-[0.85em] opacity-85; }
+
   @media (prefers-reduced-motion: reduce) {
     .pa-tile img,
     .pa-tile::after,
@@ -578,6 +586,11 @@
   .pa-lb-cap { @apply mt-3.5 text-center; color: rgba(255,255,255,0.92); }
   .pa-lb-title { @apply block text-base font-semibold; }
   .pa-lb-date { @apply block mt-0.5 text-[0.8rem]; color: rgba(255,255,255,0.6); }
+  .pa-lb-views {
+    @apply inline-flex items-center gap-1.5 mt-1.5 text-[0.82rem] tabular-nums;
+    color: rgba(255, 255, 255, 0.72);
+  }
+  .pa-lb-views[hidden] { @apply hidden; }
   .pa-lb-loc {
     @apply inline-flex items-center gap-1.5 mt-2 text-[0.82rem] no-underline;
     color: rgba(255, 255, 255, 0.72);

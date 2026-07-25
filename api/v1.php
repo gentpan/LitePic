@@ -11,6 +11,7 @@ declare(strict_types=1);
  * - GET  /api/v1/export         Export image list
  * - POST /api/v1/action         Admin image operations
  * - GET  /api/v1/image-status   Poll async-processing state for given ids
+ * - POST /api/v1/view           Record one image view (public lightbox ping)
  * - GET  /api/v1/system/status  Runtime server metrics
  * - POST /api/v1/queue/drain               Manually trigger the worker
  * - GET  /api/v1/queue/failed              List failed tasks
@@ -59,6 +60,10 @@ switch ($route) {
 
     case '/image-status':
         require __DIR__ . '/image-status.php';
+        break;
+
+    case '/view':
+        require __DIR__ . '/view.php';
         break;
 
     case '/duplicate-check':

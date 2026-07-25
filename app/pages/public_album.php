@@ -18,9 +18,8 @@ if (!defined('APP_ROOT')) {
  *   password  访问前需密码,bcrypt 校验,1 小时签名 cookie
  *   private   仅登录管理员,其他人 404
  *
- * Visit counter: every successful render bumps albums.view_count, but throttled
- * to once per (album,IP) per 30 min via a session cookie so refresh-spam doesn't
- * inflate it.
+ * Visit counter: every successful render bumps albums.view_count once
+ * (refresh = +1; no cookie / IP throttle — matches product requirement).
  *
  * Password rate limit: reuses LoginAttemptRepository keyed by IP — 5 wrong
  * passwords in 5 min → 15-min lockout (matches admin login policy).
@@ -154,41 +153,13 @@ if (!$passwordPassed) {
     exit;
 }
 
-// ============== 访问计数(防刷)==============
-// 双层去重 — cookie 是 UX 快路径(避免连续刷新都打 DB),SQLite 表是
-// authoritative。之前只有 cookie,导致隐身/清 cookie 后能无限刷计数。
-// (album_id, ip_hash, 30min-bucket) 组合 PK + INSERT OR IGNORE 是单
-// 语句原子检查。
-$visitCookieName = 'lp_album_visit_' . $cookieKey;
-$shouldCount = false;
-if (!isset($_COOKIE[$visitCookieName])) {
-    $visitLog = new \LitePic\Repository\AlbumVisitLogRepository();
-    $clientIp = (string)($_SERVER['REMOTE_ADDR'] ?? '');
-    try {
-        $shouldCount = $visitLog->recordVisitIfNew((int)$album['id'], $clientIp);
-    } catch (\Throwable $_) {
-        // best-effort — DB error → fall back to cookie-only behaviour
-        $shouldCount = true;
-    }
-
-    // Cookie still set either way — it's the cheap "skip the DB lookup"
-    // bypass for the same browser, not the security gate.
-    setcookie($visitCookieName, '1', [
-        'expires'  => time() + 1800,
-        'path'     => '/',
-        'secure'   => \LitePic\Core\RequestContext::isHttps(),
-        'httponly' => true,
-        'samesite' => 'Lax',
-    ]);
-}
-
-if ($shouldCount) {
-    try {
-        $albumRepo->incrementViewCount((int)$album['id']);
-    } catch (\Throwable $_) { /* best-effort */ }
-    // 反映在当次渲染里
+// ============== 访问计数 ==============
+// 每次成功渲染 +1（含翻页 / 刷新）。防刷曾用 cookie + album_visit_log，
+// 现按产品要求改为「刷新即计」。
+try {
+    $albumRepo->incrementViewCount((int)$album['id']);
     $album['view_count']++;
-}
+} catch (\Throwable $_) { /* best-effort */ }
 
 // ============== 主视图 ==============
 $albumImageRepo = new \LitePic\Repository\AlbumImageRepository();
@@ -244,6 +215,7 @@ foreach ($pageFilenames as $filename) {
         'thumb_url'  => (string)($meta['thumb_url'] ?? \LitePic\Service\Image\ImageUrl::forIdentifier($filename)),
         'dimensions' => (string)($meta['dimensions'] ?? ''),
         'size'       => (int)($meta['size'] ?? 0),
+        'views'      => (int)($meta['request_count'] ?? 0),
         'title'      => $caption,
         'date'       => $dateTs > 0 ? date('Y-m-d H:i', $dateTs) : '',
         'map_url'    => $hasGps
@@ -292,14 +264,20 @@ require_once APP_ROOT . '/header.php';
             <div class="pa-grid" data-pa-grid>
                 <?php foreach ($images as $i => $img): ?>
                     <figure class="pa-tile" data-pa-index="<?= (int)$i ?>"
+                            data-filename="<?= htmlspecialchars($img['filename']) ?>"
                             data-full="<?= htmlspecialchars($img['url']) ?>"
                             data-title="<?= htmlspecialchars($img['title']) ?>"
                             data-date="<?= htmlspecialchars($img['date']) ?>"
-                            data-map="<?= htmlspecialchars($img['map_url']) ?>">
+                            data-map="<?= htmlspecialchars($img['map_url']) ?>"
+                            data-views="<?= (int)$img['views'] ?>">
                         <img src="<?= htmlspecialchars($img['thumb_url']) ?>"
                              alt="<?= htmlspecialchars($img['title']) ?>"
                              loading="lazy"
                              decoding="async">
+                        <span class="pa-tile-views" title="浏览量">
+                            <i class="fa-light fa-eye" aria-hidden="true"></i>
+                            <span data-pa-views><?= number_format((int)$img['views']) ?></span>
+                        </span>
                         <?php if ($img['title'] !== ''): ?>
                             <figcaption class="pa-tile-cap"><?= htmlspecialchars($img['title']) ?></figcaption>
                         <?php endif; ?>
@@ -382,6 +360,10 @@ require_once APP_ROOT . '/header.php';
         <figcaption class="pa-lb-cap">
             <span class="pa-lb-title" data-pa-title></span>
             <span class="pa-lb-date" data-pa-date></span>
+            <span class="pa-lb-views" data-pa-lb-views hidden>
+                <i class="fa-light fa-eye" aria-hidden="true"></i>
+                <span data-pa-lb-views-n></span>
+            </span>
             <a class="pa-lb-loc" data-pa-loc hidden target="_blank" rel="noopener noreferrer">
                 <i class="fa-light fa-location-dot" aria-hidden="true"></i> 查看位置
             </a>
@@ -437,8 +419,41 @@ require_once APP_ROOT . '/header.php';
     const titleEl = lb.querySelector('[data-pa-title]');
     const dateEl = lb.querySelector('[data-pa-date]');
     const locEl = lb.querySelector('[data-pa-loc]');
+    const viewsEl = lb.querySelector('[data-pa-lb-views]');
+    const viewsN = lb.querySelector('[data-pa-lb-views-n]');
     const spinner = lb.querySelector('[data-pa-spinner]');
     let cur = -1;
+
+    const formatViews = (n) => {
+        n = Math.max(0, parseInt(n, 10) || 0);
+        return n.toLocaleString('zh-CN');
+    };
+
+    // 灯箱每次展示计 1 次；成功后同步网格角标与灯箱数字
+    const recordView = (tile) => {
+        const filename = tile?.dataset?.filename || '';
+        if (!filename) return;
+        const body = JSON.stringify({ filename });
+        const apply = (views) => {
+            if (typeof views !== 'number' || views < 0) return;
+            tile.dataset.views = String(views);
+            const badge = tile.querySelector('[data-pa-views]');
+            if (badge) badge.textContent = formatViews(views);
+            if (viewsN) viewsN.textContent = formatViews(views);
+            if (viewsEl) viewsEl.hidden = false;
+        };
+        // 乐观 +1，接口返回权威值再校正
+        apply((parseInt(tile.dataset.views || '0', 10) || 0) + 1);
+        fetch('/api/v1/view', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body,
+            credentials: 'same-origin',
+            keepalive: true,
+        }).then((r) => r.ok ? r.json() : null).then((data) => {
+            if (data && data.status === 'ok' && typeof data.views === 'number') apply(data.views);
+        }).catch(() => {});
+    };
 
     // 灯箱大图:加载时转圈,加载完淡入
     img.addEventListener('load', () => { spinner.hidden = true; img.classList.add('is-loaded'); });
@@ -454,10 +469,13 @@ require_once APP_ROOT . '/header.php';
         const title = t.dataset.title || '';
         const date = t.dataset.date || '';
         const map = t.dataset.map || '';
+        const views = parseInt(t.dataset.views || '0', 10) || 0;
         titleEl.textContent = title;
         titleEl.style.display = title ? '' : 'none';
         dateEl.textContent = date;
         dateEl.style.display = date ? '' : 'none';
+        if (viewsN) viewsN.textContent = formatViews(views);
+        if (viewsEl) viewsEl.hidden = false;
         if (locEl) {
             if (map) {
                 locEl.href = map;
@@ -467,6 +485,7 @@ require_once APP_ROOT . '/header.php';
                 locEl.hidden = true;
             }
         }
+        recordView(t);
     };
     const open = (i) => { show(i); lb.hidden = false; document.body.style.overflow = 'hidden'; };
     const close = () => { lb.hidden = true; img.src = ''; document.body.style.overflow = ''; };

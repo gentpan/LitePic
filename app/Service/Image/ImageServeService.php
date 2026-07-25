@@ -104,6 +104,8 @@ final class ImageServeService
         if (self::isViewCounterEnabled() && !self::isCountableRequest()) {
             // Skip counting for HEAD / range / If-Modified-Since revalidation
             // so the number reflects actual image displays, not cache pings.
+        } elseif (self::isViewCounterEnabled() && self::isAlbumPageReferer()) {
+            // 公开相册灯箱走 POST /api/v1/view；此处再计会翻倍。
         } elseif (self::isViewCounterEnabled()) {
             try {
                 $this->repo->recordViewRequest($identifier, (string)($_SERVER['HTTP_REFERER'] ?? ''));
@@ -197,5 +199,17 @@ final class ImageServeService
         if (!empty($_SERVER['HTTP_IF_NONE_MATCH'])) return false;
         if (!empty($_SERVER['HTTP_RANGE'])) return false;
         return true;
+    }
+
+    /**
+     * Referer is a public album page (`/a/...`) — view counting is handled
+     * by the lightbox ping (`POST /api/v1/view`), not by streaming.
+     */
+    private static function isAlbumPageReferer(): bool
+    {
+        $ref = (string)($_SERVER['HTTP_REFERER'] ?? '');
+        if ($ref === '') return false;
+        $path = parse_url($ref, PHP_URL_PATH);
+        return is_string($path) && preg_match('#^/a(/|$)#', $path) === 1;
     }
 }
