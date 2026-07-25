@@ -16,6 +16,9 @@ namespace LitePic\Service\Image;
  */
 final class PathService
 {
+    private const FILENAME_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+    private const FILENAME_LENGTH = 12;
+
     /**
      * Strip / normalise a possibly-untrusted identifier. Returns '' if any
      * path component is empty, '.', or '..' — the caller is then expected
@@ -60,19 +63,32 @@ final class PathService
     }
 
     /**
-     * Generate a unique filename for an upload (32 random hex chars + ext).
+     * Generate a unique filename for an upload (12 random Base62 chars + ext).
+     *
+     * 62^12 gives about 71 bits of entropy while cutting the identifier from
+     * 32 characters to 12. Rejection sampling avoids modulo bias: only byte
+     * values below 248 (the largest multiple of 62 below 256) are accepted.
      */
     public static function generateFilename(string $ext): string
     {
         $ext = strtolower($ext);
-        // 32 位十六进制（128 bits 加密强度），观感跟 md5 一致但不是任何
-        // 内容的 hash —— 纯随机，无泄漏风险。比之前 uniqid + random_int 的
-        // 「微秒时间戳 + 3 位数字」长度更长、碰撞概率几乎为零，且看不出
-        // 上传时间。collision check 循环保留作为偏执兜底。
         do {
-            $candidate = bin2hex(random_bytes(16)) . '.' . $ext;
+            $candidate = self::randomBase62(self::FILENAME_LENGTH) . '.' . $ext;
         } while (file_exists(self::resolveFilePath($candidate)));
         return $candidate;
+    }
+
+    private static function randomBase62(int $length): string
+    {
+        $result = '';
+        while (strlen($result) < $length) {
+            foreach (unpack('C*', random_bytes($length)) ?: [] as $byte) {
+                if ($byte >= 248) continue;
+                $result .= self::FILENAME_ALPHABET[$byte % 62];
+                if (strlen($result) === $length) break;
+            }
+        }
+        return $result;
     }
 
     /**
