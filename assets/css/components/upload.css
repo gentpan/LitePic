@@ -2,9 +2,12 @@
   /* 上传页：撑满顶栏与页脚之间的剩余高度，
      最近上传用 margin-top:auto 贴底，与 footer 只留 page-container 的 mb。 */
   .page-main.upload-main {
-    @apply gap-6 overflow-visible;
-    /* 菜单栏与上传框之间再多留一段空隙 */
-    padding-top: 22px;
+    @apply overflow-visible;
+    /* 卡片之间的间距（上传框 ↔ 最近上传） */
+    gap: 56px;
+    /* 菜单栏 ↔ 上传框 空隙，与卡片间距视觉一致
+       (header-offset 100px 已含约 30px 富余，padding-top 再补到同一视觉量) */
+    padding-top: 26px;
     /* 兜底：即便外层 flex 未撑开，也至少占满视口可用高度 */
     min-height: calc(100dvh - var(--header-offset) - var(--footer-safe-space));
   }
@@ -661,8 +664,8 @@
 
   @media (max-width: 768px) {
     .page-main.upload-main {
-      @apply gap-4;
-      padding-top: 12px;
+      gap: 28px;
+      padding-top: 10px;
       min-height: calc(100dvh - var(--header-offset) - var(--footer-safe-space) - var(--mobile-nav-offset, 66px));
     }
 
