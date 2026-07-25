@@ -1,6 +1,7 @@
 @layer components {
-  /* 上传页：撑满顶栏与页脚之间的剩余高度，
-     最近上传用 margin-top:auto 贴底，与 footer 只留 page-container 的 mb。 */
+  /* 上传页：撑满顶栏与页脚之间的剩余高度。
+     上传框 flex:1 吃掉中间空隙（拖拽区跟着长高），
+     最近上传 mt-auto 贴底，与 footer 只留 page-container 的 mb。 */
   .page-main.upload-main {
     @apply overflow-visible;
     /* 卡片之间的间距（上传框 ↔ 最近上传） */
@@ -13,13 +14,17 @@
   }
 
   .page-main.upload-main > .upload-box {
-    @apply flex-initial min-h-0;
-    min-height: initial;
+    @apply flex flex-col min-h-0;
+    flex: 1 1 auto;
   }
 
   .page-main.upload-main > .recent-uploads {
-    @apply flex-initial min-h-0 mt-auto;
+    @apply flex-none min-h-0 mt-auto;
     min-height: initial;
+  }
+
+  .page-main.upload-main .drop-zone {
+    @apply flex-1 min-h-[480px];
   }
 
   .upload-box {
@@ -203,7 +208,7 @@
   }
 
   .drop-zone {
-    @apply relative min-h-[420px] flex flex-col items-center justify-center text-center cursor-pointer;
+    @apply relative min-h-[480px] flex flex-col items-center justify-center text-center cursor-pointer;
     border: 1px dashed color-mix(in srgb, var(--primary) 28%, var(--border-color) 72%);
     border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--surface) 90%, var(--light) 10%);
@@ -669,12 +674,16 @@
       min-height: calc(100dvh - var(--header-offset) - var(--footer-safe-space) - var(--mobile-nav-offset, 66px));
     }
 
+    .page-main.upload-main .drop-zone {
+      @apply min-h-[360px];
+    }
+
     .upload-box {
       @apply rounded-[var(--radius-md)] p-[18px];
     }
 
     .drop-zone {
-      @apply min-h-[340px];
+      @apply min-h-[360px];
     }
 
     .upload-queue-header {
