@@ -70,6 +70,27 @@
     @apply text-gray text-[0.78rem] leading-[1.4];
   }
 
+  .settings-field-hint--spaced {
+    @apply mt-2;
+  }
+
+  .settings-required {
+    color: #d73a49;
+  }
+
+  .settings-code-break {
+    @apply text-[0.78rem];
+    word-break: break-all;
+  }
+
+  .settings-command-list {
+    @apply m-0 mt-2 pl-4 text-[0.86rem] leading-[1.7] text-gray;
+  }
+
+  .settings-command-list code {
+    @apply text-[0.82rem] text-dark;
+  }
+
   .settings-page input:not([type="checkbox"]):not([type="radio"]),
 .settings-page select {
     @apply min-h-[var(--settings-control-height)] rounded-none;
@@ -1476,6 +1497,33 @@ html[data-theme="dark"] .settings-page .settings-tab-nav a:hover {
     @apply w-13 h-13 rounded-none bg-primary text-white text-[1.5rem];
     /* 直角风格 — 跟 Plan A 设计系统统一。 */
     box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 28%, transparent);
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  /* FA 7 默认 inline-block，会破坏 chip 内居中；只居中字形，不另加背景/尺寸 */
+  .settings-page .settings-tab-title__icon > i,
+  .settings-page .settings-tab-title__icon > i.fa-light,
+  .settings-page .settings-tab-title__icon > i.fa-brands,
+  .settings-page .settings-tab-title__icon > i.fa-solid,
+  .settings-page .settings-tab-title__icon > i.fa-regular {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 1em !important;
+    height: 1em !important;
+    line-height: 1 !important;
+    font-size: inherit !important;
+    color: inherit;
+  }
+
+  .settings-page .settings-tab-title__icon > i::before {
+    display: block;
+    line-height: 1;
+    width: 1em;
+    height: 1em;
+    text-align: center;
   }
 
   /* 标题文字加大加粗 */
@@ -1582,10 +1630,27 @@ html[data-theme="dark"] .settings-page .settings-tab-nav a:hover {
 
   /* 左侧图标 — 默认灰色，活跃时变主题色 */
 
-  .settings-page .queue-stat__icon {
-    @apply shrink-0 w-9 h-9 inline-flex items-center justify-center text-gray text-base;
+  .settings-page .queue-stat__icon,
+  .settings-page .queue-stat__icon.fa-light,
+  .settings-page .queue-stat__icon.fa-solid,
+  .settings-page .queue-stat__icon.fa-regular {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    @apply shrink-0 text-gray text-base text-center;
+    width: 2.25rem !important;
+    height: 2.25rem !important;
+    line-height: 1 !important;
     background: color-mix(in srgb, var(--gray) 10%, transparent);
     transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .settings-page .queue-stat__icon::before {
+    display: block;
+    line-height: 1;
+    width: 1em;
+    height: 1em;
+    text-align: center;
   }
 
   .settings-page .queue-stat__copy {

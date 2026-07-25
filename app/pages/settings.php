@@ -50,7 +50,7 @@ $settings_tabs = [
     'tasks' => [
         'icon' => 'fa-list-check',
         'label' => '任务',
-        'description' => '后台图片处理队列（缩略图 / 压缩 / WebP / AVIF / 水印 / 远程同步）的状态、失败重试、手动触发',
+        'description' => '后台图片处理队列状态、失败重试与手动触发',
     ],
     'telegram' => [
         'icon' => 'fa-paper-plane',
@@ -1787,8 +1787,7 @@ require_once APP_ROOT . '/header.php';
                         </div>
 
                         <div class="settings-grid">
-                            <!-- 启用开关 -->
-                            <div class="grid gap-2 col-span-2">
+                            <div class="grid gap-2 settings-grid__full">
                                 <label class="flex items-center gap-2" for="telegram_enabled">
                                     <input type="checkbox" id="telegram_enabled" name="telegram_enabled" value="1" <?= $tg_enabled ? 'checked' : '' ?>>
                                     <span><strong>启用 Telegram 机器人</strong></span>
@@ -1796,17 +1795,15 @@ require_once APP_ROOT . '/header.php';
                                 <p class="settings-field-hint">关闭时,即使 webhook 还在 Telegram 那边,LitePic 也不会处理任何消息。</p>
                             </div>
 
-                            <!-- Bot Token -->
-                            <div class="grid gap-2 col-span-2">
-                                <label for="telegram_bot_token">Bot Token <span style="color:#d73a49;">*</span></label>
+                            <div class="grid gap-2 settings-grid__full">
+                                <label for="telegram_bot_token">Bot Token <span class="settings-required">*</span></label>
                                 <input id="telegram_bot_token" name="telegram_bot_token" type="text" autocomplete="off"
                                        placeholder="例:1234567890:AABBccddEEffGGhhIIjjKKllMMnnOOpp"
                                        value="<?= htmlspecialchars($tg_token) ?>">
                                 <p class="settings-field-hint">在 Telegram 里跟 <code>@BotFather</code> 对话,<code>/newbot</code> 拿到一个形如 <code>&lt;bot_id&gt;:&lt;token&gt;</code> 的字符串。</p>
                             </div>
 
-                            <!-- 允许的用户 ID -->
-                            <div class="grid gap-2 col-span-2">
+                            <div class="grid gap-2 settings-grid__full">
                                 <label for="telegram_allowed_user_ids">允许访问的 Telegram 用户 ID</label>
                                 <input id="telegram_allowed_user_ids" name="telegram_allowed_user_ids" type="text" autocomplete="off"
                                        placeholder="例:123456789,987654321"
@@ -1814,8 +1811,7 @@ require_once APP_ROOT . '/header.php';
                                 <p class="settings-field-hint">逗号分隔的纯数字。<strong>白名单是唯一的认证</strong> — 留空 = 没人能用。第一次跟机器人对话用 <code>/start</code>,被拒时机器人会回复你的 user_id,把它填到这里再保存。</p>
                             </div>
 
-                            <!-- 默认上传相册 -->
-                            <div class="grid gap-2 col-span-2">
+                            <div class="grid gap-2 settings-grid__full">
                                 <label for="telegram_default_album_key">默认上传相册</label>
                                 <select id="telegram_default_album_key" name="telegram_default_album_key">
                                     <option value="">— 不指定(只入主图库) —</option>
@@ -1829,15 +1825,14 @@ require_once APP_ROOT . '/header.php';
                                 <p class="settings-field-hint">机器人收到的图片会自动加入此相册。每个 Telegram 用户也能用 <code>/use &lt;key&gt;</code> 设置自己的覆盖值,优先级更高。</p>
                             </div>
 
-                            <!-- Webhook 状态 + 操作 -->
-                            <div class="grid gap-2 col-span-2" style="border:1px solid var(--border-color);padding:14px;background:color-mix(in srgb, var(--light) 60%, var(--surface) 40%);">
+                            <div class="settings-callout settings-grid__full">
                                 <div class="flex items-center justify-between gap-2 flex-wrap">
-                                    <div>
-                                        <strong>Webhook 状态:</strong>
+                                    <div class="inline-flex items-center gap-2">
+                                        <strong>Webhook 状态</strong>
                                         <?php if ($tg_has_secret): ?>
-                                            <span class="status-pill is-on" style="margin-left:6px;">已注册</span>
+                                            <span class="status-pill is-on">已注册</span>
                                         <?php else: ?>
-                                            <span class="status-pill is-off" style="margin-left:6px;">未注册</span>
+                                            <span class="status-pill is-off">未注册</span>
                                         <?php endif; ?>
                                     </div>
                                     <div class="flex gap-2 flex-wrap">
@@ -1857,25 +1852,24 @@ require_once APP_ROOT . '/header.php';
                                         <?php endif; ?>
                                     </div>
                                 </div>
-                                <p class="settings-field-hint" style="margin-top:8px;">
-                                    Webhook URL: <code style="word-break:break-all;font-size:0.78rem;"><?= htmlspecialchars($tg_webhook_url) ?></code>
+                                <p class="settings-field-hint settings-field-hint--spaced">
+                                    Webhook URL: <code class="settings-code-break"><?= htmlspecialchars($tg_webhook_url) ?></code>
                                 </p>
                                 <p class="settings-field-hint">
                                     点「注册 Webhook」会随机生成新 secret 并通知 Telegram。Telegram 要求 HTTPS,本地开发或 IP 直连无法注册。
                                 </p>
                             </div>
 
-                            <!-- 指令速查 -->
-                            <div class="grid gap-2 col-span-2">
-                                <h4 style="margin:0 0 4px;font-size:0.92rem;">机器人支持的指令</h4>
-                                <ul style="margin:0;padding-left:1.2em;font-size:0.86rem;line-height:1.7;color:var(--gray);">
-                                    <li>📸 直接发图片 — 自动上传到 LitePic,机器人回复公开链接</li>
-                                    <li><code>/list [N]</code> — 最近 N 张图(默认 5,最多 20)</li>
+                            <div class="settings-callout settings-grid__full">
+                                <strong>机器人支持的指令</strong>
+                                <ul class="settings-command-list">
+                                    <li>直接发图片 — 自动上传，回复公开链接</li>
+                                    <li><code>/list [N]</code> — 最近 N 张（默认 5，最多 20）</li>
                                     <li><code>/albums</code> — 列出所有相册</li>
                                     <li><code>/album &lt;key&gt;</code> — 查看某个相册</li>
                                     <li><code>/newalbum &lt;名称&gt;</code> — 新建相册</li>
-                                    <li><code>/use &lt;key&gt;</code> / <code>/use none</code> — 设置 / 清除该用户的默认上传相册</li>
-                                    <li><code>/me</code> — 查看自己的 user_id 和当前默认相册</li>
+                                    <li><code>/use &lt;key&gt;</code> / <code>/use none</code> — 设置 / 清除默认上传相册</li>
+                                    <li><code>/me</code> — 查看 user_id 与当前默认相册</li>
                                     <li><code>/help</code> — 显示帮助</li>
                                 </ul>
                             </div>
