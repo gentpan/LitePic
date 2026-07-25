@@ -11,6 +11,9 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 class GalleryManager {
     private const SESSION_PAGE = 'gallery_page';
 
+    /** 每页张数可选值 — 都能被图库网格的 4 列整除，末行不留空位。 */
+    private const PER_PAGE_OPTIONS = [20, 40, 60, 100];
+
     private $is_admin;
     private $images;               // 当前页的图片
     private $all_images_count;     // 所有已上传的图片总数
@@ -81,10 +84,9 @@ class GalleryManager {
         $this->total_images = count($all_images);
     }
 
-    // 初始化分页（GET URL 承载页码，便于 PJAX / 浏览器历史 / 分享）
+    // 初始化分页（GET URL 承载页码 + 每页张数，便于 PJAX / 浏览器历史 / 分享）
     private function initPagination(): void {
-        // 固定每页 18 张
-        $this->per_page = ITEMS_PER_PAGE;
+        $this->per_page = $this->resolvePerPage();
         $this->total_pages = max(1, (int)ceil($this->total_images / $this->per_page));
 
         // 兼容旧 ?page=N 地址：统一跳到 /gallery/page/N。
@@ -113,6 +115,18 @@ class GalleryManager {
         $this->paged_images = array_slice($this->images, $offset, $this->per_page);
     }
 
+    /**
+     * 每页张数：?per_page= 白名单校验，非法值回落到 ITEMS_PER_PAGE。
+     * 白名单避免有人传 per_page=100000 把整库拉进一个请求。
+     */
+    private function resolvePerPage(): int {
+        $default = in_array(ITEMS_PER_PAGE, self::PER_PAGE_OPTIONS, true)
+            ? ITEMS_PER_PAGE
+            : self::PER_PAGE_OPTIONS[0];
+        $raw = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 0;
+        return in_array($raw, self::PER_PAGE_OPTIONS, true) ? $raw : $default;
+    }
+
     private function normalizePage(int $page): int {
         return max(1, min($page, $this->total_pages));
     }
@@ -123,6 +137,9 @@ class GalleryManager {
         $album = isset($_GET['album']) ? trim((string)$_GET['album']) : '';
         if ($album !== '') {
             $params['album'] = $album;
+        }
+        if ($this->per_page !== ITEMS_PER_PAGE) {
+            $params['per_page'] = $this->per_page;
         }
         $query = http_build_query($params);
         $path = $page > 1 ? '/gallery/page/' . $page : '/gallery';
@@ -291,88 +308,105 @@ class GalleryManager {
         return ob_get_clean();
     }
 
-    // 新增：分页条
+    /**
+     * 一个页码按钮。$page 为 null 或等于当前页时渲染成不可点的 <span>，
+     * 这样禁用态/当前态/可点态共用同一套 .page-link 样式。
+     */
+    private function pageLink(?int $page, string $label, array $opts = []): string {
+        $classes = ['page-link'];
+        if (!empty($opts['nav'])) $classes[] = 'page-link--nav';
+
+        $isCurrent = !empty($opts['current']);
+        $disabled = $page === null || $isCurrent;
+        if ($isCurrent) $classes[] = 'active';
+
+        $title = (string)($opts['title'] ?? '');
+        $attrs = $title !== ''
+            ? ' aria-label="' . htmlspecialchars($title) . '" title="' . htmlspecialchars($title) . '"'
+            : '';
+
+        if ($disabled) {
+            $state = $isCurrent ? ' aria-current="page"' : ' aria-disabled="true"';
+            return '<span class="' . implode(' ', $classes) . '"' . $state . $attrs . '>' . $label . '</span>';
+        }
+
+        return '<a href="' . htmlspecialchars($this->pageUrl($page)) . '" data-pjax'
+            . ' class="' . implode(' ', $classes) . '"' . $attrs . '>' . $label . '</a>';
+    }
+
+    private function renderPerPageSelect(): string {
+        // 换每页张数后回到第 1 页 — 停在旧页码上很容易直接越界。
+        $onchange = "(function(v){var u=new URL(window.location.href);u.pathname='/gallery';"
+            . "u.searchParams.delete('page');u.searchParams.set('per_page',v);"
+            . "window.location.href=u.toString();})(this.value)";
+
+        ob_start();
+        ?>
+        <label class="per-page">
+            <span class="per-page-label">每页</span>
+            <select id="perPage" name="per_page" onchange="<?= htmlspecialchars($onchange) ?>">
+                <?php foreach (self::PER_PAGE_OPTIONS as $option): ?>
+                    <option value="<?= $option ?>" <?= $option === $this->per_page ? 'selected' : '' ?>>
+                        <?= $option ?> 张
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </label>
+        <?php
+        return (string)ob_get_clean();
+    }
+
+    // 分页条：左侧显示范围统计，右侧「每页张数 + 页码导航」
     private function renderPagination(): string {
-        if ($this->total_pages <= 1) return '';
+        if ($this->total_images === 0) return '';
 
         $current = $this->current_page;
         $total = $this->total_pages;
+        $offset = ($current - 1) * $this->per_page;
+        $from = $offset + 1;
+        $to = min($offset + $this->per_page, $this->total_images);
 
-        // 简单页码窗口：当前页前后各显示2页
+        // 页码窗口：当前页前后各显示 2 页，两端用 … 收起
         $start = max(1, $current - 2);
         $end = min($total, $current + 2);
 
         ob_start();
         ?>
-        <nav class="pagination" aria-label="分页导航" data-pjax-scroll="preserve">
-            <ul class="pagination-list">
-                <li>
-                    <?php if ($current === 1): ?>
-                        <span class="page-link page-link--nav disabled" aria-disabled="true" aria-label="第一页" title="第一页">
-                            <i class="fa-light fa-angles-left" aria-hidden="true"></i>
-                        </span>
-                    <?php else: ?>
-                        <a href="<?= htmlspecialchars($this->pageUrl(1)) ?>" data-pjax class="page-link page-link--nav" aria-label="第一页" title="第一页">
-                            <i class="fa-light fa-angles-left" aria-hidden="true"></i>
-                        </a>
-                    <?php endif; ?>
-                </li>
-                <li>
-                    <?php if ($current === 1): ?>
-                        <span class="page-link page-link--nav disabled" aria-disabled="true" aria-label="上一页" title="上一页">
-                            <i class="fa-light fa-angle-left" aria-hidden="true"></i>
-                        </span>
-                    <?php else: ?>
-                        <a href="<?= htmlspecialchars($this->pageUrl($current - 1)) ?>" data-pjax class="page-link page-link--nav" aria-label="上一页" title="上一页">
-                            <i class="fa-light fa-angle-left" aria-hidden="true"></i>
-                        </a>
-                    <?php endif; ?>
-                </li>
+        <div class="gallery-pagination" data-pjax-scroll="preserve">
+            <div class="pagination-summary">
+                第 <?= number_format($from) ?>–<?= number_format($to) ?> 张 / 共 <?= number_format($this->total_images) ?> 张
+            </div>
 
-                <?php if ($start > 1): ?>
-                    <li><a href="<?= htmlspecialchars($this->pageUrl(1)) ?>" data-pjax class="page-link">1</a></li>
-                    <?php if ($start > 2): ?><li><span class="page-ellipsis">…</span></li><?php endif; ?>
-                <?php endif; ?>
+            <div class="pagination-controls">
+                <?= $this->renderPerPageSelect() ?>
 
-                <?php for ($i = $start; $i <= $end; $i++): ?>
-                    <li>
-                        <?php if ($i === $current): ?>
-                            <span class="page-link active" aria-current="page"><?= $i ?></span>
-                        <?php else: ?>
-                            <a href="<?= htmlspecialchars($this->pageUrl($i)) ?>" data-pjax class="page-link"><?= $i ?></a>
+                <?php if ($total > 1): ?>
+                <nav class="pagination" aria-label="分页导航">
+                    <ul class="pagination-list">
+                        <li><?= $this->pageLink($current > 1 ? 1 : null, '<i class="fa-light fa-angles-left" aria-hidden="true"></i>', ['nav' => true, 'title' => '第一页']) ?></li>
+                        <li><?= $this->pageLink($current > 1 ? $current - 1 : null, '<i class="fa-light fa-angle-left" aria-hidden="true"></i>', ['nav' => true, 'title' => '上一页']) ?></li>
+
+                        <?php if ($start > 1): ?>
+                            <li><?= $this->pageLink(1, '1') ?></li>
+                            <?php if ($start > 2): ?><li><span class="page-ellipsis">…</span></li><?php endif; ?>
                         <?php endif; ?>
-                    </li>
-                <?php endfor; ?>
 
-                <?php if ($end < $total): ?>
-                    <?php if ($end < $total - 1): ?><li><span class="page-ellipsis">…</span></li><?php endif; ?>
-                    <li><a href="<?= htmlspecialchars($this->pageUrl($total)) ?>" data-pjax class="page-link"><?= $total ?></a></li>
+                        <?php for ($i = $start; $i <= $end; $i++): ?>
+                            <li><?= $this->pageLink($i, (string)$i, ['current' => $i === $current]) ?></li>
+                        <?php endfor; ?>
+
+                        <?php if ($end < $total): ?>
+                            <?php if ($end < $total - 1): ?><li><span class="page-ellipsis">…</span></li><?php endif; ?>
+                            <li><?= $this->pageLink($total, (string)$total) ?></li>
+                        <?php endif; ?>
+
+                        <li><?= $this->pageLink($current < $total ? $current + 1 : null, '<i class="fa-light fa-angle-right" aria-hidden="true"></i>', ['nav' => true, 'title' => '下一页']) ?></li>
+                        <li><?= $this->pageLink($current < $total ? $total : null, '<i class="fa-light fa-angles-right" aria-hidden="true"></i>', ['nav' => true, 'title' => '最后一页']) ?></li>
+                    </ul>
+                </nav>
                 <?php endif; ?>
-
-                <li>
-                    <?php if ($current === $total): ?>
-                        <span class="page-link page-link--nav disabled" aria-disabled="true" aria-label="下一页" title="下一页">
-                            <i class="fa-light fa-angle-right" aria-hidden="true"></i>
-                        </span>
-                    <?php else: ?>
-                        <a href="<?= htmlspecialchars($this->pageUrl($current + 1)) ?>" data-pjax class="page-link page-link--nav" aria-label="下一页" title="下一页">
-                            <i class="fa-light fa-angle-right" aria-hidden="true"></i>
-                        </a>
-                    <?php endif; ?>
-                </li>
-                <li>
-                    <?php if ($current === $total): ?>
-                        <span class="page-link page-link--nav disabled" aria-disabled="true" aria-label="最后一页" title="最后一页">
-                            <i class="fa-light fa-angles-right" aria-hidden="true"></i>
-                        </span>
-                    <?php else: ?>
-                        <a href="<?= htmlspecialchars($this->pageUrl($total)) ?>" data-pjax class="page-link page-link--nav" aria-label="最后一页" title="最后一页">
-                            <i class="fa-light fa-angles-right" aria-hidden="true"></i>
-                        </a>
-                    <?php endif; ?>
-                </li>
-            </ul>
-        </nav>
+            </div>
+        </div>
         <?php
         return ob_get_clean();
     }

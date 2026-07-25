@@ -3375,11 +3375,11 @@ class GalleryManager {
         };
     }
 
-    // 获取当前页面每页显示数量（读取页面 select#perPage），回退到默认 18
+    // 获取当前页面每页显示数量（读取分页条的 select#perPage），回退到默认 20
     static getPerPage() {
         const sel = document.querySelector('#perPage');
         const val = sel ? parseInt(sel.value, 10) : NaN;
-        return Number.isInteger(val) && val > 0 ? val : 18;
+        return Number.isInteger(val) && val > 0 ? val : 20;
     }
 
     static bindEvents() {

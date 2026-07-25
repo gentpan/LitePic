@@ -479,12 +479,45 @@
     @apply opacity-100;
   }
 
+  /* 分页条：统计信息靠左，「每页张数 + 页码」整体靠右 */
+  .gallery-pagination {
+    @apply flex flex-wrap items-center justify-end gap-x-4 gap-y-2.5 mt-0.5 mb-0 mx-0;
+  }
+
+  .pagination-summary {
+    @apply mr-auto text-gray text-[0.8rem] whitespace-nowrap;
+  }
+
+  .pagination-controls {
+    @apply flex flex-wrap items-center justify-end gap-x-3 gap-y-2;
+  }
+
+  .per-page {
+    @apply inline-flex items-center gap-2 text-gray text-[0.8rem] whitespace-nowrap cursor-pointer;
+  }
+
+  .per-page select {
+    @apply h-9 min-w-[86px] py-0 pr-7 pl-2.5 rounded-none appearance-none bg-surface text-dark text-[0.82rem] outline-none cursor-pointer;
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236c757d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 13px;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .per-page select:hover,
+  .per-page select:focus {
+    border-color: color-mix(in srgb, var(--primary) 48%, var(--border-color) 52%);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 10%, transparent);
+  }
+
   .pagination {
-    @apply flex justify-center mt-0.5 mb-0 mx-0;
+    @apply flex justify-end m-0;
   }
 
   .pagination-list {
-    @apply flex flex-wrap gap-1.5 m-0 p-0 list-none;
+    @apply flex flex-wrap justify-end gap-1.5 m-0 p-0 list-none;
   }
 
   .page-link {
@@ -613,6 +646,7 @@
   }
 
   html[data-theme="dark"] .gallery-filters select,
+  html[data-theme="dark"] .per-page select,
   html[data-theme="dark"] .gallery-search input[type="text"],
   html[data-theme="dark"] .batch-controls,
   html[data-theme="dark"] .copy-option,
@@ -823,6 +857,19 @@
     /* 手机：2 列，卡片不再拥挤 */
     .gallery {
       @apply grid-cols-2 gap-2;
+    }
+
+    /* 窄屏放不下一行，统计信息单独一行，每页/页码并排铺满 */
+    .gallery-pagination {
+      @apply items-stretch flex-col gap-2.5;
+    }
+
+    .pagination-summary {
+      @apply mr-0;
+    }
+
+    .pagination-controls {
+      @apply justify-between;
     }
 
     .img-info {
