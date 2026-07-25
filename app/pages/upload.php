@@ -100,12 +100,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && (string)($_POST['form_actio
     }
 
     $current_compression_mode = \LitePic\Service\Image\ImageFormat::compressionMode();
+    // 上传页 toggle 空间紧，用短标签；完整名称在设置页
     $current_compression_labels = [
-        'imagemagick' => 'ImageMagick',
-        'gd' => 'GD 压缩',
-        'tinypng' => 'TinyPNG 压缩',
+        'imagemagick' => 'Magick',
+        'gd' => 'GD',
+        'tinypng' => 'TinyPNG',
     ];
-    $current_compression_label = $current_compression_labels[$current_compression_mode] ?? 'ImageMagick';
+    $current_compression_label = $current_compression_labels[$current_compression_mode] ?? 'Magick';
     $messages = [];
     $messages[] = $auto_compress ? '上传后自动压缩已开启' : '上传后自动压缩已关闭';
     $messages[] = $auto_convert ? ('上传后自动转换已开启：' . strtoupper($convert_format)) : '上传后自动转换已关闭';
@@ -136,12 +137,13 @@ $page_title = '图片上传';
 // 前端上传大小校验与后端一致（受 PHP 与系统配置共同约束）
 $effective_max_upload_bytes = (new \LitePic\Service\Upload\UploadService())->maxBytes();
 $compression_mode = \LitePic\Service\Image\ImageFormat::compressionMode();
+// 上传页 toggle 空间紧，用短标签；完整名称在设置页
 $compression_mode_labels = [
-    'imagemagick' => 'ImageMagick',
-    'gd' => 'GD 压缩',
-    'tinypng' => 'TinyPNG 压缩',
+    'imagemagick' => 'Magick',
+    'gd' => 'GD',
+    'tinypng' => 'TinyPNG',
 ];
-$compression_label = $compression_mode_labels[$compression_mode] ?? 'ImageMagick';
+$compression_label = $compression_mode_labels[$compression_mode] ?? 'Magick';
 $compression_enabled = AUTO_COMPRESS_ON_UPLOAD;
 $conversion_enabled = AUTO_CONVERT_WEBP_ON_UPLOAD || AUTO_CONVERT_AVIF_ON_UPLOAD;
 $conversion_enabled = defined('AUTO_CONVERT_ON_UPLOAD') ? AUTO_CONVERT_ON_UPLOAD : $conversion_enabled;
@@ -204,7 +206,7 @@ require_once APP_ROOT . '/header.php';
 
             <!-- 右:3 个 toggle -->
             <div class="upload-processing-controls" aria-label="上传处理设置">
-                <label class="upload-setting-toggle <?= $compression_enabled ? 'is-active' : '' ?>" for="uploadAutoCompressToggle">
+                <label class="upload-setting-toggle <?= $compression_enabled ? 'is-active' : '' ?>" for="uploadAutoCompressToggle" title="<?= $compression_enabled ? '压缩引擎：' . htmlspecialchars($compression_mode === 'imagemagick' ? 'ImageMagick' : ($compression_mode === 'tinypng' ? 'TinyPNG' : 'GD')) : '上传后自动压缩' ?>">
                     <span class="upload-setting-main">
                         <i class="fa-light fa-compress"></i>
                         <span>压缩</span>

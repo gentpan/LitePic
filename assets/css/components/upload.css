@@ -128,7 +128,7 @@
     --upload-setting-color: var(--gray);
     --upload-setting-bg: color-mix(in srgb, var(--surface) 88%, var(--light) 12%);
     --upload-setting-border: color-mix(in srgb, var(--border-color) 70%, transparent);
-    @apply relative w-[172px] h-11 grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 px-2.5 py-0 cursor-pointer;
+    @apply relative w-[176px] h-11 grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1.5 px-2.5 py-0 cursor-pointer;
     border: 1px solid var(--upload-setting-border);
     border-radius: var(--radius-sm);
     background: var(--upload-setting-bg);
@@ -178,7 +178,7 @@
   }
 
   .upload-setting-toggle > strong {
-    @apply inline-flex items-center justify-start max-w-[58px] h-5 overflow-hidden font-mono text-xs font-bold leading-none text-ellipsis whitespace-nowrap;
+    @apply min-w-0 max-w-[4.75rem] h-5 inline-flex items-center overflow-hidden font-mono text-[0.7rem] font-bold leading-none text-ellipsis whitespace-nowrap;
     color: var(--upload-setting-color);
   }
 
@@ -187,7 +187,7 @@
   }
 
   .upload-setting-switch {
-    @apply w-10 h-6 inline-flex items-center flex-[0_0_auto] p-0.5 rounded-full;
+    @apply w-10 h-6 inline-flex items-center flex-[0_0_auto] shrink-0 p-0.5 rounded-full;
     border: 1px solid color-mix(in srgb, var(--gray) 22%, var(--border-color) 78%);
     background: color-mix(in srgb, var(--gray) 20%, var(--surface) 80%);
     transition: background 160ms ease, border-color 160ms ease;
