@@ -74,6 +74,10 @@ switch ($route) {
         require __DIR__ . '/system_status.php';
         break;
 
+    case '/system/enable-extensions':
+        require __DIR__ . '/system_enable_ext.php';
+        break;
+
     case '/uptime':
         require __DIR__ . '/uptime.php';
         break;

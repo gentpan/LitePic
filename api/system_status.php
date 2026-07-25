@@ -41,4 +41,7 @@ if (!empty($_GET['refresh_capability'])) {
 }
 
 $metrics = (new \LitePic\Service\Stats\ServerInfo())->runtimeMetrics();
+$hints = is_array($metrics['enablement_hints'] ?? null) ? $metrics['enablement_hints'] : [];
+$hints['sudo_ready'] = (new \LitePic\Service\System\EnableExtensionsService())->sudoReady();
+$metrics['enablement_hints'] = $hints;
 \LitePic\Core\Response::success(['data' => $metrics]);

@@ -373,7 +373,21 @@
   .settings-block-runtime .runtime-enablement-notes {
     @apply m-0 pl-4 text-xs text-gray grid gap-1;
   }
-  html[data-theme="dark"] .settings-block-runtime .runtime-enablement-commands {
+  .settings-block-runtime .runtime-enablement-details {
+    @apply text-xs text-gray;
+  }
+  .settings-block-runtime .runtime-enablement-details > summary {
+    @apply cursor-pointer select-none;
+  }
+  .settings-block-runtime .runtime-enablement-log {
+    @apply m-0 p-3 text-[0.78rem] leading-relaxed overflow-x-auto whitespace-pre-wrap break-all max-h-64 overflow-y-auto;
+    background: color-mix(in srgb, var(--dark) 8%, var(--surface) 92%);
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    color: var(--dark);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+  html[data-theme="dark"] .settings-block-runtime .runtime-enablement-commands,
+  html[data-theme="dark"] .settings-block-runtime .runtime-enablement-log {
     background: color-mix(in srgb, var(--primary) 10%, var(--surface) 90%);
   }
 

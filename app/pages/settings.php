@@ -571,11 +571,13 @@ require_once APP_ROOT . '/header.php';
                             </div>
                             <?php
                             $enablement_hints = (new \LitePic\Service\Stats\ServerInfo())->enablementHints($configured_upload_limit_bytes);
+                            $enablement_sudo_ready = (new \LitePic\Service\System\EnableExtensionsService())->sudoReady();
+                            $enablement_hints['sudo_ready'] = $enablement_sudo_ready;
                             ?>
                             <div class="runtime-enablement" data-runtime-enablement<?= !empty($enablement_hints['has_gaps']) ? '' : ' hidden' ?>>
                                 <div class="settings-callout settings-callout-compact runtime-enablement-card">
                                     <div class="runtime-enablement-head">
-                                        <strong>未开启能力 — 按当前探针生成的启用命令</strong>
+                                        <strong>未开启能力 — 一键启用</strong>
                                         <button type="button" class="btn btn--secondary btn--sm" data-refresh-capability title="清除缓存并重新探测">
                                             <i class="fa-light fa-arrows-rotate" aria-hidden="true"></i>
                                             <span>刷新检测</span>
@@ -592,9 +594,14 @@ require_once APP_ROOT . '/header.php';
                                             · 缺少：<?= htmlspecialchars(implode('、', $enablement_hints['missing_labels'])) ?>
                                         <?php endif; ?>
                                     </p>
-                                    <pre class="runtime-enablement-commands" data-enablement-commands><?= htmlspecialchars(implode("\n", $enablement_hints['commands'] ?? [])) ?></pre>
                                     <div class="runtime-enablement-actions">
-                                        <button type="button" class="btn btn--primary btn--sm" data-copy-enablement>
+                                        <button type="button" class="btn btn--primary btn--sm" data-run-enablement
+                                                data-sudo-ready="<?= $enablement_sudo_ready ? '1' : '0' ?>"
+                                                data-upload-mb="<?= (int)max(1, (int)round(MAX_FILE_SIZE / 1024 / 1024)) ?>">
+                                            <i class="fa-light fa-bolt" aria-hidden="true"></i>
+                                            <span>一键启用并重启</span>
+                                        </button>
+                                        <button type="button" class="btn btn--secondary btn--sm" data-copy-enablement>
                                             <i class="fa-light fa-copy" aria-hidden="true"></i>
                                             <span>复制命令</span>
                                         </button>
@@ -603,6 +610,18 @@ require_once APP_ROOT . '/header.php';
                                             <span>文档</span>
                                         </a>
                                     </div>
+                                    <p class="runtime-enablement-sudo m-0 text-xs text-gray" data-enablement-sudo>
+                                        <?php if ($enablement_sudo_ready): ?>
+                                            已授权网页执行（sudoers）。点击后将 apt 安装缺失扩展并延迟重启 FrankenPHP。
+                                        <?php else: ?>
+                                            首次需 SSH 授权一次：<code>sudo ./bin/enable-image-ext.sh --install-sudoers</code>，之后即可在网页一键启用。
+                                        <?php endif; ?>
+                                    </p>
+                                    <details class="runtime-enablement-details">
+                                        <summary>查看将执行的命令</summary>
+                                        <pre class="runtime-enablement-commands" data-enablement-commands><?= htmlspecialchars(implode("\n", $enablement_hints['commands'] ?? [])) ?></pre>
+                                    </details>
+                                    <pre class="runtime-enablement-log" data-enablement-log hidden></pre>
                                     <?php if (!empty($enablement_hints['notes'])): ?>
                                         <ul class="runtime-enablement-notes" data-enablement-notes>
                                             <?php foreach ($enablement_hints['notes'] as $note): ?>
@@ -4059,6 +4078,16 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
             if (cmdEl) {
                 cmdEl.textContent = Array.isArray(hints.commands) ? hints.commands.join('\n') : '';
             }
+            const runBtn = panel.querySelector('[data-run-enablement]');
+            if (runBtn) {
+                runBtn.dataset.sudoReady = hints.sudo_ready ? '1' : '0';
+            }
+            const sudoEl = panel.querySelector('[data-enablement-sudo]');
+            if (sudoEl) {
+                sudoEl.textContent = hints.sudo_ready
+                    ? '已授权网页执行（sudoers）。点击后将 apt 安装缺失扩展并延迟重启 FrankenPHP。'
+                    : '首次需 SSH 授权一次：sudo ./bin/enable-image-ext.sh --install-sudoers，之后即可在网页一键启用。';
+            }
             const notesEl = panel.querySelector('[data-enablement-notes]');
             if (notesEl) {
                 notesEl.innerHTML = '';
@@ -4124,7 +4153,7 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
         document.querySelector('[data-refresh-capability]')?.addEventListener('click', () => {
             refreshCapabilityProbe();
         });
-        document.querySelector('[data-copy-enablement]')?.addEventListener('click', async (e) => {
+        document.querySelector('[data-copy-enablement]')?.addEventListener('click', async () => {
             const pre = document.querySelector('[data-enablement-commands]');
             const text = pre ? pre.textContent : '';
             if (!text) return;
@@ -4138,6 +4167,81 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
                     window.ImgEt.Utils.showNotification('复制失败', 'error');
                 }
             }
+        });
+
+        document.querySelector('[data-run-enablement]')?.addEventListener('click', async (ev) => {
+            const btn = ev.currentTarget;
+            if (!(btn instanceof HTMLButtonElement) || btn.disabled) return;
+            if (btn.dataset.sudoReady !== '1') {
+                const msg = '尚未授权网页执行。请先 SSH 运行：\nsudo ./bin/enable-image-ext.sh --install-sudoers';
+                if (window.ImgEt?.DialogManager?.showCustomDialog) {
+                    window.ImgEt.DialogManager.showCustomDialog('需要一次性授权', '<pre style="white-space:pre-wrap;margin:0">' + msg + '</pre>');
+                } else {
+                    alert(msg);
+                }
+                return;
+            }
+            const ok = window.confirm('将以 root 安装缺失的图片扩展并重启 Web 服务，期间站点可能短暂不可用。确定继续？');
+            if (!ok) return;
+
+            const logEl = document.querySelector('[data-enablement-log]');
+            const label = btn.querySelector('span');
+            const prev = label ? label.textContent : '';
+            btn.disabled = true;
+            if (label) label.textContent = '正在启用…';
+            if (logEl) {
+                logEl.hidden = false;
+                logEl.textContent = '提交中…';
+            }
+            try {
+                const uploadMb = parseInt(btn.dataset.uploadMb || '20', 10) || 20;
+                const resp = await fetch('/api/v1/system/enable-extensions', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': window.CSRF_TOKEN || '',
+                    },
+                    body: JSON.stringify({ upload_mb: uploadMb }),
+                });
+                const data = await resp.json().catch(() => null);
+                const payload = data && data.data ? data.data : null;
+                if (logEl && payload && payload.output) {
+                    logEl.textContent = String(payload.output);
+                }
+                if (!resp.ok || !data || data.status !== 'success') {
+                    throw new Error((data && data.message) || '启用失败');
+                }
+                if (window.ImgEt?.Utils) {
+                    window.ImgEt.Utils.showNotification(data.message || '已提交启用', 'success');
+                }
+                if (payload) {
+                    applyEnablementHints(payload.enablement_hints || null);
+                    const cap = payload.capability || {};
+                    setCapability('metricCapGd', !!cap.gd);
+                    setCapability('metricCapImagick', !!cap.imagick);
+                    setCapability('metricCapAvif', !!cap.avif);
+                    setCapability('metricCapWebp', !!cap.webp);
+                    setCapability('metricCapHeic', !!cap.heic);
+                }
+                if (payload && payload.restart_scheduled) {
+                    if (label) label.textContent = '服务重启中…';
+                    setTimeout(() => {
+                        refreshCapabilityProbe().finally(() => {
+                            btn.disabled = false;
+                            if (label) label.textContent = prev || '一键启用并重启';
+                        });
+                    }, 4500);
+                    return;
+                }
+            } catch (err) {
+                if (window.ImgEt?.Utils) {
+                    window.ImgEt.Utils.showNotification(err && err.message ? err.message : '启用失败', 'error');
+                }
+            }
+            btn.disabled = false;
+            if (label) label.textContent = prev || '一键启用并重启';
         });
 
         setInterval(updateSystemStatus, 15000);
