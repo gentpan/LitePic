@@ -499,6 +499,54 @@
   .pa-foot-right a { @apply inline-flex items-center gap-1 no-underline; color: rgba(255, 255, 255, 0.62); }
   .pa-foot-right a:hover { @apply text-white; }
 
+  /* 底栏中段:翻页 + 每页张数 */
+  .pa-foot-mid { @apply flex items-center gap-4 flex-[0_0_auto]; }
+  .pa-pager { @apply flex items-center gap-1.5; }
+  .pa-pager-pos { @apply text-[0.82rem] tabular-nums px-1; color: rgba(255, 255, 255, 0.72); }
+
+  .pa-pager-btn {
+    @apply inline-flex items-center justify-center w-8 h-8 p-0 no-underline cursor-pointer;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: rgba(255, 255, 255, 0.82);
+    transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+  }
+  .pa-pager-btn:hover {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.28);
+    @apply text-white;
+  }
+  .pa-pager-btn.is-disabled {
+    @apply cursor-default opacity-30;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .pa-perpage {
+    @apply inline-flex items-center overflow-hidden;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+  }
+  .pa-perpage-opt {
+    @apply inline-flex items-center justify-center min-w-[38px] h-8 px-2 text-[0.8rem] tabular-nums no-underline;
+    color: rgba(255, 255, 255, 0.66);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    transition: background 160ms ease, color 160ms ease;
+  }
+  .pa-perpage-opt:last-child { @apply border-r-0; }
+  .pa-perpage-opt:hover { background: rgba(255, 255, 255, 0.12); @apply text-white; }
+  .pa-perpage-opt.is-active {
+    background: rgba(255, 255, 255, 0.9);
+    @apply text-[#0a0b0d] font-semibold;
+  }
+
+  /* 窄屏:底栏换行,相册名与元信息让位给翻页控件 */
+  @media (max-width: 860px) {
+    .pa-foot { @apply flex-wrap gap-y-2.5 py-3 px-4; }
+    .pa-foot-left { @apply order-1 flex-1; }
+    .pa-foot-right { @apply order-2; }
+    .pa-foot-mid { @apply order-3 w-full justify-between; }
+    .pa-foot-right a { @apply hidden; }
+  }
+
   /* ===== 灯箱:大图 + 翻页 + 说明,模糊深色背景 ===== */
   .pa-lb {
     @apply fixed inset-0 z-[99999] flex items-center justify-center;

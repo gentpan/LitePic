@@ -195,13 +195,35 @@ $albumImageRepo = new \LitePic\Repository\AlbumImageRepository();
 $info = new \LitePic\Service\Image\ImageInfo();
 
 $filenames = $albumImageRepo->listFilenames((int)$album['id']);
-// 一次性 batch-load DB 行 — 之前每张图都要单独 SELECT,500 张相册等于 500
-// 次往返。preload 用一条 IN (...) 把它们全拉回来塞进 ImageInfo 的进程内
-// 缓存,后续 getSafe() 都是命中缓存。
-$info->preload($filenames);
+
+// ============== 分页 ==============
+// 默认每页 12 张 —— 大相册一次性铺 500 张缩略图会拖垮首屏。
+// ?n= 每页张数(白名单,防止 n=100000 把整册拉进一个请求),?p= 页码。
+$perPageOptions = [12, 24, 48, 96];
+$perPageDefault = $perPageOptions[0];
+$perPageRaw = isset($_GET['n']) ? (int)$_GET['n'] : 0;
+$perPage = in_array($perPageRaw, $perPageOptions, true) ? $perPageRaw : $perPageDefault;
+
+$totalImages = count($filenames);
+$totalPages = max(1, (int)ceil($totalImages / $perPage));
+$currentPage = min(max(1, isset($_GET['p']) ? (int)$_GET['p'] : 1), $totalPages);
+$pageFilenames = array_slice($filenames, ($currentPage - 1) * $perPage, $perPage);
+
+/** 保留分页参数的相册 URL；默认值省略,保持 /a/key 干净 */
+$paUrl = static function (int $page, int $per) use ($albumKey, $perPageDefault): string {
+    $params = [];
+    if ($page > 1) $params['p'] = $page;
+    if ($per !== $perPageDefault) $params['n'] = $per;
+    return '/a/' . rawurlencode($albumKey) . ($params ? '?' . http_build_query($params) : '');
+};
+
+// 一次性 batch-load 当前页的 DB 行 — 之前每张图都要单独 SELECT,500 张相册
+// 等于 500 次往返。preload 用一条 IN (...) 把它们全拉回来塞进 ImageInfo 的
+// 进程内缓存,后续 getSafe() 都是命中缓存。
+$info->preload($pageFilenames);
 
 $images = [];
-foreach ($filenames as $filename) {
+foreach ($pageFilenames as $filename) {
     $meta = $info->getSafe($filename);
     if ($meta === null) continue; // 跳过孤儿
     $title = (string)($meta['original_name'] ?? '');
@@ -289,8 +311,9 @@ require_once APP_ROOT . '/header.php';
         <footer class="pa-foot">
             <div class="pa-foot-left">
                 <span class="pa-foot-name"><?= htmlspecialchars((string)$album['name']) ?></span>
+                <?php /* 计数用实际图片数,而不是可能漂移的 image_count */ ?>
                 <span class="pa-foot-meta">
-                    <span><?= number_format((int)$album['image_count']) ?> 张</span>
+                    <span><?= number_format($totalImages) ?> 张</span>
                     <span title="创建时间 <?= htmlspecialchars(date('Y-m-d H:i', (int)$album['created_at'])) ?>">
                         <i class="fa-light fa-calendar-plus" aria-hidden="true"></i><?= htmlspecialchars(date('Y-m-d', (int)$album['created_at'])) ?>
                     </span>
@@ -302,7 +325,46 @@ require_once APP_ROOT . '/header.php';
                     </span>
                 </span>
             </div>
+            <?php if ($totalImages > 0): ?>
+                <div class="pa-foot-mid">
+                    <div class="pa-pager">
+                        <?php if ($currentPage > 1): ?>
+                            <a class="pa-pager-btn" href="<?= htmlspecialchars($paUrl($currentPage - 1, $perPage)) ?>" rel="prev" title="上一页" aria-label="上一页">
+                                <i class="fa-light fa-angle-left" aria-hidden="true"></i>
+                            </a>
+                        <?php else: ?>
+                            <span class="pa-pager-btn is-disabled" aria-hidden="true"><i class="fa-light fa-angle-left"></i></span>
+                        <?php endif; ?>
+
+                        <span class="pa-pager-pos"><?= $currentPage ?> / <?= $totalPages ?></span>
+
+                        <?php if ($currentPage < $totalPages): ?>
+                            <a class="pa-pager-btn" href="<?= htmlspecialchars($paUrl($currentPage + 1, $perPage)) ?>" rel="next" title="下一页" aria-label="下一页">
+                                <i class="fa-light fa-angle-right" aria-hidden="true"></i>
+                            </a>
+                        <?php else: ?>
+                            <span class="pa-pager-btn is-disabled" aria-hidden="true"><i class="fa-light fa-angle-right"></i></span>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="pa-perpage" role="group" aria-label="每页张数">
+                        <?php foreach ($perPageOptions as $opt): ?>
+                            <?php if ($opt === $perPage): ?>
+                                <span class="pa-perpage-opt is-active" aria-current="true"><?= $opt ?></span>
+                            <?php else: ?>
+                                <?php // 换每页张数后停留在原来那张图所在的新页码
+                                $keepPage = (int)floor((($currentPage - 1) * $perPage) / $opt) + 1; ?>
+                                <a class="pa-perpage-opt" href="<?= htmlspecialchars($paUrl($keepPage, $opt)) ?>" title="每页 <?= $opt ?> 张"><?= $opt ?></a>
+                            <?php endif; ?>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+
             <div class="pa-foot-right">
+                <button type="button" class="pa-pager-btn" data-pa-fullscreen title="全屏浏览" aria-label="全屏浏览">
+                    <i class="fa-light fa-expand" aria-hidden="true"></i>
+                </button>
                 <a href="https://litepic.io" target="_blank" rel="noopener noreferrer">由 LitePic 驱动</a>
             </div>
         </footer>
@@ -328,6 +390,43 @@ require_once APP_ROOT . '/header.php';
 </div>
 
 <script>
+// 全屏浏览 + 灯箱关闭时用左右方向键翻页
+(function () {
+    const btn = document.querySelector('[data-pa-fullscreen]');
+    const icon = btn ? btn.querySelector('i') : null;
+
+    const syncIcon = () => {
+        if (!icon) return;
+        const on = !!document.fullscreenElement;
+        icon.classList.toggle('fa-expand', !on);
+        icon.classList.toggle('fa-compress', on);
+        btn.title = on ? '退出全屏' : '全屏浏览';
+    };
+
+    if (btn) {
+        btn.addEventListener('click', () => {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            } else {
+                // Safari iOS 上 documentElement 没有此方法 —— 静默降级
+                document.documentElement.requestFullscreen?.().catch(() => {});
+            }
+        });
+        document.addEventListener('fullscreenchange', syncIcon);
+    }
+
+    document.addEventListener('keydown', (e) => {
+        const lb = document.querySelector('[data-pa-lb]');
+        if (lb && !lb.hidden) return; // 灯箱打开时方向键归灯箱
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        if (e.key === 'f' || e.key === 'F') { btn?.click(); return; }
+        const rel = e.key === 'ArrowLeft' ? 'prev' : (e.key === 'ArrowRight' ? 'next' : '');
+        if (!rel) return;
+        const link = document.querySelector('.pa-pager a[rel="' + rel + '"]');
+        if (link) window.location.href = link.href;
+    });
+})();
+
 (function () {
     const grid = document.querySelector('[data-pa-grid]');
     const lb = document.querySelector('[data-pa-lb]');
