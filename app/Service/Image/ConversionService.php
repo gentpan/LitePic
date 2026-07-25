@@ -280,6 +280,8 @@ final class ConversionService
         $original = $repo->originalNameFor($originalIdentifier) ?? basename($filepath);
         $variantIdentifier = PathService::identifierFromPath($targetPath) ?? basename($targetPath);
         $repo->recordOriginalName($variantIdentifier, $original);
+        // 描述 / EXIF 跟着变体走，避免后续删原图后元数据丢失。
+        (new ExifService($repo))->copyMeta($originalIdentifier, $variantIdentifier);
         if ($targetExt === 'webp' || $targetExt === 'avif') {
             $repo->setFlags($originalIdentifier, [$targetExt === 'webp' ? 'has_webp' : 'has_avif' => true]);
         }

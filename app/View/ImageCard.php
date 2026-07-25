@@ -91,6 +91,11 @@ class ImageCard {
         ob_start();
         $preview_url = (string)($this->info['thumb_url'] ?? $this->info['url']);
         $original_url = (string)($this->info['url'] ?? $preview_url);
+        $overlayTime = (int)($this->info['time'] ?? time());
+        $takenAt = isset($this->info['exif_taken_at']) ? (int)$this->info['exif_taken_at'] : 0;
+        if ($takenAt > 0) {
+            $overlayTime = $takenAt;
+        }
         if ($this->show_select) {
             ?>
             <div class="img-preview">
@@ -98,9 +103,9 @@ class ImageCard {
                      data-original-url="<?= htmlspecialchars($original_url) ?>"
                      alt="<?= htmlspecialchars($this->info['filename']) ?>"
                      loading="lazy">
-                <div class="img-time-overlay">
-                    <i class="fa-light fa-clock"></i>
-                    <?= date('Y-m-d H:i', $this->info['time']) ?>
+                <div class="img-time-overlay" title="<?= $takenAt > 0 ? '拍摄时间' : '上传时间' ?>">
+                    <i class="fa-light fa-<?= $takenAt > 0 ? 'camera' : 'clock' ?>"></i>
+                    <?= date('Y-m-d H:i', $overlayTime) ?>
                 </div>
             </div>
             <?php
@@ -121,6 +126,20 @@ class ImageCard {
         if ($display_name === '') {
             $display_name = (string)pathinfo((string)$this->info['filename'], PATHINFO_FILENAME);
         }
+        $description = trim((string)($this->info['description'] ?? ''));
+        $exifLat = $this->info['exif_lat'] ?? null;
+        $exifLng = $this->info['exif_lng'] ?? null;
+        $hasGps = is_numeric($exifLat) && is_numeric($exifLng);
+        $mapUrl = '';
+        if ($hasGps) {
+            $lat = (float)$exifLat;
+            $lng = (float)$exifLng;
+            $mapUrl = 'https://www.openstreetmap.org/?mlat=' . rawurlencode((string)$lat)
+                . '&mlon=' . rawurlencode((string)$lng)
+                . '#map=15/' . rawurlencode((string)$lat) . '/' . rawurlencode((string)$lng);
+        }
+        $exifCamera = trim((string)($this->info['exif_camera'] ?? ''));
+
         $format_code = strtoupper(trim((string)($this->info['format'] ?? '')));
         if ($format_code === '') {
             $format_ext = strtolower((string)pathinfo((string)$this->info['filename'], PATHINFO_EXTENSION));
@@ -150,6 +169,9 @@ class ImageCard {
                 <div class="img-name" title="<?= htmlspecialchars($raw_name) ?>">
                     <?= htmlspecialchars($display_name) ?>
                 </div>
+                <div class="img-desc<?= $description === '' ? ' is-empty' : '' ?>"
+                     title="<?= $description !== '' ? htmlspecialchars($description) : '双击添加描述' ?>"
+                     data-placeholder="添加描述…"><?= htmlspecialchars($description) ?></div>
             </div>
             <div class="img-meta">
                 <span class="img-meta-badge img-dimensions img-dimensions-badge" title="图片尺寸">
@@ -164,8 +186,22 @@ class ImageCard {
                     <i class="fa-light fa-file-image"></i>
                     <span><?= htmlspecialchars($format_label) ?></span>
                 </span>
+                <?php if ($hasGps): ?>
+                <a class="img-meta-badge img-gps-badge" href="<?= htmlspecialchars($mapUrl) ?>"
+                   target="_blank" rel="noopener noreferrer"
+                   title="EXIF 位置 <?= htmlspecialchars(sprintf('%.5f, %.5f', (float)$exifLat, (float)$exifLng)) ?>"
+                   onclick="event.stopPropagation()">
+                    <i class="fa-light fa-location-dot"></i>
+                    <span>位置</span>
+                </a>
+                <?php endif; ?>
+                <?php if ($exifCamera !== ''): ?>
+                <span class="img-meta-badge img-camera-badge" title="<?= htmlspecialchars($exifCamera) ?>">
+                    <i class="fa-light fa-camera"></i>
+                    <span><?= htmlspecialchars($exifCamera) ?></span>
+                </span>
+                <?php endif; ?>
             </div>
-
         </div>
         <?php
         return (string)ob_get_clean();

@@ -6,6 +6,7 @@ namespace LitePic\Service\Upload;
 use LitePic\Repository\ImageRepository;
 use LitePic\Service\Hotlink\HotlinkProtection;
 use LitePic\Service\Image\ConversionService;
+use LitePic\Service\Image\ExifService;
 use LitePic\Service\Image\ImageUrl;
 use LitePic\Service\Image\PathService;
 use LitePic\Service\Image\ThumbnailService;
@@ -208,6 +209,12 @@ final class UploadService
             $imageMeta['height'] = (int)($dimensions[1] ?? 0);
         }
         $imageRepo->update($identifier, $imageMeta);
+
+        try {
+            (new ExifService($imageRepo))->scanAndStore($identifier);
+        } catch (\Throwable $e) {
+            error_log('EXIF scan failed for ' . $identifier . ': ' . $e->getMessage());
+        }
 
         // 上传路径只保存原图并入队。缩略图 / 压缩 / 转换 / 水印 /
         // 远程同步统一交给 ImageProcessor 队列，避免大批量上传时每个
@@ -419,6 +426,13 @@ final class UploadService
             $imageMeta['height'] = (int)($dimensions[1] ?? 0);
         }
         $imageRepo->update($identifier, $imageMeta);
+
+        // 压缩/转换会 strip EXIF，必须在入队处理前把 GPS/拍摄时间写入 DB。
+        try {
+            (new ExifService($imageRepo))->scanAndStore($identifier);
+        } catch (\Throwable $e) {
+            error_log('EXIF scan failed for ' . $identifier . ': ' . $e->getMessage());
+        }
 
         // 根据全局设置决定要做哪些重活(沿用之前同步流程的开关含义)。
         // 缩略图也走同一个队列，上传响应只代表原图已保存。

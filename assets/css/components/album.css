@@ -527,6 +527,11 @@
   .pa-lb-cap { @apply mt-3.5 text-center; color: rgba(255,255,255,0.92); }
   .pa-lb-title { @apply block text-base font-semibold; }
   .pa-lb-date { @apply block mt-0.5 text-[0.8rem]; color: rgba(255,255,255,0.6); }
+  .pa-lb-loc {
+    @apply inline-flex items-center gap-1.5 mt-2 text-[0.82rem] no-underline;
+    color: rgba(255, 255, 255, 0.72);
+  }
+  .pa-lb-loc:hover { @apply text-white; }
   .pa-lb-close, .pa-lb-nav {
     @apply fixed z-[1] inline-flex items-center justify-center border-0 text-white cursor-pointer rounded-full;
     background: rgba(255,255,255,0.08);

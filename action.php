@@ -552,6 +552,31 @@ switch ($action) {
         }
         break;
 
+    case 'update_description':
+        // 图库卡片双击描述 → 保存到 images.description（与文件名无关）。
+        try {
+            $description = trim((string)($_POST['description'] ?? ''));
+            // 允许清空；限制长度避免卡片/相册 caption 过长。
+            if (mb_strlen($description) > 500) {
+                $description = mb_substr($description, 0, 500);
+            }
+            $description = preg_replace('/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]+/u', '', $description) ?? '';
+            $repo = new \LitePic\Repository\ImageRepository();
+            if (!$repo->exists($file)) {
+                \LitePic\Core\Response::error('图片不存在', 404);
+            }
+            $repo->update($file, ['description' => $description]);
+            \LitePic\Core\Response::success([
+                'message'     => '描述已保存',
+                'filename'    => $file,
+                'description' => $description,
+            ]);
+        } catch (Exception $e) {
+            error_log("Update description failed for {$file}: " . $e->getMessage());
+            \LitePic\Core\Response::error(\LitePic\Core\Response::safeMessage($e), 500);
+        }
+        break;
+
     case 'regenerate_thumbnail':
         // 从图库卡片右键菜单触发：强制重新生成缩略图（覆盖旧的）。
         // 同步执行，立即返回新缩略图 URL 供前端 cache-bust 刷新。

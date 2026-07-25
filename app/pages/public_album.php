@@ -209,14 +209,26 @@ foreach ($filenames as $filename) {
     if ($title !== '' && preg_match('/^[0-9a-f]{16,}$/i', pathinfo($title, PATHINFO_FILENAME))) {
         $title = '';
     }
+    $description = trim((string)($meta['description'] ?? ''));
+    $caption = $description !== '' ? $description : $title;
+    $takenAt = isset($meta['exif_taken_at']) ? (int)$meta['exif_taken_at'] : 0;
+    $dateTs = $takenAt > 0 ? $takenAt : (int)($meta['time'] ?? 0);
+    $lat = $meta['exif_lat'] ?? null;
+    $lng = $meta['exif_lng'] ?? null;
+    $hasGps = is_numeric($lat) && is_numeric($lng);
     $images[] = [
         'filename'   => $filename,
         'url'        => \LitePic\Service\Image\ImageUrl::forIdentifier($filename),
         'thumb_url'  => (string)($meta['thumb_url'] ?? \LitePic\Service\Image\ImageUrl::forIdentifier($filename)),
         'dimensions' => (string)($meta['dimensions'] ?? ''),
         'size'       => (int)($meta['size'] ?? 0),
-        'title'      => $title,
-        'date'       => (int)($meta['time'] ?? 0) > 0 ? date('Y-m-d', (int)$meta['time']) : '',
+        'title'      => $caption,
+        'date'       => $dateTs > 0 ? date('Y-m-d H:i', $dateTs) : '',
+        'map_url'    => $hasGps
+            ? ('https://www.openstreetmap.org/?mlat=' . rawurlencode((string)$lat)
+                . '&mlon=' . rawurlencode((string)$lng)
+                . '#map=15/' . rawurlencode((string)$lat) . '/' . rawurlencode((string)$lng))
+            : '',
     ];
 }
 
@@ -260,7 +272,8 @@ require_once APP_ROOT . '/header.php';
                     <figure class="pa-tile" data-pa-index="<?= (int)$i ?>"
                             data-full="<?= htmlspecialchars($img['url']) ?>"
                             data-title="<?= htmlspecialchars($img['title']) ?>"
-                            data-date="<?= htmlspecialchars($img['date']) ?>">
+                            data-date="<?= htmlspecialchars($img['date']) ?>"
+                            data-map="<?= htmlspecialchars($img['map_url']) ?>">
                         <img src="<?= htmlspecialchars($img['thumb_url']) ?>"
                              alt="<?= htmlspecialchars($img['title']) ?>"
                              loading="lazy"
@@ -296,6 +309,9 @@ require_once APP_ROOT . '/header.php';
         <figcaption class="pa-lb-cap">
             <span class="pa-lb-title" data-pa-title></span>
             <span class="pa-lb-date" data-pa-date></span>
+            <a class="pa-lb-loc" data-pa-loc hidden target="_blank" rel="noopener noreferrer">
+                <i class="fa-light fa-location-dot" aria-hidden="true"></i> 查看位置
+            </a>
         </figcaption>
     </figure>
 </div>
@@ -310,6 +326,7 @@ require_once APP_ROOT . '/header.php';
     const img = lb.querySelector('[data-pa-img]');
     const titleEl = lb.querySelector('[data-pa-title]');
     const dateEl = lb.querySelector('[data-pa-date]');
+    const locEl = lb.querySelector('[data-pa-loc]');
     const spinner = lb.querySelector('[data-pa-spinner]');
     let cur = -1;
 
@@ -326,10 +343,20 @@ require_once APP_ROOT . '/header.php';
         img.src = t.dataset.full;
         const title = t.dataset.title || '';
         const date = t.dataset.date || '';
+        const map = t.dataset.map || '';
         titleEl.textContent = title;
         titleEl.style.display = title ? '' : 'none';
         dateEl.textContent = date;
         dateEl.style.display = date ? '' : 'none';
+        if (locEl) {
+            if (map) {
+                locEl.href = map;
+                locEl.hidden = false;
+            } else {
+                locEl.removeAttribute('href');
+                locEl.hidden = true;
+            }
+        }
     };
     const open = (i) => { show(i); lb.hidden = false; document.body.style.overflow = 'hidden'; };
     const close = () => { lb.hidden = true; img.src = ''; document.body.style.overflow = ''; };

@@ -16,7 +16,7 @@ use PDO;
  */
 final class ImageRepository
 {
-    private const ALL_COLUMNS = 'id, filename, original_name, mime, ext, size, width, height, hash, created_at, has_thumbnail, has_webp, has_avif, remote_synced, watermarked, view_count';
+    private const ALL_COLUMNS = 'id, filename, original_name, description, mime, ext, size, width, height, hash, created_at, has_thumbnail, has_webp, has_avif, remote_synced, watermarked, view_count, exif_lat, exif_lng, exif_taken_at, exif_camera, exif_scanned';
 
     public function find(string $filename): ?array
     {
@@ -318,7 +318,7 @@ final class ImageRepository
             return (int)Database::connection()->query('SELECT COUNT(*) FROM images')->fetchColumn();
         }
         $stmt = Database::connection()->prepare(
-            'SELECT COUNT(*) FROM images WHERE filename LIKE :q OR original_name LIKE :q'
+            'SELECT COUNT(*) FROM images WHERE filename LIKE :q OR original_name LIKE :q OR description LIKE :q'
         );
         $stmt->execute([':q' => '%' . $query . '%']);
         return (int)$stmt->fetchColumn();
@@ -339,7 +339,7 @@ final class ImageRepository
         $where = '';
         $query = trim($query);
         if ($query !== '') {
-            $where = ' WHERE filename LIKE :q OR original_name LIKE :q';
+            $where = ' WHERE filename LIKE :q OR original_name LIKE :q OR description LIKE :q';
             $params[':q'] = '%' . $query . '%';
         }
 
@@ -380,7 +380,7 @@ final class ImageRepository
         $where = '';
         $query = trim($query);
         if ($query !== '') {
-            $where = ' WHERE filename LIKE :q OR original_name LIKE :q';
+            $where = ' WHERE filename LIKE :q OR original_name LIKE :q OR description LIKE :q';
             $params[':q'] = '%' . $query . '%';
         }
         $sql = 'SELECT ' . self::ALL_COLUMNS . ' FROM images' . $where . ' ORDER BY ' . $orderBy;
@@ -480,6 +480,7 @@ final class ImageRepository
                 $items[] = [
                     'filename' => (string)$row['filename'],
                     'original_name' => (string)($row['original_name'] ?? $row['filename']),
+                    'description' => (string)($row['description'] ?? ''),
                     'url' => (string)$row['url'],
                     'thumb_url' => (string)($row['thumb_url'] ?? $row['url']),
                     'size' => (int)($row['size'] ?? 0),
@@ -491,6 +492,10 @@ final class ImageRepository
                     'time' => (int)($row['time'] ?? 0),
                     'time_text' => date('Y-m-d H:i', (int)($row['time'] ?? time())),
                     'request_count' => (int)($row['request_count'] ?? 0),
+                    'exif_lat' => $row['exif_lat'] ?? null,
+                    'exif_lng' => $row['exif_lng'] ?? null,
+                    'exif_taken_at' => isset($row['exif_taken_at']) ? (int)$row['exif_taken_at'] : null,
+                    'exif_camera' => (string)($row['exif_camera'] ?? ''),
                 ];
             }
             return $items;
@@ -543,19 +548,24 @@ final class ImageRepository
     private function normalizeForWrite(array $data): array
     {
         $allowed = [
-            'filename', 'original_name', 'mime', 'ext', 'size',
+            'filename', 'original_name', 'description', 'mime', 'ext', 'size',
             'width', 'height', 'hash', 'created_at',
             'has_thumbnail', 'has_webp', 'has_avif',
             'remote_synced', 'watermarked', 'view_count',
+            'exif_lat', 'exif_lng', 'exif_taken_at', 'exif_camera', 'exif_scanned',
         ];
         $out = [];
         foreach ($allowed as $key) {
             if (!array_key_exists($key, $data)) continue;
             $value = $data[$key];
-            if (in_array($key, ['has_thumbnail', 'has_webp', 'has_avif', 'remote_synced', 'watermarked'], true)) {
+            if (in_array($key, ['has_thumbnail', 'has_webp', 'has_avif', 'remote_synced', 'watermarked', 'exif_scanned'], true)) {
                 $value = $value ? 1 : 0;
-            } elseif (in_array($key, ['size', 'width', 'height', 'created_at', 'view_count'], true)) {
+            } elseif (in_array($key, ['size', 'width', 'height', 'created_at', 'view_count', 'exif_taken_at'], true)) {
                 $value = $value === null ? null : (int)$value;
+            } elseif (in_array($key, ['exif_lat', 'exif_lng'], true)) {
+                $value = $value === null || $value === '' ? null : (float)$value;
+            } elseif ($key === 'description') {
+                $value = (string)$value;
             }
             $out[$key] = $value;
         }
@@ -565,6 +575,7 @@ final class ImageRepository
     private static function cast(array $row): array
     {
         $row['id'] = (int)$row['id'];
+        $row['description'] = (string)($row['description'] ?? '');
         $row['size'] = (int)($row['size'] ?? 0);
         $row['width'] = isset($row['width']) ? (int)$row['width'] : null;
         $row['height'] = isset($row['height']) ? (int)$row['height'] : null;
@@ -575,6 +586,15 @@ final class ImageRepository
         $row['remote_synced'] = (bool)($row['remote_synced'] ?? false);
         $row['watermarked'] = (bool)($row['watermarked'] ?? false);
         $row['view_count'] = (int)($row['view_count'] ?? 0);
+        $row['exif_lat'] = isset($row['exif_lat']) && $row['exif_lat'] !== null && $row['exif_lat'] !== ''
+            ? (float)$row['exif_lat'] : null;
+        $row['exif_lng'] = isset($row['exif_lng']) && $row['exif_lng'] !== null && $row['exif_lng'] !== ''
+            ? (float)$row['exif_lng'] : null;
+        $row['exif_taken_at'] = isset($row['exif_taken_at']) && $row['exif_taken_at'] !== null && $row['exif_taken_at'] !== ''
+            ? (int)$row['exif_taken_at'] : null;
+        $row['exif_camera'] = isset($row['exif_camera']) && $row['exif_camera'] !== null && $row['exif_camera'] !== ''
+            ? (string)$row['exif_camera'] : null;
+        $row['exif_scanned'] = (bool)($row['exif_scanned'] ?? false);
         return $row;
     }
 }

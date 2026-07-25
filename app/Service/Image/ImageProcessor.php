@@ -136,6 +136,16 @@ final class ImageProcessor
             return false;
         }
 
+        // Safety net: upload path already scans, but imports / retries may not.
+        try {
+            (new ExifService($this->images))->scanAndStore($filename);
+        } catch (Throwable $e) {
+            Logger::warning('EXIF scan failed', [
+                'filename' => $filename,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
         $thumbnails = new ThumbnailService();
         if (!empty($opts['create_thumbnail'])) {
             $thumbnails->create($filename);
@@ -191,58 +201,49 @@ final class ImageProcessor
         $finalUrl = ImageUrl::forIdentifier($identifier);
         $originalDeleted = false;
         $keepOriginal = defined('KEEP_ORIGINAL_AFTER_PROCESS') && KEEP_ORIGINAL_AFTER_PROCESS;
+        $albumImages = new \LitePic\Repository\AlbumImageRepository();
+        $images = new ImageRepository();
+        $exif = new ExifService($images);
+
+        $replace = static function (string $old, string $neu) use ($keepOriginal, $thumbnails, $albumImages, $images, $exif, &$originalDeleted): string {
+            if ($neu === '' || $neu === $old) {
+                return $old;
+            }
+            $neuPath = PathService::resolveFilePath($neu);
+            if (!file_exists($neuPath)) {
+                return $old;
+            }
+            $oldPath = PathService::resolveFilePath($old);
+            if (file_exists($oldPath) && basename($oldPath) !== PathService::displayName($neu)) {
+                $exif->copyMeta($old, $neu);
+                $albumImages->repointFilename($old, $neu);
+                if (!$keepOriginal) {
+                    @unlink($oldPath);
+                    $thumbnails->delete($old);
+                    $images->delete($old);
+                    $originalDeleted = true;
+                }
+            }
+            return $neu;
+        };
 
         if (!empty($processing['auto_webp']['created']) && !empty($processing['auto_webp']['filename'])) {
             $webpFilename = PathService::normalizeIdentifier((string)$processing['auto_webp']['filename']);
-            $webpPath = PathService::resolveFilePath($webpFilename);
-            if (file_exists($webpPath)) {
-                $originPath = PathService::resolveFilePath($identifier);
-                if (file_exists($originPath) && basename($originPath) !== PathService::displayName($webpFilename)) {
-                    if (!$keepOriginal) {
-                        @unlink($originPath);
-                        $thumbnails->delete($identifier);
-                        (new ImageRepository())->delete($identifier);
-                        $originalDeleted = true;
-                    }
-                }
-                $finalFilename = $webpFilename;
-                $finalUrl = ImageUrl::forIdentifier($webpFilename);
-            }
+            $finalFilename = $replace($finalFilename, $webpFilename);
+            $finalUrl = ImageUrl::forIdentifier($finalFilename);
         }
 
         if (!empty($processing['auto_avif']['created']) && !empty($processing['auto_avif']['filename'])) {
             $avifFilename = PathService::normalizeIdentifier((string)$processing['auto_avif']['filename']);
-            $avifPath = PathService::resolveFilePath($avifFilename);
-            if (file_exists($avifPath)) {
-                $prevPath = PathService::resolveFilePath($finalFilename);
-                if (file_exists($prevPath) && basename($prevPath) !== PathService::displayName($avifFilename)) {
-                    if (!$keepOriginal) {
-                        @unlink($prevPath);
-                        $thumbnails->delete($finalFilename);
-                        (new ImageRepository())->delete($finalFilename);
-                        $originalDeleted = true;
-                    }
-                }
-                $finalFilename = $avifFilename;
-                $finalUrl = ImageUrl::forIdentifier($avifFilename);
-            }
+            $finalFilename = $replace($finalFilename, $avifFilename);
+            $finalUrl = ImageUrl::forIdentifier($finalFilename);
         }
 
         if (!empty($processing['auto_convert']['created']) && !empty($processing['auto_convert']['filename'])) {
             $convertedFilename = PathService::normalizeIdentifier((string)$processing['auto_convert']['filename']);
-            $convertedPath = PathService::resolveFilePath($convertedFilename);
-            if (file_exists($convertedPath) && $convertedFilename !== $finalFilename) {
-                $prevPath = PathService::resolveFilePath($finalFilename);
-                if (file_exists($prevPath) && basename($prevPath) !== PathService::displayName($convertedFilename)) {
-                    if (!$keepOriginal) {
-                        @unlink($prevPath);
-                        $thumbnails->delete($finalFilename);
-                        (new ImageRepository())->delete($finalFilename);
-                        $originalDeleted = true;
-                    }
-                }
-                $finalFilename = $convertedFilename;
-                $finalUrl = ImageUrl::forIdentifier($convertedFilename);
+            if ($convertedFilename !== $finalFilename) {
+                $finalFilename = $replace($finalFilename, $convertedFilename);
+                $finalUrl = ImageUrl::forIdentifier($finalFilename);
             }
         }
 

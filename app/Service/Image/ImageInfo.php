@@ -144,6 +144,7 @@ final class ImageInfo
         return [
             'filename' => $identifier,
             'original_name' => (string)$original,
+            'description' => (string)($row['description'] ?? ''),
             'size' => $size,
             'filesize' => self::formatBytes($size),
             'width' => $width,
@@ -154,6 +155,10 @@ final class ImageInfo
             'url' => ImageUrl::forIdentifier($identifier),
             'thumb_url' => $thumbUrl,
             'request_count' => (int)($row['view_count'] ?? 0),
+            'exif_lat' => isset($row['exif_lat']) ? $row['exif_lat'] : null,
+            'exif_lng' => isset($row['exif_lng']) ? $row['exif_lng'] : null,
+            'exif_taken_at' => isset($row['exif_taken_at']) ? (int)$row['exif_taken_at'] : null,
+            'exif_camera' => (string)($row['exif_camera'] ?? ''),
         ];
     }
 

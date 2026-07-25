@@ -276,6 +276,57 @@
     transition: border-color 0.15s ease, background-color 0.15s ease;
   }
 
+  .img-desc {
+    @apply mt-0.5 min-w-0 overflow-hidden text-[0.72rem] leading-[1.3] text-ellipsis whitespace-nowrap;
+    color: color-mix(in srgb, var(--gray) 88%, var(--dark) 12%);
+    border-bottom: 1px dashed transparent;
+    transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+    min-height: 1.15em;
+  }
+
+  .img-desc.is-empty {
+    color: color-mix(in srgb, var(--gray) 55%, transparent);
+  }
+
+  .img-desc.is-empty:not([contenteditable="true"])::before {
+    content: attr(data-placeholder);
+  }
+
+  .img-desc:hover {
+    @apply cursor-text;
+    border-bottom-color: color-mix(in srgb, var(--border-color) 80%, transparent);
+  }
+
+  .img-desc[contenteditable="true"] {
+    @apply overflow-x-auto overflow-y-hidden text-clip outline-none cursor-text whitespace-normal;
+    color: var(--dark);
+    background: rgba(22, 119, 255, 0.06);
+    border-bottom: 1px solid var(--primary);
+  }
+
+  .img-desc[contenteditable="true"].is-empty::before {
+    content: none;
+  }
+
+  html[data-theme="dark"] .img-desc[contenteditable="true"] {
+    background: rgba(22, 119, 255, 0.16);
+  }
+
+  .img-gps-badge {
+    --badge-bg: #f0fdf4;
+    --badge-color: #15803d;
+    --badge-border: #bbf7d0;
+    @apply no-underline;
+  }
+
+  .img-gps-badge:hover {
+    --badge-bg: #dcfce7;
+  }
+
+  .img-camera-badge {
+    max-width: 7.5rem;
+  }
+
   .img-name:hover {
     @apply cursor-text;
     border-bottom-color: color-mix(in srgb, var(--border-color) 80%, transparent);

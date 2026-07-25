@@ -1237,6 +1237,102 @@ document.addEventListener('DOMContentLoaded', initLicenseDialog);
     });
 })();
 
+/* =====================================================================
+ * 图库卡片描述内联编辑（双击 .img-desc）
+ * ---------------------------------------------------------------------
+ *  - 允许清空（保存空字符串）
+ *  - 与文件名编辑同一套 Enter / Esc / focusout 约定
+ * ===================================================================== */
+(function() {
+    document.addEventListener('dblclick', (e) => {
+        const descEl = e.target.closest?.('.img-card .img-desc');
+        if (!descEl) return;
+        if (descEl.getAttribute('contenteditable') === 'true') return;
+        if (!descEl.closest('.gallery')) return;
+
+        e.preventDefault();
+        const originalDisplay = descEl.textContent.trim();
+        descEl.dataset.originalText = originalDisplay;
+        descEl.classList.remove('is-empty');
+        descEl.setAttribute('contenteditable', 'true');
+        descEl.spellcheck = true;
+        descEl.focus();
+
+        const range = document.createRange();
+        range.selectNodeContents(descEl);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    });
+
+    document.addEventListener('keydown', (e) => {
+        const descEl = e.target?.closest?.('.img-desc[contenteditable="true"]');
+        if (!descEl) return;
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            descEl.blur();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            descEl.textContent = descEl.dataset.originalText || '';
+            descEl.dataset.cancelled = '1';
+            descEl.blur();
+        }
+    });
+
+    document.addEventListener('focusout', async (e) => {
+        const descEl = e.target;
+        if (!(descEl instanceof HTMLElement)) return;
+        if (!descEl.matches?.('.img-desc[contenteditable="true"]')) return;
+
+        descEl.removeAttribute('contenteditable');
+
+        const cancelled = descEl.dataset.cancelled === '1';
+        delete descEl.dataset.cancelled;
+
+        const newText = (descEl.textContent || '').trim();
+        const oldText = descEl.dataset.originalText || '';
+        delete descEl.dataset.originalText;
+
+        if (cancelled || newText === oldText) {
+            descEl.textContent = oldText;
+            descEl.classList.toggle('is-empty', oldText === '');
+            descEl.setAttribute('title', oldText || '双击添加描述');
+            return;
+        }
+
+        const card = descEl.closest('.img-card, .img-box');
+        const filename = card?.dataset?.filename || '';
+        if (!filename) {
+            descEl.textContent = oldText;
+            descEl.classList.toggle('is-empty', oldText === '');
+            return;
+        }
+
+        try {
+            const result = await ApiService.request('/api/v1/action', {
+                action: 'update_description',
+                file: filename,
+                description: newText,
+                csrf_token: window.CSRF_TOKEN || ''
+            }, { method: 'POST' });
+
+            const saved = (result && typeof result.description === 'string')
+                ? result.description
+                : newText;
+            descEl.textContent = saved;
+            descEl.classList.toggle('is-empty', saved === '');
+            descEl.setAttribute('title', saved || '双击添加描述');
+            window.ImgEt?.Utils?.showNotification?.(saved === '' ? '描述已清空' : '描述已保存', 'success');
+        } catch (err) {
+            descEl.textContent = oldText;
+            descEl.classList.toggle('is-empty', oldText === '');
+            descEl.setAttribute('title', oldText || '双击添加描述');
+            const msg = (err && err.message) ? err.message : '请稍后重试';
+            window.ImgEt?.Utils?.showNotification?.('描述保存失败:' + msg, 'error');
+        }
+    });
+})();
+
 /* ---------------------------
    主题切换（Footer 按钮逻辑）
    - 存储: localStorage.siteTheme = 'system'|'light'|'dark'

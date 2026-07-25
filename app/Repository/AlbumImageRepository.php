@@ -176,6 +176,38 @@ final class AlbumImageRepository
     }
 
     /**
+     * When format conversion replaces the original file (KEEP_ORIGINAL=false),
+     * remount album membership onto the surviving variant so CASCADE delete
+     * of the old images row does not drop the photo from albums.
+     */
+    public function repointFilename(string $from, string $to): int
+    {
+        $from = trim($from);
+        $to = trim($to);
+        if ($from === '' || $to === '' || $from === $to) {
+            return 0;
+        }
+
+        $pdo = Database::connection();
+        // Drop rows that would collide with the PK (album already has $to).
+        // SQLite forbids deleting from a table while selecting it in a subquery —
+        // use a temp list instead.
+        $albumsWithTo = $pdo->prepare('SELECT album_id FROM album_images WHERE filename = :to');
+        $albumsWithTo->execute([':to' => $to]);
+        $ids = array_map('intval', $albumsWithTo->fetchAll(\PDO::FETCH_COLUMN) ?: []);
+        if ($ids !== []) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $pdo->prepare(
+                "DELETE FROM album_images WHERE filename = ? AND album_id IN ($placeholders)"
+            )->execute(array_merge([$from], $ids));
+        }
+
+        $stmt = $pdo->prepare('UPDATE album_images SET filename = :to WHERE filename = :from');
+        $stmt->execute([':to' => $to, ':from' => $from]);
+        return $stmt->rowCount();
+    }
+
+    /**
      * @param array<int, string> $filenames
      */
     public function removeMany(int $albumId, array $filenames): int
