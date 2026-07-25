@@ -466,17 +466,22 @@
   }
 
   .pa-tile-views {
-    @apply absolute top-2 right-2 z-[2] inline-flex items-center gap-1 py-0.5 px-1.5 text-[0.72rem] tabular-nums text-white;
+    @apply absolute right-2 bottom-2 z-[3] inline-flex items-center gap-1 py-0.5 px-1.5 text-[0.72rem] tabular-nums text-white opacity-0 pointer-events-none;
     background: rgba(8, 12, 20, 0.55);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
+    transition: opacity 280ms ease;
+  }
+  .pa-tile:hover .pa-tile-views {
+    @apply opacity-100;
   }
   .pa-tile-views i { @apply text-[0.85em] opacity-85; }
 
   @media (prefers-reduced-motion: reduce) {
     .pa-tile img,
     .pa-tile::after,
-    .pa-tile-cap {
+    .pa-tile-cap,
+    .pa-tile-views {
       transition: none;
     }
     .pa-tile:hover img {
