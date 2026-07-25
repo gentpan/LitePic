@@ -2283,6 +2283,7 @@ class BaseProcessor {
  */
 class DeleteManager extends BaseProcessor {
     static #updateDelay = 300;
+    static #escapeBound = false;
 
     static handleDelete(target) {
         if (this.isProcessing() || !target) return;
@@ -2302,6 +2303,74 @@ class DeleteManager extends BaseProcessor {
         }, {
             danger: true,
             confirmText: '删除'
+        });
+    }
+
+    /** 最近上传卡片：内嵌小确认，不走全屏 dialog */
+    static showRecentInlineConfirm(card, filename) {
+        if (!card || !filename || this.isProcessing()) return;
+
+        this.closeRecentInlineConfirms(card);
+
+        let panel = card.querySelector('.img-delete-confirm');
+        if (!panel) {
+            panel = document.createElement('div');
+            panel.className = 'img-delete-confirm';
+            panel.setAttribute('role', 'dialog');
+            panel.setAttribute('aria-label', '确认删除');
+            panel.innerHTML = `
+                <p class="img-delete-confirm-msg">删除这张图？</p>
+                <div class="img-delete-confirm-actions">
+                    <button type="button" class="img-delete-confirm-btn img-delete-confirm-cancel" data-recent-delete-cancel>取消</button>
+                    <button type="button" class="img-delete-confirm-btn img-delete-confirm-ok" data-recent-delete-ok>删除</button>
+                </div>
+            `;
+            card.appendChild(panel);
+        }
+
+        card.classList.add('is-confirming');
+        panel.querySelector('[data-recent-delete-ok]')?.focus();
+        this.#bindEscapeOnce();
+    }
+
+    static closeRecentInlineConfirms(exceptCard = null) {
+        document.querySelectorAll('.img-box.is-confirming').forEach(card => {
+            if (exceptCard && card === exceptCard) return;
+            card.classList.remove('is-confirming');
+        });
+    }
+
+    static async confirmRecentInlineDelete(card, filename) {
+        if (!card || !filename || this.isProcessing()) return;
+
+        const okBtn = card.querySelector('[data-recent-delete-ok]');
+        const cancelBtn = card.querySelector('[data-recent-delete-cancel]');
+        if (okBtn) okBtn.disabled = true;
+        if (cancelBtn) cancelBtn.disabled = true;
+
+        try {
+            card.classList.add('deleting');
+            await this.processSingle(filename);
+        } catch (error) {
+            card.classList.remove('deleting', 'is-confirming');
+            if (okBtn) okBtn.disabled = false;
+            if (cancelBtn) cancelBtn.disabled = false;
+            throw error;
+        }
+    }
+
+    static #bindEscapeOnce() {
+        if (this.#escapeBound) return;
+        this.#escapeBound = true;
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape') return;
+            if (!document.querySelector('.img-box.is-confirming')) return;
+            this.closeRecentInlineConfirms();
+        });
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('.img-box.is-confirming')) return;
+            if (!document.querySelector('.img-box.is-confirming')) return;
+            this.closeRecentInlineConfirms();
         });
     }
 
@@ -3044,11 +3113,40 @@ class GalleryManager {
         if (!container || container.dataset.eventsBound === '1') return;
         container.dataset.eventsBound = '1';
         container.addEventListener('click', e => {
+            const cancelBtn = e.target.closest('[data-recent-delete-cancel]');
+            if (cancelBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                const card = cancelBtn.closest('.img-box');
+                card?.classList.remove('is-confirming');
+                return;
+            }
+
+            const okBtn = e.target.closest('[data-recent-delete-ok]');
+            if (okBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                const card = okBtn.closest('.img-box');
+                const filename = card?.dataset.filename;
+                if (!filename) return;
+                DeleteManager.confirmRecentInlineDelete(card, filename);
+                return;
+            }
+
             const btn = e.target.closest('.action-btn');
             if (!btn || btn.classList.contains('copy-btn')) return;
             const card = btn.closest('.img-box');
             const filename = card?.dataset.filename;
             if (!filename) return;
+
+            // 最近上传：删除走卡片内嵌确认，不弹 dialog
+            if (btn.classList.contains('delete-btn')) {
+                e.preventDefault();
+                e.stopPropagation();
+                DeleteManager.showRecentInlineConfirm(card, filename);
+                return;
+            }
+
             this.handleImageAction(btn, card, filename);
         });
     }

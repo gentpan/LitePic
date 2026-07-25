@@ -79,6 +79,74 @@
     animation: deleteCard 0.3s ease forwards;
   }
 
+  /* 最近上传：卡片内嵌删除确认（替代全屏 dialog） */
+  .img-delete-confirm {
+    @apply absolute inset-0 z-[4] flex flex-col items-center justify-center gap-2.5 p-3 opacity-0 pointer-events-none;
+    background: color-mix(in srgb, #0f172a 76%, transparent);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    transform: translateY(6px);
+    transition: opacity 160ms ease, transform 160ms ease;
+  }
+
+  .img-box.is-confirming .img-delete-confirm {
+    @apply opacity-100 pointer-events-auto;
+    transform: translateY(0);
+  }
+
+  .img-box.is-confirming .img-overlay {
+    @apply opacity-0 pointer-events-none translate-y-full;
+  }
+
+  .img-box.is-confirming:hover img,
+  .img-box.is-confirming img {
+    transform: scale(1);
+  }
+
+  .img-delete-confirm-msg {
+    @apply m-0 text-white text-[0.8rem] leading-none text-center;
+    font-weight: 650;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  }
+
+  .img-delete-confirm-actions {
+    @apply inline-flex items-center gap-2;
+  }
+
+  .img-delete-confirm-btn {
+    @apply h-[30px] min-w-[54px] inline-flex items-center justify-center gap-1.5 px-3 py-0 text-[0.76rem] leading-none cursor-pointer;
+    border-radius: var(--radius-sm);
+    font-weight: 650;
+    transition: background 140ms ease, border-color 140ms ease, transform 140ms ease, opacity 140ms ease;
+  }
+
+  .img-delete-confirm-btn:hover:not(:disabled) {
+    @apply -translate-y-px;
+  }
+
+  .img-delete-confirm-btn:disabled {
+    @apply opacity-55 cursor-not-allowed;
+  }
+
+  .img-delete-confirm-cancel {
+    @apply text-white;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .img-delete-confirm-cancel:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .img-delete-confirm-ok {
+    @apply text-white border border-transparent;
+    background: var(--danger);
+  }
+
+  .img-delete-confirm-ok:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--danger) 88%, #000 12%);
+  }
+
   .img-overlay {
     @apply absolute inset-x-0 bottom-0 top-auto flex gap-2 p-3 opacity-0 translate-y-full;
     background: linear-gradient(to top, rgba(0,0,0,0.66), transparent);
