@@ -21,6 +21,7 @@ final class AlbumRepository
                                          LIMIT 1)
                                    ) AS cover_effective,
                                    visibility, password_hash, embed_token,
+                                   COALESCE(theme, \'grid\') AS theme,
                                    image_count, view_count, sort_order,
                                    created_at, updated_at
                             FROM albums';
@@ -100,7 +101,7 @@ final class AlbumRepository
      * @param array{
      *   slug?:?string, name:string, description?:string, cover_filename?:?string,
      *   visibility?:string, password_hash?:?string, embed_token?:string,
-     *   sort_order?:int
+     *   theme?:string, sort_order?:int
      * } $data
      */
     public function create(array $data): ?int
@@ -109,11 +110,11 @@ final class AlbumRepository
         $stmt = Database::connection()->prepare(
             'INSERT INTO albums
                 (slug, name, description, cover_filename, visibility,
-                 password_hash, embed_token, image_count, view_count,
+                 password_hash, embed_token, theme, image_count, view_count,
                  sort_order, created_at, updated_at)
              VALUES
                 (:slug, :name, :description, :cover, :visibility,
-                 :password_hash, :embed_token, 0, 0,
+                 :password_hash, :embed_token, :theme, 0, 0,
                  :sort_order, :created_at, :updated_at)'
         );
         try {
@@ -129,6 +130,7 @@ final class AlbumRepository
                 ':visibility'    => $data['visibility'] ?? 'public',
                 ':password_hash' => $data['password_hash'] ?? null,
                 ':embed_token'   => (string)($data['embed_token'] ?? ''),
+                ':theme'         => (string)($data['theme'] ?? 'grid'),
                 ':sort_order'    => (int)($data['sort_order'] ?? 0),
                 ':created_at'    => $now,
                 ':updated_at'    => $now,
@@ -149,7 +151,7 @@ final class AlbumRepository
     {
         $allowed = [
             'slug', 'name', 'description', 'cover_filename', 'visibility',
-            'password_hash', 'embed_token', 'sort_order',
+            'password_hash', 'embed_token', 'theme', 'sort_order',
         ];
         $sets = [];
         $params = [':id' => $id, ':updated_at' => time()];
@@ -221,6 +223,9 @@ final class AlbumRepository
             'visibility'     => (string)$row['visibility'],
             'password_hash'  => $row['password_hash'] !== null ? (string)$row['password_hash'] : null,
             'embed_token'    => (string)$row['embed_token'],
+            'theme'          => in_array((string)($row['theme'] ?? 'grid'), ['grid', 'masonry'], true)
+                                ? (string)$row['theme']
+                                : 'grid',
             'image_count'    => (int)$row['image_count'],
             'view_count'     => (int)$row['view_count'],
             'sort_order'     => (int)$row['sort_order'],

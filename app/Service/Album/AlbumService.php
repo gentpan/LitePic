@@ -20,6 +20,9 @@ final class AlbumService
 {
     public const VISIBILITIES = ['public', 'unlisted', 'password', 'private'];
 
+    /** Public album page layout themes. */
+    public const THEMES = ['grid', 'masonry'];
+
     /**
      * Reserved slugs we must never accept — they conflict with framework
      * routes (`/api`, `/embed`, `/a/...` reused, etc.) or look weird in URLs.
@@ -53,12 +56,13 @@ final class AlbumService
      *   - 'slug_taken'        another album already owns this slug
      *   - 'name_required'     name is empty
      *   - 'visibility_invalid'  visibility not in VISIBILITIES
+     *   - 'theme_invalid'       theme not in THEMES
      *   - 'password_required'   visibility=password but no password supplied
      *   - 'db_error'          INSERT failed for unknown reasons
      *
      * @param array{
      *   name:string, slug?:string, description?:string, visibility?:string,
-     *   password?:?string, cover_filename?:?string
+     *   theme?:string, password?:?string, cover_filename?:?string
      * } $input
      * @return int|string  album id on success, error code otherwise
      */
@@ -82,6 +86,9 @@ final class AlbumService
         $visibility = (string)($input['visibility'] ?? 'public');
         if (!in_array($visibility, self::VISIBILITIES, true)) return 'visibility_invalid';
 
+        $theme = (string)($input['theme'] ?? 'grid');
+        if (!in_array($theme, self::THEMES, true)) return 'theme_invalid';
+
         $passwordHash = null;
         if ($visibility === 'password') {
             $password = (string)($input['password'] ?? '');
@@ -98,6 +105,7 @@ final class AlbumService
             'description'    => trim((string)($input['description'] ?? '')),
             'cover_filename' => $cover,
             'visibility'     => $visibility,
+            'theme'          => $theme,
             'password_hash'  => $passwordHash,
             'embed_token'    => self::generateEmbedToken(),
         ]);
@@ -113,7 +121,7 @@ final class AlbumService
      *
      * @param array{
      *   name?:string, slug?:string, description?:string, visibility?:string,
-     *   password?:?string, cover_filename?:?string
+     *   theme?:string, password?:?string, cover_filename?:?string
      * } $input
      * @return true|string
      */
@@ -154,6 +162,12 @@ final class AlbumService
         if (array_key_exists('cover_filename', $input)) {
             $cover = (string)$input['cover_filename'];
             $patch['cover_filename'] = $cover !== '' ? $cover : null;
+        }
+
+        if (array_key_exists('theme', $input)) {
+            $theme = (string)$input['theme'];
+            if (!in_array($theme, self::THEMES, true)) return 'theme_invalid';
+            $patch['theme'] = $theme;
         }
 
         $newVisibility = $existing['visibility'];

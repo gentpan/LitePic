@@ -137,6 +137,7 @@ final class AlbumController
             'slug'           => (string)($payload['slug'] ?? ''),
             'description'    => (string)($payload['description'] ?? ''),
             'visibility'     => (string)($payload['visibility'] ?? 'public'),
+            'theme'          => (string)($payload['theme'] ?? 'grid'),
             'password'       => isset($payload['password']) ? (string)$payload['password'] : null,
             'cover_filename' => (string)($payload['cover_filename'] ?? ''),
         ]);
@@ -155,7 +156,7 @@ final class AlbumController
 
         // Only forward keys the user actually sent — partial update.
         $patch = [];
-        foreach (['name', 'slug', 'description', 'visibility', 'cover_filename'] as $k) {
+        foreach (['name', 'slug', 'description', 'visibility', 'theme', 'cover_filename'] as $k) {
             if (array_key_exists($k, $payload)) $patch[$k] = $payload[$k];
         }
         // password is special: present-but-empty wipes; absent leaves alone.
@@ -335,6 +336,7 @@ final class AlbumController
             'cover_url'       => is_string($cover) && $cover !== ''
                                  ? ImageUrl::thumbnailUrl($cover) : null,
             'visibility'      => $album['visibility'],
+            'theme'           => $album['theme'] ?? 'grid',
             'has_password'    => ($album['password_hash'] ?? null) !== null,
             'embed_token'     => AlbumService::isEmbeddable((string)$album['visibility'])
                                  ? $album['embed_token']
@@ -357,6 +359,7 @@ final class AlbumController
             'slug_reserved'      => 'slug 是系统保留路径，请换一个',
             'slug_taken'         => 'slug 已被占用，请换一个',
             'visibility_invalid' => '可见性参数不合法',
+            'theme_invalid'      => '相册主题不合法',
             'password_required'  => '可见性为「密码」时必须设置密码',
             'not_found'          => '相册不存在',
             'db_error'           => '数据库操作失败',

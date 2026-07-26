@@ -420,19 +420,19 @@
   body.public-album-page #notification { @apply z-[100000]; }
 
   /* 沉浸式照片墙：禁止页面滚动，取消稳定滚动条槽，网格铺满视口 */
-  html:has(body.public-album-page:not(.public-album-locked)) {
+  html:has(body.public-album-page:not(.public-album-locked):not(.pa-theme-masonry)) {
     height: 100dvh !important;
     max-height: 100dvh !important;
     overflow: hidden !important;
     scrollbar-gutter: auto !important;
     scrollbar-width: none !important;
   }
-  html:has(body.public-album-page:not(.public-album-locked))::-webkit-scrollbar {
+  html:has(body.public-album-page:not(.public-album-locked):not(.pa-theme-masonry))::-webkit-scrollbar {
     width: 0 !important;
     height: 0 !important;
     display: none !important;
   }
-  body.public-album-page:not(.public-album-locked) {
+  body.public-album-page:not(.public-album-locked):not(.pa-theme-masonry) {
     height: 100dvh !important;
     max-height: 100dvh !important;
     min-height: 0 !important;
@@ -446,6 +446,29 @@
   }
   .pa-album {
     @apply fixed inset-0 z-0 m-0 p-0 w-full h-full overflow-hidden;
+  }
+
+  /* 主题二 · 瀑布流（sabi 马赛克）：有大有小、黑底间隙、圆角 */
+  body.public-album-page.pa-theme-masonry:not(.public-album-locked) {
+    height: auto !important;
+    max-height: none !important;
+    min-height: 100dvh !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: auto;
+    background: #000;
+  }
+  html:has(body.public-album-page.pa-theme-masonry:not(.public-album-locked)) {
+    height: auto !important;
+    max-height: none !important;
+    overflow: auto !important;
+    scrollbar-gutter: stable;
+    background: #000;
+  }
+  body.pa-theme-masonry .pa-album {
+    @apply relative inset-auto h-auto min-h-dvh overflow-visible;
+    padding-bottom: 72px;
+    background: #000;
   }
 
   /* 照片墙 —— 按约 4:3 比例放大行列，铺满整屏（与 12=4×3 同比例） */
@@ -480,18 +503,175 @@
     }
   }
 
+  /* sabi 马赛克：dense 网格 + 跨行跨列制造大小差 */
+  .pa-grid.is-masonry {
+    display: grid;
+    width: 100%;
+    height: auto;
+    min-height: calc(100dvh - 72px);
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-auto-rows: minmax(72px, 9.5dvh);
+    grid-auto-flow: dense;
+    gap: 10px;
+    padding: 12px;
+    background: #000;
+  }
+  .pa-grid.is-masonry[data-n="12"] {
+    grid-auto-rows: minmax(80px, 11dvh);
+  }
+  .pa-grid.is-masonry[data-n="48"] {
+    grid-auto-rows: minmax(64px, 8dvh);
+  }
+
+  .pa-grid.is-masonry .pa-tile {
+    @apply relative m-0 min-w-0 min-h-0 w-auto h-auto;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #141414;
+  }
+  .pa-grid.is-masonry .pa-tile img {
+    @apply w-full h-full object-cover block;
+    /* 略压暗，贴近 sabi 照片墙质感 */
+    filter: brightness(0.88);
+    transition:
+      transform 720ms cubic-bezier(0.22, 1, 0.36, 1),
+      filter 320ms ease;
+  }
+  .pa-grid.is-masonry .pa-tile.is-revealed:hover img {
+    filter: brightness(1);
+    transform: scale(1.06);
+  }
+
+  .pa-grid.is-masonry .pa-tile[data-mosaic="sm"] {
+    grid-column: span 3;
+    grid-row: span 2;
+  }
+  .pa-grid.is-masonry .pa-tile[data-mosaic="md"] {
+    grid-column: span 3;
+    grid-row: span 3;
+  }
+  .pa-grid.is-masonry .pa-tile[data-mosaic="tall"] {
+    grid-column: span 3;
+    grid-row: span 4;
+  }
+  .pa-grid.is-masonry .pa-tile[data-mosaic="wide"] {
+    grid-column: span 6;
+    grid-row: span 3;
+  }
+  .pa-grid.is-masonry .pa-tile[data-mosaic="lg"] {
+    grid-column: span 4;
+    grid-row: span 4;
+  }
+  .pa-grid.is-masonry .pa-tile[data-mosaic="xl"] {
+    grid-column: span 6;
+    grid-row: span 4;
+  }
+
+  @media (max-width: 1100px) {
+    .pa-grid.is-masonry {
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      gap: 9px;
+      padding: 10px;
+      grid-auto-rows: minmax(70px, 10dvh);
+    }
+    .pa-grid.is-masonry .pa-tile[data-mosaic="sm"] {
+      grid-column: span 2;
+      grid-row: span 2;
+    }
+    .pa-grid.is-masonry .pa-tile[data-mosaic="md"] {
+      grid-column: span 2;
+      grid-row: span 3;
+    }
+    .pa-grid.is-masonry .pa-tile[data-mosaic="tall"] {
+      grid-column: span 2;
+      grid-row: span 4;
+    }
+    .pa-grid.is-masonry .pa-tile[data-mosaic="wide"] {
+      grid-column: span 4;
+      grid-row: span 3;
+    }
+    .pa-grid.is-masonry .pa-tile[data-mosaic="lg"] {
+      grid-column: span 3;
+      grid-row: span 4;
+    }
+    .pa-grid.is-masonry .pa-tile[data-mosaic="xl"] {
+      grid-column: span 4;
+      grid-row: span 4;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .pa-grid.is-masonry {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+      padding: 8px;
+      grid-auto-rows: minmax(64px, 11dvh);
+    }
+    .pa-grid.is-masonry .pa-tile {
+      border-radius: 12px;
+    }
+    .pa-grid.is-masonry .pa-tile[data-mosaic="sm"] {
+      grid-column: span 3;
+      grid-row: span 2;
+    }
+    .pa-grid.is-masonry .pa-tile[data-mosaic="md"],
+    .pa-grid.is-masonry .pa-tile[data-mosaic="tall"] {
+      grid-column: span 3;
+      grid-row: span 3;
+    }
+    .pa-grid.is-masonry .pa-tile[data-mosaic="wide"],
+    .pa-grid.is-masonry .pa-tile[data-mosaic="lg"],
+    .pa-grid.is-masonry .pa-tile[data-mosaic="xl"] {
+      grid-column: span 6;
+      grid-row: span 3;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .pa-grid.is-masonry {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 7px;
+      padding: 7px;
+    }
+    .pa-grid.is-masonry .pa-tile {
+      border-radius: 10px;
+    }
+    .pa-grid.is-masonry .pa-tile[data-mosaic="sm"],
+    .pa-grid.is-masonry .pa-tile[data-mosaic="md"],
+    .pa-grid.is-masonry .pa-tile[data-mosaic="tall"] {
+      grid-column: span 2;
+      grid-row: span 3;
+    }
+    .pa-grid.is-masonry .pa-tile[data-mosaic="wide"],
+    .pa-grid.is-masonry .pa-tile[data-mosaic="lg"],
+    .pa-grid.is-masonry .pa-tile[data-mosaic="xl"] {
+      grid-column: span 4;
+      grid-row: span 3;
+    }
+  }
+
   .pa-tile {
     @apply relative m-0 min-w-0 min-h-0 overflow-hidden cursor-zoom-in;
     background: color-mix(in srgb, var(--dark) 6%, transparent);
+    /* sabi：错落淡入 — 不同时间 opacity 0→1，略带 scale */
+    opacity: 0;
+    transform: scale(0.98);
+    transition:
+      opacity 2.2s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 2.2s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform, opacity;
+  }
+  .pa-tile.is-revealed {
+    opacity: 1;
+    transform: scale(1);
   }
   .pa-tile img {
-    @apply w-full h-full object-cover block opacity-0;
+    @apply w-full h-full object-cover block;
     transform: scale(1);
-    /* 加载淡入快；悬停放大要慢，只用 transform 走合成层 */
-    transition: opacity 280ms ease, transform 720ms cubic-bezier(0.22, 1, 0.36, 1);
+    /* 悬停放大慢；入场交给 .pa-tile */
+    transition: transform 720ms cubic-bezier(0.22, 1, 0.36, 1);
     will-change: transform;
   }
-  .pa-tile img.is-loaded { @apply opacity-100; }
   .pa-tile:hover img {
     transform: scale(1.08);
   }
@@ -503,7 +683,7 @@
     background: rgba(8, 12, 20, 0.28);
     transition: opacity 320ms ease;
   }
-  .pa-tile:hover::after {
+  .pa-tile.is-revealed:hover::after {
     @apply opacity-100;
   }
 
@@ -512,7 +692,7 @@
     background: linear-gradient(180deg, transparent, rgba(0,0,0,0.62));
     transition: opacity 320ms ease;
   }
-  .pa-tile:hover .pa-tile-cap {
+  .pa-tile.is-revealed:hover .pa-tile-cap {
     @apply opacity-100;
   }
 
@@ -523,12 +703,17 @@
     -webkit-backdrop-filter: blur(8px);
     transition: opacity 280ms ease;
   }
-  .pa-tile:hover .pa-tile-views {
+  .pa-tile.is-revealed:hover .pa-tile-views {
     @apply opacity-100;
   }
   .pa-tile-views i { @apply text-[0.85em] opacity-85; }
 
   @media (prefers-reduced-motion: reduce) {
+    .pa-tile {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
     .pa-tile img,
     .pa-tile::after,
     .pa-tile-cap,

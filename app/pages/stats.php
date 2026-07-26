@@ -190,8 +190,8 @@ require_once APP_ROOT . '/header.php';
                 <strong>图片请求统计</strong>
                 <span>
                     <?= $view_counter_enabled ? '已启用（PHP 直读）' : '未启用' ?>，
-                    累计 <?= number_format($total_image_requests) ?> 次图片请求，
-                    Top <?= count($top_images) ?> 张如下表。
+                    累计 <?= number_format($total_image_requests) ?> 次，
+                    下方为 Top <?= count($top_images) ?>。
                 </span>
             </div>
             <div>
@@ -272,12 +272,15 @@ require_once APP_ROOT . '/header.php';
                 <div class="stats-request-head">
                     <div>
                         <h3>图片请求 Top 20</h3>
-                        <p>按 PHP 直读统计排序，进度条表示相对榜首热度。</p>
+                        <p>按浏览量排序 · 热度条相对榜首 · 占比相对全站累计</p>
                     </div>
-                    <span class="stats-request-total"><?= number_format($total_image_requests) ?> 次总请求</span>
+                    <div class="stats-request-head-meta">
+                        <span class="stats-request-total"><?= number_format($total_image_requests) ?> 次累计</span>
+                        <span class="stats-request-listed"><?= count($top_images) ?> / 20</span>
+                    </div>
                 </div>
 
-                <div class="stats-request-list">
+                <div class="stats-request-list" role="list">
                     <?php if (empty($top_images)): ?>
                         <div class="stats-request-empty">
                             <i class="fa-light fa-chart-simple" aria-hidden="true"></i>
@@ -288,42 +291,48 @@ require_once APP_ROOT . '/header.php';
                             <?php
                                 $rank = $idx + 1;
                                 $views = (int)$item['view_count'];
-                                $percent = $max_top_views > 0 ? max(4, min(100, (int)round(($views / $max_top_views) * 100))) : 0;
+                                $heat = $max_top_views > 0 ? max(6, min(100, (int)round(($views / $max_top_views) * 100))) : 0;
+                                $share = $total_image_requests > 0
+                                    ? round(($views / $total_image_requests) * 100, $views * 100 < $total_image_requests ? 1 : 0)
+                                    : 0;
+                                $shareLabel = rtrim(rtrim(number_format($share, 1, '.', ''), '0'), '.') . '%';
                                 $source_url = (string)$item['source_url'];
                                 $source_label = $source_url !== ''
                                     ? ((string)$item['source_host'] !== '' ? (string)$item['source_host'] : $source_url)
-                                    : (((int)$item['source_count'] > 0) ? '直接访问 / 无来源' : '未记录来源');
+                                    : (((int)$item['source_count'] > 0) ? '直接访问' : '未记录来源');
+                                $fmt = strtolower((string)$item['format']);
+                                if ($fmt === 'jpeg') $fmt = 'jpg';
                             ?>
-                            <article class="stats-request-item">
+                            <article class="stats-request-item<?= $rank <= 3 ? ' is-top' : '' ?>" data-rank="<?= $rank ?>" role="listitem">
                                 <div class="stats-request-rank" aria-label="第 <?= $rank ?> 名"><?= $rank ?></div>
                                 <a class="stats-request-thumb" href="<?= htmlspecialchars((string)$item['url']) ?>" target="_blank" rel="noopener" title="打开原图">
                                     <img src="<?= htmlspecialchars((string)$item['thumb_url']) ?>" alt="" loading="lazy">
                                 </a>
                                 <div class="stats-request-main">
                                     <div class="stats-request-title-row">
-                                        <a class="stats-request-title" href="<?= htmlspecialchars((string)$item['url']) ?>" target="_blank" rel="noopener" title="<?= htmlspecialchars((string)$item['original_name']) ?>">
+                                        <a class="stats-request-title" href="<?= htmlspecialchars((string)$item['url']) ?>" target="_blank" rel="noopener" title="<?= htmlspecialchars((string)$item['filename']) ?>">
                                             <?= htmlspecialchars((string)$item['original_name']) ?>
                                         </a>
-                                        <span class="stats-request-format"><?= htmlspecialchars((string)$item['format']) ?></span>
+                                        <span class="stats-request-format fmt-<?= htmlspecialchars($fmt) ?>"><?= htmlspecialchars((string)$item['format']) ?></span>
                                     </div>
-                                    <a class="stats-request-path" href="<?= htmlspecialchars((string)$item['url']) ?>" target="_blank" rel="noopener" title="<?= htmlspecialchars((string)$item['filename']) ?>">
-                                        <?= htmlspecialchars((string)$item['filename']) ?>
-                                    </a>
-                                    <div class="stats-request-source">
-                                        <i class="fa-light fa-arrow-turn-down-right" aria-hidden="true"></i>
-                                        <?php if ($source_url !== ''): ?>
-                                            <a href="<?= htmlspecialchars($source_url) ?>" target="_blank" rel="noopener" title="<?= htmlspecialchars($source_url) ?>">
-                                                <?= htmlspecialchars($source_label) ?>
-                                            </a>
-                                        <?php else: ?>
-                                            <span><?= htmlspecialchars($source_label) ?></span>
-                                        <?php endif; ?>
-                                        <?php if ((int)$item['source_count'] > 0): ?>
-                                            <em>来源 <?= number_format((int)$item['source_count']) ?> 次</em>
-                                        <?php endif; ?>
+                                    <div class="stats-request-meta">
+                                        <span class="stats-request-source">
+                                            <i class="fa-light fa-link" aria-hidden="true"></i>
+                                            <?php if ($source_url !== ''): ?>
+                                                <a href="<?= htmlspecialchars($source_url) ?>" target="_blank" rel="noopener" title="<?= htmlspecialchars($source_url) ?>">
+                                                    <?= htmlspecialchars($source_label) ?>
+                                                </a>
+                                            <?php else: ?>
+                                                <span><?= htmlspecialchars($source_label) ?></span>
+                                            <?php endif; ?>
+                                            <?php if ((int)$item['source_count'] > 0): ?>
+                                                <em>×<?= number_format((int)$item['source_count']) ?></em>
+                                            <?php endif; ?>
+                                        </span>
+                                        <span class="stats-request-share" title="占全站请求比例"><?= htmlspecialchars($shareLabel) ?></span>
                                     </div>
                                     <div class="stats-request-meter" aria-hidden="true">
-                                        <span style="width: <?= $percent ?>%"></span>
+                                        <span style="width: <?= $heat ?>%"></span>
                                     </div>
                                 </div>
                                 <div class="stats-request-count">

@@ -214,6 +214,8 @@ foreach ($pageFilenames as $filename) {
         'url'        => \LitePic\Service\Image\ImageUrl::forIdentifier($filename),
         'thumb_url'  => (string)($meta['thumb_url'] ?? \LitePic\Service\Image\ImageUrl::forIdentifier($filename)),
         'dimensions' => (string)($meta['dimensions'] ?? ''),
+        'width'      => (int)($meta['width'] ?? 0),
+        'height'     => (int)($meta['height'] ?? 0),
         'size'       => (int)($meta['size'] ?? 0),
         'views'      => (int)($meta['request_count'] ?? 0),
         'title'      => $caption,
@@ -234,7 +236,11 @@ if ($coverSrc !== '') {
 }
 
 $page_title = $album['name'];
-$body_class = 'public-album-page';
+$albumTheme = (string)($album['theme'] ?? 'grid');
+if (!in_array($albumTheme, ['grid', 'masonry'], true)) {
+    $albumTheme = 'grid';
+}
+$body_class = 'public-album-page pa-theme-' . $albumTheme;
 $html_title = $album['name'] . ' ｜ ' . SITE_NAME;
 
 // SEO 控制
@@ -261,19 +267,44 @@ require_once APP_ROOT . '/header.php';
                 <p>这个相册还没有图片</p>
             </div>
         <?php else: ?>
-            <div class="pa-grid" data-pa-grid data-n="<?= (int)$perPage ?>">
+            <div class="pa-grid<?= $albumTheme === 'masonry' ? ' is-masonry' : '' ?>" data-pa-grid data-n="<?= (int)$perPage ?>" data-theme="<?= htmlspecialchars($albumTheme) ?>">
                 <?php foreach ($images as $i => $img): ?>
+                    <?php
+                        $w = (int)$img['width'];
+                        $h = (int)$img['height'];
+                        $ratio = ($h > 0) ? ($w / $h) : 1.0;
+                        $mosaic = 'md';
+                        if ($albumTheme === 'masonry') {
+                            // sabi 式马赛克：按比例 + 节奏位，故意做出有大有小
+                            $cycle = $i % 9;
+                            if ($cycle === 0) {
+                                $mosaic = $ratio >= 1 ? 'xl' : 'lg';
+                            } elseif ($cycle === 4) {
+                                $mosaic = 'wide';
+                            } elseif ($ratio < 0.82) {
+                                $mosaic = 'tall';
+                            } elseif ($ratio > 1.55) {
+                                $mosaic = ($cycle % 2 === 0) ? 'wide' : 'md';
+                            } elseif ($cycle === 2 || $cycle === 7) {
+                                $mosaic = 'sm';
+                            } else {
+                                $mosaic = 'md';
+                            }
+                        }
+                        $imgAttrs = ($w > 0 && $h > 0) ? (' width="' . $w . '" height="' . $h . '"') : '';
+                    ?>
                     <figure class="pa-tile" data-pa-index="<?= (int)$i ?>"
                             data-filename="<?= htmlspecialchars($img['filename']) ?>"
                             data-full="<?= htmlspecialchars($img['url']) ?>"
                             data-title="<?= htmlspecialchars($img['title']) ?>"
                             data-date="<?= htmlspecialchars($img['date']) ?>"
                             data-map="<?= htmlspecialchars($img['map_url']) ?>"
-                            data-views="<?= (int)$img['views'] ?>">
+                            data-views="<?= (int)$img['views'] ?>"
+                            <?php if ($albumTheme === 'masonry'): ?>data-mosaic="<?= htmlspecialchars($mosaic) ?>"<?php endif; ?>>
                         <img src="<?= htmlspecialchars($img['thumb_url']) ?>"
                              alt="<?= htmlspecialchars($img['title']) ?>"
                              loading="lazy"
-                             decoding="async">
+                             decoding="async"<?= $imgAttrs ?>>
                         <span class="pa-tile-views" title="浏览量">
                             <i class="fa-light fa-eye" aria-hidden="true"></i>
                             <span data-pa-views><?= number_format((int)$img['views']) ?></span>
@@ -512,14 +543,27 @@ require_once APP_ROOT . '/header.php';
         else if (e.key === 'ArrowRight') next();
     });
 
-    // 网格缩略图:加载时淡入(已缓存的直接显示)
-    tiles.forEach((t) => {
-        const im = t.querySelector('img');
-        if (!im) return;
-        if (im.complete && im.naturalWidth) { im.classList.add('is-loaded'); return; }
-        im.addEventListener('load', () => im.classList.add('is-loaded'), { once: true });
-        im.addEventListener('error', () => im.classList.add('is-loaded'), { once: true });
-    });
+    // 网格：sabi 同款「不同时间淡入」——随机顺序错落，不整页齐刷
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const STAGGER_MS = 120; // 与 sabi each:.12 一致
+
+    if (reduceMotion) {
+        tiles.forEach((t) => t.classList.add('is-revealed'));
+    } else {
+        const order = tiles.map((_, i) => i);
+        for (let i = order.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const tmp = order[i];
+            order[i] = order[j];
+            order[j] = tmp;
+        }
+        // 立刻开演，不等全部下载完，才能看出先后淡入
+        order.forEach((idx, rank) => {
+            window.setTimeout(() => {
+                tiles[idx]?.classList.add('is-revealed');
+            }, 40 + rank * STAGGER_MS);
+        });
+    }
 })();
 </script>
 <?php

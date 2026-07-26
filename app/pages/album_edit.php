@@ -141,6 +141,28 @@ if (!$isNew && !empty($album)) {
                 </select>
             </div>
 
+            <div class="grid gap-2">
+                <label for="albumTheme">公开页主题</label>
+                <select id="albumTheme" name="theme">
+                    <?php
+                    $themeOptions = [
+                        'grid'    => '主题一 · 宫格 — 等大裁切，铺满视口',
+                        'masonry' => '主题二 · 瀑布流 — 有大有小马赛克，间隙圆角',
+                    ];
+                    $currentTheme = (string)($album['theme'] ?? 'grid');
+                    if (!in_array($currentTheme, ['grid', 'masonry'], true)) {
+                        $currentTheme = 'grid';
+                    }
+                    foreach ($themeOptions as $val => $label):
+                    ?>
+                        <option value="<?= $val ?>" <?= $currentTheme === $val ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($label) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <p class="settings-field-hint">仅影响公开相册页 `/a/...` 的布局，后台管理页不变。</p>
+            </div>
+
             <div class="grid gap-2" data-album-password-field <?= $currentVis === 'password' ? '' : 'hidden' ?>>
                 <label for="albumPassword">密码</label>
                 <input id="albumPassword" name="password" type="password" maxlength="80"
