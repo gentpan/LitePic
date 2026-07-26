@@ -7,7 +7,7 @@
 
 **轻量级自托管图床 · SQLite 单文件 · 异步处理 · S3 / R2 远程存储**
 
-[![Version](https://img.shields.io/badge/version-3.5.0-0052D9?style=flat-square)](https://github.com/gentpan/LitePic/releases)
+[![Version](https://img.shields.io/badge/version-3.5.1-0052D9?style=flat-square)](https://github.com/gentpan/LitePic/releases)
 [![PHP](https://img.shields.io/badge/PHP-8.0%2B-777bb4?style=flat-square)](https://www.php.net/)
 [![License](https://img.shields.io/badge/license-MIT-111827?style=flat-square)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-litepic.io-0052D9?style=flat-square)](https://litepic.io/docs)
@@ -216,7 +216,7 @@ Caddyfile          # 若已按站点改过域名 / root / php_ini，请一并备
 设置 → 系统 → 程序更新 → 检查更新 → 立即更新
 ```
 
-在线更新会从 GitHub Release 下载新版 ZIP，只覆盖 LitePic 程序文件，并跳过 `.env`、`.user.ini`、`data/`、`uploads/`、`logs/` 和 `static/images/`。`Caddyfile` 属于程序文件会被替换——若已按站点改过，更新前请先备份，更新后再合并回自定义项。
+在线更新优先从 `litepic.io/version.json` 获取版本与 ZIP（失败再回退 GitHub Release）。更新时只同步受管程序目录/文件（`api/`、`app/`、`assets/`、`static/favicon/` 及根目录程序文件等）：覆盖新文件，并**删除新版本中已不存在的旧程序文件**。永远跳过 `.env`、`.user.ini`、`data/`、`uploads/`（或你改名后的存储目录）、`logs/` 和 `static/images/`。`Caddyfile` 属于程序文件会被替换——若已按站点改过，更新前请先备份，更新后再合并回自定义项。
 
 无法在线更新时，可以手动升级：
 

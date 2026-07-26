@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.5.1] - 2026-07-26
+
+### Changed
+
+- **在线更新改为精确同步** — 受管目录（`api/`、`app/`、`assets/`、`static/favicon/`）覆盖后会删除新包中已不存在的旧文件；受管根文件若新包已移除也会删掉本地副本。数据/配置/上传目录仍受保护。同步逻辑放在包内 `update_sync.php`，安装时优先执行新包规则。版本检测仍优先 `litepic.io/version.json`，GitHub 兜底。
+
 ## [3.5.0] - 2026-07-26
 
 ### Added

@@ -742,7 +742,7 @@ require_once APP_ROOT . '/header.php';
 
                         <p class="cleanup-note">
                             <i class="fa-light fa-circle-info" aria-hidden="true"></i>
-                            <span>更新前会生成程序文件快照；更新过程不会覆盖 <code>.env</code>、<code>.user.ini</code>、<code>data/</code>、<code><?= htmlspecialchars(defined('STORAGE_DIR') ? STORAGE_DIR : 'uploads') ?>/</code>、<code>logs/</code> 和 <code>static/images/</code>。如服务器未启用 ZipArchive 或站点根目录不可写，会自动停止。</span>
+                            <span>更新前会生成程序文件快照；更新会覆盖受管程序文件，并清理新版本中已删除的旧 PHP/静态文件。不会动 <code>.env</code>、<code>.user.ini</code>、<code>data/</code>、<code><?= htmlspecialchars(defined('STORAGE_DIR') ? STORAGE_DIR : 'uploads') ?>/</code>、<code>logs/</code> 和 <code>static/images/</code>。版本信息优先读官网 <code>litepic.io</code>，失败再回退 GitHub。如服务器未启用 ZipArchive 或站点根目录不可写，会自动停止。</span>
                         </p>
 
                         <div class="cleanup-toolbar" data-update-panel>

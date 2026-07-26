@@ -19,48 +19,13 @@ final class UpdateService
     /** 版本信息缓存时长(秒)—— 自动检测频繁,缓存避免每次都走网络。 */
     private const VERSION_CACHE_TTL = 21600; // 6h
 
-    /** @var string[] */
-    private const MANAGED_DIRS = [
-        'api',
-        'app',
-        'assets',
-        'static/favicon',
-    ];
-
-    /** @var string[] */
-    private const MANAGED_FILES = [
-        '.env.example',
-        'CHANGELOG.md',
-        'LICENSE',
-        'README.md',
-        'action.php',
-        'bootstrap.php',
-        'config.php',
-        'favicon.ico',
-        'footer.php',
-        'header.php',
-        'image.php',
-        'index.php',
-        'nginx-litepic.conf',
-        'Caddyfile',
-        '.user.ini.example',
-        'package-lock.json',
-        'package.json',
-        'worker.php',
-        'static/logo.png',
-        'static/logo-dark.png',
-    ];
-
     /**
-     * Documentation only — paths the updater MUST NOT touch. The actual
-     * protection comes from the REPLACEABLE_PATHS whitelist above (we
-     * replace nothing outside that list). This const is kept as a
-     * human-readable reminder; nothing reads it at runtime.
+     * Documentation only — paths the updater MUST NOT touch. Protection is
+     * the managed whitelist in UpdateApply (nothing outside that list is
+     * replaced or pruned). This const is a human-readable reminder.
      *
-     * Note: 'uploads' here represents the physical storage directory.
-     * Admins can rename it to "files" / "images" / etc. via STORAGE_DIR
-     * — whatever the runtime value is, it's still protected because
-     * it's not in REPLACEABLE_PATHS.
+     * Note: 'uploads' represents the physical storage directory. Admins can
+     * rename it via STORAGE_DIR — it stays protected because it is not managed.
      *
      * @var string[]
      */
@@ -117,7 +82,7 @@ final class UpdateService
     }
 
     /**
-     * @return array{current:string,latest:string,updated:bool,backup:?string,migrations:array<int,string>,message:string}
+     * @return array{current:string,latest:string,updated:bool,backup:?string,migrations:array<int,string>,removed:array<int,string>,message:string}
      */
     public function installLatest(): array
     {
@@ -132,6 +97,7 @@ final class UpdateService
                 'updated' => false,
                 'backup' => null,
                 'migrations' => [],
+                'removed' => [],
                 'message' => '当前已经是最新版本',
             ];
         }
@@ -155,11 +121,18 @@ final class UpdateService
 
             $backupPath = $this->backupManagedFiles($tag);
             $this->writeMaintenance($tag);
-            $this->syncManagedFiles($sourceRoot);
+            // Prefer Apply from the downloaded package so prune/sync rules of
+            // the NEW version run on this upgrade (not only the next one).
+            $removed = $this->syncFromPackage($sourceRoot);
 
             $migrations = (new Migration(APP_ROOT . '/app/Migrations'))->run();
             $this->clearMaintenance();
             $this->removeDir($workDir);
+
+            $msg = '更新完成';
+            if ($removed !== []) {
+                $msg .= '（已清理 ' . count($removed) . ' 个废弃程序文件）';
+            }
 
             return [
                 'current' => $check['current'],
@@ -167,7 +140,8 @@ final class UpdateService
                 'updated' => true,
                 'backup' => $backupPath,
                 'migrations' => $migrations,
-                'message' => '更新完成',
+                'removed' => $removed,
+                'message' => $msg,
             ];
         } catch (Throwable $e) {
             $this->clearMaintenance();
@@ -402,7 +376,12 @@ final class UpdateService
             throw new RuntimeException('创建更新前备份失败');
         }
 
-        foreach (array_merge(self::MANAGED_DIRS, self::MANAGED_FILES, self::CRITICAL_BACKUP_PATHS) as $rel) {
+        $managed = array_merge(
+            UpdateApply::MANAGED_DIRS,
+            UpdateApply::MANAGED_FILES,
+            self::CRITICAL_BACKUP_PATHS
+        );
+        foreach ($managed as $rel) {
             $abs = APP_ROOT . '/' . $rel;
             if (!file_exists($abs)) continue;
             $this->addToZip($zip, $abs, $rel);
@@ -417,24 +396,39 @@ final class UpdateService
         $this->extract($zipPath, APP_ROOT);
     }
 
-    private function syncManagedFiles(string $sourceRoot): void
+    /**
+     * Prefer package update_sync.php so prune/sync rules from the NEW zip
+     * run on this upgrade (class autoload cannot reload an already-loaded
+     * UpdateApply, but a fresh `require` of a returning closure can).
+     *
+     * @return list<string>
+     */
+    private function syncFromPackage(string $sourceRoot): array
     {
-        foreach (self::MANAGED_DIRS as $rel) {
-            $src = $sourceRoot . '/' . $rel;
-            $dst = APP_ROOT . '/' . $rel;
-            if (!is_dir($src)) continue;
-            $this->copyDir($src, $dst);
-        }
-
-        foreach (self::MANAGED_FILES as $rel) {
-            $src = $sourceRoot . '/' . $rel;
-            $dst = APP_ROOT . '/' . $rel;
-            if (!is_file($src)) continue;
-            $this->mkdir(dirname($dst));
-            if (!@copy($src, $dst)) {
-                throw new RuntimeException('复制文件失败：' . $rel);
+        $candidates = [
+            $sourceRoot . '/app/Service/System/update_sync.php',
+            __DIR__ . '/update_sync.php',
+        ];
+        $syncFile = null;
+        foreach ($candidates as $path) {
+            if (is_file($path)) {
+                $syncFile = $path;
+                break;
             }
         }
+        if ($syncFile === null) {
+            throw new RuntimeException('更新包缺少 update_sync.php，无法同步程序文件');
+        }
+
+        /** @var mixed $sync */
+        $sync = require $syncFile;
+        if (!is_callable($sync)) {
+            throw new RuntimeException('update_sync.php 未返回可调用对象');
+        }
+
+        /** @var list<string> $removed */
+        $removed = $sync($sourceRoot, APP_ROOT);
+        return $removed;
     }
 
     private function writeMaintenance(string $tag): void
@@ -464,27 +458,6 @@ final class UpdateService
     {
         if (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir)) {
             throw new RuntimeException('创建目录失败：' . $dir);
-        }
-    }
-
-    private function copyDir(string $src, string $dst): void
-    {
-        $this->mkdir($dst);
-        $items = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($src, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::SELF_FIRST
-        );
-        foreach ($items as $item) {
-            $rel = substr($item->getPathname(), strlen($src) + 1);
-            $target = $dst . '/' . str_replace('\\', '/', $rel);
-            if ($item->isDir()) {
-                $this->mkdir($target);
-            } else {
-                $this->mkdir(dirname($target));
-                if (!@copy($item->getPathname(), $target)) {
-                    throw new RuntimeException('复制文件失败：' . $rel);
-                }
-            }
         }
     }
 
