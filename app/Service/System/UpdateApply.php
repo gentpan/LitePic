@@ -39,6 +39,7 @@ final class UpdateApply
         'package-lock.json',
         'package.json',
         'worker.php',
+        'dav.php',
         'static/logo.png',
         'static/logo-dark.png',
     ];

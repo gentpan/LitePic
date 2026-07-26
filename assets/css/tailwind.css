@@ -200,6 +200,7 @@ html[data-theme="dark"] * {
 @import "./components/recent.css";
 @import "./components/gallery.css";
 @import "./components/album.css";
+@import "./components/files.css";
 @import "./components/settings.css";
 @import "./components/stats.css";
 /* docs.css removed — usage docs migrated to litepic.io/docs */

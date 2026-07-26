@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.6.0] - 2026-07-27
+
+### Added
+
+- **WebDAV 网络磁盘** — 挂载点 `/dav`，相册即文件夹，「未分类」与只读「按日期」视图；支持 OPTIONS / PROPFIND / GET(含 Range) / PUT / DELETE / MKCOL / MOVE / COPY / PROPPATCH / LOCK / UNLOCK（DAV class 1+2）。
+- **三种登录凭据** — 专用用户名密码、管理员密码、API Token（`ltp_…`），均可开关；Basic Auth + 与后台共用的登录限速。
+- **设置页 WebDAV tab** — 分区布局（开关 / 挂载入口 / 凭据 / 说明），`settings-switch` 与「保存设置」按钮；挂载地址一键复制、打开文件浏览。
+- **文件浏览页** — `/files` Finder 式列视图，与 WebDAV 客户端同一棵树；拖拽移动、Alt 拖拽复制、就地重命名、新建相册文件夹；不受 `WEBDAV_ENABLED` 约束（后台 admin 面）。
+- **客户端兼容** — Finder / Windows 垃圾文件静默吸收、0 字节探测占位、Win32 PROPPATCH、`MS-Author-Via`、配额属性。
+
+### Changed
+
+- **图片删除统一入口** — 图库与 WebDAV 共用 `ImageDeleter`，保证缩略图 / 衍生图 / 远程延迟删除一致。
+- **WebDAV DELETE 尊重硬链接** — COPY 到另一相册后，删除其中一处只取消该处引用；底层图仅在再无 `dav_entries` / `album_images` 引用时才真正删除。
+- **文件浏览列表只用缩略图** — 不再用原图兜底；无缩略图显示图标，避免「按日期」一列拖垮浏览器。
+
+### Fixed
+
+- **「按日期」漏查 `has_thumbnail`** — 列表误拉原图导致严重卡顿。
+- **Finder 连接兼容** — `WWW-Authenticate` 去掉 `charset=`；空 OPTIONS/401 不用 `text/html`；`/dav` 不做 zstd 压缩并清除 `Alt-Svc`，减轻挂载失败。
+- **Junk 路径 LOCK 500** — `.DS_Store` 等与 PUT 一样吸收，不再落 500。
+- **相册 MOVE 改名失败不回滚** — 冲突时恢复旧名，避免客户端失败但库已改。
+- **设置页 WebDAV / Telegram 无法保存** — 纳入主表单「保存设置」。
+- **无缩略图预览误报「磁盘已丢失」** — 区分占位 / 丢失 / 暂无缩略图。
+
 ## [3.5.1] - 2026-07-26
 
 ### Changed

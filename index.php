@@ -19,6 +19,18 @@ if ($normalizedPath === '/i' || str_starts_with($normalizedPath, '/i/')) {
 }
 
 /*
+ * WebDAV mount. Dispatched before the page router because WebDAV uses methods
+ * (PROPFIND / MKCOL / LOCK …) and paths that no page route would ever match,
+ * and because $requestPath — not the trailing-slash-stripped $normalizedPath —
+ * is what dav.php must see: `/dav/album/` and `/dav/album` are the same
+ * collection, but the distinction is the client's to make, not ours.
+ */
+if ($normalizedPath === '/dav' || str_starts_with($normalizedPath, '/dav/')) {
+    require __DIR__ . '/dav.php';
+    exit;
+}
+
+/*
  * 历史 /uploads/<path> 链接的 301 重定向 ——
  * 当管理员把物理目录从 uploads 改成别的名字（如 files）后，已发布的旧
  * 链接还是 /uploads/2026/04/abc.jpg。Web 服务器找不到该静态文件后会

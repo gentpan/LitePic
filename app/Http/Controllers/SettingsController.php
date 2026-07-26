@@ -553,6 +553,7 @@ final class SettingsController
         $activeTab = trim((string)($_POST['active_tab'] ?? ''));
         $imageTab = ($activeTab === 'image');
         $telegramTab = ($activeTab === 'telegram');
+        $webdavTab = ($activeTab === 'webdav');
 
         // Site identity + upload limits
         $siteName = trim((string)($_POST['site_name'] ?? SITE_NAME));
@@ -675,6 +676,60 @@ final class SettingsController
             $warnings[] = 'Telegram 已启用但「允许的用户 ID」为空,所有人都会被拒绝(只接受白名单用户)';
         }
 
+        // ---- WebDAV ---------------------------------------------------------
+        $webdavEnabled = self::boolFromPostOrKeep(
+            'webdav_enabled',
+            'WEBDAV_ENABLED',
+            $webdavTab
+        );
+        $webdavReadonly = self::boolFromPostOrKeep(
+            'webdav_readonly',
+            'WEBDAV_READONLY',
+            $webdavTab
+        );
+        $webdavAllowAdmin = self::boolFromPostOrKeep(
+            'webdav_allow_admin_login',
+            'WEBDAV_ALLOW_ADMIN_LOGIN',
+            $webdavTab
+        );
+        $webdavAllowToken = self::boolFromPostOrKeep(
+            'webdav_allow_token_login',
+            'WEBDAV_ALLOW_TOKEN_LOGIN',
+            $webdavTab
+        );
+        $webdavUsername = trim((string)($_POST['webdav_username']
+            ?? Config::get('WEBDAV_USERNAME', 'litepic')));
+        if ($webdavUsername === '' || preg_match('/^[\x20-\x7e]{1,64}$/', $webdavUsername) !== 1) {
+            if ($webdavTab) {
+                $warnings[] = 'WebDAV 用户名无效（1–64 个可打印 ASCII 字符），已保留原值';
+            }
+            $webdavUsername = (string)Config::get('WEBDAV_USERNAME', 'litepic');
+        }
+        $webdavPasswordHash = (string)Config::get('WEBDAV_PASSWORD_HASH', '');
+        if ($webdavTab) {
+            $webdavPasswordNew = (string)($_POST['webdav_password'] ?? '');
+            $webdavPasswordConfirm = (string)($_POST['webdav_password_confirm'] ?? '');
+            $webdavPasswordClear = isset($_POST['webdav_password_clear']);
+            if ($webdavPasswordClear) {
+                $webdavPasswordHash = '';
+            } elseif ($webdavPasswordNew !== '') {
+                if (strlen($webdavPasswordNew) < 8) {
+                    $warnings[] = 'WebDAV 密码至少 8 位，已保留原密码';
+                } elseif (!hash_equals($webdavPasswordNew, $webdavPasswordConfirm)) {
+                    $warnings[] = '两次输入的 WebDAV 密码不一致，已保留原密码';
+                } else {
+                    $webdavPasswordHash = password_hash($webdavPasswordNew, PASSWORD_BCRYPT);
+                }
+            }
+            if ($webdavEnabled
+                && $webdavPasswordHash === ''
+                && !$webdavAllowAdmin
+                && !$webdavAllowToken
+            ) {
+                $warnings[] = 'WebDAV 已启用但没有任何可用凭据（请设专用密码，或勾选管理员密码 / API Token 登录）';
+            }
+        }
+
         // Remote storage usage warning (fields are saved by the dedicated handler)
         $remoteStorageUsage = $this->resolveRemoteStorageUsage();
         if ($remoteStorageUsage === 'storage'
@@ -762,6 +817,12 @@ final class SettingsController
             'TELEGRAM_ALLOWED_USER_IDS'  => Format::envQuote($telegramAllowedUserIds),
             'TELEGRAM_DEFAULT_ALBUM_KEY' => Format::envQuote($telegramDefaultAlbum),
             'TELEGRAM_WEBHOOK_SECRET'    => Format::envQuote($telegramWebhookSecret),
+            'WEBDAV_ENABLED'            => $webdavEnabled ? 'true' : 'false',
+            'WEBDAV_READONLY'           => $webdavReadonly ? 'true' : 'false',
+            'WEBDAV_ALLOW_ADMIN_LOGIN'  => $webdavAllowAdmin ? 'true' : 'false',
+            'WEBDAV_ALLOW_TOKEN_LOGIN'  => $webdavAllowToken ? 'true' : 'false',
+            'WEBDAV_USERNAME'           => Format::envQuote($webdavUsername),
+            'WEBDAV_PASSWORD_HASH'      => Format::envQuote($webdavPasswordHash),
         ], RemoteStorage::envFromPostedForm()));
 
         $iniPath = APP_ROOT . '/.user.ini';

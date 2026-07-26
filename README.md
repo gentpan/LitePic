@@ -7,7 +7,7 @@
 
 **轻量级自托管图床 · SQLite 单文件 · 异步处理 · S3 / R2 远程存储**
 
-[![Version](https://img.shields.io/badge/version-3.5.1-0052D9?style=flat-square)](https://github.com/gentpan/LitePic/releases)
+[![Version](https://img.shields.io/badge/version-3.6.0-0052D9?style=flat-square)](https://github.com/gentpan/LitePic/releases)
 [![PHP](https://img.shields.io/badge/PHP-8.0%2B-777bb4?style=flat-square)](https://www.php.net/)
 [![License](https://img.shields.io/badge/license-MIT-111827?style=flat-square)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-litepic.io-0052D9?style=flat-square)](https://litepic.io/docs)
@@ -50,9 +50,10 @@ LitePic 是一个 PHP 写的图床。一台 VPS、一份 SQLite 文件，用 Fra
 - 数据库一键热备份（VACUUM INTO）+ 自动调度 + 同步到 R2 + 一键恢复
 - 残留数据扫描清理，5 类候选保守删除，永远不动磁盘文件和活动队列
 
-### 相册与 Telegram
+### 相册、Telegram 与 WebDAV
 - 公开 / 未列出 / 私密 / 密码相册，封面图与沉浸式公开浏览页
 - 可选 Telegram Bot：白名单用户发图自动入库，支持相册归类
+- **WebDAV 网络磁盘**：`/dav` 把相册挂成文件夹；Finder / Windows / rclone / Cyberduck 可读写；完整 DAV class 1+2（含 LOCK）。后台另有 `/files` 列视图浏览同一棵树。
 
 ## 环境要求
 
@@ -186,6 +187,7 @@ LitePic/
 ├── nginx-litepic.conf    # Nginx + PHP-FPM（可选）
 ├── bootstrap.php         # 引导入口
 ├── index.php             # 前端控制器
+├── dav.php               # /dav WebDAV 入口
 ├── image.php             # /i/… 与自定义前缀出图
 ├── action.php            # 管理操作（压缩 / 转换 / 删除等）
 ├── worker.php            # 异步队列 worker

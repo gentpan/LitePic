@@ -602,39 +602,12 @@ switch ($action) {
         break;
 
     case 'delete':
-        $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-        if (!in_array($ext, ALLOWED_TYPES, true)) {
-            \LitePic\Core\Response::error('只能删除允许的图片类型', 400);
+        // 同一套删除策略也被 WebDAV DELETE 复用，见 ImageDeleter。
+        $deleted = (new \LitePic\Service\Image\ImageDeleter())->delete($file);
+        if (!$deleted['ok']) {
+            \LitePic\Core\Response::error($deleted['message'], $deleted['message'] === '删除失败' ? 500 : 400);
         }
-        (new \LitePic\Service\Storage\RemoteStorage())->deleteFileAndThumbnail($file);
-        $webp = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.webp', $path);
-        $avif = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.avif', $path);
-        if (is_string($webp) && file_exists($webp)) {
-            (new \LitePic\Service\Storage\RemoteStorage())->deleteFileAndThumbnail((string)(\LitePic\Service\Image\PathService::identifierFromPath($webp) ?? basename($webp)));
-        }
-        if (is_string($avif) && file_exists($avif)) {
-            (new \LitePic\Service\Storage\RemoteStorage())->deleteFileAndThumbnail((string)(\LitePic\Service\Image\PathService::identifierFromPath($avif) ?? basename($avif)));
-        }
-
-        // 无论原图删除是否成功，都尝试清理缩略图，避免残留
-        (new \LitePic\Service\Image\ThumbnailService())->delete($file);
-        if (file_exists($path) && !@unlink($path)) {
-            \LitePic\Core\Response::error('删除失败', 500);
-        }
-
-        // 删除对应的 WebP / AVIF 文件（如果存在）
-        if (is_string($webp) && file_exists($webp)) {
-            @unlink($webp);
-            (new \LitePic\Service\Image\ThumbnailService())->delete((string)(\LitePic\Service\Image\PathService::identifierFromPath($webp) ?? basename($webp)));
-        }
-        if (is_string($avif) && file_exists($avif)) {
-            @unlink($avif);
-            (new \LitePic\Service\Image\ThumbnailService())->delete((string)(\LitePic\Service\Image\PathService::identifierFromPath($avif) ?? basename($avif)));
-        }
-        $imageRepo = new \LitePic\Repository\ImageRepository();
-        $imageRepo->delete($file);
-        $message = (new \LitePic\Service\Storage\RemoteStorage())->credentialsValid() ? '删除成功，远程对象将在 24 小时后删除' : '删除成功';
-        \LitePic\Core\Response::success(['message' => $message]);
+        \LitePic\Core\Response::success(['message' => $deleted['message']]);
         break;
 
     default:

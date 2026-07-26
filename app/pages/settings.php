@@ -57,6 +57,11 @@ $settings_tabs = [
         'label' => 'Telegram',
         'description' => '绑定 Telegram 机器人 — 直接在聊天里上传图片、管理相册、获取链接',
     ],
+    'webdav' => [
+        'icon' => 'fa-network-wired',
+        'label' => 'WebDAV',
+        'description' => '把图库挂成网络磁盘 — Finder / 资源管理器 / rclone 直接读写',
+    ],
     'system' => [
         'icon' => 'fa-database',
         'label' => '系统',
@@ -2020,6 +2025,227 @@ require_once APP_ROOT . '/header.php';
                     </script>
 <?php endif; // tab: telegram ?>
 
+<?php if (in_array($active_settings_tab, ['webdav'], true)): ?>
+                    <?php
+                    $dav_enabled = \LitePic\Service\WebDav\DavConfig::enabled();
+                    $dav_readonly = \LitePic\Service\WebDav\DavConfig::readOnly();
+                    $dav_user = \LitePic\Service\WebDav\DavConfig::username();
+                    $dav_has_password = \LitePic\Service\WebDav\DavConfig::hasDedicatedPassword();
+                    $dav_allow_admin = \LitePic\Service\WebDav\DavConfig::allowAdminLogin();
+                    $dav_allow_token = \LitePic\Service\WebDav\DavConfig::allowTokenLogin();
+                    $dav_usable = \LitePic\Service\WebDav\DavConfig::usable();
+                    $dav_site_url = \LitePic\Core\Config::siteUrl();
+                    if ($dav_site_url === '') {
+                        $dav_scheme = (!empty($_SERVER['HTTPS']) && (string)$_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+                        $dav_site_url = $dav_scheme . '://' . (string)($_SERVER['HTTP_HOST'] ?? 'localhost');
+                    }
+                    $dav_mount_url = rtrim($dav_site_url, '/') . '/dav';
+                    $dav_dir_unfiled = \LitePic\Service\WebDav\DavPath::DIR_UNFILED;
+                    $dav_dir_date = \LitePic\Service\WebDav\DavPath::DIR_DATE;
+                    ?>
+
+                    <section>
+                        <div class="settings-section-header">
+                            <h3 class="settings-card-title">
+                                <i class="fa-light fa-network-wired" aria-hidden="true"></i>
+                                <span>WebDAV 网络磁盘</span>
+                            </h3>
+                            <p>
+                                把图库挂成网络驱动器：相册是文件夹，拖入即上传，删除即删图。
+                                兼容 Finder、Windows 资源管理器、rclone、Cyberduck。
+                            </p>
+                        </div>
+
+                        <div class="settings-toggle-list">
+                            <label class="settings-toggle-row" for="webdav_enabled">
+                                <span class="settings-toggle-copy">
+                                    <strong>启用 WebDAV</strong>
+                                    <span class="settings-field-hint">关闭时 <code>/dav</code> 返回 404，对外不可探测</span>
+                                </span>
+                                <input id="webdav_enabled" class="settings-switch-input" type="checkbox"
+                                       name="webdav_enabled" value="1" <?= $dav_enabled ? 'checked' : '' ?>>
+                                <span class="settings-switch" aria-hidden="true"><span></span></span>
+                            </label>
+                            <label class="settings-toggle-row" for="webdav_readonly">
+                                <span class="settings-toggle-copy">
+                                    <strong>只读模式</strong>
+                                    <span class="settings-field-hint">只能浏览与下载，禁止写入、删除、移动、复制</span>
+                                </span>
+                                <input id="webdav_readonly" class="settings-switch-input" type="checkbox"
+                                       name="webdav_readonly" value="1" <?= $dav_readonly ? 'checked' : '' ?>>
+                                <span class="settings-switch" aria-hidden="true"><span></span></span>
+                            </label>
+                        </div>
+
+                        <?php if ($dav_enabled && !$dav_usable): ?>
+                            <p class="settings-field-hint settings-field-hint--spaced" style="color: var(--danger);">
+                                已勾选启用，但还没有可用凭据 —— 请设置专用密码，或打开下方「管理员密码 / API Token」登录。
+                            </p>
+                        <?php endif; ?>
+                    </section>
+
+                    <section>
+                        <div class="settings-section-header">
+                            <h3 class="settings-card-title">
+                                <i class="fa-light fa-link" aria-hidden="true"></i>
+                                <span>挂载与入口</span>
+                            </h3>
+                            <p>客户端填这个地址；网页里也能用同一棵目录树管理。</p>
+                        </div>
+
+                        <div class="settings-callout">
+                            <div class="flex items-center justify-between gap-2 flex-wrap">
+                                <div class="inline-flex items-center gap-2 flex-wrap min-w-0">
+                                    <strong>挂载地址</strong>
+                                    <?php if ($dav_usable): ?>
+                                        <span class="status-pill is-on"><?= $dav_readonly ? '只读' : '可写' ?></span>
+                                    <?php elseif ($dav_enabled): ?>
+                                        <span class="status-pill is-warn">缺凭据</span>
+                                    <?php else: ?>
+                                        <span class="status-pill is-off">未开启</span>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="flex gap-2 flex-wrap">
+                                    <button type="button" class="btn btn--secondary btn--sm" id="webdav-copy-url">
+                                        <i class="fa-light fa-copy" aria-hidden="true"></i>
+                                        <span>复制地址</span>
+                                    </button>
+                                    <a href="/files" class="btn btn--primary btn--sm" data-pjax>
+                                        <i class="fa-light fa-folder-tree" aria-hidden="true"></i>
+                                        <span>打开文件浏览</span>
+                                    </a>
+                                </div>
+                            </div>
+                            <p class="settings-field-hint settings-field-hint--spaced">
+                                <code class="settings-code-break" id="webdav-mount-url"><?= htmlspecialchars($dav_mount_url) ?></code>
+                            </p>
+                            <p class="settings-field-hint">
+                                CDN 前面请确认 <code>PROPFIND</code> / <code>MKCOL</code> / <code>LOCK</code> 会回源，并关闭 <code>/dav/*</code> 缓存；做不到就用不过 CDN 的域名挂载。
+                                「文件浏览」不依赖上方开关，后台随时可用。
+                            </p>
+                        </div>
+                    </section>
+
+                    <section>
+                        <div class="settings-section-header">
+                            <h3 class="settings-card-title">
+                                <i class="fa-light fa-key" aria-hidden="true"></i>
+                                <span>登录凭据</span>
+                            </h3>
+                            <p>HTTP Basic Auth。推荐专用账号；也可临时用管理员密码或 API Token。</p>
+                        </div>
+
+                        <div class="settings-grid">
+                            <div class="grid gap-2">
+                                <label for="webdav_username">专用用户名</label>
+                                <input id="webdav_username" name="webdav_username" type="text" autocomplete="off"
+                                       value="<?= htmlspecialchars($dav_user) ?>">
+                            </div>
+                            <div class="grid gap-2">
+                                <label>专用密码</label>
+                                <div class="flex items-center gap-2 min-h-11">
+                                    <?php if ($dav_has_password): ?>
+                                        <span class="status-pill is-on">已设置</span>
+                                    <?php else: ?>
+                                        <span class="status-pill is-off">未设置</span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <div class="grid gap-2">
+                                <label for="webdav_password">新密码<?= $dav_has_password ? '（留空不改）' : '' ?></label>
+                                <input id="webdav_password" name="webdav_password" type="password" autocomplete="new-password"
+                                       placeholder="至少 8 位">
+                            </div>
+                            <div class="grid gap-2">
+                                <label for="webdav_password_confirm">确认新密码</label>
+                                <input id="webdav_password_confirm" name="webdav_password_confirm" type="password" autocomplete="new-password">
+                            </div>
+                            <?php if ($dav_has_password): ?>
+                            <div class="grid gap-2 settings-grid__full">
+                                <label class="flex items-center gap-2" for="webdav_password_clear">
+                                    <input type="checkbox" id="webdav_password_clear" name="webdav_password_clear" value="1">
+                                    <span>清除专用密码</span>
+                                </label>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+
+                        <div class="settings-toggle-list" style="margin-top: 14px;">
+                            <label class="settings-toggle-row" for="webdav_allow_admin_login">
+                                <span class="settings-toggle-copy">
+                                    <strong>允许用管理员密码登录</strong>
+                                    <span class="settings-field-hint">用户名任意，密码填后台管理员密码</span>
+                                </span>
+                                <input id="webdav_allow_admin_login" class="settings-switch-input" type="checkbox"
+                                       name="webdav_allow_admin_login" value="1" <?= $dav_allow_admin ? 'checked' : '' ?>>
+                                <span class="settings-switch" aria-hidden="true"><span></span></span>
+                            </label>
+                            <label class="settings-toggle-row" for="webdav_allow_token_login">
+                                <span class="settings-toggle-copy">
+                                    <strong>允许用 API Token 登录</strong>
+                                    <span class="settings-field-hint">用户名任意，密码填「账号」页的 <code>ltp_…</code></span>
+                                </span>
+                                <input id="webdav_allow_token_login" class="settings-switch-input" type="checkbox"
+                                       name="webdav_allow_token_login" value="1" <?= $dav_allow_token ? 'checked' : '' ?>>
+                                <span class="settings-switch" aria-hidden="true"><span></span></span>
+                            </label>
+                        </div>
+                    </section>
+
+                    <section>
+                        <div class="settings-section-header">
+                            <h3 class="settings-card-title">
+                                <i class="fa-light fa-book" aria-hidden="true"></i>
+                                <span>目录与客户端</span>
+                            </h3>
+                            <p>挂载后看到的目录树，以及常见客户端怎么连。</p>
+                        </div>
+
+                        <div class="settings-grid">
+                            <div class="settings-callout settings-grid__full">
+                                <strong>目录结构</strong>
+                                <ul class="settings-command-list">
+                                    <li><code>/dav/&lt;相册名&gt;/</code> — 可写；新建文件夹 = 新建私密相册</li>
+                                    <li><code>/dav/<?= htmlspecialchars($dav_dir_unfiled) ?>/</code> — 不属于任何相册的图片</li>
+                                    <li><code>/dav/<?= htmlspecialchars($dav_dir_date) ?>/YYYY/MM/</code> — 只读，按存储路径浏览</li>
+                                </ul>
+                                <p class="settings-field-hint">
+                                    删文件：若只在这一处会真正删图；若还在其他相册（复制链接）只取消引用。
+                                    删文件夹只删相册，图片回到「<?= htmlspecialchars($dav_dir_unfiled) ?>」。
+                                </p>
+                            </div>
+
+                            <div class="settings-callout settings-grid__full">
+                                <strong>客户端怎么连</strong>
+                                <ul class="settings-command-list">
+                                    <li><strong>macOS Finder</strong> — ⌘K，地址必须带 <code>/dav</code>（只填域名会失败）；用户名用上面的专用名，密码用专用密码（或已允许的管理员密码 / Token）。若仍提示「连接服务器时出现问题」，到「钥匙串访问」删掉旧的该站凭据再试。</li>
+                                    <li><strong>Windows</strong> —「映射网络驱动器」→ 勾选其他凭据（须 HTTPS）</li>
+                                    <li><strong>rclone</strong> — <code>rclone config</code> → webdav → vendor <code>other</code></li>
+                                    <li><strong>Cyberduck / 手机</strong> — WebDAV (HTTPS)，路径 <code>/dav</code>（排障时比 Finder 更稳）</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </section>
+
+                    <script>
+                    (() => {
+                        const btn = document.getElementById('webdav-copy-url');
+                        const url = document.getElementById('webdav-mount-url');
+                        if (!btn || !url) return;
+                        btn.addEventListener('click', async () => {
+                            const label = btn.querySelector('span') || btn;
+                            try {
+                                await navigator.clipboard.writeText(url.textContent.trim());
+                                label.textContent = '已复制';
+                                setTimeout(() => { label.textContent = '复制地址'; }, 1500);
+                            } catch (_) {
+                                label.textContent = '复制失败';
+                            }
+                        });
+                    })();
+                    </script>
+<?php endif; // tab: webdav ?>
+
 <?php if (in_array($active_settings_tab, ['basic'], true)): ?>
                     <section>
                         <div class="settings-section-header">
@@ -3008,7 +3234,7 @@ require_once APP_ROOT . '/header.php';
 // 哪些 tab 用主 settings 表单（含底部"保存设置"按钮）。新结构下：
 //   basic / image / storage / account 都有可保存字段
 //   system (数据库) 只有备份管理 — 配置走自己的 /api/v1/backup/config，不需要主表单
-$tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage', 'account'], true);
+$tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage', 'account', 'telegram', 'webdav'], true);
 ?>
 <?php if ($tab_uses_main_form): ?>
                 <div class="settings-save-actions">

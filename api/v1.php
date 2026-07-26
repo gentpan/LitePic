@@ -13,6 +13,8 @@ declare(strict_types=1);
  * - GET  /api/v1/image-status   Poll async-processing state for given ids
  * - POST /api/v1/view           Record one image view (public lightbox ping)
  * - GET  /api/v1/system/status  Runtime server metrics
+ * - GET  /api/v1/files          Browse the WebDAV tree (admin)
+ * - POST /api/v1/files          Move / copy / delete / rename / new folder (admin)
  * - POST /api/v1/queue/drain               Manually trigger the worker
  * - GET  /api/v1/queue/failed              List failed tasks
  * - POST /api/v1/queue/retry?id=N          Retry one failed task
@@ -80,6 +82,11 @@ switch ($route) {
 
     case '/uptime':
         require __DIR__ . '/uptime.php';
+        break;
+
+    // Admin file browser — the WebDAV tree, read and mutated from the browser.
+    case '/files':
+        require __DIR__ . '/files.php';
         break;
 
     case '/queue/drain':

@@ -40,7 +40,11 @@
 
 {$SERVER_NAME::8080} {
 	root * {$LITEPIC_ROOT:.}
-	encode zstd br gzip
+	# /dav 不要压缩：Finder 对 zstd/br 的 PROPFIND 体很脆，空响应被包一层更糟。
+	@compressible {
+		not path /dav /dav/*
+	}
+	encode @compressible zstd br gzip
 	request_body {
 		max_size 22MB
 	}
@@ -53,9 +57,26 @@
 	respond @denied 403
 
 	# 静态资源长缓存（图片由 file_server 直出；动态页/API 由 PHP 自己写 no-store）
-	@static path *.js *.css *.png *.jpg *.jpeg *.gif *.ico *.svg *.webp *.avif *.woff *.woff2 *.ttf *.eot
+	#
+	# /dav/* 必须排除：WebDAV 里 /dav/相册/foo.jpg 也以 .jpg 结尾，但它是需要
+	# Basic 鉴权的私有内容。header 指令会覆盖 PHP 自己写的 no-store，一旦命中就
+	# 等于把私密图片标成 public 可缓存一年。
+	@static {
+		path *.js *.css *.png *.jpg *.jpeg *.gif *.ico *.svg *.webp *.avif *.woff *.woff2 *.ttf *.eot
+		not path /dav /dav/*
+	}
 	header @static Cache-Control "public, max-age=31536000, immutable"
 
+	# Finder 对 Alt-Svc→HTTP/3 升级经常直接挂掉；清掉广告头。
+	header /dav* {
+		-Alt-Svc
+	}
+
 	# try_files 等价：存在文件则直出，否则落到 index.php（自定义图床前缀依赖此兜底）
+	#
+	# WebDAV（/dav）不需要额外配置：磁盘上没有 dav 目录，所以 PROPFIND / MKCOL /
+	# LOCK 等方法一律走 try_files 兜底到 index.php，再由 index.php dispatch 到
+	# dav.php。Caddy 的 fastcgi 会把原始 URI 作为 REQUEST_URI 传进 PHP，因此
+	# dav.php 看到的仍是 /dav/... 而不是 /index.php。
 	php_server
 }
