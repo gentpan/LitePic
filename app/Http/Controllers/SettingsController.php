@@ -12,6 +12,7 @@ use LitePic\Service\Image\WatermarkService;
 use LitePic\Service\Importer\Importer;
 use LitePic\Service\Stats\ServerInfo;
 use LitePic\Service\Storage\RemoteStorage;
+use LitePic\Service\Storage\Remotes;
 
 /**
  * Handles every POST submission on the /settings page.
@@ -223,33 +224,38 @@ final class SettingsController
     private function handleSaveRemoteStorage(): array
     {
         $usage = $this->resolveRemoteStorageUsage();
+        $driver = $this->resolveRemoteStorageDriver();
         $updated = Config::write(RemoteStorage::envFromPostedForm());
         if (!$updated) {
-            return ['message' => '保存 R2/S3 设置失败，请检查 .env 写入权限', 'type' => 'error'];
+            return ['message' => '保存远程存储设置失败，请检查 .env 写入权限', 'type' => 'error'];
         }
 
+        $label = $driver === 'webdav' ? 'WebDAV' : 'R2/S3';
         $complete = RemoteStorage::postedFormIsComplete();
         if ($complete) {
             $message = $usage === 'storage'
-                ? 'R2/S3 设置已保存，云端存储已启用'
-                : 'R2/S3 设置已保存，远程备份已启用';
+                ? $label . ' 设置已保存，云端存储已启用'
+                : $label . ' 设置已保存，远程备份已启用';
         } else {
             $message = $usage === 'storage'
-                ? 'R2/S3 设置已保存；云端存储需要填写公网访问域名和所有必填项'
-                : 'R2/S3 设置已保存；必填项未完整，远程备份已停用';
+                ? $label . ' 设置已保存；云端存储需要填写公网访问域名和所有必填项'
+                : $label . ' 设置已保存；必填项未完整，远程备份已停用';
         }
         return [
             'message' => $message,
             'type' => 'success',
-            'saved_settings' => ['remote_storage_usage' => $usage],
+            'saved_settings' => [
+                'remote_storage_usage' => $usage,
+                'remote_storage_driver' => $driver,
+            ],
         ];
     }
 
     private function handleTestRemoteStorage(): array
     {
-        $test = (new RemoteStorage())->testConnection();
+        $test = Remotes::active()->testConnection();
         return [
-            'message' => empty($test['success']) ? '测试失败' : '测试成功',
+            'message' => (string)($test['message'] ?? (empty($test['success']) ? '测试失败' : '测试成功')),
             'type' => empty($test['success']) ? 'error' : 'success',
         ];
     }
@@ -511,7 +517,7 @@ final class SettingsController
 
     private function handleSyncRemoteStorageAll(): array
     {
-        $report = (new RemoteStorage())->syncAllLocalImages();
+        $report = Remotes::active()->syncAllLocalImages();
         return [
             'message' => (string)($report['message'] ?? '远程同步失败'),
             'type' => !empty($report['success']) ? 'success' : 'error',
@@ -520,7 +526,7 @@ final class SettingsController
 
     private function handleRestoreRemoteStorageAll(): array
     {
-        $report = (new RemoteStorage())->restoreAllToLocal();
+        $report = Remotes::active()->restoreAllToLocal();
         return [
             'message' => (string)($report['message'] ?? '远程恢复失败'),
             'type' => !empty($report['success']) ? 'success' : 'error',
@@ -529,7 +535,7 @@ final class SettingsController
 
     private function handlePurgeRemoteStorage(): array
     {
-        $result = (new RemoteStorage())->deleteAllObjects();
+        $result = Remotes::active()->deleteAllObjects();
         return [
             'message' => (string)($result['message'] ?? '远程清理失败'),
             'type' => !empty($result['success']) ? 'success' : 'error',
@@ -553,7 +559,6 @@ final class SettingsController
         $activeTab = trim((string)($_POST['active_tab'] ?? ''));
         $imageTab = ($activeTab === 'image');
         $telegramTab = ($activeTab === 'telegram');
-        $webdavTab = ($activeTab === 'webdav');
 
         // Site identity + upload limits
         $siteName = trim((string)($_POST['site_name'] ?? SITE_NAME));
@@ -676,66 +681,16 @@ final class SettingsController
             $warnings[] = 'Telegram 已启用但「允许的用户 ID」为空,所有人都会被拒绝(只接受白名单用户)';
         }
 
-        // ---- WebDAV ---------------------------------------------------------
-        $webdavEnabled = self::boolFromPostOrKeep(
-            'webdav_enabled',
-            'WEBDAV_ENABLED',
-            $webdavTab
-        );
-        $webdavReadonly = self::boolFromPostOrKeep(
-            'webdav_readonly',
-            'WEBDAV_READONLY',
-            $webdavTab
-        );
-        $webdavAllowAdmin = self::boolFromPostOrKeep(
-            'webdav_allow_admin_login',
-            'WEBDAV_ALLOW_ADMIN_LOGIN',
-            $webdavTab
-        );
-        $webdavAllowToken = self::boolFromPostOrKeep(
-            'webdav_allow_token_login',
-            'WEBDAV_ALLOW_TOKEN_LOGIN',
-            $webdavTab
-        );
-        $webdavUsername = trim((string)($_POST['webdav_username']
-            ?? Config::get('WEBDAV_USERNAME', 'litepic')));
-        if ($webdavUsername === '' || preg_match('/^[\x20-\x7e]{1,64}$/', $webdavUsername) !== 1) {
-            if ($webdavTab) {
-                $warnings[] = 'WebDAV 用户名无效（1–64 个可打印 ASCII 字符），已保留原值';
-            }
-            $webdavUsername = (string)Config::get('WEBDAV_USERNAME', 'litepic');
-        }
-        $webdavPasswordHash = (string)Config::get('WEBDAV_PASSWORD_HASH', '');
-        if ($webdavTab) {
-            $webdavPasswordNew = (string)($_POST['webdav_password'] ?? '');
-            $webdavPasswordConfirm = (string)($_POST['webdav_password_confirm'] ?? '');
-            $webdavPasswordClear = isset($_POST['webdav_password_clear']);
-            if ($webdavPasswordClear) {
-                $webdavPasswordHash = '';
-            } elseif ($webdavPasswordNew !== '') {
-                if (strlen($webdavPasswordNew) < 8) {
-                    $warnings[] = 'WebDAV 密码至少 8 位，已保留原密码';
-                } elseif (!hash_equals($webdavPasswordNew, $webdavPasswordConfirm)) {
-                    $warnings[] = '两次输入的 WebDAV 密码不一致，已保留原密码';
-                } else {
-                    $webdavPasswordHash = password_hash($webdavPasswordNew, PASSWORD_BCRYPT);
-                }
-            }
-            if ($webdavEnabled
-                && $webdavPasswordHash === ''
-                && !$webdavAllowAdmin
-                && !$webdavAllowToken
-            ) {
-                $warnings[] = 'WebDAV 已启用但没有任何可用凭据（请设专用密码，或勾选管理员密码 / API Token 登录）';
-            }
-        }
-
         // Remote storage usage warning (fields are saved by the dedicated handler)
         $remoteStorageUsage = $this->resolveRemoteStorageUsage();
-        if ($remoteStorageUsage === 'storage'
-            && trim((string)($_POST['s3_public_base_url'] ?? S3_PUBLIC_BASE_URL)) === ''
-        ) {
-            $warnings[] = '云端存储模式需要填写公网访问域名，否则图片链接会回退为本站本地地址';
+        $remoteDriver = $this->resolveRemoteStorageDriver();
+        if ($remoteStorageUsage === 'storage') {
+            $publicField = $remoteDriver === 'webdav'
+                ? trim((string)($_POST['remote_webdav_public_base_url'] ?? (defined('REMOTE_WEBDAV_PUBLIC_BASE_URL') ? REMOTE_WEBDAV_PUBLIC_BASE_URL : '')))
+                : trim((string)($_POST['s3_public_base_url'] ?? S3_PUBLIC_BASE_URL));
+            if ($publicField === '') {
+                $warnings[] = '云端存储模式需要填写公网访问域名，否则图片链接会回退为本站本地地址';
+            }
         }
 
         // Mutual exclusion: convert wins over compress
@@ -817,12 +772,6 @@ final class SettingsController
             'TELEGRAM_ALLOWED_USER_IDS'  => Format::envQuote($telegramAllowedUserIds),
             'TELEGRAM_DEFAULT_ALBUM_KEY' => Format::envQuote($telegramDefaultAlbum),
             'TELEGRAM_WEBHOOK_SECRET'    => Format::envQuote($telegramWebhookSecret),
-            'WEBDAV_ENABLED'            => $webdavEnabled ? 'true' : 'false',
-            'WEBDAV_READONLY'           => $webdavReadonly ? 'true' : 'false',
-            'WEBDAV_ALLOW_ADMIN_LOGIN'  => $webdavAllowAdmin ? 'true' : 'false',
-            'WEBDAV_ALLOW_TOKEN_LOGIN'  => $webdavAllowToken ? 'true' : 'false',
-            'WEBDAV_USERNAME'           => Format::envQuote($webdavUsername),
-            'WEBDAV_PASSWORD_HASH'      => Format::envQuote($webdavPasswordHash),
         ], RemoteStorage::envFromPostedForm()));
 
         $iniPath = APP_ROOT . '/.user.ini';
@@ -856,6 +805,7 @@ final class SettingsController
             'convert_preferred_format' => $convertPreferredFormat,
             'upload_allowed_types' => $allowedTypes,
             'remote_storage_usage' => $remoteStorageUsage,
+            'remote_storage_driver' => $remoteDriver,
             'keep_original_after_process' => $keepOriginalAfterProcess,
             'watermark_enabled' => $watermarkEnabled,
             'watermark_type' => $watermarkType,
@@ -1040,6 +990,12 @@ final class SettingsController
     {
         $usage = strtolower(trim((string)($_POST['remote_storage_usage'] ?? REMOTE_STORAGE_USAGE)));
         return in_array($usage, self::SUPPORTED_REMOTE_STORAGE_USAGE, true) ? $usage : 'backup';
+    }
+
+    private function resolveRemoteStorageDriver(): string
+    {
+        $driver = strtolower(trim((string)($_POST['remote_storage_driver'] ?? (defined('REMOTE_STORAGE_DRIVER') ? REMOTE_STORAGE_DRIVER : 's3'))));
+        return $driver === 'webdav' ? 'webdav' : 's3';
     }
 
     public static function boolFromPost(string $key): bool

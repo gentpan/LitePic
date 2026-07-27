@@ -4,7 +4,8 @@ declare(strict_types=1);
 namespace LitePic\Service\Image;
 
 use LitePic\Repository\ImageRepository;
-use LitePic\Service\Storage\RemoteStorage;
+use LitePic\Service\Storage\RemoteBackendInterface;
+use LitePic\Service\Storage\Remotes;
 
 /**
  * Deleting an image, everywhere it exists.
@@ -12,14 +13,13 @@ use LitePic\Service\Storage\RemoteStorage;
  * One image on disk can have up to six associated objects: the original, its
  * `.webp` and `.avif` derivatives, and a thumbnail for each of those. Plus a
  * database row, plus copies in remote object storage. Getting all of them is
- * fiddly enough that having the sequence written out twice — once for the
- * gallery's `action.php`, once for WebDAV DELETE — would guarantee the two drift
- * apart and one of them starts leaving orphans behind.
+ * fiddly enough that having the sequence written out twice would guarantee the
+ * two drift apart and one of them starts leaving orphans behind.
  *
- * Remote objects are not deleted immediately. {@see RemoteStorage} enqueues them
- * with a delay (24h by default) so an accidental delete can still be recovered
- * from the bucket, and so a CDN that has the object cached doesn't start serving
- * 404s to pages that are still referencing it.
+ * Remote objects are not deleted immediately. The active remote backend
+ * ({@see Remotes::active()}) enqueues them with a delay (24h by default) so an
+ * accidental delete can still be recovered, and so a CDN that has the object
+ * cached doesn't start serving 404s to pages that are still referencing it.
  *
  * Ordering is deliberate: remote enqueue first (it only writes a queue row and
  * cannot fail destructively), then local files, then the database row last. If
@@ -31,16 +31,16 @@ final class ImageDeleter
 {
     private ImageRepository $images;
     private ThumbnailService $thumbnails;
-    private RemoteStorage $remote;
+    private RemoteBackendInterface $remote;
 
     public function __construct(
         ?ImageRepository $images = null,
         ?ThumbnailService $thumbnails = null,
-        ?RemoteStorage $remote = null
+        ?RemoteBackendInterface $remote = null
     ) {
         $this->images = $images ?? new ImageRepository();
         $this->thumbnails = $thumbnails ?? new ThumbnailService();
-        $this->remote = $remote ?? new RemoteStorage();
+        $this->remote = $remote ?? Remotes::active();
     }
 
     /**

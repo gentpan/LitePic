@@ -6,7 +6,8 @@ namespace LitePic\Service\Backup;
 use LitePic\Core\Database;
 use LitePic\Core\Logger;
 use LitePic\Repository\SettingsRepository;
-use LitePic\Service\Storage\RemoteStorage;
+use LitePic\Service\Storage\RemoteBackendInterface;
+use LitePic\Service\Storage\Remotes;
 use Throwable;
 
 /**
@@ -150,13 +151,13 @@ final class DatabaseBackup
     }
 
     /**
-     * Push a freshly-created backup to R2/S3 under `backups/<name>`.
+     * Push a freshly-created backup to remote storage under `backups/<name>`.
      * Returns the resulting object key on success, null on failure
      * (errors are logged — caller usually doesn't fail the request).
      */
     public function uploadToRemote(string $localPath): ?string
     {
-        $remote = new RemoteStorage();
+        $remote = Remotes::active();
         if (!$remote->isEnabled()) return null;
         if (!is_file($localPath)) return null;
 
@@ -164,11 +165,6 @@ final class DatabaseBackup
         $objectKey = 'backups/' . $name;
 
         try {
-            // RemoteStorage::uploadLocalFile expects a file under uploads/.
-            // For backups we want a custom prefix — just use the underlying
-            // putObject via the same client. Simplest: temporarily symlink
-            // or just use the lower-level method if exposed. Otherwise build
-            // the request directly here.
             $result = $this->putObjectDirect($remote, $objectKey, $localPath);
             return $result ? $objectKey : null;
         } catch (Throwable $e) {
@@ -182,21 +178,13 @@ final class DatabaseBackup
     }
 
     /**
-     * Thin wrapper around RemoteStorage::uploadLocalFile but force
-     * the object key to a custom prefix (backups/...) instead of the
-     * uploads/ default. RemoteStorage exposes `uploadLocalFileAs` (we
-     * add it next, see the patch in RemoteStorage.php) — fall back to
-     * a direct copy via the existing uploadLocalFile if that method
-     * isn't available yet.
+     * Upload a backup file to an explicit remote object key
+     * (`backups/...`) instead of the uploads/ default prefix.
      */
-    private function putObjectDirect(RemoteStorage $remote, string $objectKey, string $localPath): bool
+    private function putObjectDirect(RemoteBackendInterface $remote, string $objectKey, string $localPath): bool
     {
-        if (method_exists($remote, 'uploadLocalFileAs')) {
-            $result = $remote->uploadLocalFileAs($localPath, $objectKey);
-            return is_array($result) && !empty($result['ok']);
-        }
-        // Fallback (shouldn't happen post-patch)
-        return false;
+        $result = $remote->uploadLocalFileAs($localPath, $objectKey);
+        return is_array($result) && !empty($result['ok']);
     }
 
     // ---------------------------------------------------------------

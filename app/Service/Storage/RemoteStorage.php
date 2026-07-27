@@ -21,7 +21,7 @@ use SimpleXMLElement;
  * delete call so a healthy upload pipeline keeps the queue trimmed
  * without a separate cron.
  */
-final class RemoteStorage
+final class RemoteStorage implements RemoteBackendInterface
 {
     private const SERVICE = 's3';
     private const ALGORITHM = 'AWS4-HMAC-SHA256';
@@ -34,6 +34,9 @@ final class RemoteStorage
      * R2/S3 credentials. Falls back to current values for any missing
      * field so a partial form post doesn't blank existing config.
      *
+     * Also persists {@see REMOTE_STORAGE_DRIVER} and WebDAV client fields
+     * so switching drivers in one form doesn't blank the other backend.
+     *
      * @return array<string,string>
      */
     public static function envFromPostedForm(): array
@@ -41,14 +44,23 @@ final class RemoteStorage
         $usage = strtolower(trim((string)($_POST['remote_storage_usage'] ?? (defined('REMOTE_STORAGE_USAGE') ? REMOTE_STORAGE_USAGE : 'backup'))));
         if (!in_array($usage, ['backup', 'storage'], true)) $usage = 'backup';
 
+        $driver = strtolower(trim((string)($_POST['remote_storage_driver'] ?? (defined('REMOTE_STORAGE_DRIVER') ? REMOTE_STORAGE_DRIVER : 's3'))));
+        if ($driver !== 'webdav') $driver = 's3';
+
         $get = static function (string $field, string $constName, bool $trimSlash = false) {
             $val = trim((string)($_POST[$field] ?? (defined($constName) ? constant($constName) : '')));
             if ($trimSlash) $val = trim($val, '/');
             return \LitePic\Core\Format::envQuote($val);
         };
 
+        $webdavPasswordPosted = (string)($_POST['remote_webdav_password'] ?? '');
+        $webdavPassword = $webdavPasswordPosted !== ''
+            ? $webdavPasswordPosted
+            : (defined('REMOTE_WEBDAV_PASSWORD') ? (string)REMOTE_WEBDAV_PASSWORD : '');
+
         return [
             'REMOTE_STORAGE_USAGE' => $usage,
+            'REMOTE_STORAGE_DRIVER' => $driver,
             'S3_BUCKET' => $get('s3_bucket', 'S3_BUCKET'),
             'S3_REGION' => $get('s3_region', 'S3_REGION'),
             'S3_ENDPOINT' => $get('s3_endpoint', 'S3_ENDPOINT'),
@@ -56,6 +68,11 @@ final class RemoteStorage
             'S3_SECRET' => $get('s3_secret', 'S3_SECRET'),
             'S3_PATH_PREFIX' => $get('s3_path_prefix', 'S3_PATH_PREFIX', true),
             'S3_PUBLIC_BASE_URL' => $get('s3_public_base_url', 'S3_PUBLIC_BASE_URL'),
+            'REMOTE_WEBDAV_URL' => $get('remote_webdav_url', 'REMOTE_WEBDAV_URL'),
+            'REMOTE_WEBDAV_USERNAME' => $get('remote_webdav_username', 'REMOTE_WEBDAV_USERNAME'),
+            'REMOTE_WEBDAV_PASSWORD' => \LitePic\Core\Format::envQuote($webdavPassword),
+            'REMOTE_WEBDAV_PATH_PREFIX' => $get('remote_webdav_path_prefix', 'REMOTE_WEBDAV_PATH_PREFIX', true),
+            'REMOTE_WEBDAV_PUBLIC_BASE_URL' => $get('remote_webdav_public_base_url', 'REMOTE_WEBDAV_PUBLIC_BASE_URL'),
         ];
     }
 
@@ -66,6 +83,11 @@ final class RemoteStorage
      */
     public static function postedFormIsComplete(): bool
     {
+        $driver = strtolower(trim((string)($_POST['remote_storage_driver'] ?? (defined('REMOTE_STORAGE_DRIVER') ? REMOTE_STORAGE_DRIVER : 's3'))));
+        if ($driver === 'webdav') {
+            return WebDavRemoteStorage::postedFormIsComplete();
+        }
+
         $current = static fn (string $field, string $constName) => trim(
             (string)($_POST[$field] ?? (defined($constName) ? constant($constName) : ''))
         );

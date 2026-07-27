@@ -11,7 +11,7 @@ use LitePic\Service\Image\ImageUrl;
 use LitePic\Service\Image\PathService;
 use LitePic\Service\Image\ThumbnailService;
 use LitePic\Service\Image\WatermarkService;
-use LitePic\Service\Storage\RemoteStorage;
+use LitePic\Service\Storage\Remotes;
 
 /**
  * Receives uploaded files (`$_FILES` rows), validates them, writes them
@@ -229,7 +229,7 @@ final class UploadService
             'auto_avif'           => \LitePic\Core\Config::liveBool('AUTO_CONVERT_ON_UPLOAD')
                 && \LitePic\Core\Config::liveString('CONVERT_PREFERRED_FORMAT', 'webp') === 'avif',
             'watermark'           => \LitePic\Core\Config::liveBool('WATERMARK_ENABLED'),
-            'remote_sync'         => (new RemoteStorage())->isEnabled(),
+            'remote_sync'         => Remotes::isEnabled(),
         ];
         $queue = new \LitePic\Repository\ImportQueueRepository();
         $hasWork = \LitePic\Repository\ImportQueueRepository::hasWork($queueOptions);
@@ -448,7 +448,7 @@ final class UploadService
             'auto_avif'        => \LitePic\Core\Config::liveBool('AUTO_CONVERT_ON_UPLOAD')
                 && \LitePic\Core\Config::liveString('CONVERT_PREFERRED_FORMAT', 'webp') === 'avif',
             'watermark'        => \LitePic\Core\Config::liveBool('WATERMARK_ENABLED'),
-            'remote_sync'      => (new RemoteStorage())->isEnabled(),
+            'remote_sync'      => Remotes::isEnabled(),
         ];
 
         $queue = new \LitePic\Repository\ImportQueueRepository();

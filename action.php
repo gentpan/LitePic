@@ -215,7 +215,7 @@ if ($action === 'queue_avif') {
             'create_thumbnail' => true,
             'auto_avif' => true,
             'watermark' => defined('WATERMARK_ENABLED') && WATERMARK_ENABLED,
-            'remote_sync' => (new \LitePic\Service\Storage\RemoteStorage())->isEnabled() && (new \LitePic\Service\Storage\RemoteStorage())->isConfigValid(),
+            'remote_sync' => (\LitePic\Service\Storage\Remotes::active())->isEnabled() && (\LitePic\Service\Storage\Remotes::active())->isConfigValid(),
         ]);
         if ($queued) {
             $result['queued']++;
@@ -299,7 +299,7 @@ $handle_convert_action = static function (string $targetExt) use ($file, $path):
         if ((new \LitePic\Service\Image\ThumbnailService())->create($targetFilename, true)) {
             $thumbnailUrl = \LitePic\Service\Image\ImageUrl::thumbnailUrl($targetFilename);
         }
-        $remoteSync = (new \LitePic\Service\Storage\RemoteStorage())->syncFileAndThumbnail($targetFilename);
+        $remoteSync = (\LitePic\Service\Storage\Remotes::active())->syncFileAndThumbnail($targetFilename);
         \LitePic\Core\Response::success([
             'message' => \LitePic\Service\Image\ImageFormat::targetLabel($targetExt) . ' 转换成功',
             'filename' => $targetFilename,
@@ -360,7 +360,7 @@ switch ($action) {
             $saved_percent = $before_size > 0 ? round(($saved_size / $before_size) * 100, 1) : 0;
 
             (new \LitePic\Service\Image\ThumbnailService())->create($file, true);
-            $remote_sync = (new \LitePic\Service\Storage\RemoteStorage())->syncFileAndThumbnail($file);
+            $remote_sync = (\LitePic\Service\Storage\Remotes::active())->syncFileAndThumbnail($file);
             \LitePic\Core\Response::success([
                 'message' => '压缩成功',
                 'method' => $used,
@@ -413,7 +413,7 @@ switch ($action) {
                 if ((new \LitePic\Service\Image\ThumbnailService())->create($webp_filename, true)) {
                     $thumbnail_url = \LitePic\Service\Image\ImageUrl::thumbnailUrl($webp_filename);
                 }
-                $remote_sync = (new \LitePic\Service\Storage\RemoteStorage())->syncFileAndThumbnail($webp_filename);
+                $remote_sync = (\LitePic\Service\Storage\Remotes::active())->syncFileAndThumbnail($webp_filename);
                 \LitePic\Core\Response::success([
                     'message' => 'WebP 转换成功',
                     'filename' => $webp_filename,
@@ -475,7 +475,7 @@ switch ($action) {
                 if ((new \LitePic\Service\Image\ThumbnailService())->create($avif_filename, true)) {
                     $thumbnail_url = \LitePic\Service\Image\ImageUrl::thumbnailUrl($avif_filename);
                 }
-                $remote_sync = (new \LitePic\Service\Storage\RemoteStorage())->syncFileAndThumbnail($avif_filename);
+                $remote_sync = (\LitePic\Service\Storage\Remotes::active())->syncFileAndThumbnail($avif_filename);
                 \LitePic\Core\Response::success([
                     'message' => 'AVIF 转换成功',
                     'filename' => $avif_filename,
@@ -590,7 +590,7 @@ switch ($action) {
                 throw new Exception('缩略图生成失败（可能 GD 扩展或源文件有问题）');
             }
             // 顺便同步缩略图到远程（如启用）
-            (new \LitePic\Service\Storage\RemoteStorage())->syncFileAndThumbnail($file);
+            (\LitePic\Service\Storage\Remotes::active())->syncFileAndThumbnail($file);
             \LitePic\Core\Response::success([
                 'message' => '缩略图已重新生成',
                 'thumb_url' => \LitePic\Service\Image\ImageUrl::thumbnailUrl($file),

@@ -70,7 +70,7 @@ $default_host = $_SERVER['HTTP_HOST'] ?? 'localhost:8080';
 $default_scheme = $is_https ? 'https' : 'http';
 
 // 基础配置
-define('LITEPIC_VERSION', '3.6.1');
+define('LITEPIC_VERSION', '3.6.2');
 define('SITE_NAME', env_value('SITE_NAME', 'LitePic'));
 define('SITE_DESCRIPTION', env_value('SITE_DESCRIPTION', '轻量级图床程序'));
 define('SITE_VERSION', LITEPIC_VERSION);
@@ -284,7 +284,7 @@ if (!preg_match('#^/([a-z0-9][a-z0-9_-]*/)?$#', $_url_prefix_raw)) {
 }
 define('URL_PREFIX', $_url_prefix_raw);
 
-// 远程存储（S3 兼容协议，Cloudflare R2 / AWS S3 通用）
+// 远程存储：S3 兼容（R2 / AWS S3）或外部 WebDAV 网盘客户端
 $remote_storage_usage = strtolower((string)env_value('REMOTE_STORAGE_USAGE', env_value('REMOTE_STORAGE_MODE', 'backup')));
 if ($remote_storage_usage === 'sync') {
     $remote_storage_usage = 'backup';
@@ -293,6 +293,8 @@ if (!in_array($remote_storage_usage, ['backup', 'storage'], true)) {
     $remote_storage_usage = 'backup';
 }
 define('REMOTE_STORAGE_USAGE', $remote_storage_usage);
+$remote_storage_driver = strtolower((string)env_value('REMOTE_STORAGE_DRIVER', 's3'));
+define('REMOTE_STORAGE_DRIVER', $remote_storage_driver === 'webdav' ? 'webdav' : 's3');
 define('S3_BUCKET', (string)env_value('S3_BUCKET', ''));
 define('S3_REGION', (string)env_value('S3_REGION', 'auto'));
 define('S3_ENDPOINT', (string)env_value('S3_ENDPOINT', ''));
@@ -300,6 +302,11 @@ define('S3_KEY', (string)env_value('S3_KEY', ''));
 define('S3_SECRET', (string)env_value('S3_SECRET', ''));
 define('S3_PATH_PREFIX', trim((string)env_value('S3_PATH_PREFIX', 'uploads'), '/'));
 define('S3_PUBLIC_BASE_URL', rtrim((string)env_value('S3_PUBLIC_BASE_URL', ''), '/'));
+define('REMOTE_WEBDAV_URL', rtrim((string)env_value('REMOTE_WEBDAV_URL', ''), '/'));
+define('REMOTE_WEBDAV_USERNAME', (string)env_value('REMOTE_WEBDAV_USERNAME', ''));
+define('REMOTE_WEBDAV_PASSWORD', (string)env_value('REMOTE_WEBDAV_PASSWORD', ''));
+define('REMOTE_WEBDAV_PATH_PREFIX', trim((string)env_value('REMOTE_WEBDAV_PATH_PREFIX', 'uploads'), '/'));
+define('REMOTE_WEBDAV_PUBLIC_BASE_URL', rtrim((string)env_value('REMOTE_WEBDAV_PUBLIC_BASE_URL', ''), '/'));
 define('REMOTE_STORAGE_DELETE_DELAY_SECONDS', max(0, (int)env_value('REMOTE_STORAGE_DELETE_DELAY_SECONDS', 86400)));
 
 // TinyPNG API Key 列表（建议放在 .env: TINIFY_API_KEYS=key1,key2）

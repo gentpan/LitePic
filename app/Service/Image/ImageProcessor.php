@@ -6,7 +6,7 @@ namespace LitePic\Service\Image;
 use LitePic\Core\Logger;
 use LitePic\Repository\ImageRepository;
 use LitePic\Repository\ImportQueueRepository;
-use LitePic\Service\Storage\RemoteStorage;
+use LitePic\Service\Storage\Remotes;
 use Throwable;
 
 /**
@@ -182,7 +182,7 @@ final class ImageProcessor
         }
 
         if (!empty($opts['remote_sync'])) {
-            (new RemoteStorage())->syncFileAndThumbnail($finalFilename);
+            Remotes::active()->syncFileAndThumbnail($finalFilename);
         }
 
         return true;

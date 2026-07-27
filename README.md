@@ -5,9 +5,9 @@
 
 # LitePic
 
-**轻量级自托管图床 · SQLite 单文件 · 异步处理 · S3 / R2 远程存储**
+**轻量级自托管图床 · SQLite 单文件 · 异步处理 · S3 / R2 / WebDAV 远程存储**
 
-[![Version](https://img.shields.io/badge/version-3.6.1-0052D9?style=flat-square)](https://github.com/gentpan/LitePic/releases)
+[![Version](https://img.shields.io/badge/version-3.6.2-0052D9?style=flat-square)](https://github.com/gentpan/LitePic/releases)
 [![PHP](https://img.shields.io/badge/PHP-8.0%2B-777bb4?style=flat-square)](https://www.php.net/)
 [![License](https://img.shields.io/badge/license-MIT-111827?style=flat-square)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-litepic.io-0052D9?style=flat-square)](https://litepic.io/docs)
@@ -33,7 +33,8 @@ LitePic 是一个 PHP 写的图床。一台 VPS、一份 SQLite 文件，用 Fra
 
 ### 存储与分发
 - S3 兼容协议：Cloudflare R2、AWS S3、MinIO、Backblaze B2
-- 两种模式：**远程备份**（本地为主，云端冷备份）或 **云端存储**（图片直出对象存储公网地址）
+- 外部 WebDAV 网盘客户端：坚果云 / Nextcloud / 群晖等（与 R2 相同的备份 / 云端存储模式）
+- 两种模式：**远程备份**（本地为主，远端冷备份）或 **云端存储**（图片直出远端公网地址）
 - 本地删除自动延迟清理远程对象，避免误删
 - URL 前缀可自定义，把 `/uploads/` 改成 `/img/` `/photo/` `/p/foo/` 任意短词
 
@@ -47,13 +48,12 @@ LitePic 是一个 PHP 写的图床。一台 VPS、一份 SQLite 文件，用 Fra
 - 路径化 URL `/settings/<tab>`，PJAX 切换不刷整页
 - 服务器能力卡（PHP / Web 服务器版本 / GD / Imagick / WebP / AVIF / 上传上限）一目了然，可识别 FrankenPHP
 - 队列状态 KPI 卡：深度、失败任务数、上次运行时间，一键 drain
-- 数据库一键热备份（VACUUM INTO）+ 自动调度 + 同步到 R2 + 一键恢复
+- 数据库一键热备份（VACUUM INTO）+ 自动调度 + 同步到远程存储 + 一键恢复
 - 残留数据扫描清理，5 类候选保守删除，永远不动磁盘文件和活动队列
 
-### 相册、Telegram 与 WebDAV
+### 相册与 Telegram
 - 公开 / 未列出 / 私密 / 密码相册，封面图与沉浸式公开浏览页
 - 可选 Telegram Bot：白名单用户发图自动入库，支持相册归类
-- **WebDAV 网络磁盘**：`/dav` 把相册挂成文件夹；Finder / Windows / rclone / Cyberduck 可读写；完整 DAV class 1+2（含 LOCK）。后台另有 `/files` 列视图浏览同一棵树。
 
 ## 环境要求
 
@@ -187,7 +187,6 @@ LitePic/
 ├── nginx-litepic.conf    # Nginx + PHP-FPM（可选）
 ├── bootstrap.php         # 引导入口
 ├── index.php             # 前端控制器
-├── dav.php               # /dav WebDAV 入口
 ├── image.php             # /i/… 与自定义前缀出图
 ├── action.php            # 管理操作（压缩 / 转换 / 删除等）
 ├── worker.php            # 异步队列 worker

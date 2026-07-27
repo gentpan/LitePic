@@ -57,11 +57,6 @@ $settings_tabs = [
         'label' => 'Telegram',
         'description' => '绑定 Telegram 机器人 — 直接在聊天里上传图片、管理相册、获取链接',
     ],
-    'webdav' => [
-        'icon' => 'fa-network-wired',
-        'label' => 'WebDAV',
-        'description' => '把图库挂成网络磁盘 — Finder / 资源管理器 / rclone 直接读写',
-    ],
     'system' => [
         'icon' => 'fa-database',
         'label' => '系统',
@@ -76,6 +71,7 @@ $_settings_tab_alias = [
     'watermark'   => 'image',
     'import'      => 'storage',
     'auth'        => 'account',
+    'webdav'      => 'storage',
 ];
 if (isset($_GET['tab']) && isset($_settings_tab_alias[(string)$_GET['tab']])) {
     $_GET['tab'] = $_settings_tab_alias[(string)$_GET['tab']];
@@ -926,7 +922,7 @@ require_once APP_ROOT . '/header.php';
                                  \LitePic\Service\Backup\DatabaseBackup::DEFAULT_INTERVAL_HOURS);
                     $_backup_keep = $_backup_svc->keepCount();
                     $_backup_to_remote = $_backup_svc->syncToRemote();
-                    $_backup_remote_enabled = (new \LitePic\Service\Storage\RemoteStorage())->isEnabled();
+                    $_backup_remote_enabled = (\LitePic\Service\Storage\Remotes::active())->isEnabled();
                     $_last_backup_at = $_backup_svc->lastRunAt();
                     $_last_backup_text = $_last_backup_at > 0
                         ? date('Y-m-d H:i:s', $_last_backup_at) . '（' . max(0, time() - $_last_backup_at) . ' 秒前）'
@@ -2025,227 +2021,6 @@ require_once APP_ROOT . '/header.php';
                     </script>
 <?php endif; // tab: telegram ?>
 
-<?php if (in_array($active_settings_tab, ['webdav'], true)): ?>
-                    <?php
-                    $dav_enabled = \LitePic\Service\WebDav\DavConfig::enabled();
-                    $dav_readonly = \LitePic\Service\WebDav\DavConfig::readOnly();
-                    $dav_user = \LitePic\Service\WebDav\DavConfig::username();
-                    $dav_has_password = \LitePic\Service\WebDav\DavConfig::hasDedicatedPassword();
-                    $dav_allow_admin = \LitePic\Service\WebDav\DavConfig::allowAdminLogin();
-                    $dav_allow_token = \LitePic\Service\WebDav\DavConfig::allowTokenLogin();
-                    $dav_usable = \LitePic\Service\WebDav\DavConfig::usable();
-                    $dav_site_url = \LitePic\Core\Config::siteUrl();
-                    if ($dav_site_url === '') {
-                        $dav_scheme = (!empty($_SERVER['HTTPS']) && (string)$_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-                        $dav_site_url = $dav_scheme . '://' . (string)($_SERVER['HTTP_HOST'] ?? 'localhost');
-                    }
-                    $dav_mount_url = rtrim($dav_site_url, '/') . '/dav';
-                    $dav_dir_unfiled = \LitePic\Service\WebDav\DavPath::DIR_UNFILED;
-                    $dav_dir_date = \LitePic\Service\WebDav\DavPath::DIR_DATE;
-                    ?>
-
-                    <section>
-                        <div class="settings-section-header">
-                            <h3 class="settings-card-title">
-                                <i class="fa-light fa-network-wired" aria-hidden="true"></i>
-                                <span>WebDAV 网络磁盘</span>
-                            </h3>
-                            <p>
-                                把图库挂成网络驱动器：相册是文件夹，拖入即上传，删除即删图。
-                                兼容 Finder、Windows 资源管理器、rclone、Cyberduck。
-                            </p>
-                        </div>
-
-                        <div class="settings-toggle-list">
-                            <label class="settings-toggle-row" for="webdav_enabled">
-                                <span class="settings-toggle-copy">
-                                    <strong>启用 WebDAV</strong>
-                                    <span class="settings-field-hint">关闭时 <code>/dav</code> 返回 404，对外不可探测</span>
-                                </span>
-                                <input id="webdav_enabled" class="settings-switch-input" type="checkbox"
-                                       name="webdav_enabled" value="1" <?= $dav_enabled ? 'checked' : '' ?>>
-                                <span class="settings-switch" aria-hidden="true"><span></span></span>
-                            </label>
-                            <label class="settings-toggle-row" for="webdav_readonly">
-                                <span class="settings-toggle-copy">
-                                    <strong>只读模式</strong>
-                                    <span class="settings-field-hint">只能浏览与下载，禁止写入、删除、移动、复制</span>
-                                </span>
-                                <input id="webdav_readonly" class="settings-switch-input" type="checkbox"
-                                       name="webdav_readonly" value="1" <?= $dav_readonly ? 'checked' : '' ?>>
-                                <span class="settings-switch" aria-hidden="true"><span></span></span>
-                            </label>
-                        </div>
-
-                        <?php if ($dav_enabled && !$dav_usable): ?>
-                            <p class="settings-field-hint settings-field-hint--spaced" style="color: var(--danger);">
-                                已勾选启用，但还没有可用凭据 —— 请设置专用密码，或打开下方「管理员密码 / API Token」登录。
-                            </p>
-                        <?php endif; ?>
-                    </section>
-
-                    <section>
-                        <div class="settings-section-header">
-                            <h3 class="settings-card-title">
-                                <i class="fa-light fa-link" aria-hidden="true"></i>
-                                <span>挂载与入口</span>
-                            </h3>
-                            <p>客户端填这个地址；网页里也能用同一棵目录树管理。</p>
-                        </div>
-
-                        <div class="settings-callout">
-                            <div class="flex items-center justify-between gap-2 flex-wrap">
-                                <div class="inline-flex items-center gap-2 flex-wrap min-w-0">
-                                    <strong>挂载地址</strong>
-                                    <?php if ($dav_usable): ?>
-                                        <span class="status-pill is-on"><?= $dav_readonly ? '只读' : '可写' ?></span>
-                                    <?php elseif ($dav_enabled): ?>
-                                        <span class="status-pill is-warn">缺凭据</span>
-                                    <?php else: ?>
-                                        <span class="status-pill is-off">未开启</span>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="flex gap-2 flex-wrap">
-                                    <button type="button" class="btn btn--secondary btn--sm" id="webdav-copy-url">
-                                        <i class="fa-light fa-copy" aria-hidden="true"></i>
-                                        <span>复制地址</span>
-                                    </button>
-                                    <a href="/files" class="btn btn--primary btn--sm" data-pjax>
-                                        <i class="fa-light fa-folder-tree" aria-hidden="true"></i>
-                                        <span>打开文件浏览</span>
-                                    </a>
-                                </div>
-                            </div>
-                            <p class="settings-field-hint settings-field-hint--spaced">
-                                <code class="settings-code-break" id="webdav-mount-url"><?= htmlspecialchars($dav_mount_url) ?></code>
-                            </p>
-                            <p class="settings-field-hint">
-                                CDN 前面请确认 <code>PROPFIND</code> / <code>MKCOL</code> / <code>LOCK</code> 会回源，并关闭 <code>/dav/*</code> 缓存；做不到就用不过 CDN 的域名挂载。
-                                「文件浏览」不依赖上方开关，后台随时可用。
-                            </p>
-                        </div>
-                    </section>
-
-                    <section>
-                        <div class="settings-section-header">
-                            <h3 class="settings-card-title">
-                                <i class="fa-light fa-key" aria-hidden="true"></i>
-                                <span>登录凭据</span>
-                            </h3>
-                            <p>HTTP Basic Auth。推荐专用账号；也可临时用管理员密码或 API Token。</p>
-                        </div>
-
-                        <div class="settings-grid">
-                            <div class="grid gap-2">
-                                <label for="webdav_username">专用用户名</label>
-                                <input id="webdav_username" name="webdav_username" type="text" autocomplete="off"
-                                       value="<?= htmlspecialchars($dav_user) ?>">
-                            </div>
-                            <div class="grid gap-2">
-                                <label>专用密码</label>
-                                <div class="flex items-center gap-2 min-h-11">
-                                    <?php if ($dav_has_password): ?>
-                                        <span class="status-pill is-on">已设置</span>
-                                    <?php else: ?>
-                                        <span class="status-pill is-off">未设置</span>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                            <div class="grid gap-2">
-                                <label for="webdav_password">新密码<?= $dav_has_password ? '（留空不改）' : '' ?></label>
-                                <input id="webdav_password" name="webdav_password" type="password" autocomplete="new-password"
-                                       placeholder="至少 8 位">
-                            </div>
-                            <div class="grid gap-2">
-                                <label for="webdav_password_confirm">确认新密码</label>
-                                <input id="webdav_password_confirm" name="webdav_password_confirm" type="password" autocomplete="new-password">
-                            </div>
-                            <?php if ($dav_has_password): ?>
-                            <div class="grid gap-2 settings-grid__full">
-                                <label class="flex items-center gap-2" for="webdav_password_clear">
-                                    <input type="checkbox" id="webdav_password_clear" name="webdav_password_clear" value="1">
-                                    <span>清除专用密码</span>
-                                </label>
-                            </div>
-                            <?php endif; ?>
-                        </div>
-
-                        <div class="settings-toggle-list" style="margin-top: 14px;">
-                            <label class="settings-toggle-row" for="webdav_allow_admin_login">
-                                <span class="settings-toggle-copy">
-                                    <strong>允许用管理员密码登录</strong>
-                                    <span class="settings-field-hint">用户名任意，密码填后台管理员密码</span>
-                                </span>
-                                <input id="webdav_allow_admin_login" class="settings-switch-input" type="checkbox"
-                                       name="webdav_allow_admin_login" value="1" <?= $dav_allow_admin ? 'checked' : '' ?>>
-                                <span class="settings-switch" aria-hidden="true"><span></span></span>
-                            </label>
-                            <label class="settings-toggle-row" for="webdav_allow_token_login">
-                                <span class="settings-toggle-copy">
-                                    <strong>允许用 API Token 登录</strong>
-                                    <span class="settings-field-hint">用户名任意，密码填「账号」页的 <code>ltp_…</code></span>
-                                </span>
-                                <input id="webdav_allow_token_login" class="settings-switch-input" type="checkbox"
-                                       name="webdav_allow_token_login" value="1" <?= $dav_allow_token ? 'checked' : '' ?>>
-                                <span class="settings-switch" aria-hidden="true"><span></span></span>
-                            </label>
-                        </div>
-                    </section>
-
-                    <section>
-                        <div class="settings-section-header">
-                            <h3 class="settings-card-title">
-                                <i class="fa-light fa-book" aria-hidden="true"></i>
-                                <span>目录与客户端</span>
-                            </h3>
-                            <p>挂载后看到的目录树，以及常见客户端怎么连。</p>
-                        </div>
-
-                        <div class="settings-grid">
-                            <div class="settings-callout settings-grid__full">
-                                <strong>目录结构</strong>
-                                <ul class="settings-command-list">
-                                    <li><code>/dav/&lt;相册名&gt;/</code> — 可写；新建文件夹 = 新建私密相册</li>
-                                    <li><code>/dav/<?= htmlspecialchars($dav_dir_unfiled) ?>/</code> — 不属于任何相册的图片</li>
-                                    <li><code>/dav/<?= htmlspecialchars($dav_dir_date) ?>/YYYY/MM/</code> — 只读，按存储路径浏览</li>
-                                </ul>
-                                <p class="settings-field-hint">
-                                    删文件：若只在这一处会真正删图；若还在其他相册（复制链接）只取消引用。
-                                    删文件夹只删相册，图片回到「<?= htmlspecialchars($dav_dir_unfiled) ?>」。
-                                </p>
-                            </div>
-
-                            <div class="settings-callout settings-grid__full">
-                                <strong>客户端怎么连</strong>
-                                <ul class="settings-command-list">
-                                    <li><strong>macOS Finder</strong> — ⌘K，地址必须带 <code>/dav</code>（只填域名会失败）；用户名用上面的专用名，密码用专用密码（或已允许的管理员密码 / Token）。若仍提示「连接服务器时出现问题」，到「钥匙串访问」删掉旧的该站凭据再试。</li>
-                                    <li><strong>Windows</strong> —「映射网络驱动器」→ 勾选其他凭据（须 HTTPS）</li>
-                                    <li><strong>rclone</strong> — <code>rclone config</code> → webdav → vendor <code>other</code></li>
-                                    <li><strong>Cyberduck / 手机</strong> — WebDAV (HTTPS)，路径 <code>/dav</code>（排障时比 Finder 更稳）</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </section>
-
-                    <script>
-                    (() => {
-                        const btn = document.getElementById('webdav-copy-url');
-                        const url = document.getElementById('webdav-mount-url');
-                        if (!btn || !url) return;
-                        btn.addEventListener('click', async () => {
-                            const label = btn.querySelector('span') || btn;
-                            try {
-                                await navigator.clipboard.writeText(url.textContent.trim());
-                                label.textContent = '已复制';
-                                setTimeout(() => { label.textContent = '复制地址'; }, 1500);
-                            } catch (_) {
-                                label.textContent = '复制失败';
-                            }
-                        });
-                    })();
-                    </script>
-<?php endif; // tab: webdav ?>
-
 <?php if (in_array($active_settings_tab, ['basic'], true)): ?>
                     <section>
                         <div class="settings-section-header">
@@ -2356,16 +2131,40 @@ require_once APP_ROOT . '/header.php';
 <?php endif; // tab: image (自动压缩与格式转换 section) ?>
 
 <?php if (in_array($active_settings_tab, ['storage'], true)): ?>
+                    <?php
+                    $_remote_driver = defined('REMOTE_STORAGE_DRIVER') ? (string)REMOTE_STORAGE_DRIVER : 's3';
+                    if ($_remote_driver !== 'webdav') $_remote_driver = 's3';
+                    $_webdav_has_password = defined('REMOTE_WEBDAV_PASSWORD') && trim((string)REMOTE_WEBDAV_PASSWORD) !== '';
+                    ?>
                     <section>
                         <div class="settings-section-header">
                             <h3 class="settings-card-title">
                                 <i class="fa-light fa-cloud-arrow-up" aria-hidden="true"></i>
-                                <span>远程存储（R2 / S3）</span>
+                                <span>远程存储</span>
                             </h3>
-                            <p>可作为远程备份，也可作为云端图片访问源</p>
+                            <p>把图片同步到 R2/S3，或挂载外部 WebDAV 网盘；可作为备份，也可作为云端访问源</p>
                         </div>
 
                         <div class="settings-grid">
+                            <div class="grid gap-2 col-span-2">
+                                <label>存储后端</label>
+                                <div class="settings-radio-group settings-remote-driver-group" role="radiogroup" aria-label="远程存储后端">
+                                    <label class="settings-radio-option settings-radio-option-block">
+                                        <input type="radio" name="remote_storage_driver" value="s3" <?= $_remote_driver === 's3' ? 'checked' : '' ?> data-remote-driver>
+                                        <span>
+                                            <strong>R2 / S3</strong>
+                                            <small>Cloudflare R2、AWS S3 及其他 S3 兼容对象存储。</small>
+                                        </span>
+                                    </label>
+                                    <label class="settings-radio-option settings-radio-option-block">
+                                        <input type="radio" name="remote_storage_driver" value="webdav" <?= $_remote_driver === 'webdav' ? 'checked' : '' ?> data-remote-driver>
+                                        <span>
+                                            <strong>WebDAV 网盘</strong>
+                                            <small>坚果云、Nextcloud、群晖等提供的 WebDAV 地址，LitePic 作为客户端上传。</small>
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
                             <div class="grid gap-2 col-span-2">
                                 <label>远程用途</label>
                                 <div class="settings-radio-group settings-remote-usage-group" role="radiogroup" aria-label="远程存储用途">
@@ -2373,49 +2172,71 @@ require_once APP_ROOT . '/header.php';
                                         <input type="radio" name="remote_storage_usage" value="backup" <?= REMOTE_STORAGE_USAGE === 'backup' ? 'checked' : '' ?>>
                                         <span>
                                             <strong>远程备份</strong>
-                                            <small>本地作为主存储，R2/S3 只保存备份副本，图片链接仍使用本站地址。</small>
+                                            <small>本地作为主存储，远端只保存备份副本，图片链接仍使用本站地址。</small>
                                         </span>
                                     </label>
                                     <label class="settings-radio-option settings-radio-option-block">
                                         <input type="radio" name="remote_storage_usage" value="storage" <?= REMOTE_STORAGE_USAGE === 'storage' ? 'checked' : '' ?>>
                                         <span>
                                             <strong>云端存储</strong>
-                                            <small>LitePic 负责上传、压缩和转换，复制链接/API/图库优先使用 R2/S3 公网地址。</small>
+                                            <small>LitePic 负责上传与处理，复制链接 / API / 图库优先使用远端公网地址。</small>
                                         </span>
                                     </label>
                                 </div>
                             </div>
-                            <div class="grid gap-2">
+
+                            <div class="grid gap-2" data-remote-s3-field <?= $_remote_driver === 's3' ? '' : 'hidden' ?>>
                                 <label for="s3Endpoint">Endpoint</label>
-                                <input id="s3Endpoint" type="text" name="s3_endpoint" value="<?= htmlspecialchars(S3_ENDPOINT) ?>" placeholder="https://<accountid>.r2.cloudflarestorage.com">
+                                <input id="s3Endpoint" type="text" name="s3_endpoint" value="<?= htmlspecialchars(S3_ENDPOINT) ?>" placeholder="https://&lt;accountid&gt;.r2.cloudflarestorage.com">
                             </div>
-                            <div class="grid gap-2">
+                            <div class="grid gap-2" data-remote-s3-field <?= $_remote_driver === 's3' ? '' : 'hidden' ?>>
                                 <label for="s3Bucket">Bucket</label>
                                 <input id="s3Bucket" type="text" name="s3_bucket" value="<?= htmlspecialchars(S3_BUCKET) ?>">
                             </div>
-                            <div class="grid gap-2">
+                            <div class="grid gap-2" data-remote-s3-field <?= $_remote_driver === 's3' ? '' : 'hidden' ?>>
                                 <label for="s3Key">Access Key</label>
                                 <input id="s3Key" type="text" name="s3_key" value="<?= htmlspecialchars(S3_KEY) ?>">
                             </div>
-                            <div class="grid gap-2">
+                            <div class="grid gap-2" data-remote-s3-field <?= $_remote_driver === 's3' ? '' : 'hidden' ?>>
                                 <label for="s3Secret">Secret Key</label>
                                 <input id="s3Secret" type="password" name="s3_secret" value="<?= htmlspecialchars(S3_SECRET) ?>">
                             </div>
-                            <div class="grid gap-2">
+                            <div class="grid gap-2" data-remote-s3-field <?= $_remote_driver === 's3' ? '' : 'hidden' ?>>
                                 <label for="s3Region">Region</label>
                                 <input id="s3Region" type="text" name="s3_region" value="<?= htmlspecialchars(S3_REGION) ?>" placeholder="R2 建议 auto">
                             </div>
-                            <div class="grid gap-2">
+                            <div class="grid gap-2" data-remote-s3-field <?= $_remote_driver === 's3' ? '' : 'hidden' ?>>
                                 <label for="s3PathPrefix">对象路径前缀</label>
                                 <input id="s3PathPrefix" type="text" name="s3_path_prefix" value="<?= htmlspecialchars(S3_PATH_PREFIX) ?>" placeholder="uploads">
                             </div>
-                            <div class="grid gap-2 col-span-2" data-remote-public-url-field <?= REMOTE_STORAGE_USAGE === 'storage' ? '' : 'hidden' ?>>
+                            <div class="grid gap-2 col-span-2" data-remote-s3-field data-remote-public-url-field <?= $_remote_driver === 's3' && REMOTE_STORAGE_USAGE === 'storage' ? '' : 'hidden' ?>>
                                 <label for="s3PublicBaseUrl">公网访问域名<span data-remote-public-required><?= REMOTE_STORAGE_USAGE === 'storage' ? '（云端存储必填）' : '（云端存储时使用）' ?></span></label>
                                 <input id="s3PublicBaseUrl" type="text" name="s3_public_base_url" value="<?= htmlspecialchars(S3_PUBLIC_BASE_URL) ?>" placeholder="https://cdn.example.com">
                             </div>
+
+                            <div class="grid gap-2 col-span-2" data-remote-webdav-field <?= $_remote_driver === 'webdav' ? '' : 'hidden' ?>>
+                                <label for="remoteWebdavUrl">WebDAV 根地址</label>
+                                <input id="remoteWebdavUrl" type="text" name="remote_webdav_url" value="<?= htmlspecialchars(defined('REMOTE_WEBDAV_URL') ? REMOTE_WEBDAV_URL : '') ?>" placeholder="https://dav.jianguoyun.com/dav/ 或 Nextcloud /remote.php/dav/files/USER/">
+                            </div>
+                            <div class="grid gap-2" data-remote-webdav-field <?= $_remote_driver === 'webdav' ? '' : 'hidden' ?>>
+                                <label for="remoteWebdavUsername">用户名</label>
+                                <input id="remoteWebdavUsername" type="text" name="remote_webdav_username" value="<?= htmlspecialchars(defined('REMOTE_WEBDAV_USERNAME') ? REMOTE_WEBDAV_USERNAME : '') ?>" autocomplete="off">
+                            </div>
+                            <div class="grid gap-2" data-remote-webdav-field <?= $_remote_driver === 'webdav' ? '' : 'hidden' ?>>
+                                <label for="remoteWebdavPassword">密码<?= $_webdav_has_password ? '（留空不改）' : '' ?></label>
+                                <input id="remoteWebdavPassword" type="password" name="remote_webdav_password" value="" autocomplete="new-password" placeholder="<?= $_webdav_has_password ? '已保存，留空保持不变' : '应用密码 / WebDAV 密码' ?>">
+                            </div>
+                            <div class="grid gap-2" data-remote-webdav-field <?= $_remote_driver === 'webdav' ? '' : 'hidden' ?>>
+                                <label for="remoteWebdavPathPrefix">路径前缀</label>
+                                <input id="remoteWebdavPathPrefix" type="text" name="remote_webdav_path_prefix" value="<?= htmlspecialchars(defined('REMOTE_WEBDAV_PATH_PREFIX') ? REMOTE_WEBDAV_PATH_PREFIX : 'uploads') ?>" placeholder="uploads">
+                            </div>
+                            <div class="grid gap-2 col-span-2" data-remote-webdav-field data-remote-webdav-public-url-field <?= $_remote_driver === 'webdav' && REMOTE_STORAGE_USAGE === 'storage' ? '' : 'hidden' ?>>
+                                <label for="remoteWebdavPublicBaseUrl">公网访问域名<span data-remote-webdav-public-required><?= REMOTE_STORAGE_USAGE === 'storage' ? '（云端存储必填）' : '（云端存储时使用）' ?></span></label>
+                                <input id="remoteWebdavPublicBaseUrl" type="text" name="remote_webdav_public_base_url" value="<?= htmlspecialchars(defined('REMOTE_WEBDAV_PUBLIC_BASE_URL') ? REMOTE_WEBDAV_PUBLIC_BASE_URL : '') ?>" placeholder="https://files.example.com/public">
+                            </div>
                         </div>
 
-                        <p class="m-0 text-xs text-gray" data-remote-storage-note>说明：远程备份模式下，本地仍是主存储，R2/S3 只保存副本；云端存储模式下，公网访问域名必填，复制链接、API 返回和图库图片地址会优先使用云端地址。本地删除后，远程对象会进入 24 小时延迟删除队列。</p>
+                        <p class="m-0 text-xs text-gray" data-remote-storage-note>说明：远程备份模式下，本地仍是主存储，远端只保存副本；云端存储模式下，公网访问域名必填，复制链接、API 返回和图库图片地址会优先使用云端地址。本地删除后，远程对象会进入 24 小时延迟删除队列。同一时间只启用一种后端。</p>
 
                         <div class="flex justify-start gap-2.5">
                             <button
@@ -3234,7 +3055,7 @@ require_once APP_ROOT . '/header.php';
 // 哪些 tab 用主 settings 表单（含底部"保存设置"按钮）。新结构下：
 //   basic / image / storage / account 都有可保存字段
 //   system (数据库) 只有备份管理 — 配置走自己的 /api/v1/backup/config，不需要主表单
-$tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage', 'account', 'telegram', 'webdav'], true);
+$tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage', 'account', 'telegram'], true);
 ?>
 <?php if ($tab_uses_main_form): ?>
                 <div class="settings-save-actions">
@@ -3519,28 +3340,46 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
 
         bindFormatTagsEditor();
 
-        function syncRemoteStorageUsage() {
+        function syncRemoteStorageUi() {
+            const driver = document.querySelector('input[name="remote_storage_driver"]:checked')?.value || 's3';
             const usage = document.querySelector('input[name="remote_storage_usage"]:checked')?.value || 'backup';
-            const publicField = document.querySelector('[data-remote-public-url-field]');
+            const isWebdav = driver === 'webdav';
+            const isStorage = usage === 'storage';
+
+            document.querySelectorAll('[data-remote-s3-field]').forEach((el) => {
+                if (el.hasAttribute('data-remote-public-url-field')) {
+                    el.hidden = !(!isWebdav && isStorage);
+                } else {
+                    el.hidden = isWebdav;
+                }
+            });
+            document.querySelectorAll('[data-remote-webdav-field]').forEach((el) => {
+                if (el.hasAttribute('data-remote-webdav-public-url-field')) {
+                    el.hidden = !(isWebdav && isStorage);
+                } else {
+                    el.hidden = !isWebdav;
+                }
+            });
+
             const requiredLabel = document.querySelector('[data-remote-public-required]');
+            const webdavRequiredLabel = document.querySelector('[data-remote-webdav-public-required]');
+            const requiredText = isStorage ? '（云端存储必填）' : '（云端存储时使用）';
+            if (requiredLabel) requiredLabel.textContent = requiredText;
+            if (webdavRequiredLabel) webdavRequiredLabel.textContent = requiredText;
+
             const note = document.querySelector('[data-remote-storage-note]');
-            if (publicField) {
-                publicField.hidden = usage !== 'storage';
-            }
-            if (requiredLabel) {
-                requiredLabel.textContent = usage === 'storage' ? '（云端存储必填）' : '（云端存储时使用）';
-            }
             if (note) {
-                note.textContent = usage === 'storage'
-                    ? '说明：云端存储模式下，LitePic 本地保留处理缓存和图库索引，图片展示、复制链接和 API 返回会优先使用 R2/S3 公网地址。公网访问域名必填，远程上传失败时需要先处理失败原因。'
-                    : '说明：远程备份模式下，本地仍是主存储，R2/S3 只保存副本；图片展示、复制链接和 API 返回仍使用本站 /<?= defined('STORAGE_DIR') ? STORAGE_DIR : 'uploads' ?> 地址。本地删除后，远程对象会进入 24 小时延迟删除队列。';
+                const backend = isWebdav ? 'WebDAV 网盘' : 'R2/S3';
+                note.textContent = isStorage
+                    ? `说明：云端存储模式下，LitePic 本地保留处理缓存和图库索引，图片展示、复制链接和 API 返回会优先使用 ${backend} 公网地址。公网访问域名必填。同一时间只启用一种后端。`
+                    : `说明：远程备份模式下，本地仍是主存储，${backend} 只保存副本；图片展示、复制链接和 API 返回仍使用本站地址。本地删除后，远程对象会进入 24 小时延迟删除队列。同一时间只启用一种后端。`;
             }
         }
 
-        document.querySelectorAll('input[name="remote_storage_usage"]').forEach((input) => {
-            input.addEventListener('change', syncRemoteStorageUsage);
+        document.querySelectorAll('input[name="remote_storage_usage"], input[name="remote_storage_driver"]').forEach((input) => {
+            input.addEventListener('change', syncRemoteStorageUi);
         });
-        syncRemoteStorageUsage();
+        syncRemoteStorageUi();
 
         const applySavedSettingsToDom = (settings) => {
             if (!settings || typeof settings !== 'object') {
@@ -3615,8 +3454,8 @@ $tab_uses_main_form = in_array($active_settings_tab, ['basic', 'image', 'storage
                 if (typeof syncWatermarkConfig === 'function') {
                     syncWatermarkConfig();
                 }
-                if (typeof syncRemoteStorageUsage === 'function') {
-                    syncRemoteStorageUsage();
+                if (typeof syncRemoteStorageUi === 'function') {
+                    syncRemoteStorageUi();
                 }
             });
         };

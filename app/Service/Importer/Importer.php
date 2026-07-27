@@ -12,7 +12,7 @@ use LitePic\Service\Image\ImageFormat;
 use LitePic\Service\Image\PathService;
 use LitePic\Service\Image\ThumbnailService;
 use LitePic\Service\Image\WatermarkService;
-use LitePic\Service\Storage\RemoteStorage;
+use LitePic\Service\Storage\Remotes;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
@@ -115,7 +115,7 @@ final class Importer
                         'auto_webp' => $autoWebp,
                         'auto_avif' => $autoAvif,
                         'watermark' => defined('WATERMARK_ENABLED') && WATERMARK_ENABLED,
-                        'remote_sync' => (new RemoteStorage())->isEnabled() && (new RemoteStorage())->isConfigValid(),
+                        'remote_sync' => Remotes::isEnabled() && Remotes::active()->isConfigValid(),
                     ];
                     if (ImportQueueRepository::hasWork($taskOptions)) {
                         if ($this->queue->enqueue($finalFilename, $taskOptions)) {
@@ -255,7 +255,7 @@ final class Importer
         }
 
         if (!empty($task['remote_sync'])) {
-            $remote = new RemoteStorage();
+            $remote = Remotes::active();
             if ($remote->isEnabled() && $remote->isConfigValid()) {
                 $remote->syncFileAndThumbnail($finalFilename);
             }

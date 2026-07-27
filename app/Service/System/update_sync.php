@@ -42,7 +42,6 @@ return static function (string $sourceRoot, string $appRoot): array {
         'package-lock.json',
         'package.json',
         'worker.php',
-        'dav.php',
         'static/logo.png',
         'static/logo-dark.png',
     ];

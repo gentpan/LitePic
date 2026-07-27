@@ -73,8 +73,9 @@ return function (PDO $pdo): void {
         // 中的 STORAGE_DIR 定义。
         'STORAGE_DIR'                   => 'uploads',
 
-        // ---- Remote storage (S3/R2) ----
+        // ---- Remote storage (S3/R2 or external WebDAV) ----
         'REMOTE_STORAGE_USAGE'          => 'backup',
+        'REMOTE_STORAGE_DRIVER'         => 's3',
         'S3_BUCKET'                     => '',
         'S3_REGION'                     => 'auto',
         'S3_ENDPOINT'                   => '',
@@ -82,6 +83,11 @@ return function (PDO $pdo): void {
         'S3_SECRET'                     => '',
         'S3_PATH_PREFIX'                => 'uploads',
         'S3_PUBLIC_BASE_URL'            => '',
+        'REMOTE_WEBDAV_URL'             => '',
+        'REMOTE_WEBDAV_USERNAME'        => '',
+        'REMOTE_WEBDAV_PASSWORD'        => '',
+        'REMOTE_WEBDAV_PATH_PREFIX'     => 'uploads',
+        'REMOTE_WEBDAV_PUBLIC_BASE_URL' => '',
         'REMOTE_STORAGE_DELETE_DELAY_SECONDS' => '86400',
 
         // ---- Compression API ----

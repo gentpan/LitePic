@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.6.2] - 2026-07-27
+
+### Added
+
+- **WebDAV 远程存储客户端** — 设置 → 存储可选 WebDAV 网盘后端，与 R2/S3 同级支持「远程备份 / 云端存储」；迁移 `018_webdav_client_storage`。
+
+### Removed
+
+- **WebDAV 服务端** — 移除 `/dav` 挂载、`/files` 列视图与相关服务端协议栈；LitePic 不再对外提供 WebDAV。
+
 ## [3.6.1] - 2026-07-27
 
 ### Added

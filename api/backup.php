@@ -54,7 +54,7 @@ switch ($action) {
                 'keep_count'      => $service->keepCount(),
                 'to_remote'       => $service->syncToRemote(),
                 'last_run_at'     => $service->lastRunAt(),
-                'remote_enabled'  => (new \LitePic\Service\Storage\RemoteStorage())->isEnabled(),
+                'remote_enabled'  => (\LitePic\Service\Storage\Remotes::active())->isEnabled(),
             ],
             'backups' => $service->listLocalBackups(),
         ]);

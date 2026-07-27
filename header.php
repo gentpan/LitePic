@@ -131,7 +131,6 @@ $document_title = isset($html_title) && trim((string)$html_title) !== ''
                     '/' => ['首页', 'fa-home'],
                     '/gallery' => ['图库', 'fa-images'],
                     '/albums' => ['相册', 'fa-rectangle-history'],
-                    '/files' => ['文件', 'fa-folder-tree'],
                     '/stats' => ['统计', 'fa-chart-line'],
                     '/settings' => ['设置', 'fa-gear'],
                 ];
