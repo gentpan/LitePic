@@ -29,7 +29,9 @@ try {
             if ($method !== 'GET') {
                 \LitePic\Core\Response::error('仅支持 GET', 405);
             }
-            \LitePic\Core\Response::success($service->check());
+            \LitePic\Core\Response::success($service->check(
+                isset($_GET['force']) && (string)$_GET['force'] === '1'
+            ));
             break;
 
         case 'install':

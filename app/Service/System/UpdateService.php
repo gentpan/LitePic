@@ -56,15 +56,24 @@ final class UpdateService
     }
 
     /**
-     * @return array{current:string,latest:?string,has_update:bool,release?:array<string,mixed>,message?:string}
+     * @return array{current:string,latest:?string,has_update:bool,current_ahead?:bool,release?:array<string,mixed>,message?:string}
      */
-    public function check(): array
+    public function check(bool $forceRefresh = false): array
     {
         $current = $this->currentVersion();
-        $release = $this->latestRelease();
+        $release = $this->latestRelease($forceRefresh);
         $latest = $this->normalizeVersion((string)($release['tag_name'] ?? ''));
 
         $cmp = $latest !== '' ? version_compare($latest, $this->normalizeVersion($current)) : 0;
+
+        // Stale cache after a manual deploy: local is already newer than what we
+        // last fetched. Drop the cache and refetch once so the UI doesn't claim
+        // the channel is behind.
+        if (!$forceRefresh && $latest !== '' && $cmp < 0) {
+            $release = $this->latestRelease(true);
+            $latest = $this->normalizeVersion((string)($release['tag_name'] ?? ''));
+            $cmp = $latest !== '' ? version_compare($latest, $this->normalizeVersion($current)) : 0;
+        }
 
         return [
             'current' => $current,
@@ -159,11 +168,13 @@ final class UpdateService
     /**
      * @return array<string,mixed>
      */
-    private function latestRelease(): array
+    private function latestRelease(bool $forceRefresh = false): array
     {
-        $cached = $this->readVersionCache();
-        if ($cached !== null) {
-            return $cached;
+        if (!$forceRefresh) {
+            $cached = $this->readVersionCache();
+            if ($cached !== null) {
+                return $cached;
+            }
         }
         $release = $this->fetchVersionInfo();
         $this->writeVersionCache($release);

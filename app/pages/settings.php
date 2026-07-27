@@ -788,7 +788,8 @@ require_once APP_ROOT . '/header.php';
                                 if (installBtn) installBtn.disabled = true;
                                 setStatus(manual ? '正在连接版本服务器...' : '自动检测更新中...');
                                 try {
-                                    const data = await fetch('/api/v1/update/check?_=' + Date.now(), {
+                                    const qs = manual ? 'force=1&_=' : '_=';
+                                    const data = await fetch('/api/v1/update/check?' + qs + Date.now(), {
                                         cache: 'no-store',
                                         credentials: 'same-origin',
                                         headers: { 'X-Requested-With': 'XMLHttpRequest' },
