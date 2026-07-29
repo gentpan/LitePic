@@ -631,7 +631,12 @@
   body.home-guest::before {
     content: "";
     @apply fixed inset-0 z-0 pointer-events-none;
-    background: var(--home-background-image, url('/static/images/background.webp')) center center / cover no-repeat;
+    /* 拆开写：iOS Safari 对 background 简写里的 var(url(...)) 经常整层不画 */
+    background-color: #0c0c0c;
+    background-image: var(--home-background-image, url('/static/images/background.webp'));
+    background-position: center center;
+    background-size: cover;
+    background-repeat: no-repeat;
     transform-origin: center center;
     animation: home-bg-zoom 35s ease-in-out infinite alternate;
     will-change: transform;
@@ -979,6 +984,19 @@
     /* 访客首页顶栏/底栏导航隐藏，页脚自身 fixed 贴底，无需再抬高 */
     body.home-guest .site-footer {
       margin-bottom: 0;
+    }
+
+    /*
+     * 移动端：关掉背景缩放动画。
+     * 源图约 5120×2880，再 will-change + scale 合成层，iOS 常直接不画。
+     * absolute 相对 overflow:hidden 的 body，避免 fixed+transform 的空白层。
+     */
+    body.home-guest::before {
+      position: absolute;
+      inset: 0;
+      animation: none;
+      will-change: auto;
+      transform: none;
     }
 
     .page-container {

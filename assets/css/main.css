@@ -3375,7 +3375,11 @@ html[data-theme="dark"] * {
     position: fixed;
     inset: 0px;
     z-index: 0;
-    background: var(--home-background-image, url('/static/images/background.webp')) center center / cover no-repeat;
+    background-color: #0c0c0c;
+    background-image: var(--home-background-image, url('/static/images/background.webp'));
+    background-position: center center;
+    background-size: cover;
+    background-repeat: no-repeat;
     transform-origin: center center;
     animation: home-bg-zoom 35s ease-in-out infinite alternate;
     will-change: transform;
@@ -3827,6 +3831,13 @@ html[data-theme="dark"] * {
     }
     body.home-guest .site-footer {
       margin-bottom: 0;
+    }
+    body.home-guest::before {
+      position: absolute;
+      inset: 0;
+      animation: none;
+      will-change: auto;
+      transform: none;
     }
     .page-container {
       margin-bottom: 1rem;
