@@ -25,7 +25,7 @@ LitePic 是一个 PHP 写的图床。一台 VPS、一份 SQLite 文件，用 Fra
 ## 特性
 
 ### 上传与处理
-- 拖拽 / 点击 / 粘贴上传，批量队列、断点续传友好
+- 拖拽 / 点击 / 粘贴上传；前端批量队列，失败可单独重试
 - 支持 JPG、PNG、GIF、WebP、AVIF、HEIC、SVG、ICO、BMP、TIFF
 - 异步生成缩略图、压缩、WebP / AVIF 转换、文字或 PNG 水印
 - 三种压缩引擎可切换：TinyPNG、ImageMagick、GD
@@ -33,7 +33,8 @@ LitePic 是一个 PHP 写的图床。一台 VPS、一份 SQLite 文件，用 Fra
 
 ### 存储与分发
 - S3 兼容协议：Cloudflare R2、AWS S3、MinIO、Backblaze B2
-- 外部 WebDAV **客户端**（设置 → 存储）：挂载坚果云 / Nextcloud / 群晖等网盘；**不是**把本站暴露成 `/dav` 网络磁盘
+- 外部 WebDAV **客户端**（设置 → 存储）：把本站图片同步到坚果云 / Nextcloud / 群晖等网盘
+- **不是** WebDAV 服务端：本站不再提供 `/dav` 挂载或 `/files` 文件浏览
 - 两种模式：**远程备份**（本地为主，远端冷备份）或 **云端存储**（图片直出远端公网地址；需填公网访问域名）
 - 同一时间只启用一种远程后端（S3 或 WebDAV）
 - 本地删除自动延迟清理远程对象，避免误删
@@ -175,13 +176,16 @@ LitePic/
 │   ├── Http/             # 控制器、页面路由
 │   ├── Migrations/       # SQLite 迁移（按序号执行）
 │   ├── Repository/       # 数据访问层
-│   ├── Service/          # 业务服务（Image / Storage / Queue / Auth）
+│   ├── Service/          # 业务服务（Image / Queue / Auth / …）
+│   │   └── Storage/      # 远程存储：S3/R2 与 WebDAV 客户端
 │   ├── View/             # 可复用视图片段
 │   └── pages/            # 页面模板
 ├── assets/
 │   ├── css/              # Tailwind 源码、components/、编译产物
 │   └── js/               # 前端脚本（main.js → main.min.js）
-├── bin/deploy.sh         # 一键部署（环境变量配置目标机）
+├── bin/
+│   ├── deploy.sh         # 一键部署（环境变量配置目标机）
+│   └── enable-image-ext.sh
 ├── data/                 # SQLite + 运行时状态（勿提交）
 ├── static/               # logo、favicon、首页背景
 ├── uploads/              # 本地图片存储（含 .thumbs/）
@@ -220,6 +224,8 @@ Caddyfile          # 若已按站点改过域名 / root / php_ini，请一并备
 ```
 
 在线更新优先从 `litepic.io/version.json` 获取版本与 ZIP（失败再回退 GitHub Release）。更新时只同步受管程序目录/文件（`api/`、`app/`、`assets/`、`static/favicon/` 及根目录程序文件等）：覆盖新文件，并**删除新版本中已不存在的旧程序文件**。永远跳过 `.env`、`.user.ini`、`data/`、`uploads/`（或你改名后的存储目录）、`logs/` 和 `static/images/`。`Caddyfile` 属于程序文件会被替换——若已按站点改过，更新前请先备份，更新后再合并回自定义项。
+
+> **从 3.6.0 / 3.6.1 升级：** 本站 WebDAV 服务端（`/dav`、`/files`）已移除。打开后台后迁移 `018_webdav_client_storage` 会清掉旧的 `dav_*` 表与服务端设置；若要用网盘，请到 **设置 → 存储** 改选 WebDAV **客户端**（与 S3/R2 同级的远程备份 / 云端存储）。
 
 无法在线更新时，可以手动升级：
 
