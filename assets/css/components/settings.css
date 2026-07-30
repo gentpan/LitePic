@@ -154,6 +154,31 @@
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
+  /* 多用户：表格行内操作 / 编辑条 */
+  .settings-mu-actions {
+    @apply inline-flex flex-wrap items-center gap-2;
+  }
+
+  .settings-mu-actions--tight {
+    @apply mt-1.5;
+  }
+
+  .settings-mu-actions form {
+    @apply m-0 inline;
+  }
+
+  .settings-mu-edit {
+    @apply m-0 py-1;
+  }
+
+  .settings-mu-edit .settings-grid {
+    @apply items-end;
+  }
+
+  .settings-mu-edit-submit .btn {
+    @apply w-full sm:w-auto;
+  }
+
   .settings-compression-form {
     grid-template-columns: minmax(0, 1fr) auto;
   }

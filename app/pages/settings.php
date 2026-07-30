@@ -2155,35 +2155,42 @@ require_once APP_ROOT . '/header.php';
                             <i class="fa-light fa-users" aria-hidden="true"></i>
                             <span>多用户模式</span>
                         </h3>
-                        <p>开启后允许注册独立账号，每个用户拥有自己的图库与配额；关闭时站点为纯单用户（现状）</p>
+                        <p>开启后允许注册独立账号，每人独立图库与配额；关闭时与以往单管理员一致</p>
                     </div>
 
-                    <form method="post" class="settings-inline-form">
+                    <form method="post">
                         <?= \LitePic\Core\Csrf::inputField() ?>
                         <input type="hidden" name="form_action" value="save_multiuser_mode">
                         <input type="hidden" name="active_tab" value="basic">
-                        <select name="multi_user_mode">
-                            <option value="off" <?= $multiuser_mode === 'off' ? 'selected' : '' ?>>关闭（单用户模式）</option>
-                            <option value="invite" <?= $multiuser_mode === 'invite' ? 'selected' : '' ?>>邀请制注册</option>
-                            <option value="open" <?= $multiuser_mode === 'open' ? 'selected' : '' ?>>开放注册</option>
-                        </select>
-                        <button type="submit" class="btn btn--primary">
-                            <i class="fa-light fa-floppy-disk"></i>
-                            保存
-                        </button>
+                        <div class="settings-grid">
+                            <div class="grid gap-2 settings-grid__full">
+                                <label for="multiUserMode">注册模式</label>
+                                <select id="multiUserMode" name="multi_user_mode">
+                                    <option value="off" <?= $multiuser_mode === 'off' ? 'selected' : '' ?>>关闭（单用户模式）</option>
+                                    <option value="invite" <?= $multiuser_mode === 'invite' ? 'selected' : '' ?>>邀请制注册（需邀请码）</option>
+                                    <option value="open" <?= $multiuser_mode === 'open' ? 'selected' : '' ?>>开放注册（可选邀请码）</option>
+                                </select>
+                                <p class="settings-field-hint">
+                                    <?php if ($multiuser_mode !== 'off'): ?>
+                                        已开启。请到
+                                        <a href="/settings/users" data-pjax>用户</a>、
+                                        <?php if ($multiuser_mode === 'invite'): ?><a href="/settings/invites" data-pjax>邀请码</a>、<?php endif; ?>
+                                        <a href="/settings/access" data-pjax>注册与登录</a>、
+                                        <a href="/settings/mail" data-pjax>邮件</a>
+                                        完成配置。关闭后已有账号与数据保留，仅停用注册/登录入口。
+                                    <?php else: ?>
+                                        开启后设置页会新增「用户 / 注册与登录 / 邮件」等入口；存量图片自动归属于管理员账号。
+                                    <?php endif; ?>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="settings-save-actions">
+                            <button type="submit" class="btn btn--primary">
+                                <i class="fa-light fa-floppy-disk" aria-hidden="true"></i>
+                                <span>保存多用户模式</span>
+                            </button>
+                        </div>
                     </form>
-                    <?php if ($multiuser_mode !== 'off'): ?>
-                        <p class="m-0 text-sm text-gray">
-                            已开启。前往
-                            <a href="/settings/users" data-pjax>用户</a>、
-                            <?php if ($multiuser_mode === 'invite'): ?><a href="/settings/invites" data-pjax>邀请码</a>、<?php endif; ?>
-                            <a href="/settings/access" data-pjax>注册与登录</a>、
-                            <a href="/settings/mail" data-pjax>邮件</a>
-                            完成多用户配置。关闭后已有账号与数据保留，仅注册与登录入口停用。
-                        </p>
-                    <?php else: ?>
-                        <p class="m-0 text-sm text-gray">说明：开启后设置页会新增「用户 / 注册与登录 / 邮件」等管理入口；存量图片自动归属于管理员账号。</p>
-                    <?php endif; ?>
                 </section>
 <?php endif; // tab: basic multiuser switch ?>
 
@@ -2685,61 +2692,75 @@ require_once APP_ROOT . '/header.php';
                         </h3>
                         <p>账号信息与存储用量</p>
                     </div>
-                    <div class="settings-toggle-list">
-                        <div class="settings-toggle-row">
-                            <span class="settings-toggle-copy">
-                                用户名：<strong><?= htmlspecialchars((string)$session_user['username']) ?></strong>
-                                <?php if (!empty($session_user['email'])): ?>
-                                    （<?= htmlspecialchars((string)$session_user['email']) ?>）
-                                <?php endif; ?>
-                            </span>
+                    <div class="settings-grid">
+                        <div class="grid gap-2">
+                            <label>用户名</label>
+                            <input type="text" readonly value="<?= htmlspecialchars((string)$session_user['username']) ?>">
                         </div>
-                        <div class="settings-toggle-row">
-                            <span class="settings-toggle-copy">
-                                已上传 <?= (int)$session_user_image_count ?> 张图片，
-                                占用 <?= htmlspecialchars(\LitePic\Core\Format::filesize($session_user_used_bytes)) ?>
+                        <div class="grid gap-2">
+                            <label>邮箱</label>
+                            <input type="text" readonly value="<?= htmlspecialchars((string)($session_user['email'] ?: '未填写')) ?>">
+                        </div>
+                        <div class="grid gap-2 settings-grid__full">
+                            <label>存储用量</label>
+                            <div class="settings-callout">
+                                已上传 <strong><?= (int)$session_user_image_count ?></strong> 张，
+                                占用 <strong><?= htmlspecialchars(\LitePic\Core\Format::filesize($session_user_used_bytes)) ?></strong>
                                 <?php if ((int)$session_user['quota_bytes'] > 0): ?>
-                                    / 配额 <?= htmlspecialchars(\LitePic\Core\Format::filesize((int)$session_user['quota_bytes'])) ?>
+                                    ／ 配额 <?= htmlspecialchars(\LitePic\Core\Format::filesize((int)$session_user['quota_bytes'])) ?>
                                 <?php else: ?>
-                                    （不限配额）
+                                    ／ 不限配额
                                 <?php endif; ?>
-                            </span>
-                        </div>
-                        <div class="settings-toggle-row">
-                            <span class="settings-toggle-copy">定期更换密码可以保护账号安全</span>
-                            <button type="button" class="btn btn--primary" id="userChangePasswordBtn">
-                                <i class="fa-light fa-key"></i>
-                                <span>修改密码</span>
-                            </button>
+                            </div>
                         </div>
                     </div>
+                </section>
 
-                    <div id="userChangePasswordForm" style="display:none; margin-top: 16px;">
-                        <div class="settings-inline-form" style="flex-direction: column; align-items: stretch; gap: 8px;">
-                            <input type="password" id="ucp_current" placeholder="当前密码" autocomplete="current-password">
-                            <input type="password" id="ucp_next" placeholder="新密码（至少 8 位）" autocomplete="new-password">
-                            <input type="password" id="ucp_confirm" placeholder="确认新密码" autocomplete="new-password">
-                            <button type="button" class="btn btn--primary" id="ucp_submit">确认修改</button>
+                <section>
+                    <div class="settings-section-header">
+                        <h3 class="settings-card-title">
+                            <i class="fa-light fa-key" aria-hidden="true"></i>
+                            <span>修改密码</span>
+                        </h3>
+                        <p>定期更换密码可以保护账号安全</p>
+                    </div>
+                    <div class="settings-grid" id="userChangePasswordForm">
+                        <div class="grid gap-2">
+                            <label for="ucp_current">当前密码</label>
+                            <input id="ucp_current" type="password" autocomplete="current-password">
+                        </div>
+                        <div class="grid gap-2">
+                            <label for="ucp_next">新密码</label>
+                            <input id="ucp_next" type="password" autocomplete="new-password" placeholder="至少 8 位">
+                        </div>
+                        <div class="grid gap-2">
+                            <label for="ucp_confirm">确认新密码</label>
+                            <input id="ucp_confirm" type="password" autocomplete="new-password">
                         </div>
                     </div>
-
+                    <div class="settings-save-actions">
+                        <button type="button" class="btn btn--primary" id="ucp_submit">
+                            <i class="fa-light fa-check" aria-hidden="true"></i>
+                            <span>确认修改</span>
+                        </button>
+                    </div>
                     <script>
                         (function () {
-                            var toggle = document.getElementById('userChangePasswordBtn');
-                            var panel = document.getElementById('userChangePasswordForm');
                             var submit = document.getElementById('ucp_submit');
-                            if (!toggle || !panel || !submit) return;
-                            toggle.addEventListener('click', function () {
-                                panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-                            });
+                            if (!submit) return;
                             submit.addEventListener('click', function () {
                                 var current = document.getElementById('ucp_current').value;
                                 var next = document.getElementById('ucp_next').value;
                                 var confirm = document.getElementById('ucp_confirm').value;
+                                if (next.length < 8) {
+                                    alert('新密码至少 8 位');
+                                    return;
+                                }
                                 if (next !== confirm) {
                                     alert('两次输入的新密码不一致');
                                     return;
                                 }
+                                submit.disabled = true;
                                 fetch('/api/auth.php', {
                                     method: 'POST',
                                     headers: {'Content-Type': 'application/json'},
@@ -2749,14 +2770,20 @@ require_once APP_ROOT . '/header.php';
                                         newPassword: next
                                     })
                                 }).then(function (r) { return r.json(); }).then(function (res) {
+                                    submit.disabled = false;
                                     if (res.status === 'success' || res.code === 0) {
                                         if (res.csrf_token) { window.CSRF_TOKEN = res.csrf_token; }
                                         alert('密码修改成功');
-                                        panel.style.display = 'none';
+                                        document.getElementById('ucp_current').value = '';
+                                        document.getElementById('ucp_next').value = '';
+                                        document.getElementById('ucp_confirm').value = '';
                                     } else {
                                         alert(res.message || '修改失败');
                                     }
-                                }).catch(function () { alert('网络错误，请稍后重试'); });
+                                }).catch(function () {
+                                    submit.disabled = false;
+                                    alert('网络错误，请稍后重试');
+                                });
                             });
                         })();
                     </script>
@@ -2772,18 +2799,35 @@ require_once APP_ROOT . '/header.php';
                         </h3>
                         <p>直接创建账号（无需邀请码），用户名 + 密码登录</p>
                     </div>
-                    <form method="post" class="settings-inline-form">
+                    <form method="post">
                         <?= \LitePic\Core\Csrf::inputField() ?>
                         <input type="hidden" name="form_action" value="create_user">
                         <input type="hidden" name="active_tab" value="users">
-                        <input type="text" name="username" placeholder="用户名" required>
-                        <input type="text" name="email" placeholder="邮箱（可选）">
-                        <input type="password" name="password" placeholder="初始密码（至少 8 位）" required>
-                        <input type="number" name="quota_mb" min="0" step="1" placeholder="配额 MB（0 不限）" style="max-width: 140px;">
-                        <button type="submit" class="btn btn--primary">
-                            <i class="fa-light fa-user-plus"></i>
-                            创建用户
-                        </button>
+                        <div class="settings-grid">
+                            <div class="grid gap-2">
+                                <label for="createUserUsername">用户名 <span class="settings-required">*</span></label>
+                                <input id="createUserUsername" type="text" name="username" autocomplete="off" required placeholder="2–32 位字母数字">
+                            </div>
+                            <div class="grid gap-2">
+                                <label for="createUserEmail">邮箱</label>
+                                <input id="createUserEmail" type="email" name="email" autocomplete="off" placeholder="可选">
+                            </div>
+                            <div class="grid gap-2">
+                                <label for="createUserPassword">初始密码 <span class="settings-required">*</span></label>
+                                <input id="createUserPassword" type="password" name="password" autocomplete="new-password" required placeholder="至少 8 位">
+                            </div>
+                            <div class="grid gap-2">
+                                <label for="createUserQuota">配额（MB）</label>
+                                <input id="createUserQuota" type="number" name="quota_mb" min="0" step="1" value="0" placeholder="0 = 不限">
+                                <p class="settings-field-hint">0 表示不限制存储空间。</p>
+                            </div>
+                        </div>
+                        <div class="settings-save-actions">
+                            <button type="submit" class="btn btn--primary">
+                                <i class="fa-light fa-user-plus" aria-hidden="true"></i>
+                                <span>创建用户</span>
+                            </button>
+                        </div>
                     </form>
                 </section>
 
@@ -2793,15 +2837,13 @@ require_once APP_ROOT . '/header.php';
                             <i class="fa-light fa-users" aria-hidden="true"></i>
                             <span>用户列表（<?= count($mu_users) ?>）</span>
                         </h3>
-                        <p>停用后用户立即无法登录；删除前需先清空该用户的图片</p>
+                        <p>停用后立即无法登录；删除前需先清空该用户的图片</p>
                     </div>
                     <div class="overflow-auto border border-border">
                         <table class="w-full border-collapse">
                             <thead>
                                 <tr>
-                                    <th>ID</th>
-                                    <th>用户名</th>
-                                    <th>邮箱</th>
+                                    <th>用户</th>
                                     <th>角色</th>
                                     <th>图片</th>
                                     <th>用量 / 配额</th>
@@ -2810,11 +2852,30 @@ require_once APP_ROOT . '/header.php';
                                 </tr>
                             </thead>
                             <tbody>
+                                <?php if (empty($mu_users)): ?>
+                                    <tr class="settings-empty-row">
+                                        <td colspan="6">
+                                            <span class="settings-empty-state">
+                                                <i class="fa-light fa-users" aria-hidden="true"></i>
+                                                <span>还没有用户</span>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                <?php endif; ?>
                                 <?php foreach ($mu_users as $u): ?>
+                                    <?php
+                                    $uid = (int)$u['id'];
+                                    $isSiteAdmin = $uid === 1;
+                                    $quotaMb = (int)round(((int)$u['quota_bytes']) / 1048576);
+                                    ?>
                                     <tr>
-                                        <td><?= (int)$u['id'] ?></td>
-                                        <td><?= htmlspecialchars((string)$u['username']) ?></td>
-                                        <td><?= htmlspecialchars((string)($u['email'] ?? '')) ?></td>
+                                        <td>
+                                            <strong><?= htmlspecialchars((string)$u['username']) ?></strong>
+                                            <span class="settings-field-hint">#<?= $uid ?></span>
+                                            <?php if (!empty($u['email'])): ?>
+                                                <div class="settings-field-hint"><?= htmlspecialchars((string)$u['email']) ?></div>
+                                            <?php endif; ?>
+                                        </td>
                                         <td><?= $u['role'] === 'admin' ? '管理员' : '用户' ?></td>
                                         <td><?= (int)$u['image_count'] ?></td>
                                         <td>
@@ -2826,41 +2887,55 @@ require_once APP_ROOT . '/header.php';
                                         </td>
                                         <td><?= $u['status'] === 'active' ? '正常' : '已停用' ?></td>
                                         <td>
-                                            <?php if ((int)$u['id'] !== 1): ?>
-                                                <form method="post" style="display:inline-block;">
-                                                    <?= \LitePic\Core\Csrf::inputField() ?>
-                                                    <input type="hidden" name="form_action" value="toggle_user">
-                                                    <input type="hidden" name="active_tab" value="users">
-                                                    <input type="hidden" name="user_id" value="<?= (int)$u['id'] ?>">
-                                                    <button type="submit" class="btn btn--secondary">
-                                                        <?= $u['status'] === 'active' ? '停用' : '启用' ?>
-                                                    </button>
-                                                </form>
-                                                <form method="post" style="display:inline-block;" data-confirm="确定删除该用户？其账号与 OAuth 绑定将移除（图片需先清空）。" data-confirm-title="删除用户">
-                                                    <?= \LitePic\Core\Csrf::inputField() ?>
-                                                    <input type="hidden" name="form_action" value="delete_user">
-                                                    <input type="hidden" name="active_tab" value="users">
-                                                    <input type="hidden" name="user_id" value="<?= (int)$u['id'] ?>">
-                                                    <button type="submit" class="btn btn--danger">删除</button>
-                                                </form>
-                                            <?php else: ?>
+                                            <?php if ($isSiteAdmin): ?>
                                                 <span class="text-gray text-xs">站长</span>
+                                            <?php else: ?>
+                                                <div class="settings-mu-actions">
+                                                    <form method="post">
+                                                        <?= \LitePic\Core\Csrf::inputField() ?>
+                                                        <input type="hidden" name="form_action" value="toggle_user">
+                                                        <input type="hidden" name="active_tab" value="users">
+                                                        <input type="hidden" name="user_id" value="<?= $uid ?>">
+                                                        <button type="submit" class="btn btn--secondary">
+                                                            <?= $u['status'] === 'active' ? '停用' : '启用' ?>
+                                                        </button>
+                                                    </form>
+                                                    <form method="post" data-confirm="确定删除该用户？账号与 OAuth 绑定将移除（图片需先清空）。" data-confirm-title="删除用户">
+                                                        <?= \LitePic\Core\Csrf::inputField() ?>
+                                                        <input type="hidden" name="form_action" value="delete_user">
+                                                        <input type="hidden" name="active_tab" value="users">
+                                                        <input type="hidden" name="user_id" value="<?= $uid ?>">
+                                                        <button type="submit" class="btn btn--danger">删除</button>
+                                                    </form>
+                                                </div>
                                             <?php endif; ?>
                                         </td>
                                     </tr>
-                                    <?php if ((int)$u['id'] !== 1): ?>
+                                    <?php if (!$isSiteAdmin): ?>
                                         <tr>
-                                            <td></td>
-                                            <td colspan="7">
-                                                <form method="post" class="settings-inline-form">
+                                            <td colspan="6">
+                                                <form method="post" class="settings-mu-edit">
                                                     <?= \LitePic\Core\Csrf::inputField() ?>
                                                     <input type="hidden" name="form_action" value="update_user">
                                                     <input type="hidden" name="active_tab" value="users">
-                                                    <input type="hidden" name="user_id" value="<?= (int)$u['id'] ?>">
-                                                    <input type="number" name="quota_mb" min="0" step="1" placeholder="配额 MB（0 不限）"
-                                                           value="<?= (int)round(((int)$u['quota_bytes']) / 1048576) ?>" style="max-width: 140px;">
-                                                    <input type="password" name="new_password" placeholder="重置密码（留空不改）" style="max-width: 180px;">
-                                                    <button type="submit" class="btn btn--secondary">保存</button>
+                                                    <input type="hidden" name="user_id" value="<?= $uid ?>">
+                                                    <div class="settings-grid">
+                                                        <div class="grid gap-2">
+                                                            <label for="quota_<?= $uid ?>">配额（MB）</label>
+                                                            <input id="quota_<?= $uid ?>" type="number" name="quota_mb" min="0" step="1" value="<?= $quotaMb ?>">
+                                                        </div>
+                                                        <div class="grid gap-2">
+                                                            <label for="pwd_<?= $uid ?>">重置密码</label>
+                                                            <input id="pwd_<?= $uid ?>" type="password" name="new_password" autocomplete="new-password" placeholder="留空不改">
+                                                        </div>
+                                                        <div class="grid gap-2 settings-mu-edit-submit">
+                                                            <label aria-hidden="true">&nbsp;</label>
+                                                            <button type="submit" class="btn btn--secondary">
+                                                                <i class="fa-light fa-floppy-disk" aria-hidden="true"></i>
+                                                                <span>保存</span>
+                                                            </button>
+                                                        </div>
+                                                    </div>
                                                 </form>
                                             </td>
                                         </tr>
@@ -2873,30 +2948,46 @@ require_once APP_ROOT . '/header.php';
 <?php endif; // tab: users ?>
 
 <?php if (in_array($active_settings_tab, ['invites'], true) && $is_admin_user && $multiuser_mode === 'invite'): // tab: 邀请码 ?>
+                <?php $site_base = rtrim(\LitePic\Core\Config::siteUrl(), '/'); ?>
                 <section>
                     <div class="settings-section-header">
                         <h3 class="settings-card-title">
                             <i class="fa-light fa-ticket" aria-hidden="true"></i>
                             <span>生成邀请码</span>
                         </h3>
-                        <p>可顺便把邀请链接通过邮件发给对方（需先在「邮件」tab 配好 SMTP）</p>
+                        <p>可选地把邀请链接发到邮箱（需先在「邮件」里配好 SMTP）</p>
                     </div>
-                    <form method="post" class="settings-inline-form">
+                    <form method="post">
                         <?= \LitePic\Core\Csrf::inputField() ?>
                         <input type="hidden" name="form_action" value="create_invite">
                         <input type="hidden" name="active_tab" value="invites">
-                        <input type="text" name="note" placeholder="备注（如：给朋友小王）">
-                        <input type="number" name="max_uses" min="0" step="1" value="1" title="可用次数，0 = 不限" style="max-width: 110px;">
-                        <input type="number" name="expires_days" min="0" step="1" value="0" title="有效天数，0 = 永不过期" style="max-width: 110px;">
-                        <input type="email" name="send_to" placeholder="发送到此邮箱（可选）">
-                        <button type="submit" class="btn btn--primary">
-                            <i class="fa-light fa-ticket"></i>
-                            生成邀请码
-                        </button>
+                        <div class="settings-grid">
+                            <div class="grid gap-2">
+                                <label for="inviteNote">备注</label>
+                                <input id="inviteNote" type="text" name="note" placeholder="如：给朋友小王">
+                            </div>
+                            <div class="grid gap-2">
+                                <label for="inviteMaxUses">可用次数</label>
+                                <input id="inviteMaxUses" type="number" name="max_uses" min="0" step="1" value="1">
+                                <p class="settings-field-hint">0 = 不限次数。</p>
+                            </div>
+                            <div class="grid gap-2">
+                                <label for="inviteExpiresDays">有效天数</label>
+                                <input id="inviteExpiresDays" type="number" name="expires_days" min="0" step="1" value="0">
+                                <p class="settings-field-hint">0 = 永不过期。</p>
+                            </div>
+                            <div class="grid gap-2">
+                                <label for="inviteSendTo">发送到邮箱</label>
+                                <input id="inviteSendTo" type="email" name="send_to" placeholder="可选">
+                            </div>
+                        </div>
+                        <div class="settings-save-actions">
+                            <button type="submit" class="btn btn--primary">
+                                <i class="fa-light fa-ticket" aria-hidden="true"></i>
+                                <span>生成邀请码</span>
+                            </button>
+                        </div>
                     </form>
-                    <?php
-                    $site_base = rtrim(\LitePic\Core\Config::siteUrl(), '/');
-                    ?>
                 </section>
 
                 <section>
@@ -2905,7 +2996,7 @@ require_once APP_ROOT . '/header.php';
                             <i class="fa-light fa-list" aria-hidden="true"></i>
                             <span>邀请码列表（<?= count($mu_invites) ?>）</span>
                         </h3>
-                        <p>注册链接：<?= htmlspecialchars($site_base) ?>/register?invite=邀请码</p>
+                        <p>注册链接格式：<code class="settings-code-break"><?= htmlspecialchars($site_base) ?>/register?invite=邀请码</code></p>
                     </div>
                     <div class="overflow-auto border border-border">
                         <table class="w-full border-collapse">
@@ -2920,6 +3011,16 @@ require_once APP_ROOT . '/header.php';
                                 </tr>
                             </thead>
                             <tbody>
+                                <?php if (empty($mu_invites)): ?>
+                                    <tr class="settings-empty-row">
+                                        <td colspan="6">
+                                            <span class="settings-empty-state">
+                                                <i class="fa-light fa-ticket" aria-hidden="true"></i>
+                                                <span>还没有邀请码，生成一个邀请朋友注册</span>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                <?php endif; ?>
                                 <?php foreach ($mu_invites as $inv): ?>
                                     <?php
                                     $expired = $inv['expires_at'] !== null && $inv['expires_at'] < time();
@@ -2931,7 +3032,9 @@ require_once APP_ROOT . '/header.php';
                                         <td>
                                             <code><?= htmlspecialchars((string)$inv['code']) ?></code>
                                             <?php if ($state === '可用'): ?>
-                                                <button type="button" class="btn btn--secondary copy-token-btn" data-copy="<?= htmlspecialchars($inviteUrl) ?>">复制链接</button>
+                                                <div class="settings-mu-actions settings-mu-actions--tight">
+                                                    <button type="button" class="btn btn--secondary copy-token-btn" data-copy="<?= htmlspecialchars($inviteUrl) ?>">复制链接</button>
+                                                </div>
                                             <?php endif; ?>
                                         </td>
                                         <td><?= htmlspecialchars((string)$inv['note']) ?></td>
@@ -2940,27 +3043,19 @@ require_once APP_ROOT . '/header.php';
                                         <td><?= $state ?></td>
                                         <td>
                                             <?php if ($state === '可用'): ?>
-                                                <form method="post" style="display:inline-block;" data-confirm="确定吊销该邀请码？" data-confirm-title="吊销邀请码">
+                                                <form method="post" data-confirm="确定吊销该邀请码？" data-confirm-title="吊销邀请码">
                                                     <?= \LitePic\Core\Csrf::inputField() ?>
                                                     <input type="hidden" name="form_action" value="revoke_invite">
                                                     <input type="hidden" name="active_tab" value="invites">
                                                     <input type="hidden" name="invite_id" value="<?= (int)$inv['id'] ?>">
                                                     <button type="submit" class="btn btn--danger">吊销</button>
                                                 </form>
+                                            <?php else: ?>
+                                                <span class="text-gray text-xs">—</span>
                                             <?php endif; ?>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
-                                <?php if (empty($mu_invites)): ?>
-                                    <tr class="settings-empty-row">
-                                        <td colspan="6">
-                                            <span class="settings-empty-state">
-                                                <i class="fa-light fa-ticket" aria-hidden="true"></i>
-                                                <span>还没有邀请码，生成一个邀请朋友注册</span>
-                                            </span>
-                                        </td>
-                                    </tr>
-                                <?php endif; ?>
                             </tbody>
                         </table>
                     </div>
@@ -2968,78 +3063,101 @@ require_once APP_ROOT . '/header.php';
 <?php endif; // tab: invites ?>
 
 <?php if (in_array($active_settings_tab, ['access'], true) && $is_admin_user): // tab: 注册与登录 ?>
-                <section>
-                    <div class="settings-section-header">
-                        <h3 class="settings-card-title">
-                            <i class="fa-light fa-user-gear" aria-hidden="true"></i>
-                            <span>注册设置</span>
-                        </h3>
-                        <p>当前模式：<?= $multiuser_mode === 'invite' ? '邀请制注册' : '开放注册' ?>（在 基础 tab 切换）</p>
-                    </div>
-                    <form method="post">
-                        <?= \LitePic\Core\Csrf::inputField() ?>
-                        <input type="hidden" name="form_action" value="save_access_settings">
-                        <input type="hidden" name="active_tab" value="access">
-                        <div class="settings-toggle-list">
-                            <div class="settings-toggle-row">
-                                <span class="settings-toggle-copy">新用户默认配额（MB，0 = 不限）</span>
-                                <input type="number" name="default_quota_mb" min="0" step="1"
-                                       value="<?= htmlspecialchars($mu_oauth['default_quota_mb']) ?>" style="max-width: 120px;">
+                <form method="post">
+                    <?= \LitePic\Core\Csrf::inputField() ?>
+                    <input type="hidden" name="form_action" value="save_access_settings">
+                    <input type="hidden" name="active_tab" value="access">
+
+                    <section>
+                        <div class="settings-section-header">
+                            <h3 class="settings-card-title">
+                                <i class="fa-light fa-user-gear" aria-hidden="true"></i>
+                                <span>注册设置</span>
+                            </h3>
+                            <p>当前模式：<?= $multiuser_mode === 'invite' ? '邀请制注册' : '开放注册' ?>（在「基础」切换）</p>
+                        </div>
+                        <div class="settings-grid">
+                            <div class="grid gap-2">
+                                <label for="defaultQuotaMb">新用户默认配额（MB）</label>
+                                <input id="defaultQuotaMb" type="number" name="default_quota_mb" min="0" step="1"
+                                       value="<?= htmlspecialchars((string)$mu_oauth['default_quota_mb']) ?>">
+                                <p class="settings-field-hint">0 = 不限制。手动创建用户时可单独覆盖。</p>
                             </div>
                         </div>
+                    </section>
 
-                        <div class="settings-section-header" style="margin-top: 24px;">
+                    <section>
+                        <div class="settings-section-header">
                             <h3 class="settings-card-title">
                                 <i class="fa-brands fa-google" aria-hidden="true"></i>
                                 <span>Google 登录</span>
                             </h3>
-                            <p>回调地址（填到 Google Cloud OAuth 客户端）：<code><?= htmlspecialchars($mu_oauth['google_callback']) ?></code></p>
+                            <p>在 Google Cloud 创建 OAuth 客户端，回调地址填下方地址</p>
+                        </div>
+                        <div class="settings-callout">
+                            <strong>回调地址</strong>
+                            <code class="settings-code-break"><?= htmlspecialchars($mu_oauth['google_callback']) ?></code>
                         </div>
                         <div class="settings-toggle-list">
-                            <div class="settings-toggle-row">
+                            <label class="settings-toggle-row" for="googleEnabled">
                                 <span class="settings-toggle-copy">启用 Google 登录</span>
-                                <input type="checkbox" name="google_enabled" value="1" <?= $mu_oauth['google_enabled'] ? 'checked' : '' ?>>
+                                <input id="googleEnabled" class="settings-switch-input" type="checkbox" name="google_enabled" value="1" <?= $mu_oauth['google_enabled'] ? 'checked' : '' ?>>
+                                <span class="settings-switch" aria-hidden="true"><span></span></span>
+                            </label>
+                        </div>
+                        <div class="settings-grid">
+                            <div class="grid gap-2 settings-grid__full">
+                                <label for="googleClientId">Client ID</label>
+                                <input id="googleClientId" type="text" name="google_client_id" autocomplete="off"
+                                       value="<?= htmlspecialchars($mu_oauth['google_client_id']) ?>">
                             </div>
-                            <div class="settings-toggle-row">
-                                <span class="settings-toggle-copy">Client ID</span>
-                                <input type="text" name="google_client_id" value="<?= htmlspecialchars($mu_oauth['google_client_id']) ?>" style="min-width: 320px;">
-                            </div>
-                            <div class="settings-toggle-row">
-                                <span class="settings-toggle-copy">Client Secret<?= $mu_oauth['google_has_secret'] ? '（已保存，留空保持不变）' : '' ?></span>
-                                <input type="password" name="google_client_secret" value="" placeholder="<?= $mu_oauth['google_has_secret'] ? '••••••••' : '' ?>" style="min-width: 320px;">
+                            <div class="grid gap-2 settings-grid__full">
+                                <label for="googleClientSecret">Client Secret<?= $mu_oauth['google_has_secret'] ? '（已保存，留空不变）' : '' ?></label>
+                                <input id="googleClientSecret" type="password" name="google_client_secret" autocomplete="new-password"
+                                       placeholder="<?= $mu_oauth['google_has_secret'] ? '••••••••' : '' ?>" value="">
                             </div>
                         </div>
+                    </section>
 
-                        <div class="settings-section-header" style="margin-top: 24px;">
+                    <section>
+                        <div class="settings-section-header">
                             <h3 class="settings-card-title">
                                 <i class="fa-brands fa-github" aria-hidden="true"></i>
                                 <span>GitHub 登录</span>
                             </h3>
-                            <p>回调地址（填到 GitHub OAuth App）：<code><?= htmlspecialchars($mu_oauth['github_callback']) ?></code></p>
+                            <p>在 GitHub OAuth App 里填回调地址</p>
+                        </div>
+                        <div class="settings-callout">
+                            <strong>回调地址</strong>
+                            <code class="settings-code-break"><?= htmlspecialchars($mu_oauth['github_callback']) ?></code>
                         </div>
                         <div class="settings-toggle-list">
-                            <div class="settings-toggle-row">
+                            <label class="settings-toggle-row" for="githubEnabled">
                                 <span class="settings-toggle-copy">启用 GitHub 登录</span>
-                                <input type="checkbox" name="github_enabled" value="1" <?= $mu_oauth['github_enabled'] ? 'checked' : '' ?>>
+                                <input id="githubEnabled" class="settings-switch-input" type="checkbox" name="github_enabled" value="1" <?= $mu_oauth['github_enabled'] ? 'checked' : '' ?>>
+                                <span class="settings-switch" aria-hidden="true"><span></span></span>
+                            </label>
+                        </div>
+                        <div class="settings-grid">
+                            <div class="grid gap-2 settings-grid__full">
+                                <label for="githubClientId">Client ID</label>
+                                <input id="githubClientId" type="text" name="github_client_id" autocomplete="off"
+                                       value="<?= htmlspecialchars($mu_oauth['github_client_id']) ?>">
                             </div>
-                            <div class="settings-toggle-row">
-                                <span class="settings-toggle-copy">Client ID</span>
-                                <input type="text" name="github_client_id" value="<?= htmlspecialchars($mu_oauth['github_client_id']) ?>" style="min-width: 320px;">
-                            </div>
-                            <div class="settings-toggle-row">
-                                <span class="settings-toggle-copy">Client Secret<?= $mu_oauth['github_has_secret'] ? '（已保存，留空保持不变）' : '' ?></span>
-                                <input type="password" name="github_client_secret" value="" placeholder="<?= $mu_oauth['github_has_secret'] ? '••••••••' : '' ?>" style="min-width: 320px;">
+                            <div class="grid gap-2 settings-grid__full">
+                                <label for="githubClientSecret">Client Secret<?= $mu_oauth['github_has_secret'] ? '（已保存，留空不变）' : '' ?></label>
+                                <input id="githubClientSecret" type="password" name="github_client_secret" autocomplete="new-password"
+                                       placeholder="<?= $mu_oauth['github_has_secret'] ? '••••••••' : '' ?>" value="">
                             </div>
                         </div>
-
-                        <div style="margin-top: 16px;">
+                        <div class="settings-save-actions">
                             <button type="submit" class="btn btn--primary">
-                                <i class="fa-light fa-floppy-disk"></i>
-                                保存注册与登录设置
+                                <i class="fa-light fa-floppy-disk" aria-hidden="true"></i>
+                                <span>保存注册与登录设置</span>
                             </button>
                         </div>
-                    </form>
-                </section>
+                    </section>
+                </form>
 <?php endif; // tab: access ?>
 
 <?php if (in_array($active_settings_tab, ['mail'], true) && $is_admin_user): // tab: 邮件 ?>
@@ -3049,65 +3167,79 @@ require_once APP_ROOT . '/header.php';
                             <i class="fa-light fa-paper-plane-top" aria-hidden="true"></i>
                             <span>SMTP 发信配置</span>
                         </h3>
-                        <p>用于发送邀请邮件；支持 SSL（465）与 STARTTLS（587）</p>
+                        <p>用于发送邀请邮件；常用 SSL 465 或 STARTTLS 587</p>
                     </div>
                     <form method="post">
                         <?= \LitePic\Core\Csrf::inputField() ?>
                         <input type="hidden" name="form_action" value="save_mail_settings">
                         <input type="hidden" name="active_tab" value="mail">
-                        <div class="settings-toggle-list">
-                            <div class="settings-toggle-row">
-                                <span class="settings-toggle-copy">SMTP 服务器</span>
-                                <input type="text" name="smtp_host" value="<?= htmlspecialchars($mu_smtp['host']) ?>" placeholder="smtp.example.com" style="min-width: 260px;">
+                        <div class="settings-grid">
+                            <div class="grid gap-2">
+                                <label for="smtpHost">SMTP 服务器</label>
+                                <input id="smtpHost" type="text" name="smtp_host" autocomplete="off"
+                                       value="<?= htmlspecialchars($mu_smtp['host']) ?>" placeholder="smtp.example.com">
                             </div>
-                            <div class="settings-toggle-row">
-                                <span class="settings-toggle-copy">端口</span>
-                                <input type="number" name="smtp_port" min="1" max="65535" value="<?= htmlspecialchars($mu_smtp['port']) ?>" style="max-width: 110px;">
+                            <div class="grid gap-2">
+                                <label for="smtpPort">端口</label>
+                                <input id="smtpPort" type="number" name="smtp_port" min="1" max="65535"
+                                       value="<?= htmlspecialchars($mu_smtp['port']) ?>">
                             </div>
-                            <div class="settings-toggle-row">
-                                <span class="settings-toggle-copy">加密方式</span>
-                                <select name="smtp_encryption">
+                            <div class="grid gap-2">
+                                <label for="smtpEncryption">加密方式</label>
+                                <select id="smtpEncryption" name="smtp_encryption">
                                     <option value="ssl" <?= $mu_smtp['encryption'] === 'ssl' ? 'selected' : '' ?>>SSL（通常 465）</option>
                                     <option value="starttls" <?= $mu_smtp['encryption'] === 'starttls' ? 'selected' : '' ?>>STARTTLS（通常 587）</option>
                                     <option value="none" <?= $mu_smtp['encryption'] === 'none' ? 'selected' : '' ?>>无加密（仅内网）</option>
                                 </select>
                             </div>
-                            <div class="settings-toggle-row">
-                                <span class="settings-toggle-copy">账号</span>
-                                <input type="text" name="smtp_username" value="<?= htmlspecialchars($mu_smtp['username']) ?>" style="min-width: 260px;">
+                            <div class="grid gap-2">
+                                <label for="smtpUsername">账号</label>
+                                <input id="smtpUsername" type="text" name="smtp_username" autocomplete="off"
+                                       value="<?= htmlspecialchars($mu_smtp['username']) ?>">
                             </div>
-                            <div class="settings-toggle-row">
-                                <span class="settings-toggle-copy">密码 / 授权码<?= $mu_smtp['has_password'] ? '（已保存，留空保持不变）' : '' ?></span>
-                                <input type="password" name="smtp_password" value="" placeholder="<?= $mu_smtp['has_password'] ? '••••••••' : '' ?>" style="min-width: 260px;">
+                            <div class="grid gap-2 settings-grid__full">
+                                <label for="smtpPassword">密码 / 授权码<?= $mu_smtp['has_password'] ? '（已保存，留空不变）' : '' ?></label>
+                                <input id="smtpPassword" type="password" name="smtp_password" autocomplete="new-password"
+                                       placeholder="<?= $mu_smtp['has_password'] ? '••••••••' : '' ?>" value="">
                             </div>
-                            <div class="settings-toggle-row">
-                                <span class="settings-toggle-copy">发件人邮箱</span>
-                                <input type="email" name="smtp_from_email" value="<?= htmlspecialchars($mu_smtp['from_email']) ?>" style="min-width: 260px;">
+                            <div class="grid gap-2">
+                                <label for="smtpFromEmail">发件人邮箱</label>
+                                <input id="smtpFromEmail" type="email" name="smtp_from_email"
+                                       value="<?= htmlspecialchars($mu_smtp['from_email']) ?>">
                             </div>
-                            <div class="settings-toggle-row">
-                                <span class="settings-toggle-copy">发件人名称</span>
-                                <input type="text" name="smtp_from_name" value="<?= htmlspecialchars($mu_smtp['from_name']) ?>" placeholder="<?= htmlspecialchars(SITE_NAME) ?>" style="min-width: 260px;">
+                            <div class="grid gap-2">
+                                <label for="smtpFromName">发件人名称</label>
+                                <input id="smtpFromName" type="text" name="smtp_from_name"
+                                       value="<?= htmlspecialchars($mu_smtp['from_name']) ?>" placeholder="<?= htmlspecialchars(SITE_NAME) ?>">
                             </div>
                         </div>
-                        <div style="margin-top: 16px;">
+                        <div class="settings-save-actions">
                             <button type="submit" class="btn btn--primary">
-                                <i class="fa-light fa-floppy-disk"></i>
-                                保存邮件设置
+                                <i class="fa-light fa-floppy-disk" aria-hidden="true"></i>
+                                <span>保存邮件设置</span>
                             </button>
                         </div>
                     </form>
+                </section>
 
-                    <form method="post" class="settings-inline-form" style="margin-top: 16px;">
+                <section>
+                    <div class="settings-section-header">
+                        <h3 class="settings-card-title">
+                            <i class="fa-light fa-envelope-circle-check" aria-hidden="true"></i>
+                            <span>发送测试邮件</span>
+                        </h3>
+                        <p>使用已保存的 SMTP 配置探测连通性；改完请先保存再测</p>
+                    </div>
+                    <form method="post" class="settings-inline-form settings-token-form">
                         <?= \LitePic\Core\Csrf::inputField() ?>
                         <input type="hidden" name="form_action" value="test_smtp">
                         <input type="hidden" name="active_tab" value="mail">
-                        <input type="email" name="test_email" placeholder="发送测试邮件到…" required style="min-width: 260px;">
+                        <input type="email" name="test_email" placeholder="发送到此邮箱" required>
                         <button type="submit" class="btn btn--secondary">
-                            <i class="fa-light fa-paper-plane"></i>
-                            发送测试邮件
+                            <i class="fa-light fa-paper-plane" aria-hidden="true"></i>
+                            <span>发送测试</span>
                         </button>
                     </form>
-                    <p class="m-0 text-sm text-gray">提示：测试邮件使用「已保存」的配置 — 修改后请先保存再测试。</p>
                 </section>
 <?php endif; // tab: mail ?>
 

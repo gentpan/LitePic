@@ -8097,6 +8097,32 @@ html[data-theme="dark"] * {
   .settings-token-form {
     grid-template-columns: minmax(0, 1fr) auto;
   }
+  .settings-mu-actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: calc(var(--spacing) * 2);
+  }
+  .settings-mu-actions--tight {
+    margin-top: calc(var(--spacing) * 1.5);
+  }
+  .settings-mu-actions form {
+    margin: 0px;
+    display: inline;
+  }
+  .settings-mu-edit {
+    margin: 0px;
+    padding-block: var(--spacing);
+  }
+  .settings-mu-edit .settings-grid {
+    align-items: flex-end;
+  }
+  .settings-mu-edit-submit .btn {
+    width: 100%;
+    @media (width >= 40rem) {
+      width: auto;
+    }
+  }
   .settings-compression-form {
     grid-template-columns: minmax(0, 1fr) auto;
   }
