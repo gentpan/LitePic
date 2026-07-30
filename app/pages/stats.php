@@ -5,6 +5,11 @@ if (!defined('APP_ROOT')) {
     require dirname(__DIR__, 2) . '/bootstrap.php';
 }
 
+// 统计页含全站/个人用量与图片列表，必须登录。
+// 多用户关闭时等同管理员；开启时普通用户只能看到 scope 内数据。
+if (!\LitePic\Service\Auth\UserContext::isLoggedIn()) {
+    \LitePic\Core\HttpCache::redirect('/');
+}
 
 // 获取所有图片
 $image_repo = new \LitePic\Repository\ImageRepository();

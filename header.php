@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 \LitePic\Core\Session::start();
 
-$is_logged_in = (new \LitePic\Service\Auth\AuthService())->isAdmin();
+$is_logged_in = \LitePic\Service\Auth\UserContext::isLoggedIn();
 \LitePic\Core\HttpCache::preventPrivateCaching();
 $document_title = isset($html_title) && trim((string)$html_title) !== ''
     ? trim((string)$html_title)
@@ -119,8 +119,7 @@ $document_title = isset($html_title) && trim((string)$html_title) !== ''
             <nav class="main-nav">
                 <?php
                 // 定义导航项（使用无后缀路由）
-                $uriPath = parse_url((string)($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
-                $current_path = is_string($uriPath) && $uriPath !== '' ? rtrim($uriPath, '/') : '/';
+                $current_path = rtrim(\LitePic\Core\RequestContext::path('/'), '/');
                 if ($current_path === '') {
                     $current_path = '/';
                 }

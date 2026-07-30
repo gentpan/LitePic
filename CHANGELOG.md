@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.7.0] - 2026-07-30
+
+### Added
+
+- **多用户模式** — 设置可切换 `off` / `invite` / `open`；用户表、邀请码、Google/GitHub OAuth、SMTP 邀请邮件；图片/相册/Token 按 `user_id` 归属；迁移 `019_multiuser`。默认关闭，旧站升级后行为不变。
+- **宝塔兼容 shim** — `/gallery/` `/upload/` `/settings/` `/stats/` `/albums/` `/register/` 目录入口，减轻缺伪静态时的 404。
+
+### Fixed
+
+- **统计页需登录** — 未登录访问 `/stats` 不再泄露全站数据。
+- **私密相册所有者** — 普通用户可访问自己的 private 相册；出图闸门同步认 owner。
+- **登录态统一** — header / 设置页用 `UserContext::isLoggedIn()`；普通用户设置仅显示「账号」tab。
+- **注册/登录 CSRF** — 前端正确读取顶层 `csrf_token`。
+- **上传接口异常** — 捕获 Fatal/异常并始终返回 JSON，避免「服务器返回非 JSON 响应」。
+- **上传挂相册** — 普通用户/其 Token 可挂到自己拥有的相册。
+
 ## [3.6.2] - 2026-07-27
 
 ### Added

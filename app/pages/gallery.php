@@ -32,12 +32,12 @@ class GalleryManager {
     }
 
     private function checkAuth(): void {
-        // 使用全局函数进行验证
-        $this->is_admin = (new \LitePic\Service\Auth\AuthService())->isAdmin();
+        // 使用全局函数进行验证（多用户模式下普通用户会话也可访问自己的图库）
+        $this->is_admin = \LitePic\Service\Auth\UserContext::isLoggedIn();
                          
         if (!$this->is_admin) {
             error_log("Unauthorized access attempt to gallery.php from " . \LitePic\Core\RequestContext::clientIp());
-            \LitePic\Core\HttpCache::redirect('/upload');
+            \LitePic\Core\HttpCache::redirect('/');
         }
     }
 

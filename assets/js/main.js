@@ -1854,7 +1854,7 @@ window.ApiManager = {
 
     getLoginSuccessRedirect() {
         const panel = document.getElementById('loginPanel');
-        return this.activeLoginRedirect || panel?.dataset?.activeRedirect || panel?.dataset?.successRedirect || this.primaryLoginButton?.dataset?.loginRedirect || '';
+        return this.activeLoginRedirect || panel?.dataset?.activeRedirect || panel?.dataset?.successRedirect || this.primaryLoginButton?.dataset?.loginRedirect || '/gallery/';
     },
 
     finishLogin(opts = {}) {

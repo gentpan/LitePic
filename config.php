@@ -70,7 +70,7 @@ $default_host = $_SERVER['HTTP_HOST'] ?? 'localhost:8080';
 $default_scheme = $is_https ? 'https' : 'http';
 
 // 基础配置
-define('LITEPIC_VERSION', '3.6.2');
+define('LITEPIC_VERSION', '3.7.0');
 define('SITE_NAME', env_value('SITE_NAME', 'LitePic'));
 define('SITE_DESCRIPTION', env_value('SITE_DESCRIPTION', '轻量级图床程序'));
 define('SITE_VERSION', LITEPIC_VERSION);
@@ -205,7 +205,7 @@ define('COOKIE_PATH', '/');
 define('COOKIE_DOMAIN', '');
 define('COOKIE_SECURE', env_bool('COOKIE_SECURE', $is_https));
 define('COOKIE_HTTPONLY', true);
-define('COOKIE_SAMESITE', 'Strict');
+define('COOKIE_SAMESITE', 'Lax');
 
 // 显示配置
 define('ITEMS_PER_PAGE', 20); // 固定每页显示 20 张

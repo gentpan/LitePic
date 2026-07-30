@@ -16,7 +16,7 @@ if (!defined('APP_ROOT')) {
  *   public    任何人可访问,可被搜索引擎收录
  *   unlisted  凭链接访问,搜索引擎不收录(robots noindex)
  *   password  访问前需密码,bcrypt 校验,1 小时签名 cookie
- *   private   仅登录管理员,其他人 404
+ *   private   仅管理员或相册所有者,其他人 404
  *
  * Visit counter: every successful render bumps albums.view_count once
  * (refresh = +1; no cookie / IP throttle — matches product requirement).
@@ -41,10 +41,15 @@ $album = $albumRepo->findByKey($albumKey);
 // same album would otherwise produce different cookies.
 $cookieKey = \LitePic\Service\Album\AlbumService::urlKey($album ?? ['id' => 0, 'slug' => null]);
 
-$isAdmin = (new \LitePic\Service\Auth\AuthService())->isAdmin();
+$isAdmin = \LitePic\Service\Auth\UserContext::isAdmin();
+$isOwner = $album !== null
+    && \LitePic\Service\Auth\UserContext::enabled()
+    && \LitePic\Service\Auth\UserContext::currentUserId() > 0
+    && (int)($album['user_id'] ?? 0) === \LitePic\Service\Auth\UserContext::currentUserId();
+$canBypassGates = $isAdmin || $isOwner;
 
-// 不存在 / private 非管理员 → 一律 404(不暴露相册存在与否)
-if ($album === null || ((string)$album['visibility'] === 'private' && !$isAdmin)) {
+// 不存在 / private 非管理员且非所有者 → 一律 404(不暴露相册存在与否)
+if ($album === null || ((string)$album['visibility'] === 'private' && !$canBypassGates)) {
     http_response_code(404);
     require_once APP_ROOT . '/header.php';
     ?>
@@ -72,7 +77,7 @@ $albumCookieName = 'lp_album_' . $cookieKey;
 $cookieSecret = (string)\LitePic\Core\Config::get('ADMIN_SESSION_SECRET', '');
 
 $passwordPassed = false;
-if ($visibility !== 'password' || $isAdmin) {
+if ($visibility !== 'password' || $canBypassGates) {
     $passwordPassed = true;
 } else {
     // 验证已有 cookie(签名 + 1h 有效期)

@@ -6,7 +6,11 @@ if (!defined('APP_ROOT')) {
 }
 
 
-if (!(new \LitePic\Service\Auth\AuthService())->isAdmin()) {
+$is_admin_user = \LitePic\Service\Auth\UserContext::isAdmin();
+$session_user = \LitePic\Service\Auth\UserContext::enabled()
+    ? \LitePic\Service\Auth\UserContext::currentUser()
+    : null;
+if (!\LitePic\Service\Auth\UserContext::isLoggedIn()) {
     if (\LitePic\Http\Controllers\SettingsController::isAjaxRequest()) {
         \LitePic\Core\Response::json([
             'status' => 'error',
@@ -14,7 +18,7 @@ if (!(new \LitePic\Service\Auth\AuthService())->isAdmin()) {
             'message' => '登录状态已失效，请重新登录后再保存设置',
         ], 401);
     }
-    \LitePic\Core\HttpCache::redirect('/upload');
+    \LitePic\Core\HttpCache::redirect('/');
 }
 
 const SETTINGS_FLASH_COOKIE = 'settings_flash_once';
@@ -63,6 +67,47 @@ $settings_tabs = [
         'description' => 'SQLite 数据库、备份、清理与程序更新',
     ],
 ];
+
+// 多用户模式：额外的管理 tabs 仅对管理员可见，且只在模式开启后出现。
+// 单用户模式（默认）下设置页与之前完全一致。
+$multiuser_mode = \LitePic\Service\Auth\UserContext::mode();
+if ($is_admin_user && $multiuser_mode !== 'off') {
+    $settings_tabs['users'] = [
+        'icon' => 'fa-users',
+        'label' => '用户',
+        'description' => '注册用户管理：配额、停用、重置密码',
+    ];
+    if ($multiuser_mode === 'invite') {
+        $settings_tabs['invites'] = [
+            'icon' => 'fa-envelope-open-text',
+            'label' => '邀请码',
+            'description' => '生成、分发与吊销注册邀请码',
+        ];
+    }
+    $settings_tabs['access'] = [
+        'icon' => 'fa-user-plus',
+        'label' => '注册与登录',
+        'description' => '注册模式、默认配额、Google / GitHub 第三方登录',
+    ];
+    $settings_tabs['mail'] = [
+        'icon' => 'fa-paper-plane-top',
+        'label' => '邮件',
+        'description' => 'SMTP 发信配置 — 用于发送邀请邮件',
+    ];
+}
+
+// 普通用户只能看到「账号」tab，避免误点全局设置入口
+if (!$is_admin_user) {
+    $settings_tabs = [
+        'account' => [
+            'icon' => 'fa-user',
+            'label' => '账号',
+            'description' => '修改密码、管理自己的上传 API Token',
+        ],
+    ];
+    $_GET['tab'] = 'account';
+    $_POST['active_tab'] = 'account';
+}
 
 // 旧 tab key 向后兼容 — 老链接 / 收藏 / 后台 redirect 不会 404，自动落到新分组
 $_settings_tab_alias = [
@@ -126,6 +171,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
     } else {
         $form_action = (string)($_POST['form_action'] ?? 'save_settings');
+        // 普通用户（多用户模式）只允许管理自己的 Token —— 站点设置/用户管理等
+        // 一律拒绝，避免低权限会话改写全局配置。
+        if (!$is_admin_user && !in_array($form_action, ['create_token', 'revoke_token'], true)) {
+            if ($is_ajax_request) {
+                \LitePic\Core\Response::json([
+                    'status' => 'error',
+                    'type' => 'error',
+                    'message' => '权限不足',
+                    'action' => $form_action,
+                ], 403);
+            }
+            \LitePic\Core\Response::error('权限不足', 403);
+        }
         try {
             $result = (new \LitePic\Http\Controllers\SettingsController())->dispatch($form_action);
         } catch (\Throwable $e) {
@@ -227,6 +285,46 @@ $upload_format_labels = [
     'tif' => 'TIF',
 ];
 $import_task_status = (new \LitePic\Service\Importer\Importer())->queueStatus();
+
+// ---- 多用户 tab 预取数据 ----
+$mu_users = [];
+$mu_invites = [];
+$mu_smtp = [];
+$mu_oauth = [];
+if ($is_admin_user && $multiuser_mode !== 'off') {
+    $mu_users = (new \LitePic\Repository\UserRepository())->allWithUsage();
+    if ($multiuser_mode === 'invite') {
+        $mu_invites = (new \LitePic\Repository\InviteRepository())->all();
+    }
+    $mu_smtp = [
+        'host' => (string)\LitePic\Core\Config::get('SMTP_HOST', ''),
+        'port' => (string)\LitePic\Core\Config::get('SMTP_PORT', '465'),
+        'username' => (string)\LitePic\Core\Config::get('SMTP_USERNAME', ''),
+        'encryption' => (string)\LitePic\Core\Config::get('SMTP_ENCRYPTION', 'ssl'),
+        'from_email' => (string)\LitePic\Core\Config::get('SMTP_FROM_EMAIL', ''),
+        'from_name' => (string)\LitePic\Core\Config::get('SMTP_FROM_NAME', ''),
+        'has_password' => trim((string)\LitePic\Core\Config::get('SMTP_PASSWORD', '')) !== '',
+    ];
+    $mu_oauth = [
+        'default_quota_mb' => (string)\LitePic\Core\Config::get('REGISTRATION_DEFAULT_QUOTA_MB', '0'),
+        'google_enabled' => (string)\LitePic\Core\Config::get('OAUTH_GOOGLE_ENABLED', 'false') === 'true',
+        'google_client_id' => (string)\LitePic\Core\Config::get('OAUTH_GOOGLE_CLIENT_ID', ''),
+        'google_has_secret' => trim((string)\LitePic\Core\Config::get('OAUTH_GOOGLE_CLIENT_SECRET', '')) !== '',
+        'google_callback' => \LitePic\Service\Auth\OAuth\OAuthService::callbackUrl('google'),
+        'github_enabled' => (string)\LitePic\Core\Config::get('OAUTH_GITHUB_ENABLED', 'false') === 'true',
+        'github_client_id' => (string)\LitePic\Core\Config::get('OAUTH_GITHUB_CLIENT_ID', ''),
+        'github_has_secret' => trim((string)\LitePic\Core\Config::get('OAUTH_GITHUB_CLIENT_SECRET', '')) !== '',
+        'github_callback' => \LitePic\Service\Auth\OAuth\OAuthService::callbackUrl('github'),
+    ];
+}
+// 普通用户账号 tab 用量信息
+$session_user_used_bytes = 0;
+$session_user_image_count = 0;
+if (!$is_admin_user && $session_user !== null) {
+    $ur = new \LitePic\Repository\UserRepository();
+    $session_user_used_bytes = $ur->usedBytes((int)$session_user['id']);
+    $session_user_image_count = $ur->imageCount((int)$session_user['id']);
+}
 $configured_upload_limit_bytes = (int)MAX_FILE_SIZE;
 $runtime_upload_limit_bytes = \LitePic\Service\Upload\UploadService::phpUploadLimitBytes();
 $metrics = (new \LitePic\Service\Stats\ServerInfo())->runtimeMetrics();
@@ -2050,6 +2148,45 @@ require_once APP_ROOT . '/header.php';
                     </section>
 <?php endif; // tab: basic (站点信息) ?>
 
+<?php if (in_array($active_settings_tab, ['basic'], true) && $is_admin_user): // 多用户模式开关（管理员）?>
+                <section>
+                    <div class="settings-section-header">
+                        <h3 class="settings-card-title">
+                            <i class="fa-light fa-users" aria-hidden="true"></i>
+                            <span>多用户模式</span>
+                        </h3>
+                        <p>开启后允许注册独立账号，每个用户拥有自己的图库与配额；关闭时站点为纯单用户（现状）</p>
+                    </div>
+
+                    <form method="post" class="settings-inline-form">
+                        <?= \LitePic\Core\Csrf::inputField() ?>
+                        <input type="hidden" name="form_action" value="save_multiuser_mode">
+                        <input type="hidden" name="active_tab" value="basic">
+                        <select name="multi_user_mode">
+                            <option value="off" <?= $multiuser_mode === 'off' ? 'selected' : '' ?>>关闭（单用户模式）</option>
+                            <option value="invite" <?= $multiuser_mode === 'invite' ? 'selected' : '' ?>>邀请制注册</option>
+                            <option value="open" <?= $multiuser_mode === 'open' ? 'selected' : '' ?>>开放注册</option>
+                        </select>
+                        <button type="submit" class="btn btn--primary">
+                            <i class="fa-light fa-floppy-disk"></i>
+                            保存
+                        </button>
+                    </form>
+                    <?php if ($multiuser_mode !== 'off'): ?>
+                        <p class="m-0 text-sm text-gray">
+                            已开启。前往
+                            <a href="/settings/users" data-pjax>用户</a>、
+                            <?php if ($multiuser_mode === 'invite'): ?><a href="/settings/invites" data-pjax>邀请码</a>、<?php endif; ?>
+                            <a href="/settings/access" data-pjax>注册与登录</a>、
+                            <a href="/settings/mail" data-pjax>邮件</a>
+                            完成多用户配置。关闭后已有账号与数据保留，仅注册与登录入口停用。
+                        </p>
+                    <?php else: ?>
+                        <p class="m-0 text-sm text-gray">说明：开启后设置页会新增「用户 / 注册与登录 / 邮件」等管理入口；存量图片自动归属于管理员账号。</p>
+                    <?php endif; ?>
+                </section>
+<?php endif; // tab: basic multiuser switch ?>
+
 <?php if (in_array($active_settings_tab, ['image'], true)): // 自动压缩 + 自动转换 + 保留原图 (从原 general tab 拆出来) ?>
                     <section>
                         <div class="settings-section-header">
@@ -2374,7 +2511,7 @@ require_once APP_ROOT . '/header.php';
                     </section>
 <?php endif; // tab: storage (扫描导入 section) ?>
 
-<?php if (in_array($active_settings_tab, ['account'], true)): ?>
+<?php if (in_array($active_settings_tab, ['account'], true) && $is_admin_user): ?>
                     <section>
                         <div class="settings-section-header">
                             <h3 class="settings-card-title">
@@ -2501,6 +2638,7 @@ require_once APP_ROOT . '/header.php';
                     </div>
                 </section>
 
+                <?php if ($is_admin_user): // Passkey 目前仅绑定管理员全局登录 ?>
                 <section>
                     <div class="settings-section-header">
                         <h3 class="settings-card-title">
@@ -2535,7 +2673,443 @@ require_once APP_ROOT . '/header.php';
                         </table>
                     </div>
                 </section>
+                <?php endif; // passkey admin-only ?>
 <?php endif; // tab: account (out-of-form sections) ?>
+
+<?php if (in_array($active_settings_tab, ['account'], true) && !$is_admin_user && $session_user !== null): // 普通用户的账号页 ?>
+                <section>
+                    <div class="settings-section-header">
+                        <h3 class="settings-card-title">
+                            <i class="fa-light fa-circle-user" aria-hidden="true"></i>
+                            <span>我的账号</span>
+                        </h3>
+                        <p>账号信息与存储用量</p>
+                    </div>
+                    <div class="settings-toggle-list">
+                        <div class="settings-toggle-row">
+                            <span class="settings-toggle-copy">
+                                用户名：<strong><?= htmlspecialchars((string)$session_user['username']) ?></strong>
+                                <?php if (!empty($session_user['email'])): ?>
+                                    （<?= htmlspecialchars((string)$session_user['email']) ?>）
+                                <?php endif; ?>
+                            </span>
+                        </div>
+                        <div class="settings-toggle-row">
+                            <span class="settings-toggle-copy">
+                                已上传 <?= (int)$session_user_image_count ?> 张图片，
+                                占用 <?= htmlspecialchars(\LitePic\Core\Format::filesize($session_user_used_bytes)) ?>
+                                <?php if ((int)$session_user['quota_bytes'] > 0): ?>
+                                    / 配额 <?= htmlspecialchars(\LitePic\Core\Format::filesize((int)$session_user['quota_bytes'])) ?>
+                                <?php else: ?>
+                                    （不限配额）
+                                <?php endif; ?>
+                            </span>
+                        </div>
+                        <div class="settings-toggle-row">
+                            <span class="settings-toggle-copy">定期更换密码可以保护账号安全</span>
+                            <button type="button" class="btn btn--primary" id="userChangePasswordBtn">
+                                <i class="fa-light fa-key"></i>
+                                <span>修改密码</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="userChangePasswordForm" style="display:none; margin-top: 16px;">
+                        <div class="settings-inline-form" style="flex-direction: column; align-items: stretch; gap: 8px;">
+                            <input type="password" id="ucp_current" placeholder="当前密码" autocomplete="current-password">
+                            <input type="password" id="ucp_next" placeholder="新密码（至少 8 位）" autocomplete="new-password">
+                            <input type="password" id="ucp_confirm" placeholder="确认新密码" autocomplete="new-password">
+                            <button type="button" class="btn btn--primary" id="ucp_submit">确认修改</button>
+                        </div>
+                    </div>
+
+                    <script>
+                        (function () {
+                            var toggle = document.getElementById('userChangePasswordBtn');
+                            var panel = document.getElementById('userChangePasswordForm');
+                            var submit = document.getElementById('ucp_submit');
+                            if (!toggle || !panel || !submit) return;
+                            toggle.addEventListener('click', function () {
+                                panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+                            });
+                            submit.addEventListener('click', function () {
+                                var current = document.getElementById('ucp_current').value;
+                                var next = document.getElementById('ucp_next').value;
+                                var confirm = document.getElementById('ucp_confirm').value;
+                                if (next !== confirm) {
+                                    alert('两次输入的新密码不一致');
+                                    return;
+                                }
+                                fetch('/api/auth.php', {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({
+                                        action: 'user_change_password',
+                                        currentPassword: current,
+                                        newPassword: next
+                                    })
+                                }).then(function (r) { return r.json(); }).then(function (res) {
+                                    if (res.status === 'success' || res.code === 0) {
+                                        if (res.csrf_token) { window.CSRF_TOKEN = res.csrf_token; }
+                                        alert('密码修改成功');
+                                        panel.style.display = 'none';
+                                    } else {
+                                        alert(res.message || '修改失败');
+                                    }
+                                }).catch(function () { alert('网络错误，请稍后重试'); });
+                            });
+                        })();
+                    </script>
+                </section>
+<?php endif; // tab: account regular user ?>
+
+<?php if (in_array($active_settings_tab, ['users'], true) && $is_admin_user): // tab: 用户管理 ?>
+                <section>
+                    <div class="settings-section-header">
+                        <h3 class="settings-card-title">
+                            <i class="fa-light fa-user-plus" aria-hidden="true"></i>
+                            <span>手动添加用户</span>
+                        </h3>
+                        <p>直接创建账号（无需邀请码），用户名 + 密码登录</p>
+                    </div>
+                    <form method="post" class="settings-inline-form">
+                        <?= \LitePic\Core\Csrf::inputField() ?>
+                        <input type="hidden" name="form_action" value="create_user">
+                        <input type="hidden" name="active_tab" value="users">
+                        <input type="text" name="username" placeholder="用户名" required>
+                        <input type="text" name="email" placeholder="邮箱（可选）">
+                        <input type="password" name="password" placeholder="初始密码（至少 8 位）" required>
+                        <input type="number" name="quota_mb" min="0" step="1" placeholder="配额 MB（0 不限）" style="max-width: 140px;">
+                        <button type="submit" class="btn btn--primary">
+                            <i class="fa-light fa-user-plus"></i>
+                            创建用户
+                        </button>
+                    </form>
+                </section>
+
+                <section>
+                    <div class="settings-section-header">
+                        <h3 class="settings-card-title">
+                            <i class="fa-light fa-users" aria-hidden="true"></i>
+                            <span>用户列表（<?= count($mu_users) ?>）</span>
+                        </h3>
+                        <p>停用后用户立即无法登录；删除前需先清空该用户的图片</p>
+                    </div>
+                    <div class="overflow-auto border border-border">
+                        <table class="w-full border-collapse">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>用户名</th>
+                                    <th>邮箱</th>
+                                    <th>角色</th>
+                                    <th>图片</th>
+                                    <th>用量 / 配额</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($mu_users as $u): ?>
+                                    <tr>
+                                        <td><?= (int)$u['id'] ?></td>
+                                        <td><?= htmlspecialchars((string)$u['username']) ?></td>
+                                        <td><?= htmlspecialchars((string)($u['email'] ?? '')) ?></td>
+                                        <td><?= $u['role'] === 'admin' ? '管理员' : '用户' ?></td>
+                                        <td><?= (int)$u['image_count'] ?></td>
+                                        <td>
+                                            <?= htmlspecialchars(\LitePic\Core\Format::filesize((int)$u['used_bytes'])) ?>
+                                            /
+                                            <?= (int)$u['quota_bytes'] > 0
+                                                ? htmlspecialchars(\LitePic\Core\Format::filesize((int)$u['quota_bytes']))
+                                                : '不限' ?>
+                                        </td>
+                                        <td><?= $u['status'] === 'active' ? '正常' : '已停用' ?></td>
+                                        <td>
+                                            <?php if ((int)$u['id'] !== 1): ?>
+                                                <form method="post" style="display:inline-block;">
+                                                    <?= \LitePic\Core\Csrf::inputField() ?>
+                                                    <input type="hidden" name="form_action" value="toggle_user">
+                                                    <input type="hidden" name="active_tab" value="users">
+                                                    <input type="hidden" name="user_id" value="<?= (int)$u['id'] ?>">
+                                                    <button type="submit" class="btn btn--secondary">
+                                                        <?= $u['status'] === 'active' ? '停用' : '启用' ?>
+                                                    </button>
+                                                </form>
+                                                <form method="post" style="display:inline-block;" data-confirm="确定删除该用户？其账号与 OAuth 绑定将移除（图片需先清空）。" data-confirm-title="删除用户">
+                                                    <?= \LitePic\Core\Csrf::inputField() ?>
+                                                    <input type="hidden" name="form_action" value="delete_user">
+                                                    <input type="hidden" name="active_tab" value="users">
+                                                    <input type="hidden" name="user_id" value="<?= (int)$u['id'] ?>">
+                                                    <button type="submit" class="btn btn--danger">删除</button>
+                                                </form>
+                                            <?php else: ?>
+                                                <span class="text-gray text-xs">站长</span>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                    <?php if ((int)$u['id'] !== 1): ?>
+                                        <tr>
+                                            <td></td>
+                                            <td colspan="7">
+                                                <form method="post" class="settings-inline-form">
+                                                    <?= \LitePic\Core\Csrf::inputField() ?>
+                                                    <input type="hidden" name="form_action" value="update_user">
+                                                    <input type="hidden" name="active_tab" value="users">
+                                                    <input type="hidden" name="user_id" value="<?= (int)$u['id'] ?>">
+                                                    <input type="number" name="quota_mb" min="0" step="1" placeholder="配额 MB（0 不限）"
+                                                           value="<?= (int)round(((int)$u['quota_bytes']) / 1048576) ?>" style="max-width: 140px;">
+                                                    <input type="password" name="new_password" placeholder="重置密码（留空不改）" style="max-width: 180px;">
+                                                    <button type="submit" class="btn btn--secondary">保存</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    <?php endif; ?>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+<?php endif; // tab: users ?>
+
+<?php if (in_array($active_settings_tab, ['invites'], true) && $is_admin_user && $multiuser_mode === 'invite'): // tab: 邀请码 ?>
+                <section>
+                    <div class="settings-section-header">
+                        <h3 class="settings-card-title">
+                            <i class="fa-light fa-ticket" aria-hidden="true"></i>
+                            <span>生成邀请码</span>
+                        </h3>
+                        <p>可顺便把邀请链接通过邮件发给对方（需先在「邮件」tab 配好 SMTP）</p>
+                    </div>
+                    <form method="post" class="settings-inline-form">
+                        <?= \LitePic\Core\Csrf::inputField() ?>
+                        <input type="hidden" name="form_action" value="create_invite">
+                        <input type="hidden" name="active_tab" value="invites">
+                        <input type="text" name="note" placeholder="备注（如：给朋友小王）">
+                        <input type="number" name="max_uses" min="0" step="1" value="1" title="可用次数，0 = 不限" style="max-width: 110px;">
+                        <input type="number" name="expires_days" min="0" step="1" value="0" title="有效天数，0 = 永不过期" style="max-width: 110px;">
+                        <input type="email" name="send_to" placeholder="发送到此邮箱（可选）">
+                        <button type="submit" class="btn btn--primary">
+                            <i class="fa-light fa-ticket"></i>
+                            生成邀请码
+                        </button>
+                    </form>
+                    <?php
+                    $site_base = rtrim(\LitePic\Core\Config::siteUrl(), '/');
+                    ?>
+                </section>
+
+                <section>
+                    <div class="settings-section-header">
+                        <h3 class="settings-card-title">
+                            <i class="fa-light fa-list" aria-hidden="true"></i>
+                            <span>邀请码列表（<?= count($mu_invites) ?>）</span>
+                        </h3>
+                        <p>注册链接：<?= htmlspecialchars($site_base) ?>/register?invite=邀请码</p>
+                    </div>
+                    <div class="overflow-auto border border-border">
+                        <table class="w-full border-collapse">
+                            <thead>
+                                <tr>
+                                    <th>邀请码</th>
+                                    <th>备注</th>
+                                    <th>已用 / 次数</th>
+                                    <th>过期时间</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($mu_invites as $inv): ?>
+                                    <?php
+                                    $expired = $inv['expires_at'] !== null && $inv['expires_at'] < time();
+                                    $usedUp = $inv['max_uses'] > 0 && $inv['used_count'] >= $inv['max_uses'];
+                                    $state = $inv['revoked_at'] !== null ? '已吊销' : ($expired ? '已过期' : ($usedUp ? '已用完' : '可用'));
+                                    $inviteUrl = $site_base . '/register?invite=' . rawurlencode((string)$inv['code']);
+                                    ?>
+                                    <tr>
+                                        <td>
+                                            <code><?= htmlspecialchars((string)$inv['code']) ?></code>
+                                            <?php if ($state === '可用'): ?>
+                                                <button type="button" class="btn btn--secondary copy-token-btn" data-copy="<?= htmlspecialchars($inviteUrl) ?>">复制链接</button>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td><?= htmlspecialchars((string)$inv['note']) ?></td>
+                                        <td><?= (int)$inv['used_count'] ?> / <?= $inv['max_uses'] > 0 ? (int)$inv['max_uses'] : '不限' ?></td>
+                                        <td><?= $inv['expires_at'] !== null ? date('Y-m-d H:i', (int)$inv['expires_at']) : '永不' ?></td>
+                                        <td><?= $state ?></td>
+                                        <td>
+                                            <?php if ($state === '可用'): ?>
+                                                <form method="post" style="display:inline-block;" data-confirm="确定吊销该邀请码？" data-confirm-title="吊销邀请码">
+                                                    <?= \LitePic\Core\Csrf::inputField() ?>
+                                                    <input type="hidden" name="form_action" value="revoke_invite">
+                                                    <input type="hidden" name="active_tab" value="invites">
+                                                    <input type="hidden" name="invite_id" value="<?= (int)$inv['id'] ?>">
+                                                    <button type="submit" class="btn btn--danger">吊销</button>
+                                                </form>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                                <?php if (empty($mu_invites)): ?>
+                                    <tr class="settings-empty-row">
+                                        <td colspan="6">
+                                            <span class="settings-empty-state">
+                                                <i class="fa-light fa-ticket" aria-hidden="true"></i>
+                                                <span>还没有邀请码，生成一个邀请朋友注册</span>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+<?php endif; // tab: invites ?>
+
+<?php if (in_array($active_settings_tab, ['access'], true) && $is_admin_user): // tab: 注册与登录 ?>
+                <section>
+                    <div class="settings-section-header">
+                        <h3 class="settings-card-title">
+                            <i class="fa-light fa-user-gear" aria-hidden="true"></i>
+                            <span>注册设置</span>
+                        </h3>
+                        <p>当前模式：<?= $multiuser_mode === 'invite' ? '邀请制注册' : '开放注册' ?>（在 基础 tab 切换）</p>
+                    </div>
+                    <form method="post">
+                        <?= \LitePic\Core\Csrf::inputField() ?>
+                        <input type="hidden" name="form_action" value="save_access_settings">
+                        <input type="hidden" name="active_tab" value="access">
+                        <div class="settings-toggle-list">
+                            <div class="settings-toggle-row">
+                                <span class="settings-toggle-copy">新用户默认配额（MB，0 = 不限）</span>
+                                <input type="number" name="default_quota_mb" min="0" step="1"
+                                       value="<?= htmlspecialchars($mu_oauth['default_quota_mb']) ?>" style="max-width: 120px;">
+                            </div>
+                        </div>
+
+                        <div class="settings-section-header" style="margin-top: 24px;">
+                            <h3 class="settings-card-title">
+                                <i class="fa-brands fa-google" aria-hidden="true"></i>
+                                <span>Google 登录</span>
+                            </h3>
+                            <p>回调地址（填到 Google Cloud OAuth 客户端）：<code><?= htmlspecialchars($mu_oauth['google_callback']) ?></code></p>
+                        </div>
+                        <div class="settings-toggle-list">
+                            <div class="settings-toggle-row">
+                                <span class="settings-toggle-copy">启用 Google 登录</span>
+                                <input type="checkbox" name="google_enabled" value="1" <?= $mu_oauth['google_enabled'] ? 'checked' : '' ?>>
+                            </div>
+                            <div class="settings-toggle-row">
+                                <span class="settings-toggle-copy">Client ID</span>
+                                <input type="text" name="google_client_id" value="<?= htmlspecialchars($mu_oauth['google_client_id']) ?>" style="min-width: 320px;">
+                            </div>
+                            <div class="settings-toggle-row">
+                                <span class="settings-toggle-copy">Client Secret<?= $mu_oauth['google_has_secret'] ? '（已保存，留空保持不变）' : '' ?></span>
+                                <input type="password" name="google_client_secret" value="" placeholder="<?= $mu_oauth['google_has_secret'] ? '••••••••' : '' ?>" style="min-width: 320px;">
+                            </div>
+                        </div>
+
+                        <div class="settings-section-header" style="margin-top: 24px;">
+                            <h3 class="settings-card-title">
+                                <i class="fa-brands fa-github" aria-hidden="true"></i>
+                                <span>GitHub 登录</span>
+                            </h3>
+                            <p>回调地址（填到 GitHub OAuth App）：<code><?= htmlspecialchars($mu_oauth['github_callback']) ?></code></p>
+                        </div>
+                        <div class="settings-toggle-list">
+                            <div class="settings-toggle-row">
+                                <span class="settings-toggle-copy">启用 GitHub 登录</span>
+                                <input type="checkbox" name="github_enabled" value="1" <?= $mu_oauth['github_enabled'] ? 'checked' : '' ?>>
+                            </div>
+                            <div class="settings-toggle-row">
+                                <span class="settings-toggle-copy">Client ID</span>
+                                <input type="text" name="github_client_id" value="<?= htmlspecialchars($mu_oauth['github_client_id']) ?>" style="min-width: 320px;">
+                            </div>
+                            <div class="settings-toggle-row">
+                                <span class="settings-toggle-copy">Client Secret<?= $mu_oauth['github_has_secret'] ? '（已保存，留空保持不变）' : '' ?></span>
+                                <input type="password" name="github_client_secret" value="" placeholder="<?= $mu_oauth['github_has_secret'] ? '••••••••' : '' ?>" style="min-width: 320px;">
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 16px;">
+                            <button type="submit" class="btn btn--primary">
+                                <i class="fa-light fa-floppy-disk"></i>
+                                保存注册与登录设置
+                            </button>
+                        </div>
+                    </form>
+                </section>
+<?php endif; // tab: access ?>
+
+<?php if (in_array($active_settings_tab, ['mail'], true) && $is_admin_user): // tab: 邮件 ?>
+                <section>
+                    <div class="settings-section-header">
+                        <h3 class="settings-card-title">
+                            <i class="fa-light fa-paper-plane-top" aria-hidden="true"></i>
+                            <span>SMTP 发信配置</span>
+                        </h3>
+                        <p>用于发送邀请邮件；支持 SSL（465）与 STARTTLS（587）</p>
+                    </div>
+                    <form method="post">
+                        <?= \LitePic\Core\Csrf::inputField() ?>
+                        <input type="hidden" name="form_action" value="save_mail_settings">
+                        <input type="hidden" name="active_tab" value="mail">
+                        <div class="settings-toggle-list">
+                            <div class="settings-toggle-row">
+                                <span class="settings-toggle-copy">SMTP 服务器</span>
+                                <input type="text" name="smtp_host" value="<?= htmlspecialchars($mu_smtp['host']) ?>" placeholder="smtp.example.com" style="min-width: 260px;">
+                            </div>
+                            <div class="settings-toggle-row">
+                                <span class="settings-toggle-copy">端口</span>
+                                <input type="number" name="smtp_port" min="1" max="65535" value="<?= htmlspecialchars($mu_smtp['port']) ?>" style="max-width: 110px;">
+                            </div>
+                            <div class="settings-toggle-row">
+                                <span class="settings-toggle-copy">加密方式</span>
+                                <select name="smtp_encryption">
+                                    <option value="ssl" <?= $mu_smtp['encryption'] === 'ssl' ? 'selected' : '' ?>>SSL（通常 465）</option>
+                                    <option value="starttls" <?= $mu_smtp['encryption'] === 'starttls' ? 'selected' : '' ?>>STARTTLS（通常 587）</option>
+                                    <option value="none" <?= $mu_smtp['encryption'] === 'none' ? 'selected' : '' ?>>无加密（仅内网）</option>
+                                </select>
+                            </div>
+                            <div class="settings-toggle-row">
+                                <span class="settings-toggle-copy">账号</span>
+                                <input type="text" name="smtp_username" value="<?= htmlspecialchars($mu_smtp['username']) ?>" style="min-width: 260px;">
+                            </div>
+                            <div class="settings-toggle-row">
+                                <span class="settings-toggle-copy">密码 / 授权码<?= $mu_smtp['has_password'] ? '（已保存，留空保持不变）' : '' ?></span>
+                                <input type="password" name="smtp_password" value="" placeholder="<?= $mu_smtp['has_password'] ? '••••••••' : '' ?>" style="min-width: 260px;">
+                            </div>
+                            <div class="settings-toggle-row">
+                                <span class="settings-toggle-copy">发件人邮箱</span>
+                                <input type="email" name="smtp_from_email" value="<?= htmlspecialchars($mu_smtp['from_email']) ?>" style="min-width: 260px;">
+                            </div>
+                            <div class="settings-toggle-row">
+                                <span class="settings-toggle-copy">发件人名称</span>
+                                <input type="text" name="smtp_from_name" value="<?= htmlspecialchars($mu_smtp['from_name']) ?>" placeholder="<?= htmlspecialchars(SITE_NAME) ?>" style="min-width: 260px;">
+                            </div>
+                        </div>
+                        <div style="margin-top: 16px;">
+                            <button type="submit" class="btn btn--primary">
+                                <i class="fa-light fa-floppy-disk"></i>
+                                保存邮件设置
+                            </button>
+                        </div>
+                    </form>
+
+                    <form method="post" class="settings-inline-form" style="margin-top: 16px;">
+                        <?= \LitePic\Core\Csrf::inputField() ?>
+                        <input type="hidden" name="form_action" value="test_smtp">
+                        <input type="hidden" name="active_tab" value="mail">
+                        <input type="email" name="test_email" placeholder="发送测试邮件到…" required style="min-width: 260px;">
+                        <button type="submit" class="btn btn--secondary">
+                            <i class="fa-light fa-paper-plane"></i>
+                            发送测试邮件
+                        </button>
+                    </form>
+                    <p class="m-0 text-sm text-gray">提示：测试邮件使用「已保存」的配置 — 修改后请先保存再测试。</p>
+                </section>
+<?php endif; // tab: mail ?>
 
 <?php if (in_array($active_settings_tab, ['image'], true)): // TinyPNG keys 现在归图片处理 ?>
                 <section>

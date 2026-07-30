@@ -7,7 +7,7 @@
 
 **轻量级自托管图床 · SQLite 单文件 · 异步处理 · S3 / R2 / WebDAV 远程存储**
 
-[![Version](https://img.shields.io/badge/version-3.6.2-0052D9?style=flat-square)](https://github.com/gentpan/LitePic/releases)
+[![Version](https://img.shields.io/badge/version-3.7.0-0052D9?style=flat-square)](https://github.com/gentpan/LitePic/releases)
 [![PHP](https://img.shields.io/badge/PHP-8.0%2B-777bb4?style=flat-square)](https://www.php.net/)
 [![License](https://img.shields.io/badge/license-MIT-111827?style=flat-square)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-litepic.io-0052D9?style=flat-square)](https://litepic.io/docs)
@@ -45,6 +45,11 @@ LitePic 是一个 PHP 写的图床。一台 VPS、一份 SQLite 文件，用 Fra
 - API Key + Bearer Token 双方案，登录限速、CSRF Token、MIME 校验
 - Referer 防盗链，支持白名单
 - 上传目录禁止执行 PHP，敏感路径访问保护
+
+### 多用户（可选）
+- 默认关闭，单管理员行为与以往一致；开启后支持邀请制或开放注册
+- 普通用户独立配额、图库与相册隔离；管理员仍用原有密码 / Passkey
+- 可选 Google / GitHub OAuth 与 SMTP 邀请邮件（设置 → 注册与登录 / 邮件）
 
 ### 后台
 - 路径化 URL `/settings/<tab>`，PJAX 切换不刷整页

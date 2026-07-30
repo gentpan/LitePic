@@ -23,17 +23,35 @@ final class AlbumRepository
                                    visibility, password_hash, embed_token,
                                    COALESCE(theme, \'grid\') AS theme,
                                    image_count, view_count, sort_order,
-                                   created_at, updated_at
+                                   created_at, updated_at, user_id
                             FROM albums';
+
+    /**
+     * Multi-user owner filter for management lists. '' in single-user
+     * mode / for admins / guests (public pages keep legacy behaviour).
+     */
+    private static function scopeClause(array &$params, string $prefix = 'AND'): string
+    {
+        $uid = \LitePic\Service\Auth\UserContext::scopeUserId();
+        if ($uid === null) {
+            return '';
+        }
+        $params[':__scope_uid'] = $uid;
+        return ' ' . $prefix . ' user_id = :__scope_uid';
+    }
 
     /**
      * @return array<int, array<string,mixed>>
      */
     public function all(): array
     {
-        $rows = Database::connection()
-            ->query(self::SELECT . ' ORDER BY sort_order DESC, created_at DESC')
-            ->fetchAll() ?: [];
+        $params = [];
+        $scope = self::scopeClause($params, 'WHERE');
+        $stmt = Database::connection()->prepare(
+            self::SELECT . $scope . ' ORDER BY sort_order DESC, created_at DESC'
+        );
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll() ?: [];
         return array_map([self::class, 'cast'], $rows);
     }
 
@@ -111,11 +129,11 @@ final class AlbumRepository
             'INSERT INTO albums
                 (slug, name, description, cover_filename, visibility,
                  password_hash, embed_token, theme, image_count, view_count,
-                 sort_order, created_at, updated_at)
+                 sort_order, created_at, updated_at, user_id)
              VALUES
                 (:slug, :name, :description, :cover, :visibility,
                  :password_hash, :embed_token, :theme, 0, 0,
-                 :sort_order, :created_at, :updated_at)'
+                 :sort_order, :created_at, :updated_at, :user_id)'
         );
         try {
             $slug = $data['slug'] ?? null;
@@ -134,6 +152,9 @@ final class AlbumRepository
                 ':sort_order'    => (int)($data['sort_order'] ?? 0),
                 ':created_at'    => $now,
                 ':updated_at'    => $now,
+                ':user_id'       => isset($data['user_id'])
+                                    ? max(1, (int)$data['user_id'])
+                                    : \LitePic\Service\Auth\UserContext::contentOwnerId(),
             ]);
             return (int)Database::connection()->lastInsertId();
         } catch (\PDOException $_) {
@@ -231,6 +252,7 @@ final class AlbumRepository
             'sort_order'     => (int)$row['sort_order'],
             'created_at'     => (int)$row['created_at'],
             'updated_at'     => (int)$row['updated_at'],
+            'user_id'        => isset($row['user_id']) ? (int)$row['user_id'] : 1,
         ];
     }
 }

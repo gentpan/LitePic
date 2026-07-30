@@ -24,12 +24,96 @@ $action = isset($data['action']) ? (string)$data['action'] : '';
 // ---- 退出登录 ----------------------------------------------------------
 if ($action === 'logout') {
     \LitePic\Service\Auth\AuthService::clearAdminCookie();
+    \LitePic\Service\Auth\UserContext::logoutUser();
     if (session_status() !== PHP_SESSION_ACTIVE) session_start();
     session_destroy();
 
     \LitePic\Core\Response::success([
         'message' => '已退出登录',
         'cookie_name' => API_KEY_COOKIE,
+    ]);
+    exit;
+}
+
+// ---- 普通用户退出（多用户模式） -----------------------------------------
+if ($action === 'user_logout') {
+    \LitePic\Service\Auth\UserContext::logoutUser();
+    \LitePic\Core\Response::success(['message' => '已退出登录']);
+    exit;
+}
+
+// ---- 普通用户注册（多用户模式: 邀请制 / 开放） ---------------------------
+if ($action === 'register') {
+    if (!(new \LitePic\Repository\LoginAttemptRepository())->isAllowedForCurrentIp()) {
+        \LitePic\Core\Response::error('尝试过于频繁，请 5 分钟后再试', 429);
+    }
+    try {
+        $user = (new \LitePic\Service\Auth\UserAuthService())->register(
+            (string)($data['username'] ?? ''),
+            (string)($data['password'] ?? ''),
+            (string)($data['email'] ?? ''),
+            (string)($data['invite_code'] ?? '')
+        );
+    } catch (\InvalidArgumentException $e) {
+        (new \LitePic\Repository\LoginAttemptRepository())->recordFailureForCurrentIp();
+        \LitePic\Core\Response::error($e->getMessage(), 400);
+        exit;
+    }
+
+    \LitePic\Service\Auth\UserContext::loginUser((int)$user['id']);
+    \LitePic\Core\Response::success([
+        'message' => '注册成功，已自动登录',
+        'username' => $user['username'],
+        'csrf_token' => \LitePic\Core\Csrf::token(),
+    ]);
+    exit;
+}
+
+// ---- 普通用户登录（多用户模式） -----------------------------------------
+if ($action === 'user_login') {
+    if (!(new \LitePic\Repository\LoginAttemptRepository())->isAllowedForCurrentIp()) {
+        \LitePic\Core\Response::error('登录尝试过于频繁，请 5 分钟后再试', 429);
+    }
+    try {
+        $user = (new \LitePic\Service\Auth\UserAuthService())->login(
+            (string)($data['username'] ?? ''),
+            (string)($data['password'] ?? '')
+        );
+    } catch (\InvalidArgumentException $e) {
+        (new \LitePic\Repository\LoginAttemptRepository())->recordFailureForCurrentIp();
+        \LitePic\Core\Response::error($e->getMessage(), 401);
+        exit;
+    }
+
+    \LitePic\Service\Auth\UserContext::loginUser((int)$user['id']);
+    \LitePic\Core\Response::success([
+        'message' => '登录成功',
+        'username' => $user['username'],
+        'csrf_token' => \LitePic\Core\Csrf::token(),
+    ]);
+    exit;
+}
+
+// ---- 普通用户改密（多用户模式，需已登录） --------------------------------
+if ($action === 'user_change_password') {
+    $currentUser = \LitePic\Service\Auth\UserContext::currentUser();
+    if ($currentUser === null || (int)$currentUser['id'] === 1) {
+        \LitePic\Core\Response::error('未登录', 401);
+        exit;
+    }
+    try {
+        (new \LitePic\Service\Auth\UserAuthService())->changePassword(
+            (int)$currentUser['id'],
+            (string)($data['currentPassword'] ?? ''),
+            (string)($data['newPassword'] ?? '')
+        );
+    } catch (\InvalidArgumentException $e) {
+        \LitePic\Core\Response::error($e->getMessage(), 400);
+        exit;
+    }
+    \LitePic\Core\Response::success([
+        'message' => '密码修改成功',
+        'csrf_token' => \LitePic\Core\Csrf::token(),
     ]);
     exit;
 }

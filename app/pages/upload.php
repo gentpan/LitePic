@@ -5,8 +5,8 @@ if (!defined('APP_ROOT')) {
     require dirname(__DIR__, 2) . '/bootstrap.php';
 }
 
-// 检查登录状态
-$is_logged_in = (new \LitePic\Service\Auth\AuthService())->isAdmin();
+// 检查登录状态（多用户模式下普通用户会话也算登录）
+$is_logged_in = \LitePic\Service\Auth\UserContext::isLoggedIn();
 if (!$is_logged_in) {
     \LitePic\Core\HttpCache::redirect('/');
 }

@@ -29,6 +29,7 @@ function resolve_page_for_path(string $path): ?string
         '/stats' => 'stats',
         '/albums' => 'albums',
         '/albums/new' => 'album_edit',
+        '/register' => 'register',
     ];
 
     if (isset($routes[$normalized])) {

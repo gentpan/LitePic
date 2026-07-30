@@ -4,8 +4,7 @@ declare(strict_types=1);
 require __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/app/Http/router.php';
 
-$uriPath = parse_url((string)($_SERVER['REQUEST_URI'] ?? '/upload'), PHP_URL_PATH);
-$requestPath = is_string($uriPath) && $uriPath !== '' ? $uriPath : '/upload';
+$requestPath = \LitePic\Core\RequestContext::path('/upload');
 $normalizedPath = rtrim($requestPath, '/') === '' ? '/' : rtrim($requestPath, '/');
 
 if ($normalizedPath === '/api/v1' || str_starts_with($normalizedPath, '/api/v1/')) {
@@ -15,6 +14,12 @@ if ($normalizedPath === '/api/v1' || str_starts_with($normalizedPath, '/api/v1/'
 
 if ($normalizedPath === '/i' || str_starts_with($normalizedPath, '/i/')) {
     require __DIR__ . '/image.php';
+    exit;
+}
+
+// OAuth 第三方登录端点：/oauth/<provider>/start|callback
+if (str_starts_with($normalizedPath, '/oauth/')) {
+    require __DIR__ . '/api/oauth.php';
     exit;
 }
 

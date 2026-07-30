@@ -5,7 +5,7 @@ namespace LitePic\Service\Image;
 
 use LitePic\Repository\AlbumImageRepository;
 use LitePic\Repository\ImageRepository;
-use LitePic\Service\Auth\AuthService;
+use LitePic\Service\Auth\UserContext;
 use LitePic\Service\Hotlink\HotlinkProtection;
 
 /**
@@ -143,8 +143,8 @@ final class ImageServeService
      * allowed to fetch this image:
      *   - image not in any album → public (current behaviour, unchanged)
      *   - image in any public/unlisted album → public
-     *   - image only in private/password albums → admin OR matching
-     *     `lp_album_<key>` HMAC cookie required
+     *   - image only in private/password albums → admin, album owner, OR
+     *     matching `lp_album_<key>` HMAC cookie required
      *
      * Best-effort: any DB error returns true so a broken albums table can't
      * black-hole the entire image-serving path.
@@ -163,10 +163,17 @@ final class ImageServeService
             if ($v === 'public' || $v === 'unlisted') return true;
         }
         // Every owning album is restricted (private or password). Admin
-        // always wins; otherwise check whether the caller already passed
-        // the password gate for any of these albums (cookie signed by
-        // public_album.php on successful unlock).
-        if ((new AuthService())->isAdmin()) return true;
+        // or the album owner always wins; otherwise check password cookies.
+        if (UserContext::isAdmin()) return true;
+
+        $uid = UserContext::enabled() ? UserContext::currentUserId() : 0;
+        if ($uid > 0) {
+            foreach ($memberships as $m) {
+                if ((int)($m['user_id'] ?? 0) === $uid) {
+                    return true;
+                }
+            }
+        }
 
         $secret = (string)\LitePic\Core\Config::get('ADMIN_SESSION_SECRET', '');
         if ($secret === '') return false; // no signing secret → no cookie can be valid

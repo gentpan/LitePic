@@ -37,7 +37,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
     \LitePic\Core\Response::error('仅支持 GET 请求', 405);
 }
 
-if (!(new \LitePic\Service\Auth\AuthService())->isApiRequestAuthorized()) {
+if (!(new \LitePic\Service\Auth\AuthService())->isApiRequestAuthorized()
+    && !(\LitePic\Service\Auth\UserContext::enabled() && \LitePic\Service\Auth\UserContext::isLoggedIn())) {
     \LitePic\Core\Response::error('权限不足', 403);
 }
 

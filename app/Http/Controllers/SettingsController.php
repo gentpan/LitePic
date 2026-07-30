@@ -42,6 +42,18 @@ final class SettingsController
      */
     public function dispatch(string $formAction): array
     {
+        // 多用户管理操作只有管理员可执行 —— settings.php 在页面层已拦截
+        // 普通用户，这里再做一次服务端兜底（防御性深度）。
+        $adminOnly = [
+            'save_multiuser_mode', 'save_access_settings', 'save_mail_settings',
+            'test_smtp', 'create_user', 'update_user', 'toggle_user', 'delete_user',
+            'create_invite', 'revoke_invite',
+        ];
+        if (in_array($formAction, $adminOnly, true)
+            && !\LitePic\Service\Auth\UserContext::isAdmin()) {
+            return ['message' => '权限不足', 'type' => 'error'];
+        }
+
         return match ($formAction) {
             'create_token' => $this->handleCreateToken(),
             'revoke_token' => $this->handleRevokeToken(),
@@ -61,8 +73,228 @@ final class SettingsController
             'telegram_register_webhook'   => $this->handleTelegramRegisterWebhook(),
             'telegram_delete_webhook'     => $this->handleTelegramDeleteWebhook(),
             'telegram_test'               => $this->handleTelegramTest(),
+            // ---- 多用户 ----
+            'save_multiuser_mode'  => $this->handleSaveMultiuserMode(),
+            'save_access_settings' => $this->handleSaveAccessSettings(),
+            'save_mail_settings'   => $this->handleSaveMailSettings(),
+            'test_smtp'            => $this->handleTestSmtp(),
+            'create_user'          => $this->handleCreateUser(),
+            'update_user'          => $this->handleUpdateUser(),
+            'toggle_user'          => $this->handleToggleUser(),
+            'delete_user'          => $this->handleDeleteUser(),
+            'create_invite'        => $this->handleCreateInvite(),
+            'revoke_invite'        => $this->handleRevokeInvite(),
             default => ['message' => '', 'type' => 'success'],
         };
+    }
+
+    // ==================== 多用户管理 ====================
+
+    private function handleSaveMultiuserMode(): array
+    {
+        $mode = strtolower(trim((string)($_POST['multi_user_mode'] ?? 'off')));
+        if (!in_array($mode, ['off', 'invite', 'open'], true)) {
+            $mode = 'off';
+        }
+        Config::write(['MULTI_USER_MODE' => $mode]);
+        $label = ['off' => '单用户模式', 'invite' => '邀请制注册', 'open' => '开放注册'][$mode];
+        return ['message' => '多用户模式已保存：' . $label, 'type' => 'success'];
+    }
+
+    private function handleSaveAccessSettings(): array
+    {
+        $quotaMb = max(0, (int)($_POST['default_quota_mb'] ?? 0));
+
+        $updates = [
+            'REGISTRATION_DEFAULT_QUOTA_MB' => (string)$quotaMb,
+            'OAUTH_GOOGLE_ENABLED' => isset($_POST['google_enabled']) ? 'true' : 'false',
+            'OAUTH_GOOGLE_CLIENT_ID' => trim((string)($_POST['google_client_id'] ?? '')),
+            'OAUTH_GITHUB_ENABLED' => isset($_POST['github_enabled']) ? 'true' : 'false',
+            'OAUTH_GITHUB_CLIENT_ID' => trim((string)($_POST['github_client_id'] ?? '')),
+        ];
+        // Secret 留空 = 保持已保存的值
+        $googleSecret = trim((string)($_POST['google_client_secret'] ?? ''));
+        if ($googleSecret !== '') {
+            $updates['OAUTH_GOOGLE_CLIENT_SECRET'] = $googleSecret;
+        }
+        $githubSecret = trim((string)($_POST['github_client_secret'] ?? ''));
+        if ($githubSecret !== '') {
+            $updates['OAUTH_GITHUB_CLIENT_SECRET'] = $githubSecret;
+        }
+
+        Config::write($updates);
+        return ['message' => '注册与登录设置已保存', 'type' => 'success'];
+    }
+
+    private function handleSaveMailSettings(): array
+    {
+        $encryption = strtolower(trim((string)($_POST['smtp_encryption'] ?? 'ssl')));
+        if (!in_array($encryption, ['none', 'ssl', 'starttls'], true)) {
+            $encryption = 'ssl';
+        }
+        $updates = [
+            'SMTP_HOST' => trim((string)($_POST['smtp_host'] ?? '')),
+            'SMTP_PORT' => (string)max(1, min(65535, (int)($_POST['smtp_port'] ?? 465))),
+            'SMTP_ENCRYPTION' => $encryption,
+            'SMTP_USERNAME' => trim((string)($_POST['smtp_username'] ?? '')),
+            'SMTP_FROM_EMAIL' => trim((string)($_POST['smtp_from_email'] ?? '')),
+            'SMTP_FROM_NAME' => trim((string)($_POST['smtp_from_name'] ?? '')),
+        ];
+        $password = (string)($_POST['smtp_password'] ?? '');
+        if (trim($password) !== '') {
+            $updates['SMTP_PASSWORD'] = $password;
+        }
+        Config::write($updates);
+        return ['message' => '邮件设置已保存', 'type' => 'success'];
+    }
+
+    private function handleTestSmtp(): array
+    {
+        $to = trim((string)($_POST['test_email'] ?? ''));
+        if ($to === '') {
+            return ['message' => '请输入测试收件邮箱', 'type' => 'error'];
+        }
+        try {
+            (new \LitePic\Service\Mail\SmtpMailer())->sendTest($to);
+        } catch (\Throwable $e) {
+            return ['message' => '发送失败：' . $e->getMessage(), 'type' => 'error'];
+        }
+        return ['message' => '测试邮件已发送到 ' . $to . '，请查收（含垃圾邮件箱）', 'type' => 'success'];
+    }
+
+    private function handleCreateUser(): array
+    {
+        $username = trim((string)($_POST['username'] ?? ''));
+        $password = (string)($_POST['password'] ?? '');
+        $email = trim((string)($_POST['email'] ?? ''));
+        $quotaMb = max(0, (int)($_POST['quota_mb'] ?? 0));
+
+        $users = new \LitePic\Repository\UserRepository();
+        if (preg_match('/^[a-zA-Z0-9][a-zA-Z0-9_.-]{1,31}$/', $username) !== 1 || strtolower($username) === 'admin') {
+            return ['message' => '用户名需 2-32 位，以字母或数字开头，且不能为 admin', 'type' => 'error'];
+        }
+        if (strlen($password) < 8) {
+            return ['message' => '初始密码至少 8 位', 'type' => 'error'];
+        }
+        if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            return ['message' => '邮箱格式不正确', 'type' => 'error'];
+        }
+        if ($users->findByUsername($username) !== null) {
+            return ['message' => '该用户名已存在', 'type' => 'error'];
+        }
+        if ($email !== '' && $users->findByEmail($email) !== null) {
+            return ['message' => '该邮箱已被使用', 'type' => 'error'];
+        }
+
+        try {
+            $users->create([
+                'username' => $username,
+                'email' => $email,
+                'display_name' => $username,
+                'password_hash' => password_hash($password, PASSWORD_BCRYPT),
+                'role' => 'user',
+                'quota_bytes' => $quotaMb > 0 ? $quotaMb * 1024 * 1024 : 0,
+            ]);
+        } catch (\Throwable $e) {
+            return ['message' => '创建用户失败：' . $e->getMessage(), 'type' => 'error'];
+        }
+        return ['message' => '用户 ' . $username . ' 已创建', 'type' => 'success'];
+    }
+
+    private function handleUpdateUser(): array
+    {
+        $userId = (int)($_POST['user_id'] ?? 0);
+        if ($userId <= 1) {
+            return ['message' => '不能修改站长账号', 'type' => 'error'];
+        }
+        $users = new \LitePic\Repository\UserRepository();
+        if ($users->find($userId) === null) {
+            return ['message' => '用户不存在', 'type' => 'error'];
+        }
+
+        $data = ['quota_bytes' => max(0, (int)($_POST['quota_mb'] ?? 0)) * 1024 * 1024];
+        $newPassword = (string)($_POST['new_password'] ?? '');
+        if (trim($newPassword) !== '') {
+            if (strlen($newPassword) < 8) {
+                return ['message' => '新密码至少 8 位', 'type' => 'error'];
+            }
+            $data['password_hash'] = password_hash($newPassword, PASSWORD_BCRYPT);
+        }
+        $users->update($userId, $data);
+        return ['message' => '用户信息已更新', 'type' => 'success'];
+    }
+
+    private function handleToggleUser(): array
+    {
+        $userId = (int)($_POST['user_id'] ?? 0);
+        if ($userId <= 1) {
+            return ['message' => '不能停用站长账号', 'type' => 'error'];
+        }
+        $users = new \LitePic\Repository\UserRepository();
+        $user = $users->find($userId);
+        if ($user === null) {
+            return ['message' => '用户不存在', 'type' => 'error'];
+        }
+        $next = $user['status'] === 'active' ? 'disabled' : 'active';
+        $users->update($userId, ['status' => $next]);
+        return ['message' => $next === 'disabled' ? '用户已停用' : '用户已启用', 'type' => 'success'];
+    }
+
+    private function handleDeleteUser(): array
+    {
+        $userId = (int)($_POST['user_id'] ?? 0);
+        if ($userId <= 1) {
+            return ['message' => '不能删除站长账号', 'type' => 'error'];
+        }
+        $users = new \LitePic\Repository\UserRepository();
+        $user = $users->find($userId);
+        if ($user === null) {
+            return ['message' => '用户不存在', 'type' => 'error'];
+        }
+        $imageCount = $users->imageCount($userId);
+        if ($imageCount > 0) {
+            return ['message' => '该用户还有 ' . $imageCount . ' 张图片，请先清空其图库再删除', 'type' => 'error'];
+        }
+        $users->delete($userId);
+        return ['message' => '用户 ' . $user['username'] . ' 已删除', 'type' => 'success'];
+    }
+
+    private function handleCreateInvite(): array
+    {
+        $note = trim((string)($_POST['note'] ?? ''));
+        $maxUses = max(0, (int)($_POST['max_uses'] ?? 1));
+        $expiresDays = max(0, (int)($_POST['expires_days'] ?? 0));
+        $sendTo = trim((string)($_POST['send_to'] ?? ''));
+
+        $code = (new \LitePic\Repository\InviteRepository())->create(
+            $note,
+            $maxUses,
+            $expiresDays > 0 ? time() + $expiresDays * 86400 : null
+        );
+        $inviteUrl = rtrim(Config::siteUrl(), '/') . '/register?invite=' . rawurlencode($code);
+
+        $message = '邀请码已生成：' . $code . '（链接 ' . $inviteUrl . '）';
+        if ($sendTo !== '') {
+            try {
+                (new \LitePic\Service\Mail\SmtpMailer())->sendInvite($sendTo, $inviteUrl, $note);
+                $message .= '；邀请邮件已发送到 ' . $sendTo;
+            } catch (\Throwable $e) {
+                return [
+                    'message' => $message . '；但邮件发送失败：' . $e->getMessage(),
+                    'type' => 'error',
+                ];
+            }
+        }
+        return ['message' => $message, 'type' => 'success'];
+    }
+
+    private function handleRevokeInvite(): array
+    {
+        $inviteId = (int)($_POST['invite_id'] ?? 0);
+        if ($inviteId <= 0 || !(new \LitePic\Repository\InviteRepository())->revoke($inviteId)) {
+            return ['message' => '吊销失败（可能已吊销）', 'type' => 'error'];
+        }
+        return ['message' => '邀请码已吊销', 'type' => 'success'];
     }
 
     /**
@@ -161,7 +393,16 @@ final class SettingsController
     private function handleRevokeToken(): array
     {
         $tokenId = trim((string)($_POST['token_id'] ?? ''));
-        if ($tokenId === '' || !(new ApiTokenRepository())->revoke($tokenId)) {
+        if ($tokenId === '') {
+            return ['message' => '撤销 Token 失败', 'type' => 'error'];
+        }
+        // 多用户：普通用户只能撤销自己的 Token
+        $repo = new ApiTokenRepository();
+        $scopeUid = \LitePic\Service\Auth\UserContext::scopeUserId();
+        if ($scopeUid !== null && $repo->ownerOf($tokenId) !== $scopeUid) {
+            return ['message' => '无权撤销该 Token', 'type' => 'error'];
+        }
+        if (!$repo->revoke($tokenId)) {
             return ['message' => '撤销 Token 失败', 'type' => 'error'];
         }
         return ['message' => 'Token 已撤销', 'type' => 'success'];

@@ -16,7 +16,28 @@ use PDO;
  */
 final class ImageRepository
 {
-    private const ALL_COLUMNS = 'id, filename, original_name, description, mime, ext, size, width, height, hash, created_at, has_thumbnail, has_webp, has_avif, remote_synced, watermarked, view_count, exif_lat, exif_lng, exif_taken_at, exif_camera, exif_scanned';
+    private const ALL_COLUMNS = 'id, filename, original_name, description, mime, ext, size, width, height, hash, created_at, has_thumbnail, has_webp, has_avif, remote_synced, watermarked, view_count, exif_lat, exif_lng, exif_taken_at, exif_camera, exif_scanned, user_id';
+
+    /**
+     * Multi-user owner filter. Returns a SQL fragment (`AND user_id = :__scope_uid`)
+     * plus binds the param when the current request is scoped to a regular
+     * user (multi-user mode on, non-admin). Returns '' in single-user mode,
+     * for admins, and for guests — preserving exact legacy behaviour.
+     *
+     * Applied to listing/aggregation queries only. Single-row lookups by
+     * filename (find/update/delete) stay unscoped so public image serving
+     * and the queue worker are unaffected; mutation ownership is enforced
+     * at the action layer (action.php).
+     */
+    private static function scopeClause(array &$params): string
+    {
+        $uid = \LitePic\Service\Auth\UserContext::scopeUserId();
+        if ($uid === null) {
+            return '';
+        }
+        $params[':__scope_uid'] = $uid;
+        return ' AND user_id = :__scope_uid';
+    }
 
     public function find(string $filename): ?array
     {
@@ -76,10 +97,11 @@ final class ImageRepository
     public function findByHash(string $hash): ?array
     {
         if ($hash === '') return null;
+        $params = [':h' => $hash];
         $stmt = Database::connection()->prepare(
-            'SELECT ' . self::ALL_COLUMNS . ' FROM images WHERE hash = :h LIMIT 1'
+            'SELECT ' . self::ALL_COLUMNS . ' FROM images WHERE hash = :h' . self::scopeClause($params) . ' LIMIT 1'
         );
-        $stmt->execute([':h' => $hash]);
+        $stmt->execute($params);
         $row = $stmt->fetch();
         return $row === false ? null : self::cast($row);
     }
@@ -126,6 +148,9 @@ final class ImageRepository
             throw new \InvalidArgumentException('ImageRepository::insert() requires `filename`.');
         }
         $row['created_at'] = $row['created_at'] ?? time();
+        // Ownership: default to the acting/uploading user in multi-user
+        // mode (admin/token owner/session user); 1 (admin) otherwise.
+        $row['user_id'] = $row['user_id'] ?? \LitePic\Service\Auth\UserContext::contentOwnerId();
 
         $columns = array_keys($row);
         $placeholders = array_map(static fn($c) => ':' . $c, $columns);
@@ -226,9 +251,15 @@ final class ImageRepository
      */
     public function totalViews(): int
     {
-        return (int)Database::connection()
-            ->query('SELECT COALESCE(SUM(view_count), 0) FROM images')
-            ->fetchColumn();
+        $params = [];
+        $sql = 'SELECT COALESCE(SUM(view_count), 0) FROM images';
+        $scope = self::scopeClause($params);
+        if ($scope !== '') {
+            $sql .= ' WHERE 1=1' . $scope;
+        }
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
+        return (int)$stmt->fetchColumn();
     }
 
     /**
@@ -241,6 +272,8 @@ final class ImageRepository
     public function topByViews(int $limit = 20): array
     {
         $limit = max(1, min(200, $limit));
+        $params = [];
+        $scope = self::scopeClause($params);
         $sql = 'SELECT
                     i.filename,
                     i.original_name,
@@ -257,10 +290,12 @@ final class ImageRepository
                       ORDER BY s.request_count DESC, s.last_requested_at DESC
                       LIMIT 1
                   )
-                WHERE i.view_count > 0
+                WHERE i.view_count > 0' . ($scope !== '' ? str_replace('user_id', 'i.user_id', $scope) : '') . '
                 ORDER BY i.view_count DESC, i.created_at DESC
                 LIMIT ' . $limit;
-        $rows = Database::connection()->query($sql)->fetchAll() ?: [];
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll() ?: [];
         $out = [];
         foreach ($rows as $r) {
             $out[] = [
@@ -314,19 +349,31 @@ final class ImageRepository
     public function totalCount(string $query = ''): int
     {
         $query = trim($query);
+        $params = [];
+        $scope = self::scopeClause($params);
         if ($query === '') {
-            return (int)Database::connection()->query('SELECT COUNT(*) FROM images')->fetchColumn();
+            $sql = 'SELECT COUNT(*) FROM images' . ($scope !== '' ? ' WHERE 1=1' . $scope : '');
+            $stmt = Database::connection()->prepare($sql);
+            $stmt->execute($params);
+            return (int)$stmt->fetchColumn();
         }
+        $params[':q'] = '%' . $query . '%';
         $stmt = Database::connection()->prepare(
-            'SELECT COUNT(*) FROM images WHERE filename LIKE :q OR original_name LIKE :q OR description LIKE :q'
+            'SELECT COUNT(*) FROM images WHERE (filename LIKE :q OR original_name LIKE :q OR description LIKE :q)' . $scope
         );
-        $stmt->execute([':q' => '%' . $query . '%']);
+        $stmt->execute($params);
         return (int)$stmt->fetchColumn();
     }
 
     public function totalSize(): int
     {
-        return (int)Database::connection()->query('SELECT COALESCE(SUM(size), 0) FROM images')->fetchColumn();
+        $params = [];
+        $scope = self::scopeClause($params);
+        $stmt = Database::connection()->prepare(
+            'SELECT COALESCE(SUM(size), 0) FROM images' . ($scope !== '' ? ' WHERE 1=1' . $scope : '')
+        );
+        $stmt->execute($params);
+        return (int)$stmt->fetchColumn();
     }
 
     /**
@@ -336,10 +383,12 @@ final class ImageRepository
     {
         $orderBy = $this->orderClause($sort);
         $params = [];
-        $where = '';
+        $scope = self::scopeClause($params);
+        $where = $scope !== '' ? ' WHERE 1=1' . $scope : '';
         $query = trim($query);
         if ($query !== '') {
-            $where = ' WHERE filename LIKE :q OR original_name LIKE :q OR description LIKE :q';
+            $where = ($where !== '' ? $where : ' WHERE 1=1')
+                   . ' AND (filename LIKE :q OR original_name LIKE :q OR description LIKE :q)';
             $params[':q'] = '%' . $query . '%';
         }
 
@@ -377,10 +426,12 @@ final class ImageRepository
     {
         $orderBy = $this->orderClause($sort);
         $params = [];
-        $where = '';
+        $scope = self::scopeClause($params);
+        $where = $scope !== '' ? ' WHERE 1=1' . $scope : '';
         $query = trim($query);
         if ($query !== '') {
-            $where = ' WHERE filename LIKE :q OR original_name LIKE :q OR description LIKE :q';
+            $where = ($where !== '' ? $where : ' WHERE 1=1')
+                   . ' AND (filename LIKE :q OR original_name LIKE :q OR description LIKE :q)';
             $params[':q'] = '%' . $query . '%';
         }
         $sql = 'SELECT ' . self::ALL_COLUMNS . ' FROM images' . $where . ' ORDER BY ' . $orderBy;
@@ -398,8 +449,12 @@ final class ImageRepository
     public function listIdentifiers(string $sort = 'date-desc'): array
     {
         $orderBy = $this->orderClause($sort);
-        $sql = 'SELECT filename FROM images ORDER BY ' . $orderBy;
-        return Database::connection()->query($sql)->fetchAll(PDO::FETCH_COLUMN) ?: [];
+        $params = [];
+        $scope = self::scopeClause($params);
+        $sql = 'SELECT filename FROM images' . ($scope !== '' ? ' WHERE 1=1' . $scope : '') . ' ORDER BY ' . $orderBy;
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
     }
 
     /**
@@ -553,6 +608,7 @@ final class ImageRepository
             'has_thumbnail', 'has_webp', 'has_avif',
             'remote_synced', 'watermarked', 'view_count',
             'exif_lat', 'exif_lng', 'exif_taken_at', 'exif_camera', 'exif_scanned',
+            'user_id',
         ];
         $out = [];
         foreach ($allowed as $key) {
@@ -560,7 +616,7 @@ final class ImageRepository
             $value = $data[$key];
             if (in_array($key, ['has_thumbnail', 'has_webp', 'has_avif', 'remote_synced', 'watermarked', 'exif_scanned'], true)) {
                 $value = $value ? 1 : 0;
-            } elseif (in_array($key, ['size', 'width', 'height', 'created_at', 'view_count', 'exif_taken_at'], true)) {
+            } elseif (in_array($key, ['size', 'width', 'height', 'created_at', 'view_count', 'exif_taken_at', 'user_id'], true)) {
                 $value = $value === null ? null : (int)$value;
             } elseif (in_array($key, ['exif_lat', 'exif_lng'], true)) {
                 $value = $value === null || $value === '' ? null : (float)$value;
@@ -595,6 +651,7 @@ final class ImageRepository
         $row['exif_camera'] = isset($row['exif_camera']) && $row['exif_camera'] !== null && $row['exif_camera'] !== ''
             ? (string)$row['exif_camera'] : null;
         $row['exif_scanned'] = (bool)($row['exif_scanned'] ?? false);
+        $row['user_id'] = isset($row['user_id']) ? (int)$row['user_id'] : 1;
         return $row;
     }
 }

@@ -91,6 +91,8 @@ final class AuthService
     public function hasUploadApiAccess(): bool
     {
         if ($this->isAdmin()) return true;
+        // 多用户模式：已登录的普通用户（PHP session）可上传 / 读取自己的图片
+        if (UserContext::enabled() && UserContext::isLoggedIn()) return true;
         $apiKey = self::requestApiKey();
         if ($apiKey === null) return false;
 
@@ -105,7 +107,14 @@ final class AuthService
             }
         }
 
-        return $this->tokens->verify($apiKey);
+        // Managed per-app token → attribute the request to the token owner
+        // so uploads/listing are scoped to that user (multi-user mode).
+        $tokenUserId = $this->tokens->verifyAndGetUserId($apiKey);
+        if ($tokenUserId !== null) {
+            UserContext::setActingUserId($tokenUserId);
+            return true;
+        }
+        return false;
     }
 
     public static function requestHeader(string $name): ?string

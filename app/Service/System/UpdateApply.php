@@ -41,6 +41,12 @@ final class UpdateApply
         'worker.php',
         'static/logo.png',
         'static/logo-dark.png',
+        'gallery/index.php',
+        'upload/index.php',
+        'settings/index.php',
+        'stats/index.php',
+        'albums/index.php',
+        'register/index.php',
     ];
 
     /**

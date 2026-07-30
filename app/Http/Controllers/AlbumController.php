@@ -235,7 +235,10 @@ final class AlbumController
 
     private function requireAdmin(): void
     {
-        if (!$this->auth->isAdmin()) {
+        // 多用户模式：普通用户会话也可以管理自己的相册
+        $ok = $this->auth->isAdmin()
+            || (\LitePic\Service\Auth\UserContext::enabled() && \LitePic\Service\Auth\UserContext::isLoggedIn());
+        if (!$ok) {
             Response::error('权限不足', 403);
             exit;
         }
@@ -244,11 +247,13 @@ final class AlbumController
     /**
      * Read-side auth — admin cookie OR master API key (X-API-Key /
      * Authorization: Bearer). Lets external scripts list albums without
-     * a session.
+     * a session. Multi-user: regular user sessions can read their own.
      */
     private function requireApiAuth(): void
     {
-        if (!$this->auth->isApiRequestAuthorized()) {
+        $ok = $this->auth->isApiRequestAuthorized()
+            || (\LitePic\Service\Auth\UserContext::enabled() && \LitePic\Service\Auth\UserContext::isLoggedIn());
+        if (!$ok) {
             Response::error('权限不足', 403);
             exit;
         }
@@ -274,6 +279,12 @@ final class AlbumController
         $key = trim($key);
         $album = $key !== '' ? $this->albums->findByKey($key) : null;
         if ($album === null) {
+            Response::error('相册不存在', 404);
+            exit;
+        }
+        // 多用户：普通用户只能操作自己的相册（对非所属相册一律 404）
+        $scopeUid = \LitePic\Service\Auth\UserContext::scopeUserId();
+        if ($scopeUid !== null && (int)($album['user_id'] ?? 1) !== $scopeUid) {
             Response::error('相册不存在', 404);
             exit;
         }
@@ -312,6 +323,17 @@ final class AlbumController
         foreach ($raw as $f) {
             $f = trim((string)$f);
             if ($f !== '' && !in_array($f, $clean, true)) $clean[] = $f;
+        }
+
+        // 多用户：普通用户只能把「自己的图片」加入相册 —— 静默过滤掉
+        // 不属于当前用户的文件名（防止猜测他人文件名挂到自己相册里）。
+        $scopeUid = \LitePic\Service\Auth\UserContext::scopeUserId();
+        if ($scopeUid !== null && $clean !== []) {
+            $repo = new \LitePic\Repository\ImageRepository();
+            $clean = array_values(array_filter($clean, static function (string $f) use ($repo, $scopeUid): bool {
+                $row = $repo->find($f);
+                return $row !== null && (int)($row['user_id'] ?? 1) === $scopeUid;
+            }));
         }
         return $clean;
     }

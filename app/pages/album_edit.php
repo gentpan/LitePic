@@ -5,8 +5,8 @@ if (!defined('APP_ROOT')) {
     require dirname(__DIR__, 2) . '/bootstrap.php';
 }
 
-if (!(new \LitePic\Service\Auth\AuthService())->isAdmin()) {
-    \LitePic\Core\HttpCache::redirect('/upload');
+if (!\LitePic\Service\Auth\UserContext::isLoggedIn()) {
+    \LitePic\Core\HttpCache::redirect('/');
 }
 
 /*
@@ -33,6 +33,18 @@ if (!$isNew) {
         require_once APP_ROOT . '/footer.php';
         exit;
     }
+    // 多用户：普通用户只能编辑自己的相册
+    $__scopeUid = \LitePic\Service\Auth\UserContext::scopeUserId();
+    if ($__scopeUid !== null && (int)($album['user_id'] ?? 1) !== $__scopeUid) {
+        http_response_code(404);
+        $page_title = '相册不存在';
+        $body_class = 'albums-page';
+        require_once APP_ROOT . '/header.php';
+        echo '<main class="page-container page-main"><section class="settings-callout"><strong>相册不存在</strong><p class="m-0">该相册可能已被删除。<a href="/albums" data-pjax>返回相册列表</a></p></section></main>';
+        require_once APP_ROOT . '/footer.php';
+        exit;
+    }
+    unset($__scopeUid);
     $albumImageRepo = new \LitePic\Repository\AlbumImageRepository();
     $info = new \LitePic\Service\Image\ImageInfo();
     $filenames = $albumImageRepo->listFilenames($albumId);

@@ -5,8 +5,8 @@ if (!defined('APP_ROOT')) {
     require dirname(__DIR__, 2) . '/bootstrap.php';
 }
 
-if (!(new \LitePic\Service\Auth\AuthService())->isAdmin()) {
-    \LitePic\Core\HttpCache::redirect('/upload');
+if (!\LitePic\Service\Auth\UserContext::isLoggedIn()) {
+    \LitePic\Core\HttpCache::redirect('/');
 }
 
 $page_title = '相册管理';

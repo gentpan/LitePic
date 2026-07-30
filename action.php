@@ -135,11 +135,28 @@ if ($action === 'get_next_image') {
     exit;
 }
 
-// 验证 API 密钥（支持后台登录或第三方 API Key）
-if (!(new \LitePic\Service\Auth\AuthService())->isApiRequestAuthorized()) {
+// 验证 API 密钥（支持后台登录或第三方 API Key）；
+// 多用户模式下，已登录的普通用户可对自己的图片执行操作。
+$__authService = new \LitePic\Service\Auth\AuthService();
+$__isAdmin = $__authService->isApiRequestAuthorized();
+$__actingUser = null;
+if (!$__isAdmin && \LitePic\Service\Auth\UserContext::enabled() && \LitePic\Service\Auth\UserContext::isLoggedIn()) {
+    $__actingUser = \LitePic\Service\Auth\UserContext::currentUser();
+}
+if (!$__isAdmin && $__actingUser === null) {
     error_log("Unauthorized action attempt from " . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
     \LitePic\Core\Response::error('权限不足', 403);
 }
+
+// 普通用户的操作对象必须是自己上传的图片（管理员不受限）
+$__assertImageOwnership = static function (string $filename) use ($__isAdmin, $__actingUser): void {
+    if ($__isAdmin || $__actingUser === null) return;
+    if ($filename === '') return;
+    $row = (new \LitePic\Repository\ImageRepository())->find($filename);
+    if ($row === null || (int)($row['user_id'] ?? 1) !== (int)$__actingUser['id']) {
+        \LitePic\Core\Response::error('无权操作该图片', 403);
+    }
+};
 
 // 状态变更操作仅允许 POST，并校验 CSRF Token
 $method = $_SERVER['REQUEST_METHOD'] ?? '';
@@ -155,8 +172,8 @@ if ($action === '') {
     \LitePic\Core\Response::error('未指定操作');
 }
 
-// 管理员操作需要 CSRF 校验（第三方 API Key 仅允许上传/读取，不允许删除/压缩等管理操作）
-if ((new \LitePic\Service\Auth\AuthService())->isAdmin()) {
+// 管理员 / 登录用户的操作需要 CSRF 校验（第三方 API Key 仅允许上传/读取，不允许删除/压缩等管理操作）
+if ($__isAdmin || $__actingUser !== null) {
     $csrf = (string)($_POST['csrf_token'] ?? $_GET['csrf_token'] ?? '');
     if (!\LitePic\Core\Csrf::verify($csrf)) {
         \LitePic\Core\Response::error('CSRF Token 无效或已过期', 403);
@@ -164,7 +181,7 @@ if ((new \LitePic\Service\Auth\AuthService())->isAdmin()) {
 }
 
 if ($action === 'queue_avif') {
-    if (!(new \LitePic\Service\Auth\AuthService())->isAdmin()) {
+    if (!$__isAdmin) {
         \LitePic\Core\Response::error('权限不足', 403);
     }
 
@@ -246,6 +263,9 @@ if ($action === 'queue_avif') {
 if ($file === '') {
     \LitePic\Core\Response::error('未指定文件');
 }
+
+// 多用户：普通用户只能对自己的图片执行压缩 / 转换 / 重命名 / 删除等操作
+$__assertImageOwnership($file);
 
 // 获取文件路径
 $path = \LitePic\Service\Image\PathService::resolveFilePath($file);

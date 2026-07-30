@@ -19,9 +19,21 @@ final class ApiTokenRepository
      */
     public function all(): array
     {
-        $rows = Database::connection()
-            ->query('SELECT id, name, created_at, last_used_at FROM managed_api_tokens ORDER BY created_at DESC')
-            ->fetchAll() ?: [];
+        // Multi-user: regular users only see their own tokens; admin and
+        // single-user installs see every token (legacy behaviour).
+        $scopeUid = \LitePic\Service\Auth\UserContext::scopeUserId();
+        if ($scopeUid === null) {
+            $rows = Database::connection()
+                ->query('SELECT id, name, created_at, last_used_at FROM managed_api_tokens ORDER BY created_at DESC')
+                ->fetchAll() ?: [];
+        } else {
+            $stmt = Database::connection()->prepare(
+                'SELECT id, name, created_at, last_used_at FROM managed_api_tokens
+                 WHERE user_id = :uid ORDER BY created_at DESC'
+            );
+            $stmt->execute([':uid' => $scopeUid]);
+            $rows = $stmt->fetchAll() ?: [];
+        }
         return array_map(static fn ($r) => [
             'id' => (string)$r['id'],
             'name' => (string)$r['name'],
@@ -80,14 +92,15 @@ final class ApiTokenRepository
         $id = uniqid('tok_', true);
 
         $stmt = Database::connection()->prepare(
-            'INSERT INTO managed_api_tokens (id, name, token_hash, created_at, last_used_at)
-             VALUES (:id, :name, :hash, :created, NULL)'
+            'INSERT INTO managed_api_tokens (id, name, token_hash, created_at, last_used_at, user_id)
+             VALUES (:id, :name, :hash, :created, NULL, :uid)'
         );
         $stmt->execute([
             ':id' => $id,
             ':name' => $name,
             ':hash' => $hash,
             ':created' => time(),
+            ':uid' => \LitePic\Service\Auth\UserContext::contentOwnerId(),
         ]);
 
         return $plain;
@@ -105,19 +118,42 @@ final class ApiTokenRepository
      */
     public function verify(string $plain): bool
     {
-        if ($plain === '') return false;
+        return $this->verifyAndGetUserId($plain) !== null;
+    }
+
+    /**
+     * Verify a plain-text token and return the owning user id (multi-user).
+     * Returns null on miss. Single-user installs always get 1 (admin).
+     */
+    public function verifyAndGetUserId(string $plain): ?int
+    {
+        if ($plain === '') return null;
         $hash = hash('sha256', $plain);
         $stmt = Database::connection()->prepare(
-            'SELECT id FROM managed_api_tokens WHERE token_hash = :h LIMIT 1'
+            'SELECT id, user_id FROM managed_api_tokens WHERE token_hash = :h LIMIT 1'
         );
         $stmt->execute([':h' => $hash]);
-        $id = $stmt->fetchColumn();
-        if ($id === false) return false;
+        $row = $stmt->fetch();
+        if ($row === false) return null;
 
         $update = Database::connection()->prepare(
             'UPDATE managed_api_tokens SET last_used_at = :t WHERE id = :id'
         );
-        $update->execute([':t' => time(), ':id' => $id]);
-        return true;
+        $update->execute([':t' => time(), ':id' => $row['id']]);
+        return max(1, (int)($row['user_id'] ?? 1));
+    }
+
+    /**
+     * Owner of a token id — used by the settings UI to decide whether the
+     * current user may revoke it.
+     */
+    public function ownerOf(string $tokenId): int
+    {
+        $stmt = Database::connection()->prepare(
+            'SELECT user_id FROM managed_api_tokens WHERE id = :id LIMIT 1'
+        );
+        $stmt->execute([':id' => $tokenId]);
+        $uid = $stmt->fetchColumn();
+        return $uid === false ? 0 : max(1, (int)$uid);
     }
 }

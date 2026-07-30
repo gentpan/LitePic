@@ -70,13 +70,13 @@ final class AlbumImageRepository
      * the public-facing reverse-lookup (which legitimately needs the name)
      * from leaking visibility into surfaces that don't need it.
      *
-     * @return array<int, array{id:int, slug:?string, visibility:string}>
+     * @return array<int, array{id:int, slug:?string, visibility:string, user_id:int}>
      */
     public function visibilityFor(string $filename): array
     {
         if ($filename === '') return [];
         $stmt = Database::connection()->prepare(
-            'SELECT a.id, a.slug, a.visibility
+            'SELECT a.id, a.slug, a.visibility, a.user_id
                FROM album_images ai
                JOIN albums a ON a.id = ai.album_id
               WHERE ai.filename = :f'
@@ -90,6 +90,7 @@ final class AlbumImageRepository
                 'id'         => (int)$row['id'],
                 'slug'       => $slug !== null ? (string)$slug : null,
                 'visibility' => (string)$row['visibility'],
+                'user_id'    => (int)($row['user_id'] ?? 1),
             ];
         }
         return $out;
