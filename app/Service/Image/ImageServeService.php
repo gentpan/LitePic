@@ -124,6 +124,14 @@ final class ImageServeService
             $mime = 'application/octet-stream';
         }
 
+        // SVG is always served as image/svg+xml, whatever the detector said.
+        // A generic `text/xml` / `text/html` would be parsed as a *document*
+        // by the browser, and an SVG document can carry script.
+        $isSvg = self::isSvg($path, $mime);
+        if ($isSvg) {
+            $mime = 'image/svg+xml';
+        }
+
         $size = (int)@filesize($path);
         header('Content-Type: ' . $mime);
         if ($size > 0) {
@@ -132,10 +140,34 @@ final class ImageServeService
         header('Cache-Control: public, max-age=31536000, immutable');
         header('X-Content-Type-Options: nosniff');
 
+        if ($isSvg) {
+            // Uploaded SVGs are user content, and an SVG document is a
+            // *document*, not a picture — opened directly it would run
+            // script in the site's origin (i.e. inside the visitor's
+            // session). Uploaded files are already sanitized by
+            // SvgSanitizer, but the response header is the second layer:
+            // `sandbox` without `allow-scripts` disables script execution
+            // outright and drops the document into an opaque origin, so it
+            // can never reach cookies or the opener's DOM.
+            header('Content-Security-Policy: sandbox; default-src \'none\'; style-src \'unsafe-inline\'; img-src data: blob:; font-src data:');
+        }
+
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'HEAD') {
             return;
         }
         readfile($path);
+    }
+
+    /**
+     * True when the served file is an SVG.
+     *
+     * The extension decides first — PHP's MIME detection for SVG differs
+     * between builds — the detected MIME string is the fallback.
+     */
+    private static function isSvg(string $path, string $mime): bool
+    {
+        if (strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'svg') return true;
+        return in_array(strtolower(trim($mime)), ['image/svg+xml', 'image/svg'], true);
     }
 
     /**

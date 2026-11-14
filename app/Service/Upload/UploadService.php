@@ -24,8 +24,8 @@ use LitePic\Service\Storage\Remotes;
  * `mime_content_type` / `getimagesize` fallbacks). If a safe raster image
  * has the wrong suffix (for example JPEG bytes named `.png`), it is saved
  * with the extension that matches the detected MIME. SVG is still
- * special-cased and scanned for `<script>` / event handlers /
- * foreignObject before accepting.
+ * special-cased: it is rebuilt from a whitelist by {@see SvgSanitizer}
+ * and the sanitized bytes are what gets stored.
  */
 final class UploadService
 {
@@ -276,7 +276,9 @@ final class UploadService
     public function validateMime(string $tmpPath, string $ext): bool
     {
         $allowedExts = defined('ALLOWED_UPLOAD_TYPES') ? ALLOWED_UPLOAD_TYPES : [];
-        return $this->resolveUploadType($tmpPath, $ext, $allowedExts) !== null;
+        // $rewrite = false — this is a pure check, the file on disk must
+        // stay untouched.
+        return $this->resolveUploadType($tmpPath, $ext, $allowedExts, false) !== null;
     }
 
     /**
@@ -498,9 +500,13 @@ final class UploadService
      * or WebP is downloaded with a `.png` filename.
      *
      * @param string[] $allowedExts
+     * @param bool     $rewrite When true, an SVG is sanitized *in place* —
+     *                        the stored bytes are the sanitized ones. Only
+     *                        the upload path wants that; plain validation
+     *                        must not touch the file.
      * @return array{ext:string,mime:string,normalized:bool}|null
      */
-    private function resolveUploadType(string $tmpPath, string $ext, array $allowedExts): ?array
+    private function resolveUploadType(string $tmpPath, string $ext, array $allowedExts, bool $rewrite = true): ?array
     {
         if (!is_file($tmpPath) || !is_readable($tmpPath)) return null;
 
@@ -510,16 +516,29 @@ final class UploadService
             $allowedExts
         )));
 
-        if ($ext === 'svg') {
+        $mime = self::detectMime($tmpPath);
+        $mime = $mime === null ? '' : strtolower(trim($mime));
+
+        // SVG is decided by the file *content*, never by the extension alone.
+        // The extension is the uploader's choice: an SVG renamed to `.png`
+        // used to skip validation completely (the old blacklist only ran for
+        // `.svg` uploads) while still being served back as image/svg+xml —
+        // script running in the site's origin, inside the visitor's session.
+        $isSvg = in_array($mime, ['image/svg+xml', 'image/svg'], true)
+            || (!str_starts_with($mime, 'image/') && self::looksLikeSvg($tmpPath));
+
+        if ($isSvg) {
             if (!in_array('svg', $allowedExts, true)) return null;
-            return self::validateSvg($tmpPath)
-                ? ['ext' => 'svg', 'mime' => 'image/svg+xml', 'normalized' => false]
+            // Rebuild the document from an element/attribute whitelist
+            // instead of grepping for dangerous substrings — the blacklist
+            // could be walked past with `onmouseenter=` or `onload =`, and
+            // a stored SVG runs in the site's origin when opened directly.
+            return SvgSanitizer::sanitizeFile($tmpPath, $rewrite)
+                ? ['ext' => 'svg', 'mime' => 'image/svg+xml', 'normalized' => $ext !== 'svg']
                 : null;
         }
 
-        $mime = self::detectMime($tmpPath);
-        if ($mime === null || $mime === '') return null;
-        $mime = strtolower($mime);
+        if ($mime === '') return null;
 
         if (isset(self::ALLOWED_MIMES[$mime])) {
             $candidates = self::ALLOWED_MIMES[$mime];
@@ -545,6 +564,26 @@ final class UploadService
         return null;
     }
 
+    /**
+     * Cheap content sniff for SVG.
+     *
+     * finfo does not recognise every SVG — a file without an XML declaration
+     * can come back as `text/xml` — so the first few kilobytes are used as a
+     * fallback. Only called when the detected MIME is not `image/*`, so a
+     * raster file whose header happens to contain "<svg" is never affected.
+     */
+    private static function looksLikeSvg(string $tmpPath): bool
+    {
+        $fh = @fopen($tmpPath, 'rb');
+        if ($fh === false) return false;
+        $head = (string)fread($fh, 4096);
+        fclose($fh);
+        if (trim($head) === '') return false;
+
+        $head = ltrim(preg_replace('/^\xEF\xBB\xBF/', '', $head) ?? $head);
+        return stripos($head, '<svg') !== false;
+    }
+
     private static function detectMime(string $tmpPath): ?string
     {
         if (function_exists('finfo_open')) {
@@ -560,24 +599,6 @@ final class UploadService
         $info = @getimagesize($tmpPath);
         if ($info === false) return null;
         return (string)($info['mime'] ?? '');
-    }
-
-    private static function validateSvg(string $tmpPath): bool
-    {
-        $content = @file_get_contents($tmpPath);
-        if ($content === false) return false;
-        // Decode entities first so attackers can't hide tags behind &#x3c;
-        $decoded = html_entity_decode($content, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $lower = strtolower($decoded);
-        $dangerous = [
-            '<script', 'javascript:', 'onload=', 'onerror=', 'onmouseover=',
-            'onfocus=', 'onbegin=', 'onend=', 'onactivate=', 'onclick=',
-            '<foreignobject', 'xlink:href', 'data:image/svg+xml',
-        ];
-        foreach ($dangerous as $needle) {
-            if (str_contains($lower, $needle)) return false;
-        }
-        return true;
     }
 
     private static function fmt(int $bytes): string

@@ -58,6 +58,18 @@
 	}
 	header @static Cache-Control "public, max-age=31536000, immutable"
 
+	# 用户上传的 SVG —— 沙箱 CSP 响应头。
+	#
+	# SVG 是「文档」不是「图片」：直接打开会在站点源上执行脚本。上传时已用
+	# SvgSanitizer 白名单净化过，这里再加一层兜底 —— `sandbox` 不带
+	# allow-scripts，脚本直接不执行，文档也被丢进一个不透明的源。
+	#
+	# 注意：目录名要跟 config.php 的 STORAGE_DIR 一致（默认 uploads）。
+	@uploads_svg path_regexp uploads_svg ^/uploads/.*\.svg$
+	header @uploads_svg Content-Security-Policy "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:"
+	header @uploads_svg X-Content-Type-Options "nosniff"
+	header @uploads_svg Content-Type "image/svg+xml"
+
 	# try_files 等价：存在文件则直出，否则落到 index.php（自定义图床前缀依赖此兜底）
 	php_server
 }

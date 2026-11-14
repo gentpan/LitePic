@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.7.1] - 2026-11-15
+
+### Security
+
+- **上传 SVG 存储型 XSS** — 旧版用子串黑名单校验 SVG（`onload=` / `<script` / `javascript:` …），`onmouseenter=`、`onload =` 这类写法可以整个绕过去；带脚本的 SVG 存在站点源上，管理员直接打开该链接时脚本就在管理员的会话里执行（多用户模式下普通注册用户即可利用）。现在改为 **DOM 白名单净化**（新增 `SvgSanitizer`），上传时净化后的内容才落盘；SVG 响应再补一层 `Content-Security-Policy: sandbox` 兜底，PHP 与 nginx / Caddy 两条分发路径都覆盖。
+- **改扩展名绕过 SVG 校验** — 旧版只在扩展名是 `.svg` 时才做检查，把 SVG 改名成 `.png` 上传就能完全跳过校验，文件却仍然以 `image/svg+xml` 提供 —— 这条比黑名单绕过更简单，连 `<script>` 都不用藏。现在 SVG 一律**按文件内容判定**（MIME + 内容嗅探），扩展名不再决定是否校验，扩展名与内容不符时统一归一化。
+- **历史 SVG 未追溯净化** — 新增 `bin/sanitize-svg.php`，把已上传的 SVG（含顶着别的扩展名的）批量重新净化（默认干跑，`--apply` 才写盘），并同步 `images` 表的 `hash` / `size`。
+
+### Changed
+
+- **SVG 净化后的兼容性** — 引用同级文件的相对路径（`<image href="logo.png">`）会被移除（浏览器在 `<img>` 场景本来就禁止 SVG 加载外部资源）；`xlink:href` 改写为 SVG2 的 `href`；`<set>` 等 SMIL 元素、外部 `<use>` 引用不再保留。
+- **SVG 响应头** — 一律以 `image/svg+xml` 返回（不再可能落到 `text/xml`），并附带 `X-Content-Type-Options: nosniff`。
+- **`.gitignore`** — `uploads/` 改为整目录忽略；之前的 `uploads/*.png` 这类单层规则管不到 `uploads/2026/07/xxx.png`，会被误提交。
+
 ## [3.7.0] - 2026-07-30
 
 ### Added
